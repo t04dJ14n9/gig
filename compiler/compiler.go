@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"go/types"
 
+	"gig/importer"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -492,19 +493,26 @@ func (c *Compiler) compileCall(i *ssa.Call) {
 
 	// Check if it's a static call
 	if fn, ok := i.Call.Value.(*ssa.Function); ok {
-		// Push arguments
-		for _, arg := range i.Call.Args {
-			c.compileValue(arg)
+		// Check if this is a function we compiled (from the main package)
+		if _, known := c.funcIndex[fn]; known {
+			// Push arguments
+			for _, arg := range i.Call.Args {
+				c.compileValue(arg)
+			}
+
+			// Call function - manually encode with proper operand sizes
+			funcIdx := c.funcIndex[fn]
+			numArgs := len(i.Call.Args)
+			c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+				byte(OpCall),
+				byte(funcIdx>>8), byte(funcIdx),
+				byte(numArgs))
+			c.emit(OpSetLocal, uint16(resultIdx))
+			return
 		}
 
-		// Call function - manually encode with proper operand sizes
-		funcIdx := c.funcIndex[fn]
-		numArgs := len(i.Call.Args)
-		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
-			byte(OpCall),
-			byte(funcIdx>>8), byte(funcIdx),
-			byte(numArgs))
-		c.emit(OpSetLocal, uint16(resultIdx))
+		// External function from another package
+		c.compileExternalStaticCall(i, fn, resultIdx)
 		return
 	}
 
@@ -606,7 +614,7 @@ func (c *Compiler) compileMakeBuiltin(args []ssa.Value) {
 	}
 }
 
-// compileExternalCall compiles an external function call.
+// compileExternalCall compiles an external function call (non-static / unknown callee).
 func (c *Compiler) compileExternalCall(i *ssa.Call) {
 	resultIdx := c.symbolTable.AllocLocal(i)
 
@@ -617,6 +625,42 @@ func (c *Compiler) compileExternalCall(i *ssa.Call) {
 
 	// The method should be an external function
 	funcIdx := c.addConstant(i.Call.Value)
+	numArgs := len(i.Call.Args)
+	// Manually encode OpCallExternal: [opcode(1)] [funcIdx(2)] [numArgs(1)]
+	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+		byte(OpCallExternal),
+		byte(funcIdx>>8), byte(funcIdx),
+		byte(numArgs))
+	c.emit(OpSetLocal, uint16(resultIdx))
+}
+
+// compileExternalStaticCall compiles a call to an external package function.
+func (c *Compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resultIdx int) {
+	// Push arguments
+	for _, arg := range i.Call.Args {
+		c.compileValue(arg)
+	}
+
+	// Look up the external function in the importer registry
+	// fn.Pkg.Pkg.Path() gives the import path (e.g. "fmt")
+	// fn.Name() gives the function name (e.g. "Sprintf")
+	var extFunc any
+	if fn.Pkg != nil {
+		pkgPath := fn.Pkg.Pkg.Path()
+		extPkg := importer.GetPackageByPath(pkgPath)
+		if extPkg != nil {
+			if obj, ok := extPkg.Objects[fn.Name()]; ok {
+				extFunc = obj.Value
+			}
+		}
+	}
+
+	if extFunc == nil {
+		// Fallback: store the SSA function itself
+		extFunc = fn
+	}
+
+	funcIdx := c.addConstant(extFunc)
 	numArgs := len(i.Call.Args)
 	// Manually encode OpCallExternal: [opcode(1)] [funcIdx(2)] [numArgs(1)]
 	c.currentFunc.Instructions = append(c.currentFunc.Instructions,

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gig"
+	_ "gig/packages" // register stdlib packages (fmt, strings, etc.)
 )
 
 // TestBasicArithmetic tests basic arithmetic operations.

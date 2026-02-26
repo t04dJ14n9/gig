@@ -84,6 +84,11 @@ func Build(sourceCode string, packages ...string) (*Program, error) {
 	// Create a new SSA program
 	prog := ssa.NewProgram(fset, ssa.SanityCheckFunctions|ssa.GlobalDebug)
 
+	// Create SSA packages for all imported packages
+	for _, imp := range pkg.Imports() {
+		prog.CreatePackage(imp, nil, nil, true)
+	}
+
 	// Create the main package from the type-checked package
 	ssaPkg := prog.CreatePackage(pkg, []*ast.File{file}, info, true)
 	if ssaPkg == nil {

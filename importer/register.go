@@ -130,6 +130,10 @@ func (p *ExternalPackage) AddConstant(name string, val any, doc string) {
 
 // AddType adds a type to a package.
 func (p *ExternalPackage) AddType(name string, typ reflect.Type, doc string) {
+	if typ == nil {
+		// Skip nil types (interface placeholders, etc.)
+		return
+	}
 	p.Types[name] = typ
 	p.Objects[name] = &ExternalObject{
 		Name:  name,

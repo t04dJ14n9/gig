@@ -70,7 +70,9 @@ func (i *Importer) buildPackage(extPkg *ExternalPackage) *types.Package {
 
 		switch obj.Kind {
 		case ObjectKindFunction:
-			typesObj = types.NewFunc(0, pkg, name, obj.Type.(*types.Signature))
+			if sig, ok := obj.Type.(*types.Signature); ok {
+				typesObj = types.NewFunc(0, pkg, name, sig)
+			}
 		case ObjectKindVariable:
 			typesObj = types.NewVar(0, pkg, name, obj.Type)
 		case ObjectKindConstant:
@@ -108,6 +110,9 @@ func (i *Importer) buildPackage(extPkg *ExternalPackage) *types.Package {
 		pkg.Scope().Insert(typeName)
 		SetExternalType(t, rt)
 	}
+
+	// Mark the package as complete so the type checker can use it
+	pkg.MarkComplete()
 
 	return pkg
 }

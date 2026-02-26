@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 
 	"gig/compiler"
-	"gig/importer"
 	"gig/value"
 )
 
@@ -896,42 +895,65 @@ func (vm *VM) callExternal(funcIdx, numArgs int) {
 		args[i] = vm.pop()
 	}
 
-	// Look up external object
-	var extObj *importer.ExternalObject
-	for _, pkg := range importer.GetAllPackages() {
-		for name, obj := range pkg.Objects {
-			if obj.Value == extFunc {
-				extObj = obj
-				_ = name // Just to use name
-				break
-			}
-		}
-		if extObj != nil {
-			break
-		}
-	}
-
-	// Call the function
-	if extObj != nil && extObj.DirectCall != nil {
-		// Use direct call wrapper (no reflect.Call)
-		result := extObj.DirectCall(args)
-		vm.push(result)
-		return
-	}
-
-	// Fall back to reflect.Call
+	// Call the function using reflect
 	if extFunc == nil {
 		vm.push(value.MakeNil())
 		return
 	}
 
-	// Convert args to reflect.Value
 	fnVal := reflect.ValueOf(extFunc)
+	if fnVal.Kind() != reflect.Func {
+		vm.push(value.MakeNil())
+		return
+	}
 	fnType := fnVal.Type()
-	in := make([]reflect.Value, numArgs)
-	for i, arg := range args {
-		if i < fnType.NumIn() {
-			in[i] = arg.ToReflectValue(fnType.In(i))
+
+	// Build reflect.Value arguments
+	var in []reflect.Value
+
+	// For variadic calls where SSA passes the variadic slice as the last arg,
+	// we need to unpack it for reflect.Call
+	if fnType.IsVariadic() && numArgs == fnType.NumIn() {
+		// The last arg might be the variadic slice packed by SSA
+		lastArg := args[numArgs-1]
+		if rv, ok := lastArg.ReflectValue(); ok && rv.Kind() == reflect.Slice {
+			// Unpack: use first N-1 args normally, then spread the slice elements
+			sliceLen := rv.Len()
+			in = make([]reflect.Value, fnType.NumIn()-1+sliceLen)
+			for i := 0; i < numArgs-1; i++ {
+				in[i] = args[i].ToReflectValue(fnType.In(i))
+			}
+			elemType := fnType.In(fnType.NumIn() - 1).Elem()
+			for i := 0; i < sliceLen; i++ {
+				elem := rv.Index(i)
+				// If elem is interface{}, unwrap it
+				if elem.Kind() == reflect.Interface && !elem.IsNil() {
+					elem = elem.Elem()
+				}
+				if elem.Type().ConvertibleTo(elemType) {
+					in[fnType.NumIn()-1+i] = elem.Convert(elemType)
+				} else {
+					in[fnType.NumIn()-1+i] = elem
+				}
+			}
+		} else {
+			// Last arg is not a slice, treat normally
+			in = make([]reflect.Value, numArgs)
+			for i, arg := range args {
+				if i >= fnType.NumIn()-1 {
+					variadicType := fnType.In(fnType.NumIn() - 1).Elem()
+					in[i] = arg.ToReflectValue(variadicType)
+				} else {
+					in[i] = arg.ToReflectValue(fnType.In(i))
+				}
+			}
+		}
+	} else {
+		in = make([]reflect.Value, numArgs)
+		for i, arg := range args {
+			if i < fnType.NumIn() {
+				in[i] = arg.ToReflectValue(fnType.In(i))
+			}
 		}
 	}
 
@@ -1137,6 +1159,11 @@ func typeToReflect(t types.Type) reflect.Type {
 			return reflect.PtrTo(elem)
 		}
 		return nil
+	case *types.Interface:
+		// Interface type — use the empty interface (any) type
+		// For the VM, all interfaces are represented as interface{}
+		var emptyIface interface{}
+		return reflect.TypeOf(&emptyIface).Elem()
 	case *types.Named:
 		// For named types, try to get the underlying type
 		return typeToReflect(tt.Underlying())
