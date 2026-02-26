@@ -373,14 +373,10 @@ func (c *Compiler) compileAlloc(i *ssa.Alloc) {
 	// Allocate a local slot for the address
 	addrIdx := c.symbolTable.AllocLocal(i)
 
-	if i.Heap {
-		// Heap allocation - use new
-		typeIdx := c.addType(i.Type().(*types.Pointer).Elem())
-		c.emit(OpNew, uint16(typeIdx))
-	} else {
-		// Stack allocation - allocate local slot
-		c.emit(OpNil)
-	}
+	// Both heap and stack allocs need a real pointer
+	// i.Type() is *T, so Elem() gives us T
+	typeIdx := c.addType(i.Type().(*types.Pointer).Elem())
+	c.emit(OpNew, uint16(typeIdx))
 	c.emit(OpSetLocal, uint16(addrIdx))
 }
 
@@ -771,8 +767,8 @@ func (c *Compiler) compileLookup(i *ssa.Lookup) {
 
 // compileStore compiles a Store instruction.
 func (c *Compiler) compileStore(i *ssa.Store) {
-	c.compileValue(i.Val)
 	c.compileValue(i.Addr)
+	c.compileValue(i.Val)
 	c.emit(OpSetDeref)
 }
 
