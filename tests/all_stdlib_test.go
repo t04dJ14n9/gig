@@ -29,7 +29,7 @@ import (
 	"gig/tests/testdata/slices"
 	"gig/tests/testdata/slicing"
 	"gig/tests/testdata/strings_pkg"
-	"gig/tests/testdata/switch"
+	switch_pkg "gig/tests/testdata/switch"
 	"gig/tests/testdata/typeconv"
 	"gig/tests/testdata/variables"
 )
@@ -133,15 +133,15 @@ type testSuite struct {
 // allTests contains all test definitions
 var allTests = map[string]testCase{
 	// algorithms
-	"algorithms/InsertionSort":    {algorithmsSrc, "InsertionSort", func() interface{} { return algorithms.InsertionSort() }},
-	"algorithms/SelectionSort":    {algorithmsSrc, "SelectionSort", func() interface{} { return algorithms.SelectionSort() }},
-	"algorithms/ReverseSlice":     {algorithmsSrc, "ReverseSlice", func() interface{} { return algorithms.ReverseSlice() }},
-	"algorithms/IsPalindrome":     {algorithmsSrc, "IsPalindrome", func() interface{} { return algorithms.IsPalindrome() }},
-	"algorithms/PowerFunction":    {algorithmsSrc, "PowerFunction", func() interface{} { return algorithms.PowerFunction() }},
-	"algorithms/MaxSubarraySum":   {algorithmsSrc, "MaxSubarraySum", func() interface{} { return algorithms.MaxSubarraySum() }},
-	"algorithms/TwoSum":           {algorithmsSrc, "TwoSum", func() interface{} { return algorithms.TwoSum() }},
-	"algorithms/FibMemoized":      {algorithmsSrc, "FibMemoized", func() interface{} { return algorithms.FibMemoized() }},
-	"algorithms/CountDigits":      {algorithmsSrc, "CountDigits", func() interface{} { return algorithms.CountDigits() }},
+	"algorithms/InsertionSort":     {algorithmsSrc, "InsertionSort", func() interface{} { return algorithms.InsertionSort() }},
+	"algorithms/SelectionSort":     {algorithmsSrc, "SelectionSort", func() interface{} { return algorithms.SelectionSort() }},
+	"algorithms/ReverseSlice":      {algorithmsSrc, "ReverseSlice", func() interface{} { return algorithms.ReverseSlice() }},
+	"algorithms/IsPalindrome":      {algorithmsSrc, "IsPalindrome", func() interface{} { return algorithms.IsPalindrome() }},
+	"algorithms/PowerFunction":     {algorithmsSrc, "PowerFunction", func() interface{} { return algorithms.PowerFunction() }},
+	"algorithms/MaxSubarraySum":    {algorithmsSrc, "MaxSubarraySum", func() interface{} { return algorithms.MaxSubarraySum() }},
+	"algorithms/TwoSum":            {algorithmsSrc, "TwoSum", func() interface{} { return algorithms.TwoSum() }},
+	"algorithms/FibMemoized":       {algorithmsSrc, "FibMemoized", func() interface{} { return algorithms.FibMemoized() }},
+	"algorithms/CountDigits":       {algorithmsSrc, "CountDigits", func() interface{} { return algorithms.CountDigits() }},
 	"algorithms/CollatzConjecture": {algorithmsSrc, "CollatzConjecture", func() interface{} { return algorithms.CollatzConjecture() }},
 
 	// advanced
@@ -183,14 +183,14 @@ var allTests = map[string]testCase{
 	"autowrap/Compute":     {autowrapSrc, "Compute", func() interface{} { return autowrap.Compute() }},
 
 	// bitwise
-	"bitwise/And":         {bitwiseSrc, "And", func() interface{} { return bitwise.And() }},
-	"bitwise/Or":          {bitwiseSrc, "Or", func() interface{} { return bitwise.Or() }},
-	"bitwise/Xor":         {bitwiseSrc, "Xor", func() interface{} { return bitwise.Xor() }},
-	"bitwise/LeftShift":   {bitwiseSrc, "LeftShift", func() interface{} { return bitwise.LeftShift() }},
-	"bitwise/RightShift":  {bitwiseSrc, "RightShift", func() interface{} { return bitwise.RightShift() }},
-	"bitwise/Combined":    {bitwiseSrc, "Combined", func() interface{} { return bitwise.Combined() }},
-	"bitwise/AndNot":      {bitwiseSrc, "AndNot", func() interface{} { return bitwise.AndNot() }},
-	"bitwise/PowerOfTwo":  {bitwiseSrc, "PowerOfTwo", func() interface{} { return bitwise.PowerOfTwo() }},
+	"bitwise/And":        {bitwiseSrc, "And", func() interface{} { return bitwise.And() }},
+	"bitwise/Or":         {bitwiseSrc, "Or", func() interface{} { return bitwise.Or() }},
+	"bitwise/Xor":        {bitwiseSrc, "Xor", func() interface{} { return bitwise.Xor() }},
+	"bitwise/LeftShift":  {bitwiseSrc, "LeftShift", func() interface{} { return bitwise.LeftShift() }},
+	"bitwise/RightShift": {bitwiseSrc, "RightShift", func() interface{} { return bitwise.RightShift() }},
+	"bitwise/Combined":   {bitwiseSrc, "Combined", func() interface{} { return bitwise.Combined() }},
+	"bitwise/AndNot":     {bitwiseSrc, "AndNot", func() interface{} { return bitwise.AndNot() }},
+	"bitwise/PowerOfTwo": {bitwiseSrc, "PowerOfTwo", func() interface{} { return bitwise.PowerOfTwo() }},
 
 	// closures
 	"closures/Counter":           {closuresSrc, "Counter", func() interface{} { return closures.Counter() }},
@@ -202,12 +202,12 @@ var allTests = map[string]testCase{
 	"closures/Accumulator":       {closuresSrc, "Accumulator", func() interface{} { return closures.Accumulator() }},
 
 	// closures_advanced
-	"closures_advanced/Generator":        {closuresAdvancedSrc, "Generator", func() interface{} { return closures_advanced.Generator() }},
-	"closures_advanced/Predicate":        {closuresAdvancedSrc, "Predicate", func() interface{} { return closures_advanced.Predicate() }},
-	"closures_advanced/StateMachine":     {closuresAdvancedSrc, "StateMachine", func() interface{} { return closures_advanced.StateMachine() }},
-	"closures_advanced/RecursiveHelper":  {closuresAdvancedSrc, "RecursiveHelper", func() interface{} { return closures_advanced.RecursiveHelper() }},
-	"closures_advanced/ApplyN":           {closuresAdvancedSrc, "ApplyN", func() interface{} { return closures_advanced.ApplyN() }},
-	"closures_advanced/Compose":          {closuresAdvancedSrc, "Compose", func() interface{} { return closures_advanced.Compose() }},
+	"closures_advanced/Generator":       {closuresAdvancedSrc, "Generator", func() interface{} { return closures_advanced.Generator() }},
+	"closures_advanced/Predicate":       {closuresAdvancedSrc, "Predicate", func() interface{} { return closures_advanced.Predicate() }},
+	"closures_advanced/StateMachine":    {closuresAdvancedSrc, "StateMachine", func() interface{} { return closures_advanced.StateMachine() }},
+	"closures_advanced/RecursiveHelper": {closuresAdvancedSrc, "RecursiveHelper", func() interface{} { return closures_advanced.RecursiveHelper() }},
+	"closures_advanced/ApplyN":          {closuresAdvancedSrc, "ApplyN", func() interface{} { return closures_advanced.ApplyN() }},
+	"closures_advanced/Compose":         {closuresAdvancedSrc, "Compose", func() interface{} { return closures_advanced.Compose() }},
 
 	// controlflow
 	"controlflow/IfTrue":              {controlflowSrc, "IfTrue", func() interface{} { return controlflow.IfTrue() }},
@@ -238,37 +238,37 @@ var allTests = map[string]testCase{
 	"edgecases/TightLoop":          {edgecasesSrc, "TightLoop", func() interface{} { return edgecases.TightLoop() }},
 
 	// external
-	"external/FmtSprintf":      {externalSrc, "FmtSprintf", func() interface{} { return external.FmtSprintf() }},
-	"external/FmtSprintfMulti": {externalSrc, "FmtSprintfMulti", func() interface{} { return external.FmtSprintfMulti() }},
-	"external/StringsToUpper":  {externalSrc, "StringsToUpper", func() interface{} { return external.StringsToUpper() }},
-	"external/StringsToLower":  {externalSrc, "StringsToLower", func() interface{} { return external.StringsToLower() }},
-	"external/StringsContains": {externalSrc, "StringsContains", func() interface{} { return external.StringsContains() }},
-	"external/StringsReplace":  {externalSrc, "StringsReplace", func() interface{} { return external.StringsReplace() }},
+	"external/FmtSprintf":       {externalSrc, "FmtSprintf", func() interface{} { return external.FmtSprintf() }},
+	"external/FmtSprintfMulti":  {externalSrc, "FmtSprintfMulti", func() interface{} { return external.FmtSprintfMulti() }},
+	"external/StringsToUpper":   {externalSrc, "StringsToUpper", func() interface{} { return external.StringsToUpper() }},
+	"external/StringsToLower":   {externalSrc, "StringsToLower", func() interface{} { return external.StringsToLower() }},
+	"external/StringsContains":  {externalSrc, "StringsContains", func() interface{} { return external.StringsContains() }},
+	"external/StringsReplace":   {externalSrc, "StringsReplace", func() interface{} { return external.StringsReplace() }},
 	"external/StringsHasPrefix": {externalSrc, "StringsHasPrefix", func() interface{} { return external.StringsHasPrefix() }},
-	"external/StrconvItoa":     {externalSrc, "StrconvItoa", func() interface{} { return external.StrconvItoa() }},
-	"external/StrconvAtoi":     {externalSrc, "StrconvAtoi", func() interface{} { return external.StrconvAtoi() }},
+	"external/StrconvItoa":      {externalSrc, "StrconvItoa", func() interface{} { return external.StrconvItoa() }},
+	"external/StrconvAtoi":      {externalSrc, "StrconvAtoi", func() interface{} { return external.StrconvAtoi() }},
 
 	// functions
-	"functions/Call":                {functionsSrc, "Call", func() interface{} { return functions.Call() }},
-	"functions/MultipleReturn":      {functionsSrc, "MultipleReturn", func() interface{} { return functions.MultipleReturn() }},
+	"functions/Call":                 {functionsSrc, "Call", func() interface{} { return functions.Call() }},
+	"functions/MultipleReturn":       {functionsSrc, "MultipleReturn", func() interface{} { return functions.MultipleReturn() }},
 	"functions/MultipleReturnDivmod": {functionsSrc, "MultipleReturnDivmod", func() interface{} { return functions.MultipleReturnDivmod() }},
-	"functions/RecursionFactorial":  {functionsSrc, "RecursionFactorial", func() interface{} { return functions.RecursionFactorial() }},
-	"functions/MutualRecursion":     {functionsSrc, "MutualRecursion", func() interface{} { return functions.MutualRecursion() }},
-	"functions/FibonacciIterative":  {functionsSrc, "FibonacciIterative", func() interface{} { return functions.FibonacciIterative() }},
-	"functions/FibonacciRecursive":  {functionsSrc, "FibonacciRecursive", func() interface{} { return functions.FibonacciRecursive() }},
-	"functions/VariadicFunction":    {functionsSrc, "VariadicFunction", func() interface{} { return functions.VariadicFunction() }},
-	"functions/FunctionAsValue":     {functionsSrc, "FunctionAsValue", func() interface{} { return functions.FunctionAsValue() }},
-	"functions/HigherOrderMap":      {functionsSrc, "HigherOrderMap", func() interface{} { return functions.HigherOrderMap() }},
-	"functions/HigherOrderFilter":   {functionsSrc, "HigherOrderFilter", func() interface{} { return functions.HigherOrderFilter() }},
-	"functions/HigherOrderReduce":   {functionsSrc, "HigherOrderReduce", func() interface{} { return functions.HigherOrderReduce() }},
+	"functions/RecursionFactorial":   {functionsSrc, "RecursionFactorial", func() interface{} { return functions.RecursionFactorial() }},
+	"functions/MutualRecursion":      {functionsSrc, "MutualRecursion", func() interface{} { return functions.MutualRecursion() }},
+	"functions/FibonacciIterative":   {functionsSrc, "FibonacciIterative", func() interface{} { return functions.FibonacciIterative() }},
+	"functions/FibonacciRecursive":   {functionsSrc, "FibonacciRecursive", func() interface{} { return functions.FibonacciRecursive() }},
+	"functions/VariadicFunction":     {functionsSrc, "VariadicFunction", func() interface{} { return functions.VariadicFunction() }},
+	"functions/FunctionAsValue":      {functionsSrc, "FunctionAsValue", func() interface{} { return functions.FunctionAsValue() }},
+	"functions/HigherOrderMap":       {functionsSrc, "HigherOrderMap", func() interface{} { return functions.HigherOrderMap() }},
+	"functions/HigherOrderFilter":    {functionsSrc, "HigherOrderFilter", func() interface{} { return functions.HigherOrderFilter() }},
+	"functions/HigherOrderReduce":    {functionsSrc, "HigherOrderReduce", func() interface{} { return functions.HigherOrderReduce() }},
 
 	// maps
-	"maps/BasicOps":      {mapsSrc, "BasicOps", func() interface{} { return maps.BasicOps() }},
-	"maps/Iteration":     {mapsSrc, "Iteration", func() interface{} { return maps.Iteration() }},
-	"maps/Delete":        {mapsSrc, "Delete", func() interface{} { return maps.Delete() }},
-	"maps/Len":           {mapsSrc, "Len", func() interface{} { return maps.Len() }},
-	"maps/Overwrite":     {mapsSrc, "Overwrite", func() interface{} { return maps.Overwrite() }},
-	"maps/IntKeys":       {mapsSrc, "IntKeys", func() interface{} { return maps.IntKeys() }},
+	"maps/BasicOps":       {mapsSrc, "BasicOps", func() interface{} { return maps.BasicOps() }},
+	"maps/Iteration":      {mapsSrc, "Iteration", func() interface{} { return maps.Iteration() }},
+	"maps/Delete":         {mapsSrc, "Delete", func() interface{} { return maps.Delete() }},
+	"maps/Len":            {mapsSrc, "Len", func() interface{} { return maps.Len() }},
+	"maps/Overwrite":      {mapsSrc, "Overwrite", func() interface{} { return maps.Overwrite() }},
+	"maps/IntKeys":        {mapsSrc, "IntKeys", func() interface{} { return maps.IntKeys() }},
 	"maps/PassToFunction": {mapsSrc, "PassToFunction", func() interface{} { return maps.PassToFunction() }},
 
 	// mapadvanced
@@ -280,10 +280,10 @@ var allTests = map[string]testCase{
 	"mapadvanced/DeleteAndReinsert": {mapadvancedSrc, "DeleteAndReinsert", func() interface{} { return mapadvanced.DeleteAndReinsert() }},
 
 	// multiassign
-	"multiassign/Swap":            {multiassignSrc, "Swap", func() interface{} { return multiassign.Swap() }},
-	"multiassign/FromFunction":    {multiassignSrc, "FromFunction", func() interface{} { return multiassign.FromFunction() }},
-	"multiassign/ThreeValues":     {multiassignSrc, "ThreeValues", func() interface{} { return multiassign.ThreeValues() }},
-	"multiassign/InLoop":          {multiassignSrc, "InLoop", func() interface{} { return multiassign.InLoop() }},
+	"multiassign/Swap":             {multiassignSrc, "Swap", func() interface{} { return multiassign.Swap() }},
+	"multiassign/FromFunction":     {multiassignSrc, "FromFunction", func() interface{} { return multiassign.FromFunction() }},
+	"multiassign/ThreeValues":      {multiassignSrc, "ThreeValues", func() interface{} { return multiassign.ThreeValues() }},
+	"multiassign/InLoop":           {multiassignSrc, "InLoop", func() interface{} { return multiassign.InLoop() }},
 	"multiassign/DiscardWithBlank": {multiassignSrc, "DiscardWithBlank", func() interface{} { return multiassign.DiscardWithBlank() }},
 
 	// namedreturn
@@ -300,11 +300,11 @@ var allTests = map[string]testCase{
 	"recursion/BinarySearch":         {recursionSrc, "BinarySearch", func() interface{} { return recursion.BinarySearch() }},
 
 	// scope
-	"scope/IfInitShortVar":          {scopeSrc, "IfInitShortVar", func() interface{} { return scope.IfInitShortVar() }},
-	"scope/IfInitMultiCondition":    {scopeSrc, "IfInitMultiCondition", func() interface{} { return scope.IfInitMultiCondition() }},
-	"scope/NestedScopes":            {scopeSrc, "NestedScopes", func() interface{} { return scope.NestedScopes() }},
-	"scope/ForScopeIsolation":       {scopeSrc, "ForScopeIsolation", func() interface{} { return scope.ForScopeIsolation() }},
-	"scope/MultipleBlockScopes":     {scopeSrc, "MultipleBlockScopes", func() interface{} { return scope.MultipleBlockScopes() }},
+	"scope/IfInitShortVar":            {scopeSrc, "IfInitShortVar", func() interface{} { return scope.IfInitShortVar() }},
+	"scope/IfInitMultiCondition":      {scopeSrc, "IfInitMultiCondition", func() interface{} { return scope.IfInitMultiCondition() }},
+	"scope/NestedScopes":              {scopeSrc, "NestedScopes", func() interface{} { return scope.NestedScopes() }},
+	"scope/ForScopeIsolation":         {scopeSrc, "ForScopeIsolation", func() interface{} { return scope.ForScopeIsolation() }},
+	"scope/MultipleBlockScopes":       {scopeSrc, "MultipleBlockScopes", func() interface{} { return scope.MultipleBlockScopes() }},
 	"scope/ClosureCapturesOuterScope": {scopeSrc, "ClosureCapturesOuterScope", func() interface{} { return scope.ClosureCapturesOuterScope() }},
 
 	// slices
@@ -327,38 +327,38 @@ var allTests = map[string]testCase{
 	"slicing/SubSliceModifiesOriginal": {slicingSrc, "SubSliceModifiesOriginal", func() interface{} { return slicing.SubSliceModifiesOriginal() }},
 
 	// strings_pkg
-	"strings_pkg/Concat":       {stringsPkgSrc, "Concat", func() interface{} { return strings_pkg.Concat() }},
-	"strings_pkg/ConcatLoop":   {stringsPkgSrc, "ConcatLoop", func() interface{} { return strings_pkg.ConcatLoop() }},
-	"strings_pkg/Len":          {stringsPkgSrc, "Len", func() interface{} { return strings_pkg.Len() }},
-	"strings_pkg/Index":        {stringsPkgSrc, "Index", func() interface{} { return strings_pkg.Index() }},
-	"strings_pkg/Comparison":   {stringsPkgSrc, "Comparison", func() interface{} { return strings_pkg.Comparison() }},
-	"strings_pkg/Equality":     {stringsPkgSrc, "Equality", func() interface{} { return strings_pkg.Equality() }},
-	"strings_pkg/EmptyCheck":   {stringsPkgSrc, "EmptyCheck", func() interface{} { return strings_pkg.EmptyCheck() }},
+	"strings_pkg/Concat":     {stringsPkgSrc, "Concat", func() interface{} { return strings_pkg.Concat() }},
+	"strings_pkg/ConcatLoop": {stringsPkgSrc, "ConcatLoop", func() interface{} { return strings_pkg.ConcatLoop() }},
+	"strings_pkg/Len":        {stringsPkgSrc, "Len", func() interface{} { return strings_pkg.Len() }},
+	"strings_pkg/Index":      {stringsPkgSrc, "Index", func() interface{} { return strings_pkg.Index() }},
+	"strings_pkg/Comparison": {stringsPkgSrc, "Comparison", func() interface{} { return strings_pkg.Comparison() }},
+	"strings_pkg/Equality":   {stringsPkgSrc, "Equality", func() interface{} { return strings_pkg.Equality() }},
+	"strings_pkg/EmptyCheck": {stringsPkgSrc, "EmptyCheck", func() interface{} { return strings_pkg.EmptyCheck() }},
 
 	// switch
-	"switch/Simple":       {switchSrc, "Simple", func() interface{} { return switch_pkg.Simple() }},
-	"switch/Default":      {switchSrc, "Default", func() interface{} { return switch_pkg.Default() }},
-	"switch/MultiCase":    {switchSrc, "MultiCase", func() interface{} { return switch_pkg.MultiCase() }},
-	"switch/NoCondition":  {switchSrc, "NoCondition", func() interface{} { return switch_pkg.NoCondition() }},
-	"switch/WithInit":     {switchSrc, "WithInit", func() interface{} { return switch_pkg.WithInit() }},
-	"switch/StringCases":  {switchSrc, "StringCases", func() interface{} { return switch_pkg.StringCases() }},
-	"switch/Fallthrough":  {switchSrc, "Fallthrough", func() interface{} { return switch_pkg.Fallthrough() }},
-	"switch/Nested":       {switchSrc, "Nested", func() interface{} { return switch_pkg.Nested() }},
+	"switch/Simple":      {switchSrc, "Simple", func() interface{} { return switch_pkg.Simple() }},
+	"switch/Default":     {switchSrc, "Default", func() interface{} { return switch_pkg.Default() }},
+	"switch/MultiCase":   {switchSrc, "MultiCase", func() interface{} { return switch_pkg.MultiCase() }},
+	"switch/NoCondition": {switchSrc, "NoCondition", func() interface{} { return switch_pkg.NoCondition() }},
+	"switch/WithInit":    {switchSrc, "WithInit", func() interface{} { return switch_pkg.WithInit() }},
+	"switch/StringCases": {switchSrc, "StringCases", func() interface{} { return switch_pkg.StringCases() }},
+	"switch/Fallthrough": {switchSrc, "Fallthrough", func() interface{} { return switch_pkg.Fallthrough() }},
+	"switch/Nested":      {switchSrc, "Nested", func() interface{} { return switch_pkg.Nested() }},
 
 	// typeconv
-	"typeconv/IntToFloat64":         {typeconvSrc, "IntToFloat64", func() interface{} { return typeconv.IntToFloat64() }},
-	"typeconv/Float64Arithmetic":    {typeconvSrc, "Float64Arithmetic", func() interface{} { return typeconv.Float64Arithmetic() }},
+	"typeconv/IntToFloat64":           {typeconvSrc, "IntToFloat64", func() interface{} { return typeconv.IntToFloat64() }},
+	"typeconv/Float64Arithmetic":      {typeconvSrc, "Float64Arithmetic", func() interface{} { return typeconv.Float64Arithmetic() }},
 	"typeconv/StringToByteConversion": {typeconvSrc, "StringToByteConversion", func() interface{} { return typeconv.StringToByteConversion() }},
-	"typeconv/IntStringConversion":  {typeconvSrc, "IntStringConversion", func() interface{} { return typeconv.IntStringConversion() }},
-	"typeconv/StringIntConversion":  {typeconvSrc, "StringIntConversion", func() interface{} { return typeconv.StringIntConversion() }},
+	"typeconv/IntStringConversion":    {typeconvSrc, "IntStringConversion", func() interface{} { return typeconv.IntStringConversion() }},
+	"typeconv/StringIntConversion":    {typeconvSrc, "StringIntConversion", func() interface{} { return typeconv.StringIntConversion() }},
 
 	// variables
-	"variables/DeclareAndUse":  {variablesSrc, "DeclareAndUse", func() interface{} { return variables.DeclareAndUse() }},
-	"variables/Reassignment":   {variablesSrc, "Reassignment", func() interface{} { return variables.Reassignment() }},
-	"variables/MultipleDecl":   {variablesSrc, "MultipleDecl", func() interface{} { return variables.MultipleDecl() }},
-	"variables/ZeroValues":     {variablesSrc, "ZeroValues", func() interface{} { return variables.ZeroValues() }},
+	"variables/DeclareAndUse":   {variablesSrc, "DeclareAndUse", func() interface{} { return variables.DeclareAndUse() }},
+	"variables/Reassignment":    {variablesSrc, "Reassignment", func() interface{} { return variables.Reassignment() }},
+	"variables/MultipleDecl":    {variablesSrc, "MultipleDecl", func() interface{} { return variables.MultipleDecl() }},
+	"variables/ZeroValues":      {variablesSrc, "ZeroValues", func() interface{} { return variables.ZeroValues() }},
 	"variables/StringZeroValue": {variablesSrc, "StringZeroValue", func() interface{} { return variables.StringZeroValue() }},
-	"variables/Shadowing":      {variablesSrc, "Shadowing", func() interface{} { return variables.Shadowing() }},
+	"variables/Shadowing":       {variablesSrc, "Shadowing", func() interface{} { return variables.Shadowing() }},
 }
 
 // TestAllStdlib runs all stdlib tests
