@@ -546,19 +546,23 @@ func (c *Compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, re
 		c.compileValue(args[0])
 		c.compileValue(args[1])
 		c.emit(OpDelete)
+		return // delete has no return value
 	case "panic":
 		c.compileValue(args[0])
 		c.emit(OpPanic)
+		return // panic has no return value
 	case "print":
 		for _, arg := range args {
 			c.compileValue(arg)
 		}
 		c.emit(OpPrint, uint16(len(args)))
+		return // print has no return value
 	case "println":
 		for _, arg := range args {
 			c.compileValue(arg)
 		}
 		c.emit(OpPrintln, uint16(len(args)))
+		return // println has no return value
 	case "new":
 		typeIdx := c.addType(args[0].Type())
 		c.emit(OpNew, uint16(typeIdx))
@@ -720,9 +724,15 @@ func (c *Compiler) compileValue(v ssa.Value) {
 		// Handle constants
 		c.compileConst(val)
 	case *ssa.Function:
-		// Handle function references
-		fnIdx := c.funcIndex[val]
-		c.emit(OpConst, uint16(fnIdx))
+		// Handle function references — push as a closure with 0 free vars
+		if fnIdx, ok := c.funcIndex[val]; ok {
+			c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+				byte(OpClosure),
+				byte(fnIdx>>8), byte(fnIdx),
+				byte(0))
+		} else {
+			c.emit(OpNil)
+		}
 	case *ssa.Phi:
 		// Phi nodes - use the pre-allocated local slot
 		if slot, ok := c.phiSlots[val]; ok {

@@ -648,20 +648,20 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		vm.push(value.FromInterface(&iterator{collection: collection, index: -1}))
 
 	case compiler.OpRangeNext:
-		// Advance iterator and push (key, value, ok)
+		// Advance iterator and push a tuple (ok, key, value)
 		iterVal := vm.pop()
 		iter, ok := iterVal.Interface().(*iterator)
 		if !ok {
-			vm.push(value.MakeNil())
-			vm.push(value.MakeNil())
-			vm.push(value.MakeBool(false))
+			// Return tuple (false, nil, nil)
+			tuple := []value.Value{value.MakeBool(false), value.MakeNil(), value.MakeNil()}
+			vm.push(value.FromInterface(tuple))
 			return nil
 		}
 		iter.index++
 		key, val, ok := iter.next()
-		vm.push(key)
-		vm.push(val)
-		vm.push(value.MakeBool(ok))
+		// SSA Next returns (ok, key, value) as a tuple
+		tuple := []value.Value{value.MakeBool(ok), key, val}
+		vm.push(value.FromInterface(tuple))
 
 	// Builtins
 	case compiler.OpLen:
@@ -701,8 +701,16 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		slice := vm.pop()
 		// Append element to slice
 		if rv, ok := slice.ReflectValue(); ok {
-			newSlice := reflect.Append(rv, elem.ToReflectValue(rv.Type().Elem()))
-			vm.push(value.MakeFromReflect(newSlice))
+			sliceElemType := rv.Type().Elem()
+			// Check if SSA packed variadic args into a slice (e.g., append(s, elems...))
+			if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice && elemRV.Type().Elem() == sliceElemType {
+				// The element is a slice of the same element type — spread it
+				newSlice := reflect.AppendSlice(rv, elemRV)
+				vm.push(value.MakeFromReflect(newSlice))
+			} else {
+				newSlice := reflect.Append(rv, elem.ToReflectValue(sliceElemType))
+				vm.push(value.MakeFromReflect(newSlice))
+			}
 		} else {
 			vm.push(slice)
 		}
