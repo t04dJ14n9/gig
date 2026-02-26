@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"strings"
 	"testing"
+	"time"
 
 	"gig"
 	_ "gig/stdlib/packages"
@@ -369,12 +370,50 @@ func TestAllStdlib(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Build error: %v", err)
 			}
+
+			// Measure interpreter execution time
+			startInterp := time.Now()
 			result, err := prog.Run(tc.funcName)
+			interpDuration := time.Since(startInterp)
 			if err != nil {
 				t.Fatalf("Run error: %v", err)
 			}
+
+			// Measure native execution time
+			startNative := time.Now()
 			expected := tc.native()
+			nativeDuration := time.Since(startNative)
+
 			compareResults(t, result, expected)
+
+			// Report timing comparison
+			ratio := float64(interpDuration) / float64(nativeDuration)
+			t.Logf("interp: %v, native: %v, ratio: %.1fx", interpDuration, nativeDuration, ratio)
+		})
+	}
+}
+
+// BenchmarkAllStdlib runs benchmarks for all stdlib tests
+func BenchmarkAllStdlib(b *testing.B) {
+	for name, tc := range allTests {
+		b.Run(name, func(b *testing.B) {
+			src := toMainPackage(tc.src)
+			prog, err := gig.Build(src)
+			if err != nil {
+				b.Fatalf("Build error: %v", err)
+			}
+
+			b.Run("interpreter", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					prog.Run(tc.funcName)
+				}
+			})
+
+			b.Run("native", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					tc.native()
+				}
+			})
 		})
 	}
 }
