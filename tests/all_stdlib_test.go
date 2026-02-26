@@ -20,6 +20,7 @@ import (
 	"gig/tests/testdata/edgecases"
 	"gig/tests/testdata/external"
 	"gig/tests/testdata/functions"
+	"gig/tests/testdata/leetcode_hard"
 	"gig/tests/testdata/mapadvanced"
 	"gig/tests/testdata/maps"
 	"gig/tests/testdata/multiassign"
@@ -68,6 +69,9 @@ var externalSrc string
 
 //go:embed testdata/functions/main.go
 var functionsSrc string
+
+//go:embed testdata/leetcode_hard/main.go
+var leetcodeHardSrc string
 
 //go:embed testdata/maps/main.go
 var mapsSrc string
@@ -261,6 +265,18 @@ var allTests = map[string]testCase{
 	"functions/HigherOrderMap":       {functionsSrc, "HigherOrderMap", func() any { return functions.HigherOrderMap() }},
 	"functions/HigherOrderFilter":    {functionsSrc, "HigherOrderFilter", func() any { return functions.HigherOrderFilter() }},
 	"functions/HigherOrderReduce":    {functionsSrc, "HigherOrderReduce", func() any { return functions.HigherOrderReduce() }},
+
+	// leetcode_hard
+	"leetcode_hard/TrappingRainWater":           {leetcodeHardSrc, "TrappingRainWater", func() any { return leetcode_hard.TrappingRainWater() }},
+	"leetcode_hard/LargestRectangleInHistogram": {leetcodeHardSrc, "LargestRectangleInHistogram", func() any { return leetcode_hard.LargestRectangleInHistogram() }},
+	"leetcode_hard/MedianOfTwoSortedArrays":     {leetcodeHardSrc, "MedianOfTwoSortedArrays", func() any { return leetcode_hard.MedianOfTwoSortedArrays() }},
+	"leetcode_hard/RegularExpressionMatching":   {leetcodeHardSrc, "RegularExpressionMatching", func() any { return leetcode_hard.RegularExpressionMatching() }},
+	"leetcode_hard/NQueens":                     {leetcodeHardSrc, "NQueens", func() any { return leetcode_hard.NQueens() }},
+	"leetcode_hard/LongestIncreasingPath":       {leetcodeHardSrc, "LongestIncreasingPath", func() any { return leetcode_hard.LongestIncreasingPath() }},
+	"leetcode_hard/WordLadder":                  {leetcodeHardSrc, "WordLadder", func() any { return leetcode_hard.WordLadder() }},
+	"leetcode_hard/MergeKSortedLists":           {leetcodeHardSrc, "MergeKSortedLists", func() any { return leetcode_hard.MergeKSortedLists() }},
+	"leetcode_hard/EditDistance":                {leetcodeHardSrc, "EditDistance", func() any { return leetcode_hard.EditDistance() }},
+	"leetcode_hard/MinimumWindowSubstring":      {leetcodeHardSrc, "MinimumWindowSubstring", func() any { return leetcode_hard.MinimumWindowSubstring() }},
 
 	// maps
 	"maps/BasicOps":       {mapsSrc, "BasicOps", func() any { return maps.BasicOps() }},
