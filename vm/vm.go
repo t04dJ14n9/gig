@@ -23,17 +23,30 @@ type VM struct {
 	ctx       context.Context
 	panicking bool
 	panicVal  value.Value
+	
+	// Inline cache for external function calls - maps constant index to resolved info
+	extCallCache map[int]*extCallCacheEntry
+}
+
+// extCallCacheEntry caches resolved external function info for fast dispatch.
+type extCallCacheEntry struct {
+	fn         reflect.Value
+	fnType     reflect.Type
+	directCall func([]value.Value) value.Value
+	isVariadic bool
+	numIn      int
 }
 
 // New creates a new VM.
 func New(program *compiler.Program) *VM {
 	return &VM{
-		program: program,
-		stack:   make([]value.Value, 1024), // initial stack size
-		sp:      0,
-		frames:  make([]*Frame, 64), // max call depth
-		fp:      0,
-		globals: make([]value.Value, len(program.Globals)),
+		program:      program,
+		stack:        make([]value.Value, 1024), // initial stack size
+		sp:           0,
+		frames:       make([]*Frame, 64), // max call depth
+		fp:           0,
+		globals:      make([]value.Value, len(program.Globals)),
+		extCallCache: make(map[int]*extCallCacheEntry),
 	}
 }
 
@@ -889,49 +902,87 @@ func (vm *VM) callFunction(fn *compiler.CompiledFunction, args []value.Value, fr
 
 // callExternal calls an external function.
 func (vm *VM) callExternal(funcIdx, numArgs int) {
-	// Get external function from constant pool
-	if funcIdx >= len(vm.program.Constants) {
-		vm.push(value.MakeNil())
-		return
-	}
-
-	extFunc := vm.program.Constants[funcIdx]
-
-	// Pop arguments
+	// Pop arguments first (before any cache lookup)
 	args := make([]value.Value, numArgs)
 	for i := numArgs - 1; i >= 0; i-- {
 		args[i] = vm.pop()
 	}
 
-	// Call the function using reflect
-	if extFunc == nil {
+	// Check inline cache
+	cacheEntry, cached := vm.extCallCache[funcIdx]
+	if !cached {
+		// Resolve and cache
+		cacheEntry = vm.resolveExternalFunc(funcIdx)
+		vm.extCallCache[funcIdx] = cacheEntry
+	}
+
+	// Fast path: DirectCall available
+	if cacheEntry.directCall != nil {
+		result := cacheEntry.directCall(args)
+		vm.push(result)
+		return
+	}
+
+	// Slow path: use reflect.Call
+	vm.callExternalReflect(cacheEntry, args)
+}
+
+// resolveExternalFunc resolves an external function and creates a cache entry.
+func (vm *VM) resolveExternalFunc(funcIdx int) *extCallCacheEntry {
+	entry := &extCallCacheEntry{}
+
+	// Check if constant is ExternalFuncInfo (new optimized path)
+	if funcIdx < len(vm.program.Constants) {
+		if extInfo, ok := vm.program.Constants[funcIdx].(*compiler.ExternalFuncInfo); ok {
+			entry.directCall = extInfo.DirectCall
+			if extInfo.Func != nil {
+				entry.fn = reflect.ValueOf(extInfo.Func)
+				entry.fnType = entry.fn.Type()
+				entry.isVariadic = entry.fnType.IsVariadic()
+				entry.numIn = entry.fnType.NumIn()
+			}
+			return entry
+		}
+		// Fallback: old-style constant (just the function value)
+		extFunc := vm.program.Constants[funcIdx]
+		if extFunc != nil {
+			entry.fn = reflect.ValueOf(extFunc)
+			if entry.fn.Kind() == reflect.Func {
+				entry.fnType = entry.fn.Type()
+				entry.isVariadic = entry.fnType.IsVariadic()
+				entry.numIn = entry.fnType.NumIn()
+			}
+		}
+	}
+
+	return entry
+}
+
+// callExternalReflect executes an external function using reflection.
+func (vm *VM) callExternalReflect(entry *extCallCacheEntry, args []value.Value) {
+	if !entry.fn.IsValid() || entry.fn.Kind() != reflect.Func {
 		vm.push(value.MakeNil())
 		return
 	}
 
-	fnVal := reflect.ValueOf(extFunc)
-	if fnVal.Kind() != reflect.Func {
-		vm.push(value.MakeNil())
-		return
-	}
-	fnType := fnVal.Type()
+	numArgs := len(args)
 
 	// Build reflect.Value arguments
 	var in []reflect.Value
 
 	// For variadic calls where SSA passes the variadic slice as the last arg,
 	// we need to unpack it for reflect.Call
-	if fnType.IsVariadic() && numArgs == fnType.NumIn() {
+	if entry.isVariadic && numArgs == entry.numIn {
 		// The last arg might be the variadic slice packed by SSA
 		lastArg := args[numArgs-1]
 		if rv, ok := lastArg.ReflectValue(); ok && rv.Kind() == reflect.Slice {
 			// Unpack: use first N-1 args normally, then spread the slice elements
 			sliceLen := rv.Len()
-			in = make([]reflect.Value, fnType.NumIn()-1+sliceLen)
+			in = make([]reflect.Value, entry.numIn-1+sliceLen)
 			for i := 0; i < numArgs-1; i++ {
-				in[i] = args[i].ToReflectValue(fnType.In(i))
+				in[i] = args[i].ToReflectValue(entry.fnType.In(i))
 			}
-			elemType := fnType.In(fnType.NumIn() - 1).Elem()
+			elemType := entry.fnType.In(entry.numIn - 1).Elem()
 			for i := 0; i < sliceLen; i++ {
 				elem := rv.Index(i)
 				// If elem is interface{}, unwrap it
@@ -939,34 +990,34 @@ func (vm *VM) callExternal(funcIdx, numArgs int) {
 					elem = elem.Elem()
 				}
 				if elem.Type().ConvertibleTo(elemType) {
-					in[fnType.NumIn()-1+i] = elem.Convert(elemType)
+					in[entry.numIn-1+i] = elem.Convert(elemType)
 				} else {
-					in[fnType.NumIn()-1+i] = elem
+					in[entry.numIn-1+i] = elem
 				}
 			}
 		} else {
 			// Last arg is not a slice, treat normally
 			in = make([]reflect.Value, numArgs)
 			for i, arg := range args {
-				if i >= fnType.NumIn()-1 {
-					variadicType := fnType.In(fnType.NumIn() - 1).Elem()
+				if i >= entry.numIn-1 {
+					variadicType := entry.fnType.In(entry.numIn - 1).Elem()
 					in[i] = arg.ToReflectValue(variadicType)
 				} else {
-					in[i] = arg.ToReflectValue(fnType.In(i))
+					in[i] = arg.ToReflectValue(entry.fnType.In(i))
 				}
 			}
 		}
 	} else {
 		in = make([]reflect.Value, numArgs)
 		for i, arg := range args {
-			if i < fnType.NumIn() {
-				in[i] = arg.ToReflectValue(fnType.In(i))
+			if i < entry.numIn {
+				in[i] = arg.ToReflectValue(entry.fnType.In(i))
 			}
 		}
 	}
 
 	// Call the function
-	out := fnVal.Call(in)
+	out := entry.fn.Call(in)
 
 	// Convert result
 	if len(out) == 0 {

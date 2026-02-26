@@ -7,6 +7,7 @@ import (
 	"go/types"
 
 	"gig/importer"
+	"gig/value"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -19,6 +20,12 @@ type CompiledFunction struct {
 	NumFreeVars  int
 	MaxStack     int
 	Source       *ssa.Function // for debugging
+}
+
+// ExternalFuncInfo contains pre-resolved external function info for fast calls.
+type ExternalFuncInfo struct {
+	Func       any                        // The actual function value
+	DirectCall func([]value.Value) value.Value // DirectCall wrapper (nil if not available)
 }
 
 // Program represents a compiled program.
@@ -648,23 +655,29 @@ func (c *Compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 	// Look up the external function in the importer registry
 	// fn.Pkg.Pkg.Path() gives the import path (e.g. "fmt")
 	// fn.Name() gives the function name (e.g. "Sprintf")
-	var extFunc any
+	var extFuncInfo *ExternalFuncInfo
 	if fn.Pkg != nil {
 		pkgPath := fn.Pkg.Pkg.Path()
 		extPkg := importer.GetPackageByPath(pkgPath)
 		if extPkg != nil {
 			if obj, ok := extPkg.Objects[fn.Name()]; ok {
-				extFunc = obj.Value
+				extFuncInfo = &ExternalFuncInfo{
+					Func:       obj.Value,
+					DirectCall: obj.DirectCall,
+				}
 			}
 		}
 	}
 
-	if extFunc == nil {
+	if extFuncInfo == nil {
 		// Fallback: store the SSA function itself
-		extFunc = fn
+		extFuncInfo = &ExternalFuncInfo{
+			Func:       fn,
+			DirectCall: nil,
+		}
 	}
 
-	funcIdx := c.addConstant(extFunc)
+	funcIdx := c.addConstant(extFuncInfo)
 	numArgs := len(i.Call.Args)
 	// Manually encode OpCallExternal: [opcode(1)] [funcIdx(2)] [numArgs(1)]
 	c.currentFunc.Instructions = append(c.currentFunc.Instructions,

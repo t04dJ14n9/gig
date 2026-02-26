@@ -26,7 +26,7 @@ func init() {
 	pkg.AddFunction("FormatComplex", strconv.FormatComplex, "", nil)
 
 	// Conversions
-	pkg.AddFunction("Atoi", strconv.Atoi, "", nil)
+	pkg.AddFunction("Atoi", strconv.Atoi, "", directAtoi)
 	pkg.AddFunction("Itoa", strconv.Itoa, "", directItoa)
 	pkg.AddFunction("AppendBool", strconv.AppendBool, "", nil)
 	pkg.AddFunction("AppendInt", strconv.AppendInt, "", nil)
@@ -79,6 +79,15 @@ func directFormatUint(args []value.Value) value.Value {
 
 func directItoa(args []value.Value) value.Value {
 	return value.MakeString(strconv.Itoa(int(args[0].Int())))
+}
+
+func directAtoi(args []value.Value) value.Value {
+	if len(args) < 1 {
+		return value.FromInterface([]value.Value{value.MakeInt(0), value.FromInterface(strconv.ErrSyntax)})
+	}
+	n, err := strconv.Atoi(args[0].String())
+	// Return as []value.Value for multi-return handling
+	return value.FromInterface([]value.Value{value.MakeInt(int64(n)), value.FromInterface(err)})
 }
 
 func directQuote(args []value.Value) value.Value {
