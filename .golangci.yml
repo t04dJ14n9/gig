@@ -1,0 +1,163 @@
+# golangci-lint configuration
+# https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  build-tags:
+    - integration
+
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters:
+  enable:
+    # Default linters
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+    # Additional linters
+    - bodyclose        # Check HTTP response body is closed
+    - dogsled          # Check assignments with too many blank identifiers
+    - dupl             # Detect duplicate code
+    - exportloopref    # Check for pointers to enclosing loop variables
+    - exhaustive       # Check exhaustiveness of enum switch statements
+    - gochecknoinits   # Check that no init functions are present
+    - goconst          # Find repeated strings that could be constants
+    - gocritic         # The most comprehensive Go linter
+    - gocyclo          # Compute cyclomatic complexity
+    - godot            # Check if comments end in a period
+    - gofmt            # Check whether code was gofmt-ed
+    - goimports        # Check import statements are formatted
+    - goprintffuncname # Check that printf-like functions end with 'f'
+    - gosec            # Inspect source code for security problems
+    - misspell         # Find commonly misspelled English words
+    - nakedret         # Find naked returns
+    - noctx            # Find sending http request without context.Context
+    - nolintlint       # Report ill-formed nolint directives
+    - prealloc         # Find slice declarations that could potentially be pre-allocated
+    - revive           # Fast, configurable, extensible, flexible linter
+    - rowserrcheck     # Check whether Err of rows is checked successfully
+    - sqlclosecheck    # Check that sql.Rows and sql.Stmt are closed
+    - stylecheck       # Stylecheck is a replacement for golint
+    - unconvert        # Remove unnecessary type conversions
+    - unparam          # Report unused function parameters
+    - whitespace       # Detect leading and trailing whitespace
+
+  disable:
+    - typecheck        # Disable due to generics issues in some versions
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+
+  gocyclo:
+    min-complexity: 15
+
+  dupl:
+    threshold: 100
+
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+
+  misspell:
+    locale: US
+
+  goimports:
+    local-prefixes: gig
+
+  gofmt:
+    simplify: true
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport
+      - ifElseChain
+      - octalLiteral
+      - whyNoLint
+      - wrapperFunc
+
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      - name: unused-parameter
+      - name: unreachable-code
+      - name: redefines-builtin-id
+
+  gosec:
+    excludes:
+      - G104 # Audit errors not checked (handled by errcheck)
+      - G304 # File path provided as taint input (common in CLIs)
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - dupl
+        - gosec
+        - goconst
+        - gocyclo
+
+    # Exclude known issues in generated code
+    - path: packages/.*\.go
+      linters:
+        - gochecknoinits
+        - revive
+        - stylecheck
+
+    # Exclude examples from some checks
+    - path: examples/.*\.go
+      linters:
+        - gosec
+
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false
+
+severity:
+  default-severity: warning
+  rules:
+    - linters:
+        - gosec
+      severity: error
