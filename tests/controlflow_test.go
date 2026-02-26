@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gig"
+
 	_ "gig/packages"
 )
 
@@ -159,7 +160,7 @@ func Compute() int {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	_, err = prog.RunWithContext("Compute", ctx)
+	_, err = prog.RunWithContext(ctx, "Compute")
 	if err == nil {
 		t.Error("expected timeout error, got nil")
 	}

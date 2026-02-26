@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"gig"
+
 	_ "gig/packages"
 )
 
@@ -18,8 +19,20 @@ func runInt(t *testing.T, source string, expected int64) {
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
 	}
-	if result.(int64) != expected {
-		t.Errorf("expected %d, got %v", expected, result)
+	// Handle different integer types
+	var got int64
+	switch v := result.(type) {
+	case int64:
+		got = v
+	case int:
+		got = int64(v)
+	case int32:
+		got = int64(v)
+	default:
+		t.Fatalf("expected int type, got %T", result)
+	}
+	if got != expected {
+		t.Errorf("expected %d, got %v", expected, got)
 	}
 }
 

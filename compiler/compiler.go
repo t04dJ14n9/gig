@@ -5,10 +5,12 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"strings"
+
+	"golang.org/x/tools/go/ssa"
 
 	"gig/importer"
 	"gig/value"
-	"golang.org/x/tools/go/ssa"
 )
 
 // CompiledFunction represents a compiled function.
@@ -24,7 +26,7 @@ type CompiledFunction struct {
 
 // ExternalFuncInfo contains pre-resolved external function info for fast calls.
 type ExternalFuncInfo struct {
-	Func       any                        // The actual function value
+	Func       any                             // The actual function value
 	DirectCall func([]value.Value) value.Value // DirectCall wrapper (nil if not available)
 }
 
@@ -34,8 +36,8 @@ type Program struct {
 	Constants []any          // constant pool
 	Globals   map[string]int // global name -> index
 	MainPkg   *ssa.Package
-	Types     []types.Type            // type pool (indexed by addType)
-	FuncIndex map[*ssa.Function]int   // SSA function -> index for calls
+	Types     []types.Type          // type pool (indexed by addType)
+	FuncIndex map[*ssa.Function]int // SSA function -> index for calls
 }
 
 // Compiler compiles SSA IR to bytecode.
@@ -48,7 +50,7 @@ type Compiler struct {
 	funcIndex   map[*ssa.Function]int
 	currentFunc *CompiledFunction
 	symbolTable *SymbolTable
-	jumps       []jumpInfo // tracks jumps that need patching
+	jumps       []jumpInfo       // tracks jumps that need patching
 	phiSlots    map[*ssa.Phi]int // Phi nodes -> local slots
 }
 
@@ -170,7 +172,7 @@ func (c *Compiler) compileFunction(fn *ssa.Function) (*CompiledFunction, error) 
 	}
 
 	c.symbolTable = NewSymbolTable()
-	c.jumps = nil // reset jumps for this function
+	c.jumps = nil                       // reset jumps for this function
 	c.phiSlots = make(map[*ssa.Phi]int) // initialize phi slots
 
 	// Allocate locals for parameters
@@ -645,11 +647,48 @@ func (c *Compiler) compileExternalCall(i *ssa.Call) {
 	c.emit(OpSetLocal, uint16(resultIdx))
 }
 
+// ExternalMethodInfo contains info for dispatching method calls on external types via reflection.
+type ExternalMethodInfo struct {
+	MethodName string // The method name (e.g., "String")
+}
+
 // compileExternalStaticCall compiles a call to an external package function.
 func (c *Compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resultIdx int) {
-	// Push arguments
+	// Push arguments (for methods, the first arg is the receiver)
 	for _, arg := range i.Call.Args {
 		c.compileValue(arg)
+	}
+
+	// Check if this is a method call (receiver != nil in the signature)
+	sig := fn.Signature
+	if sig.Recv() != nil {
+		// This is a method call on an external type.
+		// SSA passes the receiver as the first element in i.Call.Args.
+		// We use OpCallExternal with ExternalMethodInfo so the VM can dispatch via reflect.
+		methodName := fn.Name()
+		// SSA method names may be qualified like "(*Type).Method" — extract the bare name
+		if idx := strings.LastIndex(methodName, "."); idx >= 0 {
+			methodName = methodName[idx+1:]
+		}
+		// Strip parenthesized receiver prefix if present, e.g., "(Result).String" -> "String"
+		if idx := strings.LastIndex(methodName, ")"); idx >= 0 {
+			rest := methodName[idx+1:]
+			if len(rest) > 0 && rest[0] == '.' {
+				methodName = rest[1:]
+			}
+		}
+
+		methodInfo := &ExternalMethodInfo{
+			MethodName: methodName,
+		}
+		funcIdx := c.addConstant(methodInfo)
+		numArgs := len(i.Call.Args)
+		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+			byte(OpCallExternal),
+			byte(funcIdx>>8), byte(funcIdx),
+			byte(numArgs))
+		c.emit(OpSetLocal, uint16(resultIdx))
+		return
 	}
 
 	// Look up the external function in the importer registry
@@ -723,10 +762,10 @@ func (c *Compiler) compileReturn(i *ssa.Return) {
 	for _, result := range i.Results {
 		c.compileValue(result)
 	}
-	
+
 	// Pack the values into a slice
 	c.emit(OpPack, uint16(len(i.Results)))
-	
+
 	c.emit(OpReturnVal)
 }
 

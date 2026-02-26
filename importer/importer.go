@@ -10,6 +10,9 @@ import (
 	"sync"
 )
 
+// typeCache caches converted types to prevent infinite recursion for self-referential types.
+var typeCache sync.Map // map[reflect.Type]types.Type
+
 func init() {
 	// Initialize typeOf function
 	typeOf = convertReflectType
@@ -188,9 +191,31 @@ func convertReflectType(rt reflect.Type) types.Type {
 		return types.Typ[types.Invalid]
 	}
 
-	// Check cache first
-	if ext := GetExternalType(nil); ext != nil {
-		// This is just to ensure the cache is initialized
+	// Check cache first to prevent infinite recursion
+	if cached, ok := typeCache.Load(rt); ok {
+		return cached.(types.Type)
+	}
+
+	// For named types, handle specially to support self-referential types
+	if rt.Name() != "" && rt.Kind() != reflect.Bool && rt.Kind() != reflect.Int &&
+		rt.Kind() != reflect.Int8 && rt.Kind() != reflect.Int16 && rt.Kind() != reflect.Int32 &&
+		rt.Kind() != reflect.Int64 && rt.Kind() != reflect.Uint && rt.Kind() != reflect.Uint8 &&
+		rt.Kind() != reflect.Uint16 && rt.Kind() != reflect.Uint32 && rt.Kind() != reflect.Uint64 &&
+		rt.Kind() != reflect.Uintptr && rt.Kind() != reflect.Float32 && rt.Kind() != reflect.Float64 &&
+		rt.Kind() != reflect.Complex64 && rt.Kind() != reflect.Complex128 && rt.Kind() != reflect.String {
+		// Create a placeholder named type to break recursion
+		typeName := types.NewTypeName(0, nil, rt.Name(), nil)
+		named := types.NewNamed(typeName, types.Typ[types.Invalid], nil)
+		typeCache.Store(rt, named)
+
+		// Now compute the actual underlying type
+		underlying := convertReflectTypeForUnderlying(rt)
+		named.SetUnderlying(underlying)
+
+		// Add methods from reflect.Type to the Named type
+		addMethodsToNamed(named, rt)
+
+		return named
 	}
 
 	switch rt.Kind() {
@@ -233,11 +258,15 @@ func convertReflectType(rt reflect.Type) types.Type {
 
 	case reflect.Array:
 		elem := convertReflectType(rt.Elem())
-		return types.NewArray(elem, int64(rt.Len()))
+		result := types.NewArray(elem, int64(rt.Len()))
+		typeCache.Store(rt, result)
+		return result
 
 	case reflect.Slice:
 		elem := convertReflectType(rt.Elem())
-		return types.NewSlice(elem)
+		result := types.NewSlice(elem)
+		typeCache.Store(rt, result)
+		return result
 
 	case reflect.Chan:
 		elem := convertReflectType(rt.Elem())
@@ -250,39 +279,53 @@ func convertReflectType(rt reflect.Type) types.Type {
 		default:
 			dir = types.SendRecv
 		}
-		return types.NewChan(dir, elem)
+		result := types.NewChan(dir, elem)
+		typeCache.Store(rt, result)
+		return result
 
 	case reflect.Func:
-		return convertFuncType(rt)
+		result := convertFuncType(rt)
+		typeCache.Store(rt, result)
+		return result
 
 	case reflect.Interface:
-		return convertInterfaceType(rt)
+		result := convertInterfaceType(rt)
+		typeCache.Store(rt, result)
+		return result
 
 	case reflect.Map:
 		key := convertReflectType(rt.Key())
 		elem := convertReflectType(rt.Elem())
-		return types.NewMap(key, elem)
+		result := types.NewMap(key, elem)
+		typeCache.Store(rt, result)
+		return result
 
 	case reflect.Ptr:
 		elem := convertReflectType(rt.Elem())
-		return types.NewPointer(elem)
+		result := types.NewPointer(elem)
+		typeCache.Store(rt, result)
+		return result
 
 	case reflect.Struct:
-		return convertStructType(rt)
+		result := convertStructType(rt)
+		typeCache.Store(rt, result)
+		return result
 
 	default:
-		// For named types, create a TypeName
+		// For other named types, create a TypeName
 		if rt.Name() != "" {
 			typeName := types.NewTypeName(0, nil, rt.Name(), nil)
-			// For named types, use the underlying type
 			underlying := convertReflectTypeForUnderlying(rt)
-			return types.NewNamed(typeName, underlying, nil)
+			result := types.NewNamed(typeName, underlying, nil)
+			typeCache.Store(rt, result)
+			return result
 		}
 		return types.Typ[types.Invalid]
 	}
 }
 
 // convertReflectTypeForUnderlying handles underlying types for named types.
+// It returns the actual underlying type (not a Named type).
 func convertReflectTypeForUnderlying(rt reflect.Type) types.Type {
 	// For basic named types, return the corresponding basic type
 	switch rt.Kind() {
@@ -320,8 +363,39 @@ func convertReflectTypeForUnderlying(rt reflect.Type) types.Type {
 		return types.Typ[types.Complex128]
 	case reflect.String:
 		return types.Typ[types.String]
+	case reflect.Struct:
+		return convertStructType(rt)
+	case reflect.Ptr:
+		elem := convertReflectType(rt.Elem())
+		return types.NewPointer(elem)
+	case reflect.Slice:
+		elem := convertReflectType(rt.Elem())
+		return types.NewSlice(elem)
+	case reflect.Array:
+		elem := convertReflectType(rt.Elem())
+		return types.NewArray(elem, int64(rt.Len()))
+	case reflect.Map:
+		key := convertReflectType(rt.Key())
+		elem := convertReflectType(rt.Elem())
+		return types.NewMap(key, elem)
+	case reflect.Func:
+		return convertFuncType(rt)
+	case reflect.Interface:
+		return convertInterfaceType(rt)
+	case reflect.Chan:
+		elem := convertReflectType(rt.Elem())
+		var dir types.ChanDir
+		switch rt.ChanDir() {
+		case reflect.SendDir:
+			dir = types.SendOnly
+		case reflect.RecvDir:
+			dir = types.RecvOnly
+		default:
+			dir = types.SendRecv
+		}
+		return types.NewChan(dir, elem)
 	default:
-		return convertReflectType(rt)
+		return types.Typ[types.Invalid]
 	}
 }
 
@@ -398,6 +472,103 @@ func LookupPackage(name string) (*ExternalPackage, error) {
 	}
 
 	return nil, fmt.Errorf("package %q not found", name)
+}
+
+// addMethodsToNamed adds methods from a reflect.Type to a types.Named type.
+// This allows the type checker to find methods on external types (e.g., gjson.Result.String()).
+func addMethodsToNamed(named *types.Named, rt reflect.Type) {
+	// Enumerate all exported methods on the value receiver
+	for i := 0; i < rt.NumMethod(); i++ {
+		method := rt.Method(i)
+		if !method.IsExported() {
+			continue
+		}
+		// method.Type is func(ReceiverType, params...) (results...)
+		// We need to create a *types.Signature with the receiver set.
+		methodType := method.Type
+		if methodType.Kind() != reflect.Func || methodType.NumIn() < 1 {
+			continue
+		}
+
+		// Build the parameter list (excluding the receiver which is In(0))
+		var params []*types.Var
+		for j := 1; j < methodType.NumIn(); j++ {
+			paramType := convertReflectType(methodType.In(j))
+			params = append(params, types.NewVar(0, nil, "", paramType))
+		}
+
+		// Build the result list
+		var results []*types.Var
+		for j := 0; j < methodType.NumOut(); j++ {
+			resultType := convertReflectType(methodType.Out(j))
+			results = append(results, types.NewVar(0, nil, "", resultType))
+		}
+
+		// The receiver
+		recv := types.NewVar(0, nil, "", named)
+
+		sig := types.NewSignatureType(
+			recv,
+			nil, nil,
+			types.NewTuple(params...),
+			types.NewTuple(results...),
+			methodType.IsVariadic(),
+		)
+
+		fn := types.NewFunc(0, named.Obj().Pkg(), method.Name, sig)
+		named.AddMethod(fn)
+	}
+
+	// Also enumerate methods on the pointer receiver (*T)
+	ptrType := reflect.PtrTo(rt)
+	for i := 0; i < ptrType.NumMethod(); i++ {
+		method := ptrType.Method(i)
+		if !method.IsExported() {
+			continue
+		}
+		// Skip methods that are already added (value receiver methods are a subset of pointer receiver methods)
+		alreadyAdded := false
+		for j := 0; j < named.NumMethods(); j++ {
+			if named.Method(j).Name() == method.Name {
+				alreadyAdded = true
+				break
+			}
+		}
+		if alreadyAdded {
+			continue
+		}
+
+		methodType := method.Type
+		if methodType.Kind() != reflect.Func || methodType.NumIn() < 1 {
+			continue
+		}
+
+		var params []*types.Var
+		for j := 1; j < methodType.NumIn(); j++ {
+			paramType := convertReflectType(methodType.In(j))
+			params = append(params, types.NewVar(0, nil, "", paramType))
+		}
+
+		var results []*types.Var
+		for j := 0; j < methodType.NumOut(); j++ {
+			resultType := convertReflectType(methodType.Out(j))
+			results = append(results, types.NewVar(0, nil, "", resultType))
+		}
+
+		// Pointer receiver
+		recv := types.NewVar(0, nil, "", types.NewPointer(named))
+
+		sig := types.NewSignatureType(
+			recv,
+			nil, nil,
+			types.NewTuple(params...),
+			types.NewTuple(results...),
+			methodType.IsVariadic(),
+		)
+
+		fn := types.NewFunc(0, named.Obj().Pkg(), method.Name, sig)
+		named.AddMethod(fn)
+	}
 }
 
 // AutoImport tries to find and import a package by name.

@@ -23,7 +23,7 @@ type VM struct {
 	ctx       context.Context
 	panicking bool
 	panicVal  value.Value
-	
+
 	// Inline cache for external function calls - maps constant index to resolved info
 	extCallCache map[int]*extCallCacheEntry
 }
@@ -495,20 +495,20 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		highVal := vm.pop()
 		lowVal := vm.pop()
 		container := vm.pop()
-		
+
 		low := int(lowVal.Int())
-		
+
 		if rv, ok := container.ReflectValue(); ok {
 			// If it's a pointer to an array, dereference it first
 			if rv.Kind() == reflect.Ptr && rv.Elem().Kind() == reflect.Array {
 				rv = rv.Elem()
 			}
-			
+
 			high := int(highVal.Int())
 			if high == 0xFFFF {
 				high = rv.Len()
 			}
-			
+
 			var sliced reflect.Value
 			if maxVal.Kind() != value.KindNil && maxVal.Int() != 0xFFFF {
 				// 3-index slice: container[low:high:max]
@@ -908,6 +908,14 @@ func (vm *VM) callExternal(funcIdx, numArgs int) {
 		args[i] = vm.pop()
 	}
 
+	// Check if this is a method call (ExternalMethodInfo)
+	if funcIdx < len(vm.program.Constants) {
+		if methodInfo, ok := vm.program.Constants[funcIdx].(*compiler.ExternalMethodInfo); ok {
+			vm.callExternalMethod(methodInfo, args)
+			return
+		}
+	}
+
 	// Check inline cache
 	cacheEntry, cached := vm.extCallCache[funcIdx]
 	if !cached {
@@ -918,6 +926,21 @@ func (vm *VM) callExternal(funcIdx, numArgs int) {
 
 	// Fast path: DirectCall available
 	if cacheEntry.directCall != nil {
+		// For variadic functions, SSA packs variadic args into a slice.
+		// We need to unpack them for DirectCall wrappers.
+		if cacheEntry.isVariadic && numArgs == cacheEntry.numIn {
+			lastArg := args[numArgs-1]
+			if rv, ok := lastArg.ReflectValue(); ok && rv.Kind() == reflect.Slice {
+				// Unpack the variadic slice
+				sliceLen := rv.Len()
+				unpackedArgs := make([]value.Value, numArgs-1+sliceLen)
+				copy(unpackedArgs, args[:numArgs-1])
+				for i := 0; i < sliceLen; i++ {
+					unpackedArgs[numArgs-1+i] = value.MakeFromReflect(rv.Index(i))
+				}
+				args = unpackedArgs
+			}
+		}
 		result := cacheEntry.directCall(args)
 		vm.push(result)
 		return
@@ -1026,6 +1049,107 @@ func (vm *VM) callExternalReflect(entry *extCallCacheEntry, args []value.Value) 
 		vm.push(value.MakeFromReflect(out[0]))
 	} else {
 		// Multiple return values - pack as slice
+		results := make([]value.Value, len(out))
+		for i, v := range out {
+			results[i] = value.MakeFromReflect(v)
+		}
+		vm.push(value.FromInterface(results))
+	}
+}
+
+// callExternalMethod dispatches a method call on an external type using reflection.
+// args[0] is the receiver, args[1:] are the method arguments.
+func (vm *VM) callExternalMethod(methodInfo *compiler.ExternalMethodInfo, args []value.Value) {
+	if len(args) == 0 {
+		vm.push(value.MakeNil())
+		return
+	}
+
+	// Get the receiver as a reflect.Value
+	receiver := args[0]
+	var rv reflect.Value
+	if reflectVal, ok := receiver.ReflectValue(); ok {
+		rv = reflectVal
+	} else {
+		rv = reflect.ValueOf(receiver.Interface())
+	}
+
+	if !rv.IsValid() {
+		vm.push(value.MakeNil())
+		return
+	}
+
+	// Look up the method by name
+	method := rv.MethodByName(methodInfo.MethodName)
+	if !method.IsValid() {
+		// Try pointer receiver
+		if rv.CanAddr() {
+			method = rv.Addr().MethodByName(methodInfo.MethodName)
+		}
+		if !method.IsValid() {
+			vm.push(value.MakeNil())
+			return
+		}
+	}
+
+	// Build arguments (skip the receiver at args[0])
+	methodType := method.Type()
+	numIn := methodType.NumIn()
+	isVariadic := methodType.IsVariadic()
+	methodArgs := args[1:]
+
+	var in []reflect.Value
+
+	if isVariadic && len(methodArgs) == numIn {
+		// Check if the last arg is a packed variadic slice from SSA
+		lastArg := methodArgs[len(methodArgs)-1]
+		if lastRV, ok := lastArg.ReflectValue(); ok && lastRV.Kind() == reflect.Slice {
+			sliceLen := lastRV.Len()
+			in = make([]reflect.Value, numIn-1+sliceLen)
+			for i := 0; i < len(methodArgs)-1; i++ {
+				in[i] = methodArgs[i].ToReflectValue(methodType.In(i))
+			}
+			elemType := methodType.In(numIn - 1).Elem()
+			for i := 0; i < sliceLen; i++ {
+				elem := lastRV.Index(i)
+				if elem.Kind() == reflect.Interface && !elem.IsNil() {
+					elem = elem.Elem()
+				}
+				if elem.Type().ConvertibleTo(elemType) {
+					in[numIn-1+i] = elem.Convert(elemType)
+				} else {
+					in[numIn-1+i] = elem
+				}
+			}
+		} else {
+			in = make([]reflect.Value, len(methodArgs))
+			for i, arg := range methodArgs {
+				if i < numIn {
+					in[i] = arg.ToReflectValue(methodType.In(i))
+				}
+			}
+		}
+	} else {
+		in = make([]reflect.Value, len(methodArgs))
+		for i, arg := range methodArgs {
+			if i < numIn {
+				in[i] = arg.ToReflectValue(methodType.In(i))
+			} else if isVariadic {
+				variadicType := methodType.In(numIn - 1).Elem()
+				in[i] = arg.ToReflectValue(variadicType)
+			}
+		}
+	}
+
+	// Call the method
+	out := method.Call(in)
+
+	// Convert result
+	if len(out) == 0 {
+		vm.push(value.MakeNil())
+	} else if len(out) == 1 {
+		vm.push(value.MakeFromReflect(out[0]))
+	} else {
 		results := make([]value.Value, len(out))
 		for i, v := range out {
 			results[i] = value.MakeFromReflect(v)

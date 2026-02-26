@@ -79,10 +79,10 @@ const (
 	OpSetField // pop val, pop struct, struct.field = val [field_idx:2]
 
 	// Pointer operations
-	OpAddr       // push address of local [local_idx:2]
-	OpIndexAddr  // pop index, pop slice/array, push &slice[index]
-	OpDeref      // pop pointer, push *pointer
-	OpSetDeref   // pop val, pop pointer, *pointer = val
+	OpAddr      // push address of local [local_idx:2]
+	OpIndexAddr // pop index, pop slice/array, push &slice[index]
+	OpDeref     // pop pointer, push *pointer
+	OpSetDeref  // pop val, pop pointer, *pointer = val
 
 	// Interface operations
 	OpAssert  // type assertion [type_idx:2]

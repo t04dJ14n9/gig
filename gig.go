@@ -124,11 +124,12 @@ func Build(sourceCode string, packages ...string) (*Program, error) {
 func (p *Program) Run(funcName string, params ...interface{}) (interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancel()
-	return p.RunWithContext(funcName, ctx, params...)
+	return p.RunWithContext(ctx, funcName, params...)
 }
 
 // RunWithContext executes a function in the program with context for timeout control.
-func (p *Program) RunWithContext(funcName string, ctx context.Context, params ...interface{}) (interface{}, error) {
+// Context is the first parameter following Go idioms.
+func (p *Program) RunWithContext(ctx context.Context, funcName string, params ...interface{}) (interface{}, error) {
 	// Convert params to Value
 	args := make([]value.Value, len(params))
 	for i, param := range params {
@@ -146,7 +147,8 @@ func (p *Program) RunWithContext(funcName string, ctx context.Context, params ..
 }
 
 // RunWithValues executes a function with pre-converted Value arguments.
-func (p *Program) RunWithValues(funcName string, ctx context.Context, args []value.Value) (value.Value, error) {
+// Context is the first parameter following Go idioms.
+func (p *Program) RunWithValues(ctx context.Context, funcName string, args []value.Value) (value.Value, error) {
 	virtualMachine := vm.New(p.program)
 	return virtualMachine.ExecuteWithValues(funcName, ctx, args)
 }
