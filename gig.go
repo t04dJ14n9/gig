@@ -35,7 +35,14 @@ type Program struct {
 
 // Build compiles Go source code into a Program.
 // The source must define a function that can be called via Run/RunWithContext.
+// If the source does not start with a package declaration, "package main" is prepended automatically.
 func Build(sourceCode string, packages ...string) (*Program, error) {
+	// Auto-wrap with "package main" if no package declaration
+	sourceCode = strings.TrimSpace(sourceCode)
+	if !strings.HasPrefix(sourceCode, "package ") {
+		sourceCode = "package main\n\n" + sourceCode
+	}
+
 	// Create file set
 	fset := token.NewFileSet()
 
