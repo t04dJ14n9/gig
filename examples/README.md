@@ -101,7 +101,7 @@ Gig's built-in standard library includes:
 | **Time** | `time` |
 | **Collections** | `sort`, `container/list`, `container/heap` |
 | **Network** | `net/url`, `net/http` (partial) |
-| **Crypto** | `crypto/md5`, `crypto/sha1`, `crypto/sha256` |
+| **Crypto** | `crypto/hmac`, `crypto/sha256` |
 | **Other** | `errors`, `sync`, `context`, `path`, `path/filepath`, `os` (partial) |
 
 ### Context Timeout

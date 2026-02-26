@@ -101,7 +101,7 @@ Gig 的内置标准库包括：
 | **时间** | `time` |
 | **集合** | `sort`、`container/list`、`container/heap` |
 | **网络** | `net/url`、`net/http`（部分） |
-| **加密** | `crypto/md5`、`crypto/sha1`、`crypto/sha256` |
+| **加密** | `crypto/hmac`、`crypto/sha256` |
 | **其他** | `errors`、`sync`、`context`、`path`、`path/filepath`、`os`（部分） |
 
 ### 上下文超时

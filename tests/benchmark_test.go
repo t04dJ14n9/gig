@@ -595,8 +595,8 @@ func TestBenchmarkSummary(t *testing.T) {
 	t.Log("Run benchmarks yourself:")
 	t.Log("  go test -bench . -benchmem -count=1 ./tests/ -run='^$'")
 	t.Log("")
-	t.Log(fmt.Sprintf("  %-22s %14s %14s %10s %s", "Workload", "Gig (ns/op)", "Native (ns/op)", "Slowdown", "Category"))
-	t.Log(fmt.Sprintf("  %-22s %14s %14s %10s %s", strings.Repeat("-", 22), strings.Repeat("-", 14), strings.Repeat("-", 14), strings.Repeat("-", 10), strings.Repeat("-", 16)))
+	t.Logf("  %-22s %14s %14s %10s %s", "Workload", "Gig (ns/op)", "Native (ns/op)", "Slowdown", "Category")
+	t.Logf("  %-22s %14s %14s %10s %s", strings.Repeat("-", 22), strings.Repeat("-", 14), strings.Repeat("-", 14), strings.Repeat("-", 10), strings.Repeat("-", 16))
 
 	type row struct {
 		name     string

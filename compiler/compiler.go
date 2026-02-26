@@ -909,7 +909,13 @@ func (c *Compiler) compileLookup(i *ssa.Lookup) {
 
 	c.compileValue(i.X)
 	c.compileValue(i.Index)
-	c.emit(OpIndex)
+
+	if i.CommaOk {
+		// For comma-ok map lookup, return a tuple (value, ok)
+		c.emit(OpIndexOk)
+	} else {
+		c.emit(OpIndex)
+	}
 	c.emit(OpSetLocal, uint16(resultIdx))
 }
 

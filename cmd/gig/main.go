@@ -143,7 +143,6 @@ func generatePkgsGo(pkgName string) []byte {
 	b.WriteString("\t_ \"container/ring\"\n")
 	b.WriteString("\t_ \"context\"\n")
 	b.WriteString("\t_ \"crypto/hmac\"\n")
-	b.WriteString("\t_ \"crypto/md5\"\n")
 	b.WriteString("\t_ \"crypto/sha256\"\n")
 	b.WriteString("\t_ \"encoding/base64\"\n")
 	b.WriteString("\t_ \"encoding/csv\"\n")

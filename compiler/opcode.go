@@ -66,6 +66,7 @@ const (
 
 	// Index operations
 	OpIndex    // pop key, pop container, push container[key]
+	OpIndexOk  // pop key, pop container, push (value, ok) for map lookup
 	OpSetIndex // pop val, pop key, pop container, container[key] = val
 	OpSlice    // slice operation: pop max, pop high, pop low, pop container from stack
 	OpSliceLen // get length

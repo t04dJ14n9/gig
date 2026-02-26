@@ -14,7 +14,6 @@ import (
 	_ "container/ring"
 	_ "context"
 	_ "crypto/hmac"
-	_ "crypto/md5"
 	_ "crypto/sha256"
 	_ "encoding/base64"
 	_ "encoding/csv"

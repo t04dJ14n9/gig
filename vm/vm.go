@@ -453,7 +453,8 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 					k := key.ToReflectValue(rv.Type().Key())
 					elem := rv.MapIndex(k)
 					if !elem.IsValid() {
-						vm.push(value.MakeNil())
+						// Return zero value of element type, not nil (Go semantics)
+						vm.push(value.MakeFromReflect(reflect.Zero(rv.Type().Elem())))
 					} else {
 						vm.push(value.MakeFromReflect(elem))
 					}
@@ -465,6 +466,59 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 			}
 		default:
 			vm.push(value.MakeNil())
+		}
+
+	case compiler.OpIndexOk:
+		// Index with comma-ok: returns (value, ok) tuple for maps
+		key := vm.pop()
+		container := vm.pop()
+		switch container.Kind() {
+		case value.KindMap:
+			// For maps, check if key exists
+			if rv, ok := container.ReflectValue(); ok {
+				k := key.ToReflectValue(rv.Type().Key())
+				elem := rv.MapIndex(k)
+				if !elem.IsValid() {
+					// Key doesn't exist: return (zero_value, false)
+					zeroVal := value.MakeFromReflect(reflect.Zero(rv.Type().Elem()))
+					tuple := []value.Value{zeroVal, value.MakeBool(false)}
+					vm.push(value.FromInterface(tuple))
+				} else {
+					// Key exists: return (value, true)
+					vm.push(value.FromInterface([]value.Value{value.MakeFromReflect(elem), value.MakeBool(true)}))
+				}
+			} else {
+				tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
+				vm.push(value.FromInterface(tuple))
+			}
+		case value.KindReflect:
+			if rv, ok := container.ReflectValue(); ok {
+				switch rv.Kind() {
+				case reflect.Map:
+					k := key.ToReflectValue(rv.Type().Key())
+					elem := rv.MapIndex(k)
+					if !elem.IsValid() {
+						zeroVal := value.MakeFromReflect(reflect.Zero(rv.Type().Elem()))
+						tuple := []value.Value{zeroVal, value.MakeBool(false)}
+						vm.push(value.FromInterface(tuple))
+					} else {
+						vm.push(value.FromInterface([]value.Value{value.MakeFromReflect(elem), value.MakeBool(true)}))
+					}
+				case reflect.Slice, reflect.Array:
+					// For slices/arrays, always return true for ok
+					idx := int(key.Int())
+					vm.push(value.FromInterface([]value.Value{value.MakeFromReflect(rv.Index(idx)), value.MakeBool(true)}))
+				default:
+					tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
+					vm.push(value.FromInterface(tuple))
+				}
+			} else {
+				tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
+				vm.push(value.FromInterface(tuple))
+			}
+		default:
+			tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
+			vm.push(value.FromInterface(tuple))
 		}
 
 	case compiler.OpSetIndex:
@@ -497,6 +551,16 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		container := vm.pop()
 
 		low := int(lowVal.Int())
+
+		// Handle string slicing specially
+		if container.Kind() == value.KindString {
+			high := int(highVal.Int())
+			if high == 0xFFFF {
+				high = len(container.String())
+			}
+			vm.push(value.MakeString(container.String()[low:high]))
+			break
+		}
 
 		if rv, ok := container.ReflectValue(); ok {
 			// If it's a pointer to an array, dereference it first
@@ -589,10 +653,71 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 
 	case compiler.OpConvert:
 		typeIdx := frame.readUint16()
-		_ = typeIdx
+		targetType := vm.program.Types[typeIdx]
 		val := vm.pop()
-		// Type conversion - for now, just pass through
-		vm.push(val)
+
+		// Handle type conversion
+		switch t := targetType.(type) {
+		case *types.Basic:
+			switch t.Kind() {
+			case types.String:
+				// Convert to string
+				switch val.Kind() {
+				case value.KindInt:
+					// int -> string: convert rune to string
+					vm.push(value.MakeString(string(rune(val.Int()))))
+				case value.KindUint:
+					// byte/uint8 -> string: convert byte to string
+					vm.push(value.MakeString(string(byte(val.Uint()))))
+				case value.KindString:
+					vm.push(val)
+				default:
+					// Use reflection for other types
+					vm.push(value.MakeString(fmt.Sprintf("%v", val.Interface())))
+				}
+			case types.Int, types.Int8, types.Int16, types.Int32, types.Int64:
+				// Handle conversion from various types to int
+				switch val.Kind() {
+				case value.KindInt:
+					vm.push(val)
+				case value.KindUint:
+					vm.push(value.MakeInt(int64(val.Uint())))
+				case value.KindFloat:
+					vm.push(value.MakeInt(int64(val.Float())))
+				default:
+					vm.push(value.MakeInt(val.Int()))
+				}
+			case types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64, types.Uintptr:
+				// Handle conversion from various types to uint
+				switch val.Kind() {
+				case value.KindInt:
+					vm.push(value.MakeUint(uint64(val.Int())))
+				case value.KindUint:
+					vm.push(val)
+				case value.KindFloat:
+					vm.push(value.MakeUint(uint64(val.Float())))
+				default:
+					vm.push(value.MakeUint(val.Uint()))
+				}
+			case types.Float32, types.Float64:
+				// Handle conversion from int/uint to float
+				switch val.Kind() {
+				case value.KindInt:
+					vm.push(value.MakeFloat(float64(val.Int())))
+				case value.KindUint:
+					vm.push(value.MakeFloat(float64(val.Uint())))
+				case value.KindFloat:
+					vm.push(val)
+				default:
+					vm.push(value.MakeFloat(val.Float()))
+				}
+			default:
+				vm.push(val)
+			}
+		default:
+			// For non-basic types, just pass through for now
+			vm.push(val)
+		}
 
 	// Function operations
 	case compiler.OpClosure:

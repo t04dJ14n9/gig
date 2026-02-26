@@ -703,7 +703,8 @@ func (v Value) Cap() int {
 func (v Value) Index(i int) Value {
 	switch v.kind {
 	case KindString:
-		return MakeString(string(v.str[i]))
+		// s[i] returns a byte (uint8), not a string
+		return MakeUint(uint64(v.str[i]))
 	case KindSlice, KindArray:
 		if rv, ok := v.obj.(reflect.Value); ok {
 			return MakeFromReflect(rv.Index(i))
@@ -735,7 +736,8 @@ func (v Value) MapIndex(k Value) Value {
 		key := k.ToReflectValue(rv.Type().Key())
 		elem := rv.MapIndex(key)
 		if !elem.IsValid() {
-			return MakeNil()
+			// Return zero value of element type, not nil (Go semantics)
+			return MakeFromReflect(reflect.Zero(rv.Type().Elem()))
 		}
 		return MakeFromReflect(elem)
 	}
