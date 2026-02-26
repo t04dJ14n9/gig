@@ -1345,7 +1345,7 @@ func typeToReflect(t types.Type) reflect.Type {
 	case *types.Interface:
 		// Interface type — use the empty interface (any) type
 		// For the VM, all interfaces are represented as interface{}
-		var emptyIface interface{}
+		var emptyIface any
 		return reflect.TypeOf(&emptyIface).Elem()
 	case *types.Named:
 		// For named types, try to get the underlying type

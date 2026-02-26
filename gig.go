@@ -121,7 +121,7 @@ func Build(sourceCode string, packages ...string) (*Program, error) {
 }
 
 // Run executes a function in the program with the given arguments.
-func (p *Program) Run(funcName string, params ...interface{}) (interface{}, error) {
+func (p *Program) Run(funcName string, params ...any) (any, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancel()
 	return p.RunWithContext(ctx, funcName, params...)
@@ -129,7 +129,7 @@ func (p *Program) Run(funcName string, params ...interface{}) (interface{}, erro
 
 // RunWithContext executes a function in the program with context for timeout control.
 // Context is the first parameter following Go idioms.
-func (p *Program) RunWithContext(ctx context.Context, funcName string, params ...interface{}) (interface{}, error) {
+func (p *Program) RunWithContext(ctx context.Context, funcName string, params ...any) (any, error) {
 	// Convert params to Value
 	args := make([]value.Value, len(params))
 	for i, param := range params {

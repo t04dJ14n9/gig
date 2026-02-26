@@ -17,9 +17,9 @@ package main
 import (
 	"fmt"
 
-	"gig"
-
 	_ "myapp/mydep/packages"
+
+	"gig"
 )
 
 func main() {

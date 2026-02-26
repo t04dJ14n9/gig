@@ -74,9 +74,7 @@ func main() {
 
 // ========== init command ==========
 
-var (
-	flagPackage = flag.String("package", "", "Package name for the dependency (required)")
-)
+var flagPackage = flag.String("package", "", "Package name for the dependency (required)")
 
 func runInit() {
 	fs := flag.NewFlagSet("init", flag.ExitOnError)
@@ -103,7 +101,7 @@ func runInit() {
 
 	// Create directory
 	pkgDir := *flagPackage
-	if err := os.MkdirAll(pkgDir, 0755); err != nil {
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating directory: %s\n", err)
 		os.Exit(1)
 	}
@@ -111,7 +109,7 @@ func runInit() {
 	// Generate pkgs.go with custom package name
 	pkgsGo := generatePkgsGo(*flagPackage)
 	pkgsPath := filepath.Join(pkgDir, "pkgs.go")
-	if err := os.WriteFile(pkgsPath, pkgsGo, 0666); err != nil {
+	if err := os.WriteFile(pkgsPath, pkgsGo, 0o666); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing pkgs.go: %s\n", err)
 		os.Exit(1)
 	}
@@ -260,7 +258,7 @@ func runGen() {
 
 	// Create packages subdirectory
 	packagesDir := filepath.Join(pkgDir, "packages")
-	if err := os.MkdirAll(packagesDir, 0755); err != nil {
+	if err := os.MkdirAll(packagesDir, 0o755); err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating packages directory: %s\n", err)
 		os.Exit(1)
 	}

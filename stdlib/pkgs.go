@@ -29,7 +29,7 @@ import (
 	_ "log"
 	_ "maps"
 	_ "math"
-	_ "math/rand"
+	_ "math/rand/v2"
 	_ "net/http"
 	_ "net/url"
 	_ "os"
@@ -47,9 +47,4 @@ import (
 	_ "unicode"
 	_ "unicode/utf16"
 	_ "unicode/utf8"
-	// ============================================
-	// Custom third-party libraries (add yours below)
-	// ============================================
-	// _ "github.com/spf13/cast"
-	// _ "github.com/tidwall/gjson"
 )

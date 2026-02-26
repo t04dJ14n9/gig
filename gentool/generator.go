@@ -58,7 +58,7 @@ func GenerateBarrelImport(outDir string, modulePath string, generatedPkgs []stri
 	}
 
 	outFile := filepath.Join(outDir, "packages", "stdlib.go")
-	return os.WriteFile(outFile, code, 0666)
+	return os.WriteFile(outFile, code, 0o666)
 }
 
 // PackageImport generates registration code for a single package.
@@ -235,7 +235,7 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	// Output file: outDir/goPkgName.go (e.g., mydep/fmt.go)
 	filename := filepath.Join(outDir, goPkgName+".go")
 	fmt.Printf("  -> %s\n", filename)
-	return os.WriteFile(filename, code, 0666)
+	return os.WriteFile(filename, code, 0o666)
 }
 
 // --- Type info structs ---
