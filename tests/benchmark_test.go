@@ -627,11 +627,11 @@ func TestBenchmarkSummary(t *testing.T) {
 
 	for _, r := range rows {
 		ratio := r.gig / r.native
-		t.Log(fmt.Sprintf("  %-22s %14.0f %14.1f %9.0fx %s", r.name, r.gig, r.native, ratio, r.category))
+		t.Logf("  %-22s %14.0f %14.1f %9.0fx %s", r.name, r.gig, r.native, ratio, r.category)
 	}
 
 	t.Log("")
-	t.Log(fmt.Sprintf("  %-22s %14s", "BuildAndRun", "~43,434 ns/op (compile + single execution)"))
+	t.Logf("  %-22s %14s", "BuildAndRun", "~43,434 ns/op (compile + single execution)")
 	t.Log("")
 	t.Log("  Summary:")
 	t.Log("  ┌─────────────────────────────────────────────────────────┐")
