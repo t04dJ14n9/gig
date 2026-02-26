@@ -5,7 +5,7 @@ import (
 
 	"gig"
 
-	_ "gig/packages"
+	_ "gig/stdlib/packages"
 )
 
 func TestFunctionCall(t *testing.T) {

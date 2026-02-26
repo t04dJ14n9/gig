@@ -5,7 +5,7 @@ import (
 
 	"gig"
 
-	_ "gig/packages"
+	_ "gig/stdlib/packages"
 )
 
 // runInt builds and runs source, expecting an int64 result.

@@ -7,7 +7,7 @@ import (
 
 	"gig"
 
-	_ "gig/packages"
+	_ "gig/stdlib/packages"
 )
 
 func TestIfTrue(t *testing.T) {

@@ -22,14 +22,14 @@ go get github.com/t04dJ14n9/gig
 
 ### Option 1: Use Built-in Standard Library (Recommended)
 
-Gig comes with 40+ standard library packages pre-registered. Just import `gig/packages`:
+Gig comes with 40+ standard library packages pre-registered. Just import `gig/stdlib/packages`:
 
 ```go
 package main
 
 import (
     "fmt"
-    _ "gig/packages" // Import gig's built-in stdlib
+    _ "gig/stdlib/packages" // Import gig's built-in stdlib
     "gig"
 )
 

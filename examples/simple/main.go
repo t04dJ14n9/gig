@@ -1,5 +1,5 @@
 // Package main demonstrates using gig with built-in standard library.
-// No custom dependency generation is needed - just import gig/packages.
+// No custom dependency generation is needed - just import gig/stdlib.
 package main
 
 import (
@@ -9,7 +9,7 @@ import (
 
 	"gig"
 
-	_ "gig/packages" // Import gig's built-in stdlib (40+ packages)
+	_ "gig/stdlib/packages" // Import gig's built-in stdlib (40+ packages)
 )
 
 func main() {

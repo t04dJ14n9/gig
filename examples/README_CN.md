@@ -15,7 +15,7 @@
 
 ### 简单示例（推荐首次使用）
 
-使用 Gig 最简单的方式是使用其内置标准库支持。只需导入 `gig/packages`，即可访问 40+ 标准库包。
+使用 Gig 最简单的方式是使用其内置标准库支持。只需导入 `gig/stdlib/packages`，即可访问 40+ 标准库包。
 
 ```bash
 cd simple
@@ -59,7 +59,7 @@ simple/
 ```go
 import (
     "gig"
-    _ "gig/packages" // 导入内置标准库（40+ 包）
+    _ "gig/stdlib/packages" // 导入内置标准库（40+ 包）
 )
 
 func main() {
@@ -336,7 +336,7 @@ Gig 通过在解释代码中禁止某些导入来强制安全性：
 **问题：** 你正在导入 Gig 不知道的包。
 
 **解决方案：**
-- 对于标准库：确保你导入了 `_ "gig/packages"`
+- 对于标准库：确保你导入了 `_ "gig/stdlib/packages"`
 - 对于第三方库：使用 CLI 生成注册代码
 
 ### "method not found on external type"（外部类型上找不到方法）

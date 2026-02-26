@@ -22,14 +22,14 @@ go get github.com/t04dJ14n9/gig
 
 ### 方式一：使用内置标准库（推荐）
 
-Gig 内置了 40+ 标准库包，只需导入 `gig/packages`：
+Gig 内置了 40+ 标准库包，只需导入 `gig/stdlib/packages`：
 
 ```go
 package main
 
 import (
     "fmt"
-    _ "gig/packages" // 导入 gig 的内置标准库
+    _ "gig/stdlib/packages" // 导入 gig 的内置标准库
     "gig"
 )
 

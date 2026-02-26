@@ -15,7 +15,7 @@ This directory contains examples demonstrating how to use Gig, a high-performanc
 
 ### Simple Example (Recommended for First-Time Users)
 
-The simplest way to use Gig is with its built-in standard library support. Just import `gig/packages` and you have access to 40+ standard library packages.
+The simplest way to use Gig is with its built-in standard library support. Just import `gig/stdlib/packages` and you have access to 40+ standard library packages.
 
 ```bash
 cd simple
@@ -59,7 +59,7 @@ simple/
 ```go
 import (
     "gig"
-    _ "gig/packages" // Import built-in stdlib (40+ packages)
+    _ "gig/stdlib/packages" // Import built-in stdlib (40+ packages)
 )
 
 func main() {
@@ -336,7 +336,7 @@ Gig enforces security by banning certain imports in interpreted code:
 **Problem:** You're importing a package that Gig doesn't know about.
 
 **Solution:**
-- For stdlib: Make sure you imported `_ "gig/packages"`
+- For stdlib: Make sure you imported `_ "gig/stdlib/packages"`
 - For third-party: Use the CLI to generate registration code
 
 ### "method not found on external type"
