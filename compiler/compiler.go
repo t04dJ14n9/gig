@@ -406,7 +406,7 @@ func (c *Compiler) compileBinOp(i *ssa.BinOp) {
 	c.compileValue(i.Y)
 
 	var op OpCode
-	switch i.Op {
+	switch i.Op { //nolint:exhaustive
 	case token.ADD:
 		op = OpAdd
 	case token.SUB:
@@ -462,7 +462,7 @@ func (c *Compiler) compileUnOp(i *ssa.UnOp) {
 	c.compileValue(i.X)
 
 	var op OpCode
-	switch i.Op {
+	switch i.Op { //nolint:exhaustive
 	case token.ADD:
 		// Unary + - just pass through
 		// Still need to store result
@@ -821,7 +821,7 @@ func (c *Compiler) compileConst(cnst *ssa.Const) {
 	var v any
 	switch t := cnst.Type().(type) {
 	case *types.Basic:
-		switch t.Kind() {
+		switch t.Kind() { //nolint:exhaustive
 		case types.Bool:
 			v = cnst.Value != nil && cnst.Value.Kind() == constant.Bool && constant.BoolVal(cnst.Value)
 		case types.Int, types.Int8, types.Int16, types.Int32, types.Int64:

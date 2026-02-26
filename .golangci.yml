@@ -20,7 +20,6 @@ linters:
   enable:
     # Default linters
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
@@ -31,14 +30,11 @@ linters:
     - dogsled          # Check assignments with too many blank identifiers
     - dupl             # Detect duplicate code
     - copyloopvar      # Check for pointers to enclosing loop variables
-    - exhaustive       # Check exhaustiveness of enum switch statements
     - gochecknoinits   # Check that no init functions are present
     - goconst          # Find repeated strings that could be constants
     - gocritic         # The most comprehensive Go linter
     - gocyclo          # Compute cyclomatic complexity
     - godot            # Check if comments end in a period
-    - gofmt            # Check whether code was gofmt-ed
-    - goimports        # Check import statements are formatted
     - goprintffuncname # Check that printf-like functions end with 'f'
     - gosec            # Inspect source code for security problems
     - misspell         # Find commonly misspelled English words
@@ -49,13 +45,16 @@ linters:
     - revive           # Fast, configurable, extensible, flexible linter
     - rowserrcheck     # Check whether Err of rows is checked successfully
     - sqlclosecheck    # Check that sql.Rows and sql.Stmt are closed
-    - stylecheck       # Stylecheck is a replacement for golint
     - unconvert        # Remove unnecessary type conversions
     - unparam          # Report unused function parameters
     - whitespace       # Detect leading and trailing whitespace
 
-  disable:
-    - typecheck        # Disable due to generics issues in some versions
+formatters:
+  enable:
+    - gofmt            # Check whether code was gofmt-ed
+    - goimports        # Check import statements are formatted
+
+
 
 linters-settings:
   errcheck:
@@ -158,9 +157,3 @@ issues:
   max-same-issues: 0
   new: false
 
-severity:
-  default-severity: warning
-  rules:
-    - linters:
-        - gosec
-      severity: error

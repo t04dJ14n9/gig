@@ -87,7 +87,7 @@ func runInit() {
 		fmt.Fprintf(os.Stderr, "Edit the file to add third-party libraries.\n\n")
 		fs.PrintDefaults()
 	}
-	fs.Parse(os.Args[2:])
+	_ = fs.Parse(os.Args[2:])
 
 	if *flagPackage == "" {
 		fmt.Fprintf(os.Stderr, "Error: -package is required\n\n")
@@ -223,7 +223,7 @@ func runGen() {
 		fmt.Fprintf(os.Stderr, "After generation, import the package in your program:\n")
 		fmt.Fprintf(os.Stderr, "  import _ \"<package-name>/packages\"\n")
 	}
-	fs.Parse(os.Args[2:])
+	_ = fs.Parse(os.Args[2:])
 
 	if len(fs.Args()) < 1 {
 		fmt.Fprintf(os.Stderr, "Error: directory argument required\n\n")

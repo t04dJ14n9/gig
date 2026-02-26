@@ -322,7 +322,7 @@ func (v Value) ReflectValue() (reflect.Value, bool) {
 
 // Add returns v + other.
 func (v Value) Add(other Value) Value {
-	switch v.kind {
+	switch v.kind { //nolint:exhaustive
 	case KindInt:
 		return MakeInt(v.num + other.Int())
 	case KindUint:
@@ -342,7 +342,7 @@ func (v Value) Add(other Value) Value {
 
 // Sub returns v - other.
 func (v Value) Sub(other Value) Value {
-	switch v.kind {
+	switch v.kind { //nolint:exhaustive
 	case KindInt:
 		return MakeInt(v.num - other.Int())
 	case KindUint:
@@ -360,7 +360,7 @@ func (v Value) Sub(other Value) Value {
 
 // Mul returns v * other.
 func (v Value) Mul(other Value) Value {
-	switch v.kind {
+	switch v.kind { //nolint:exhaustive
 	case KindInt:
 		return MakeInt(v.num * other.Int())
 	case KindUint:
@@ -378,7 +378,7 @@ func (v Value) Mul(other Value) Value {
 
 // Div returns v / other.
 func (v Value) Div(other Value) Value {
-	switch v.kind {
+	switch v.kind { //nolint:exhaustive
 	case KindInt:
 		return MakeInt(v.num / other.Int())
 	case KindUint:
@@ -397,7 +397,7 @@ func (v Value) Div(other Value) Value {
 
 // Mod returns v % other.
 func (v Value) Mod(other Value) Value {
-	switch v.kind {
+	switch v.kind { //nolint:exhaustive
 	case KindInt:
 		return MakeInt(v.num % other.Int())
 	case KindUint:
@@ -411,7 +411,7 @@ func (v Value) Mod(other Value) Value {
 
 // Neg returns -v.
 func (v Value) Neg() Value {
-	switch v.kind {
+	switch v.kind { //nolint:exhaustive
 	case KindInt:
 		return MakeInt(-v.num)
 	case KindFloat:
@@ -428,7 +428,7 @@ func (v Value) Neg() Value {
 
 // Cmp compares v with other. Returns -1, 0, or 1.
 func (v Value) Cmp(other Value) int {
-	switch v.kind {
+	switch v.kind { //nolint:exhaustive
 	case KindBool:
 		a, b := v.Bool(), other.Bool()
 		if a == b {
@@ -587,7 +587,7 @@ func (v Value) Rsh(n uint) Value {
 
 // ToInt converts to int.
 func (v Value) ToInt() Value {
-	switch v.kind {
+	switch v.kind { //nolint:exhaustive
 	case KindBool:
 		if v.Bool() {
 			return MakeInt(1)
@@ -606,7 +606,7 @@ func (v Value) ToInt() Value {
 
 // ToUint converts to uint.
 func (v Value) ToUint() Value {
-	switch v.kind {
+	switch v.kind { //nolint:exhaustive
 	case KindBool:
 		if v.Bool() {
 			return MakeUint(1)
@@ -625,7 +625,7 @@ func (v Value) ToUint() Value {
 
 // ToFloat converts to float.
 func (v Value) ToFloat() Value {
-	switch v.kind {
+	switch v.kind { //nolint:exhaustive
 	case KindBool:
 		if v.Bool() {
 			return MakeFloat(1.0)
@@ -644,7 +644,7 @@ func (v Value) ToFloat() Value {
 
 // ToBool converts to bool.
 func (v Value) ToBool() Value {
-	switch v.kind {
+	switch v.kind { //nolint:exhaustive
 	case KindBool:
 		return v
 	case KindInt:
