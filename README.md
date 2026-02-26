@@ -1,5 +1,7 @@
 # Gig - Go Interpreter in Go
 
+[![中文](https://img.shields.io/badge/lang-中文-red.svg)](README_CN.md) [![English](https://img.shields.io/badge/lang-English-blue.svg)](README.md)
+
 Gig is a high-performance Go interpreter written in Go, featuring SSA-to-bytecode compilation and a stack-based virtual machine.
 
 ## Features
@@ -238,36 +240,400 @@ Gig enforces security by banning certain imports:
 
 ## Architecture
 
-### Compiler
-- Parses Go source code using `go/parser`
-- Type-checks using `go/types`
-- Builds SSA representation using `golang.org/x/tools/go/ssa`
-- Compiles SSA to custom bytecode (~70 opcodes)
+Gig uses a multi-stage compilation pipeline to transform Go source code into efficient bytecode, which is then executed by a stack-based virtual machine.
 
-### Virtual Machine
-- Stack-based execution
-- Support for functions, closures, and recursion
-- Context-based timeout control
-- Concurrent execution support
+### High-Level Architecture
 
-### Value System
-- Tagged-union design for efficient primitive operations
-- Direct operations for `int`, `float64`, `string`, `bool`
-- Fallback to `interface{}` for complex types
+```mermaid
+flowchart TB
+    subgraph Input["📥 Input"]
+        SRC["Go Source Code"]
+    end
+    
+    subgraph Frontend["🔍 Frontend"]
+        PARSER["go/parser<br/>AST Generation"]
+        TYPECHECK["go/types<br/>Type Checking"]
+        SSA["golang.org/x/tools/go/ssa<br/>SSA IR Generation"]
+    end
+    
+    subgraph Compiler["⚙️ Compiler"]
+        COMP["SSA → Bytecode<br/>~70 Opcodes"]
+        CONST["Constant Pool"]
+        TYPES["Type Pool"]
+        FUNCS["Function Registry"]
+    end
+    
+    subgraph Runtime["🚀 Runtime"]
+        VM["Stack-based VM"]
+        VALUE["Tagged-Union<br/>Value System"]
+        EXT["External Package<br/>Registry"]
+    end
+    
+    subgraph Output["📤 Output"]
+        RESULT["Result<br/>(interface{})"]
+    end
+    
+    SRC --> PARSER
+    PARSER --> TYPECHECK
+    TYPECHECK --> SSA
+    SSA --> COMP
+    COMP --> CONST
+    COMP --> TYPES
+    COMP --> FUNCS
+    CONST --> VM
+    TYPES --> VM
+    FUNCS --> VM
+    VM --> VALUE
+    VM --> EXT
+    EXT --> VALUE
+    VALUE --> RESULT
+```
 
-## Changelog
+### Detailed Component Architecture
 
-### v0.2.0 - External Type Method Support
+```mermaid
+flowchart LR
+    subgraph "User Code"
+        UC["gig.Build(source)"]
+        UR["prog.Run(func, args...)"]
+    end
+    
+    subgraph "gig.go [Entry Point]"
+        BUILD["Build()"]
+        SECURITY["Security Check<br/>(unsafe, reflect, panic)"]
+        RUN["Run() / RunWithContext()"]
+    end
+    
+    subgraph "Frontend Pipeline"
+        PARSE["Parser<br/>go/parser"]
+        TC["Type Checker<br/>go/types"]
+        SSABUILD["SSA Builder<br/>golang.org/x/tools/go/ssa"]
+    end
+    
+    subgraph "compiler/ [Compiler]"
+        COMPILER["Compiler"]
+        SYMTAP["Symbol Table"]
+        BYTECODE["Bytecode Generator"]
+        subgraph "Output"
+            PROG["Program"]
+            CFUNC["CompiledFunction[]"]
+            CCONST["Constants[]"]
+            CTYPES["Types[]"]
+        end
+    end
+    
+    subgraph "vm/ [Virtual Machine]"
+        VM["VM"]
+        STACK["Stack<br/>(Value[])"]
+        FRAMES["Call Frames"]
+        OPS["Opcode Handlers<br/>(~70 ops)"]
+    end
+    
+    subgraph "value/ [Value System]"
+        VAL["Value (tagged-union)"]
+        PRIM["Primitives<br/>(int, float, string, bool)"]
+        REF["Reflect Fallback<br/>(complex types)"]
+    end
+    
+    subgraph "importer/ [Package System]"
+        IMP["Importer<br/>(types.Importer)"]
+        REG["Package Registry"]
+        EXTTYPE["ExternalPackage"]
+    end
+    
+    subgraph "register/ [Public API]"
+        REGAPI["AddPackage()"]
+        REGFUNC["NewFunction()"]
+        REGVAR["NewVar()"]
+        REGCONST["NewConst()"]
+    end
+    
+    subgraph "packages/ [Stdlib]"
+        STDLIB["40+ Packages<br/>(fmt, strings, math, ...)"]
+    end
+    
+    UC --> BUILD
+    BUILD --> SECURITY
+    SECURITY --> PARSE
+    PARSE --> TC
+    TC --> SSABUILD
+    SSABUILD --> COMPILER
+    COMPILER --> SYMTAP
+    SYMTAP --> BYTECODE
+    BYTECODE --> PROG
+    PROG --> CFUNC
+    PROG --> CCONST
+    PROG --> CTYPES
+    
+    UR --> RUN
+    RUN --> VM
+    VM --> STACK
+    VM --> FRAMES
+    VM --> OPS
+    OPS --> VAL
+    VAL --> PRIM
+    VAL --> REF
+    
+    TC --> IMP
+    IMP --> REG
+    REG --> EXTTYPE
+    
+    REGAPI --> REG
+    REGFUNC --> EXTTYPE
+    REGVAR --> EXTTYPE
+    REGCONST --> EXTTYPE
+    
+    STDLIB --> REG
+```
 
-**Bug Fix**: Methods on external (registered) types are now fully supported.
+### Data Flow During Execution
 
-Previously, calling methods on external types like `gjson.Get(json, path).String()` would fail with a type-check error because methods were not registered on `types.Named` types. This has been fixed across three layers:
+```mermaid
+sequenceDiagram
+    participant User as User Code
+    participant Gig as gig.go
+    participant Frontend as Frontend
+    participant Comp as Compiler
+    participant VM as Virtual Machine
+    participant Value as Value System
+    participant Ext as External Packages
+    
+    User->>Gig: Build(source)
+    Gig->>Frontend: Parse(source)
+    Frontend-->>Gig: AST
+    Gig->>Frontend: TypeCheck(AST)
+    Frontend->>Ext: Import packages
+    Ext-->>Frontend: types.Package
+    Frontend-->>Gig: Type-checked AST
+    Gig->>Frontend: BuildSSA(AST)
+    Frontend-->>Gig: SSA IR
+    Gig->>Comp: Compile(SSA)
+    Comp-->>Gig: Program{Functions, Constants, Types}
+    Gig-->>User: *Program
+    
+    User->>Gig: Run(funcName, args)
+    Gig->>Value: FromInterface(args)
+    Value-->>Gig: []Value
+    Gig->>VM: Execute(funcName, args)
+    VM->>VM: Fetch-Decode-Execute Loop
+    VM->>Value: Operations (Add, Sub, etc.)
+    VM->>Ext: External function calls
+    Ext-->>VM: Results
+    VM-->>Gig: Value
+    Gig->>Value: Interface()
+    Value-->>Gig: interface{}
+    Gig-->>User: result
+```
 
-- **`importer/importer.go`**: Added `addMethodsToNamed()` — when converting `reflect.Type` to `types.Named`, all exported methods (both value and pointer receivers) are now enumerated and added via `named.AddMethod()`. This allows the Go type checker to resolve method calls on external types.
+### Compiler Pipeline Details
 
-- **`compiler/compiler.go`**: Added `ExternalMethodInfo` and updated `compileExternalStaticCall` to detect method calls (`sig.Recv() != nil`) and emit them with method dispatch metadata instead of looking up a static function object.
+```mermaid
+flowchart TB
+    subgraph Input
+        SRC["Go Source"]
+    end
+    
+    subgraph "Stage 1: Parsing"
+        P1["Lexer/Parser<br/>go/parser"]
+        AST["Abstract Syntax Tree"]
+    end
+    
+    subgraph "Stage 2: Type Checking"
+        P2["Type Checker<br/>go/types"]
+        TCINFO["types.Info<br/>(Types, Defs, Uses, Scopes)"]
+        PKG["types.Package"]
+    end
+    
+    subgraph "Stage 3: SSA Generation"
+        P3["SSA Builder<br/>golang.org/x/tools/go/ssa"]
+        SSAFN["ssa.Function"]
+        SSABLK["ssa.BasicBlock"]
+        SSAINST["ssa.Instruction"]
+    end
+    
+    subgraph "Stage 4: Bytecode Compilation"
+        P4["Compiler"]
+        SYM["Symbol Table<br/>(Value → Local Slot)"]
+        PHI["Phi Elimination"]
+        JMP["Jump Patching"]
+    end
+    
+    subgraph Output
+        PROG["Program"]
+        FN["CompiledFunction"]
+        CODE["Bytecode<br/>(~70 opcodes)"]
+        CONSTPOOL["Constant Pool"]
+        TYPEPOOL["Type Pool"]
+    end
+    
+    SRC --> P1 --> AST
+    AST --> P2 --> TCINFO --> PKG
+    PKG --> P3 --> SSAFN --> SSABLK --> SSAINST
+    SSAINST --> P4
+    P4 --> SYM --> PHI --> JMP
+    JMP --> PROG
+    PROG --> FN --> CODE
+    PROG --> CONSTPOOL
+    PROG --> TYPEPOOL
+```
 
-- **`vm/vm.go`**: Added `callExternalMethod()` which dispatches method calls on external types via `reflect.Value.MethodByName()`, handling variadic arguments, pointer receivers, and multi-return values.
+### Virtual Machine Architecture
+
+```mermaid
+flowchart TB
+    subgraph VM["Virtual Machine"]
+        subgraph State["Execution State"]
+            STACK["Stack<br/>Value[1024]"]
+            SP["Stack Pointer"]
+            FRAMES["Call Frames[64]"]
+            FP["Frame Pointer"]
+            GLOBALS["Globals"]
+        end
+        
+        subgraph Frame["Call Frame"]
+            FN["Function"]
+            IP["Instruction Pointer"]
+            LOCALS["Locals[]"]
+            FREE["FreeVars[]"]
+            DEFER["Deferred Calls"]
+        end
+        
+        subgraph Execution["Execution Loop"]
+            FETCH["Fetch Opcode"]
+            DECODE["Decode Operands"]
+            EXEC["Execute"]
+            CHECK["Context Check<br/>(every 1024 instructions)"]
+        end
+    end
+    
+    subgraph Opcodes["Opcode Categories"]
+        STACK_OP["Stack Ops<br/>(Push, Pop, Dup)"]
+        ARITH["Arithmetic<br/>(Add, Sub, Mul, Div)"]
+        CMP["Comparison<br/>(Eq, Lt, Gt)"]
+        CTRL["Control Flow<br/>(Jump, Call, Return)"]
+        CONTAINER["Container<br/>(Index, Slice, Map)"]
+        FUNC["Function<br/>(Closure, CallExternal)"]
+        BUILTIN["Builtins<br/>(Len, Append, Make)"]
+    end
+    
+    STACK --> FETCH --> DECODE --> EXEC --> CHECK --> FETCH
+    EXEC --> STACK_OP
+    EXEC --> ARITH
+    EXEC --> CMP
+    EXEC --> CTRL
+    EXEC --> CONTAINER
+    EXEC --> FUNC
+    EXEC --> BUILTIN
+    
+    FRAMES --> Frame
+    Frame --> LOCALS --> STACK
+```
+
+### Value System Design
+
+```mermaid
+flowchart LR
+    subgraph Value["Value (16 bytes + obj)"]
+        KIND["Kind (uint8)"]
+        NUM["num (int64)"]
+        NUM2["num2 (int64)"]
+        STR["str (string)"]
+        OBJ["obj (any)"]
+    end
+    
+    subgraph Kinds["Value Kinds"]
+        PRIM["Primitives<br/>(Zero allocation)"]
+        COMP["Composite<br/>(Reflect fallback)"]
+    end
+    
+    subgraph Primitives["Primitive Fast Path"]
+        BOOL["KindBool<br/>num: 0|1"]
+        INT["KindInt<br/>num: int64"]
+        UINT["KindUint<br/>num: uint64 bits"]
+        FLOAT["KindFloat<br/>num: float64 bits"]
+        STRV["KindString<br/>str: string"]
+        CPLX["KindComplex<br/>num+num2: real+imag"]
+    end
+    
+    subgraph Composite["Composite Slow Path"]
+        SLICE["KindSlice/Array<br/>obj: reflect.Value"]
+        MAP["KindMap<br/>obj: reflect.Value"]
+        STRUCT["KindStruct<br/>obj: reflect.Value"]
+        FUNC["KindFunc<br/>obj: *Closure"]
+        IFACE["KindInterface<br/>obj: interface{}"]
+        REFLECT["KindReflect<br/>obj: reflect.Value"]
+    end
+    
+    KIND --> Kinds
+    Kinds --> PRIM
+    Kinds --> COMP
+    PRIM --> Primitives
+    COMP --> Composite
+```
+
+### External Package Integration
+
+```mermaid
+flowchart TB
+    subgraph Registration["Package Registration"]
+        CLI["gig CLI"]
+        PKGS["pkgs.go<br/>(imports)"]
+        GEN["gig gen"]
+        GENERATED["packages/*.go<br/>(generated)"]
+    end
+    
+    subgraph Runtime["Runtime Integration"]
+        REG["Package Registry"]
+        IMPORT["Importer<br/>(types.Importer)"]
+        TYPECONV["Type Converter<br/>(reflect.Type → types.Type)"]
+        METHOD["Method Introspection<br/>(addMethodsToNamed)"]
+    end
+    
+    subgraph Execution["VM Execution"]
+        CALL["OpCallExternal"]
+        CACHE["Inline Cache"]
+        DIRECT["DirectCall<br/>(fast path)"]
+        REFLECT["reflect.Call<br/>(slow path)"]
+        METHODCALL["Method Dispatch<br/>(MethodByName)"]
+    end
+    
+    CLI --> PKGS --> GEN --> GENERATED
+    GENERATED --> REG
+    REG --> IMPORT --> TYPECONV --> METHOD
+    
+    IMPORT --> CALL
+    CALL --> CACHE
+    CACHE --> DIRECT
+    CACHE --> REFLECT
+    CALL --> METHODCALL
+```
+
+---
+
+### Component Summary
+
+| Component | Package | Purpose |
+|-----------|---------|---------|
+| **Entry Point** | `gig.go` | Public API: `Build()`, `Run()`, `RunWithContext()` |
+| **Compiler** | `compiler/` | SSA to bytecode compilation (~70 opcodes) |
+| **Virtual Machine** | `vm/` | Stack-based bytecode execution |
+| **Value System** | `value/` | Tagged-union values with zero-allocation primitives |
+| **Importer** | `importer/` | External package type resolution |
+| **Register** | `register/` | Public API for package registration |
+| **Packages** | `packages/` | 40+ pre-registered stdlib packages |
+| **CLI** | `cmd/gig` | Code generation tool |
+
+### Key Design Decisions
+
+1. **SSA-based Compilation**: Uses Go's official SSA library for correct handling of complex control flow, closures, and method calls.
+
+2. **Tagged-Union Values**: Primitive operations avoid reflection overhead by storing values in native Go types within a union.
+
+3. **Inline Caching**: External function calls are cached with resolved function info for fast dispatch.
+
+4. **Context Integration**: VM checks context cancellation every 1024 instructions for responsive timeout handling.
+
+5. **Security by Default**: Bans `unsafe`, `reflect`, and `panic` in interpreted code for controlled execution.
 
 ## License
 
