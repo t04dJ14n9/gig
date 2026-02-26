@@ -367,9 +367,10 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 
 	// Container operations
 	case compiler.OpMakeSlice:
-		typeIdx := frame.readUint16()
 		capVal := vm.pop()
 		lenVal := vm.pop()
+		typeIdxVal := vm.pop()
+		typeIdx := uint16(typeIdxVal.Int())
 		// Create slice using the type from the type pool
 		if int(typeIdx) < len(vm.program.Types) {
 			typ := vm.program.Types[typeIdx]
@@ -384,8 +385,9 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		}
 
 	case compiler.OpMakeMap:
-		typeIdx := frame.readUint16()
 		sizeVal := vm.pop()
+		typeIdxVal := vm.pop()
+		typeIdx := uint16(typeIdxVal.Int())
 		if int(typeIdx) < len(vm.program.Types) {
 			typ := vm.program.Types[typeIdx]
 			if rt := typeToReflect(typ); rt != nil {
@@ -400,8 +402,9 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		}
 
 	case compiler.OpMakeChan:
-		typeIdx := frame.readUint16()
 		sizeVal := vm.pop()
+		typeIdxVal := vm.pop()
+		typeIdx := uint16(typeIdxVal.Int())
 		if int(typeIdx) < len(vm.program.Types) {
 			typ := vm.program.Types[typeIdx]
 			if rt := typeToReflect(typ); rt != nil {
@@ -428,10 +431,23 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 			idx := int(key.Int())
 			vm.push(container.Index(idx))
 		case value.KindReflect:
-			// Handle reflect.Value containing a slice
+			// Handle reflect.Value containing a slice, array, or map
 			if rv, ok := container.ReflectValue(); ok {
-				idx := int(key.Int())
-				vm.push(value.MakeFromReflect(rv.Index(idx)))
+				switch rv.Kind() {
+				case reflect.Slice, reflect.Array:
+					idx := int(key.Int())
+					vm.push(value.MakeFromReflect(rv.Index(idx)))
+				case reflect.Map:
+					k := key.ToReflectValue(rv.Type().Key())
+					elem := rv.MapIndex(k)
+					if !elem.IsValid() {
+						vm.push(value.MakeNil())
+					} else {
+						vm.push(value.MakeFromReflect(elem))
+					}
+				default:
+					vm.push(value.MakeNil())
+				}
 			} else {
 				vm.push(value.MakeNil())
 			}
@@ -449,6 +465,16 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 			container.SetIndex(idx, val)
 		case value.KindMap:
 			container.SetMapIndex(key, val)
+		case value.KindReflect:
+			if rv, ok := container.ReflectValue(); ok {
+				switch rv.Kind() {
+				case reflect.Slice, reflect.Array:
+					idx := int(key.Int())
+					rv.Index(idx).Set(val.ToReflectValue(rv.Type().Elem()))
+				case reflect.Map:
+					container.SetMapIndex(key, val)
+				}
+			}
 		}
 
 	case compiler.OpSlice:
@@ -459,13 +485,18 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		container := vm.pop()
 		
 		low := int(lowVal.Int())
-		high := int(highVal.Int())
 		
 		if rv, ok := container.ReflectValue(); ok {
 			// If it's a pointer to an array, dereference it first
 			if rv.Kind() == reflect.Ptr && rv.Elem().Kind() == reflect.Array {
 				rv = rv.Elem()
 			}
+			
+			high := int(highVal.Int())
+			if high == 0xFFFF {
+				high = rv.Len()
+			}
+			
 			var sliced reflect.Value
 			if maxVal.Kind() != value.KindNil && maxVal.Int() != 0xFFFF {
 				// 3-index slice: container[low:high:max]
@@ -510,11 +541,19 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		idx := int(index.Int())
 
 		if rv, ok := container.ReflectValue(); ok {
+			// Dereference pointer if needed
+			if rv.Kind() == reflect.Ptr {
+				rv = rv.Elem()
+			}
 			// Get element address using reflect
 			elem := rv.Index(idx)
-			// Create a pointer to the element
-			elemPtr := elem.Addr()
-			vm.push(value.MakeFromReflect(elemPtr))
+			if elem.CanAddr() {
+				elemPtr := elem.Addr()
+				vm.push(value.MakeFromReflect(elemPtr))
+			} else {
+				// Can't address - set directly
+				vm.push(value.MakeFromReflect(elem))
+			}
 		} else {
 			vm.push(value.MakeNil())
 		}
@@ -622,6 +661,12 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 			vm.push(value.MakeInt(int64(len(obj.String()))))
 		case value.KindSlice, value.KindArray, value.KindMap, value.KindChan:
 			vm.push(value.MakeInt(int64(obj.Len())))
+		case value.KindReflect:
+			if rv, ok := obj.ReflectValue(); ok {
+				vm.push(value.MakeInt(int64(rv.Len())))
+			} else {
+				vm.push(value.MakeInt(0))
+			}
 		default:
 			vm.push(value.MakeInt(0))
 		}
@@ -631,6 +676,12 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		switch obj.Kind() {
 		case value.KindSlice, value.KindArray, value.KindChan:
 			vm.push(value.MakeInt(int64(obj.Cap())))
+		case value.KindReflect:
+			if rv, ok := obj.ReflectValue(); ok {
+				vm.push(value.MakeInt(int64(rv.Cap())))
+			} else {
+				vm.push(value.MakeInt(0))
+			}
 		default:
 			vm.push(value.MakeInt(0))
 		}

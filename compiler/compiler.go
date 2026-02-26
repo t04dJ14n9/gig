@@ -566,36 +566,37 @@ func (c *Compiler) compileMakeBuiltin(args []ssa.Value) {
 	// First arg is always the type
 	t := args[0].Type()
 	typeIdx := c.addType(t)
+	typeIdxConst := c.addConstant(int64(typeIdx))
 	zeroIdx := c.addConstant(int64(0))
 
 	switch t.(type) {
 	case *types.Slice:
-		c.emit(OpConst, uint16(typeIdx))
+		c.emit(OpConst, typeIdxConst)
 		if len(args) >= 2 {
 			c.compileValue(args[1])
 		} else {
-			c.emit(OpConst, uint16(zeroIdx))
+			c.emit(OpConst, zeroIdx)
 		}
 		if len(args) >= 3 {
 			c.compileValue(args[2])
 		} else {
-			c.emit(OpConst, uint16(zeroIdx))
+			c.emit(OpConst, zeroIdx)
 		}
 		c.emit(OpMakeSlice)
 	case *types.Map:
-		c.emit(OpConst, uint16(typeIdx))
+		c.emit(OpConst, typeIdxConst)
 		if len(args) > 1 {
 			c.compileValue(args[1])
 		} else {
-			c.emit(OpConst, uint16(zeroIdx))
+			c.emit(OpConst, zeroIdx)
 		}
 		c.emit(OpMakeMap)
 	case *types.Chan:
-		c.emit(OpConst, uint16(typeIdx))
+		c.emit(OpConst, typeIdxConst)
 		if len(args) > 1 {
 			c.compileValue(args[1])
 		} else {
-			c.emit(OpConst, uint16(zeroIdx))
+			c.emit(OpConst, zeroIdx)
 		}
 		c.emit(OpMakeChan)
 	}
@@ -780,7 +781,9 @@ func (c *Compiler) compileMakeSlice(i *ssa.MakeSlice) {
 	typeIdx := c.addType(i.Type())
 	resultIdx := c.symbolTable.AllocLocal(i)
 
-	c.emit(OpConst, uint16(typeIdx))
+	// Push typeIdx as an integer constant on the stack
+	typeIdxConst := c.addConstant(int64(typeIdx))
+	c.emit(OpConst, typeIdxConst)
 	c.compileValue(i.Len)
 	c.compileValue(i.Cap)
 	c.emit(OpMakeSlice)
@@ -792,7 +795,8 @@ func (c *Compiler) compileMakeMap(i *ssa.MakeMap) {
 	typeIdx := c.addType(i.Type())
 	resultIdx := c.symbolTable.AllocLocal(i)
 
-	c.emit(OpConst, uint16(typeIdx))
+	typeIdxConst := c.addConstant(int64(typeIdx))
+	c.emit(OpConst, typeIdxConst)
 
 	if i.Reserve != nil {
 		c.compileValue(i.Reserve)
@@ -809,7 +813,8 @@ func (c *Compiler) compileMakeChan(i *ssa.MakeChan) {
 	typeIdx := c.addType(i.Type())
 	resultIdx := c.symbolTable.AllocLocal(i)
 
-	c.emit(OpConst, uint16(typeIdx))
+	typeIdxConst := c.addConstant(int64(typeIdx))
+	c.emit(OpConst, typeIdxConst)
 
 	if i.Size != nil {
 		c.compileValue(i.Size)

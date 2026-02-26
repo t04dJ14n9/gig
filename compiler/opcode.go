@@ -58,16 +58,16 @@ const (
 	OpReturnVal // pop and return value
 
 	// Container operations
-	OpMakeSlice  // make slice [type_idx:2, len_idx:2, cap_idx:2]
-	OpMakeMap    // make map [type_idx:2, size_idx:2]
-	OpMakeChan   // make chan [type_idx:2, size_idx:2]
+	OpMakeSlice  // make slice: pop cap, pop len, pop typeIdx from stack
+	OpMakeMap    // make map: pop size, pop typeIdx from stack
+	OpMakeChan   // make chan: pop size, pop typeIdx from stack
 	OpMakeArray  // make array [type_idx:2]
 	OpMakeStruct // make struct [type_idx:2]
 
 	// Index operations
 	OpIndex    // pop key, pop container, push container[key]
 	OpSetIndex // pop val, pop key, pop container, container[key] = val
-	OpSlice    // slice operation [low_idx:2, high_idx:2, max_idx:2]
+	OpSlice    // slice operation: pop max, pop high, pop low, pop container from stack
 	OpSliceLen // get length
 
 	// Map operations
@@ -325,12 +325,8 @@ var OperandWidths = map[OpCode]int{
 	OpJumpTrue:     2,
 	OpJumpFalse:    2,
 	OpCall:         3, // func_idx(2) + num_args(1)
-	OpMakeSlice:    6, // type_idx(2) + len_idx(2) + cap_idx(2)
-	OpMakeMap:      4, // type_idx(2) + size_idx(2)
-	OpMakeChan:     4, // type_idx(2) + size_idx(2)
 	OpMakeArray:    2,
 	OpMakeStruct:   2,
-	OpSlice:        6, // low_idx(2) + high_idx(2) + max_idx(2)
 	OpField:        2,
 	OpSetField:     2,
 	OpAddr:         2,
