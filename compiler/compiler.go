@@ -115,26 +115,35 @@ func Compile(mainPkg *ssa.Package) (*Program, error) {
 		FuncIndex: make(map[*ssa.Function]int),
 	}
 
-	// First pass: collect all functions and assign indices
-	idx := 0
+	// Collect all functions (including anonymous/nested)
+	var allFuncs []*ssa.Function
+	var collectFuncs func(fn *ssa.Function)
+	collectFuncs = func(fn *ssa.Function) {
+		allFuncs = append(allFuncs, fn)
+		for _, anon := range fn.AnonFuncs {
+			collectFuncs(anon)
+		}
+	}
 	for _, member := range mainPkg.Members {
 		if fn, ok := member.(*ssa.Function); ok {
-			c.funcIndex[fn] = idx
-			c.program.FuncIndex[fn] = idx
-			idx++
+			collectFuncs(fn)
 		}
 	}
 
+	// First pass: assign indices to all functions
+	for idx, fn := range allFuncs {
+		c.funcIndex[fn] = idx
+		c.program.FuncIndex[fn] = idx
+	}
+
 	// Second pass: compile each function
-	for _, member := range mainPkg.Members {
-		if fn, ok := member.(*ssa.Function); ok {
-			compiled, err := c.compileFunction(fn)
-			if err != nil {
-				return nil, fmt.Errorf("compile function %s: %w", fn.Name(), err)
-			}
-			c.funcs[fn.Name()] = compiled
-			c.program.Functions[fn.Name()] = compiled
+	for _, fn := range allFuncs {
+		compiled, err := c.compileFunction(fn)
+		if err != nil {
+			return nil, fmt.Errorf("compile function %s: %w", fn.Name(), err)
 		}
+		c.funcs[fn.Name()] = compiled
+		c.program.Functions[fn.Name()] = compiled
 	}
 
 	c.program.Constants = c.constants
@@ -499,9 +508,8 @@ func (c *Compiler) compileCall(i *ssa.Call) {
 		return
 	}
 
-	// Method call or indirect call
-	// For now, use external call mechanism
-	c.compileExternalCall(i)
+	// Method call or indirect call (closures, function values)
+	c.compileIndirectCall(i)
 }
 
 // compileBuiltinCall compiles a builtin function call.
@@ -608,9 +616,31 @@ func (c *Compiler) compileExternalCall(i *ssa.Call) {
 	}
 
 	// The method should be an external function
-	// For now, emit a placeholder
 	funcIdx := c.addConstant(i.Call.Value)
-	c.emit(OpCallExternal, uint16(funcIdx), uint16(len(i.Call.Args)))
+	numArgs := len(i.Call.Args)
+	// Manually encode OpCallExternal: [opcode(1)] [funcIdx(2)] [numArgs(1)]
+	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+		byte(OpCallExternal),
+		byte(funcIdx>>8), byte(funcIdx),
+		byte(numArgs))
+	c.emit(OpSetLocal, uint16(resultIdx))
+}
+
+// compileIndirectCall compiles an indirect call (closure, function value).
+func (c *Compiler) compileIndirectCall(i *ssa.Call) {
+	resultIdx := c.symbolTable.AllocLocal(i)
+
+	// Push the callee (function value / closure) onto the stack
+	c.compileValue(i.Call.Value)
+
+	// Push arguments
+	for _, arg := range i.Call.Args {
+		c.compileValue(arg)
+	}
+
+	numArgs := len(i.Call.Args)
+	// Emit OpCallIndirect: [opcode(1)] [numArgs(1)]
+	c.emit(OpCallIndirect, uint16(numArgs))
 	c.emit(OpSetLocal, uint16(resultIdx))
 }
 
@@ -656,13 +686,25 @@ func (c *Compiler) compileValue(v ssa.Value) {
 		} else {
 			c.emit(OpNil)
 		}
+	case *ssa.FreeVar:
+		// Free variables (captured by closures)
+		if idx, ok := c.symbolTable.freeVars[val]; ok {
+			c.emit(OpFree, uint16(idx))
+		} else {
+			c.emit(OpNil)
+		}
 	default:
 		// Handle values stored in locals
 		if idx, ok := c.symbolTable.GetLocal(v); ok {
 			c.emit(OpLocal, uint16(idx))
 		} else {
-			// Fallback: try to allocate and use
-			c.emit(OpNil)
+			// Check if it's a free var by identity
+			if idx, ok := c.symbolTable.freeVars[v]; ok {
+				c.emit(OpFree, uint16(idx))
+			} else {
+				// Fallback: try to allocate and use
+				c.emit(OpNil)
+			}
 		}
 	}
 }
@@ -840,7 +882,11 @@ func (c *Compiler) compileMakeClosure(i *ssa.MakeClosure) {
 		c.compileValue(binding)
 	}
 
-	c.emit(OpClosure, uint16(fnIdx), uint16(len(i.Bindings)))
+	// Manually encode OpClosure: [opcode(1)] [funcIdx(2)] [numFree(1)]
+	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+		byte(OpClosure),
+		byte(fnIdx>>8), byte(fnIdx),
+		byte(len(i.Bindings)))
 	c.emit(OpSetLocal, uint16(resultIdx))
 }
 

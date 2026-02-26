@@ -586,15 +586,26 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 	case compiler.OpClosure:
 		funcIdx := frame.readUint16()
 		numFree := frame.readByte()
-		// Get free variables
+		// Get free variables (popped in reverse order)
 		freeVars := make([]*value.Value, numFree)
-		for i := 0; i < int(numFree); i++ {
+		for i := int(numFree) - 1; i >= 0; i-- {
 			v := vm.pop()
 			freeVars[i] = &v
 		}
-		// Create closure
-		_ = funcIdx // Would look up function and create closure
-		vm.push(value.MakeNil())
+		// Look up the function by index
+		var fn *compiler.CompiledFunction
+		for _, f := range vm.program.Functions {
+			if vm.program.FuncIndex[f.Source] == int(funcIdx) {
+				fn = f
+				break
+			}
+		}
+		if fn != nil {
+			closure := &Closure{Fn: fn, FreeVars: freeVars}
+			vm.push(value.FromInterface(closure))
+		} else {
+			vm.push(value.MakeNil())
+		}
 
 	// Concurrency
 	case compiler.OpGo:
@@ -762,6 +773,26 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		numArgs := frame.readByte()
 		vm.callExternal(int(funcIdx), int(numArgs))
 
+	// Indirect call (closures, function values)
+	case compiler.OpCallIndirect:
+		numArgs := frame.readByte()
+		// Pop arguments
+		args := make([]value.Value, numArgs)
+		for i := int(numArgs) - 1; i >= 0; i-- {
+			args[i] = vm.pop()
+		}
+		// Pop the callee
+		callee := vm.pop()
+		calleeIface := callee.Interface()
+		switch fn := calleeIface.(type) {
+		case *Closure:
+			// Call closure: create new frame with free vars
+			vm.callFunction(fn.Fn, args, fn.FreeVars)
+		default:
+			// Not a known callable — push nil
+			vm.push(value.MakeNil())
+		}
+
 	case compiler.OpPack:
 		count := frame.readUint16()
 		// Pop 'count' values from stack and pack into a slice
@@ -920,6 +951,12 @@ func (vm *VM) callExternal(funcIdx, numArgs int) {
 		}
 		vm.push(value.FromInterface(results))
 	}
+}
+
+// Closure represents a closure with captured free variables.
+type Closure struct {
+	Fn       *compiler.CompiledFunction
+	FreeVars []*value.Value
 }
 
 // iterator is a helper for range iteration.

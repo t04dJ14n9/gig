@@ -125,6 +125,9 @@ const (
 	// External function call
 	OpCallExternal // call external function [func_idx:2, num_args:1]
 
+	// Indirect call (closures, function values)
+	OpCallIndirect // call function value on stack [num_args:1]
+
 	// Tuple/multi-value operations
 	OpPack   // pack N values from stack into a slice [count:2]
 	OpUnpack // unpack a slice onto the stack
@@ -300,6 +303,8 @@ func (op OpCode) String() string {
 		return "MAKE"
 	case OpCallExternal:
 		return "CALLEXTERNAL"
+	case OpCallIndirect:
+		return "CALLINDIRECT"
 	case OpPack:
 		return "PACK"
 	case OpUnpack:
@@ -337,6 +342,7 @@ var OperandWidths = map[OpCode]int{
 	OpMethodCall:   3, // method_idx(2) + num_args(1)
 	OpDefer:        2,
 	OpCallExternal: 3, // func_idx(2) + num_args(1)
+	OpCallIndirect: 1, // num_args(1)
 	OpPack:         2, // count(2)
 	OpNew:          2,
 	OpMake:         4, // type_idx(2) + size_idx(2)
