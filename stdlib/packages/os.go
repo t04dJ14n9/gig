@@ -18,7 +18,6 @@ func init() {
 	pkg.AddFunction("Chown", os.Chown, "", direct_os_Chown)
 	pkg.AddFunction("Chtimes", os.Chtimes, "", nil)
 	pkg.AddFunction("Clearenv", os.Clearenv, "", direct_os_Clearenv)
-	pkg.AddFunction("CopyFS", os.CopyFS, "", nil)
 	pkg.AddFunction("Create", os.Create, "", direct_os_Create)
 	pkg.AddFunction("CreateTemp", os.CreateTemp, "", direct_os_CreateTemp)
 	pkg.AddFunction("DirFS", os.DirFS, "", direct_os_DirFS)
@@ -55,8 +54,6 @@ func init() {
 	pkg.AddFunction("NewSyscallError", os.NewSyscallError, "", direct_os_NewSyscallError)
 	pkg.AddFunction("Open", os.Open, "", direct_os_Open)
 	pkg.AddFunction("OpenFile", os.OpenFile, "", nil)
-	pkg.AddFunction("OpenInRoot", os.OpenInRoot, "", direct_os_OpenInRoot)
-	pkg.AddFunction("OpenRoot", os.OpenRoot, "", direct_os_OpenRoot)
 	pkg.AddFunction("Pipe", os.Pipe, "", direct_os_Pipe)
 	pkg.AddFunction("ReadDir", os.ReadDir, "", direct_os_ReadDir)
 	pkg.AddFunction("ReadFile", os.ReadFile, "", direct_os_ReadFile)
@@ -130,7 +127,6 @@ func init() {
 	pkg.AddType("ProcAttr", reflect.TypeOf(os.ProcAttr{}), "")
 	pkg.AddType("Process", reflect.TypeOf(os.Process{}), "")
 	pkg.AddType("ProcessState", reflect.TypeOf(os.ProcessState{}), "")
-	pkg.AddType("Root", reflect.TypeOf(os.Root{}), "")
 	pkg.AddType("Signal", reflect.TypeOf((*os.Signal)(nil)).Elem(), "")
 	pkg.AddType("SyscallError", reflect.TypeOf(os.SyscallError{}), "")
 
@@ -317,19 +313,6 @@ func direct_os_NewSyscallError(args []value.Value) value.Value {
 func direct_os_Open(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := os.Open(a0)
-	return value.FromInterface([]interface{}{r0, r1})
-}
-
-func direct_os_OpenInRoot(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].String()
-	r0, r1 := os.OpenInRoot(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
-}
-
-func direct_os_OpenRoot(args []value.Value) value.Value {
-	a0 := args[0].String()
-	r0, r1 := os.OpenRoot(a0)
 	return value.FromInterface([]interface{}{r0, r1})
 }
 

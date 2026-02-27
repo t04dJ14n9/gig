@@ -25,7 +25,6 @@ func init() {
 	pkg.AddFunction("IsAbs", path_filepath.IsAbs, "", direct_path_filepath_IsAbs)
 	pkg.AddFunction("IsLocal", path_filepath.IsLocal, "", direct_path_filepath_IsLocal)
 	pkg.AddFunction("Join", path_filepath.Join, "", direct_path_filepath_Join)
-	pkg.AddFunction("Localize", path_filepath.Localize, "", direct_path_filepath_Localize)
 	pkg.AddFunction("Match", path_filepath.Match, "", direct_path_filepath_Match)
 	pkg.AddFunction("Rel", path_filepath.Rel, "", direct_path_filepath_Rel)
 	pkg.AddFunction("Split", path_filepath.Split, "", direct_path_filepath_Split)
@@ -114,12 +113,6 @@ func direct_path_filepath_Join(args []value.Value) value.Value {
 		varArgs[i-0] = args[i].String()
 	}
 	return value.MakeString(string(path_filepath.Join(varArgs...)))
-}
-
-func direct_path_filepath_Localize(args []value.Value) value.Value {
-	a0 := args[0].String()
-	r0, r1 := path_filepath.Localize(a0)
-	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_path_filepath_Match(args []value.Value) value.Value {

@@ -28,7 +28,6 @@ func init() {
 	pkg.AddFunction("ListenAndServeTLS", net_http.ListenAndServeTLS, "", nil)
 	pkg.AddFunction("MaxBytesHandler", net_http.MaxBytesHandler, "", nil)
 	pkg.AddFunction("MaxBytesReader", net_http.MaxBytesReader, "", nil)
-	pkg.AddFunction("NewCrossOriginProtection", net_http.NewCrossOriginProtection, "", direct_net_http_NewCrossOriginProtection)
 	pkg.AddFunction("NewFileTransport", net_http.NewFileTransport, "", nil)
 	pkg.AddFunction("NewFileTransportFS", net_http.NewFileTransportFS, "", nil)
 	pkg.AddFunction("NewRequest", net_http.NewRequest, "", nil)
@@ -37,9 +36,7 @@ func init() {
 	pkg.AddFunction("NewServeMux", net_http.NewServeMux, "", direct_net_http_NewServeMux)
 	pkg.AddFunction("NotFound", net_http.NotFound, "", nil)
 	pkg.AddFunction("NotFoundHandler", net_http.NotFoundHandler, "", direct_net_http_NotFoundHandler)
-	pkg.AddFunction("ParseCookie", net_http.ParseCookie, "", direct_net_http_ParseCookie)
 	pkg.AddFunction("ParseHTTPVersion", net_http.ParseHTTPVersion, "", direct_net_http_ParseHTTPVersion)
-	pkg.AddFunction("ParseSetCookie", net_http.ParseSetCookie, "", direct_net_http_ParseSetCookie)
 	pkg.AddFunction("ParseTime", net_http.ParseTime, "", direct_net_http_ParseTime)
 	pkg.AddFunction("Post", net_http.Post, "", nil)
 	pkg.AddFunction("PostForm", net_http.PostForm, "", nil)
@@ -181,19 +178,16 @@ func init() {
 	pkg.AddType("ConnState", reflect.TypeOf((*net_http.ConnState)(nil)).Elem(), "")
 	pkg.AddType("Cookie", reflect.TypeOf(net_http.Cookie{}), "")
 	pkg.AddType("CookieJar", reflect.TypeOf((*net_http.CookieJar)(nil)).Elem(), "")
-	pkg.AddType("CrossOriginProtection", reflect.TypeOf(net_http.CrossOriginProtection{}), "")
 	pkg.AddType("Dir", reflect.TypeOf((*net_http.Dir)(nil)).Elem(), "")
 	pkg.AddType("File", reflect.TypeOf((*net_http.File)(nil)).Elem(), "")
 	pkg.AddType("FileSystem", reflect.TypeOf((*net_http.FileSystem)(nil)).Elem(), "")
 	pkg.AddType("Flusher", reflect.TypeOf((*net_http.Flusher)(nil)).Elem(), "")
-	pkg.AddType("HTTP2Config", reflect.TypeOf(net_http.HTTP2Config{}), "")
 	pkg.AddType("Handler", reflect.TypeOf((*net_http.Handler)(nil)).Elem(), "")
 	pkg.AddType("HandlerFunc", reflect.TypeOf((*net_http.HandlerFunc)(nil)).Elem(), "")
 	pkg.AddType("Header", reflect.TypeOf((*net_http.Header)(nil)).Elem(), "")
 	pkg.AddType("Hijacker", reflect.TypeOf((*net_http.Hijacker)(nil)).Elem(), "")
 	pkg.AddType("MaxBytesError", reflect.TypeOf(net_http.MaxBytesError{}), "")
 	pkg.AddType("ProtocolError", reflect.TypeOf(net_http.ProtocolError{}), "")
-	pkg.AddType("Protocols", reflect.TypeOf(net_http.Protocols{}), "")
 	pkg.AddType("PushOptions", reflect.TypeOf(net_http.PushOptions{}), "")
 	pkg.AddType("Pusher", reflect.TypeOf((*net_http.Pusher)(nil)).Elem(), "")
 	pkg.AddType("Request", reflect.TypeOf(net_http.Request{}), "")
@@ -230,10 +224,6 @@ func direct_net_http_Head(args []value.Value) value.Value {
 	return value.FromInterface([]interface{}{r0, r1})
 }
 
-func direct_net_http_NewCrossOriginProtection(args []value.Value) value.Value {
-	return value.FromInterface(net_http.NewCrossOriginProtection())
-}
-
 func direct_net_http_NewServeMux(args []value.Value) value.Value {
 	return value.FromInterface(net_http.NewServeMux())
 }
@@ -242,22 +232,10 @@ func direct_net_http_NotFoundHandler(args []value.Value) value.Value {
 	return value.FromInterface(net_http.NotFoundHandler())
 }
 
-func direct_net_http_ParseCookie(args []value.Value) value.Value {
-	a0 := args[0].String()
-	r0, r1 := net_http.ParseCookie(a0)
-	return value.FromInterface([]interface{}{r0, r1})
-}
-
 func direct_net_http_ParseHTTPVersion(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1, r2 := net_http.ParseHTTPVersion(a0)
 	return value.FromInterface([]interface{}{r0, r1, r2})
-}
-
-func direct_net_http_ParseSetCookie(args []value.Value) value.Value {
-	a0 := args[0].String()
-	r0, r1 := net_http.ParseSetCookie(a0)
-	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_net_http_ParseTime(args []value.Value) value.Value {

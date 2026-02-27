@@ -18,7 +18,6 @@ func init() {
 	pkg.AddFunction("Encode", unicode_utf16.Encode, "", direct_unicode_utf16_Encode)
 	pkg.AddFunction("EncodeRune", unicode_utf16.EncodeRune, "", direct_unicode_utf16_EncodeRune)
 	pkg.AddFunction("IsSurrogate", unicode_utf16.IsSurrogate, "", direct_unicode_utf16_IsSurrogate)
-	pkg.AddFunction("RuneLen", unicode_utf16.RuneLen, "", direct_unicode_utf16_RuneLen)
 
 }
 
@@ -53,9 +52,4 @@ func direct_unicode_utf16_EncodeRune(args []value.Value) value.Value {
 func direct_unicode_utf16_IsSurrogate(args []value.Value) value.Value {
 	a0 := int32(args[0].Int())
 	return value.MakeBool(unicode_utf16.IsSurrogate(a0))
-}
-
-func direct_unicode_utf16_RuneLen(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeInt(int64(unicode_utf16.RuneLen(a0)))
 }
