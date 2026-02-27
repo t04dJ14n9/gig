@@ -1,8 +1,10 @@
 package external
 
-import "fmt"
-import "strconv"
-import "strings"
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
 
 // FmtSprintf tests fmt.Sprintf
 func FmtSprintf() string {

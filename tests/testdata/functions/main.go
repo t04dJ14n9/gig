@@ -96,8 +96,10 @@ func FunctionAsValue() int {
 }
 
 func apply(f func(int) int, x int) int { return f(x) }
-func double(x int) int                  { return x * 2 }
-func triple(x int) int                  { return x * 3 }
+
+func double(x int) int { return x * 2 }
+
+func triple(x int) int { return x * 3 }
 
 // HigherOrderMap tests higher order map function
 func HigherOrderMap() int {

@@ -1,14 +1,11 @@
 package tests
 
 import (
-	_ "embed"
 	"strings"
 	"testing"
 	"time"
 
 	"gig"
-	_ "gig/stdlib/packages"
-
 	"gig/tests/testdata/advanced"
 	"gig/tests/testdata/algorithms"
 	"gig/tests/testdata/arithmetic"
@@ -34,6 +31,9 @@ import (
 	switch_pkg "gig/tests/testdata/switch"
 	"gig/tests/testdata/typeconv"
 	"gig/tests/testdata/variables"
+
+	_ "embed"
+	_ "gig/stdlib/packages"
 )
 
 // Embed all test source files

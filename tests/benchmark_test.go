@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"gig"
+
 	_ "gig/stdlib/packages"
 )
 
@@ -30,12 +32,21 @@ type Adder interface {
 type nativeCounter struct{ value int }
 
 func (c *nativeCounter) Add(x int) { c.value = c.value + x }
-func (c *nativeCounter) Get() int  { return c.value }
+
+func (c *nativeCounter) Get() int { return c.value }
 
 // IntAdder implements Adder for slice interface benchmarks
 type nativeIntAdder struct{ val int }
 
 func (a *nativeIntAdder) Add(x int) { a.val = a.val + x }
+
+// BenchmarkHelpers is a marker type for benchmark helpers
+type BenchmarkHelpers struct{}
+
+var _ = BenchmarkHelpers{}
+
+// anyInterface is used for type assertion benchmarks
+type anyInterface interface{}
 
 // ============================================================================
 // Benchmark Helpers
@@ -62,6 +73,7 @@ type benchmarkResult struct {
 
 // runBenchmarkPair runs both Gig and Native versions and returns their times
 func runBenchmarkPair(b *testing.B, name string, gigBench, nativeBench func(*testing.B)) benchmarkResult {
+	b.Helper()
 	// Run Gig benchmark
 	b.Run("Gig/"+name, func(b *testing.B) {
 		gigBench(b)
@@ -714,9 +726,9 @@ func Compute() int {
 }
 
 func BenchmarkNative_TypeAssertion(b *testing.B) {
-	type Any interface{}
 	for i := 0; i < b.N; i++ {
-		var x Any = 42
+		var x anyInterface
+		x = 42
 		sum := 0
 		for j := 0; j < 100; j++ {
 			if v, ok := x.(int); ok {
@@ -1047,9 +1059,9 @@ func Compute() int {
 
 func BenchmarkNative_JsonMarshal(b *testing.B) {
 	type Data struct {
-		Name string
-		Age  int
-		City string
+		Name string `json:"name"`
+		Age  int    `json:"age"`
+		City string `json:"city"`
 	}
 	for i := 0; i < b.N; i++ {
 		d := Data{Name: "John", Age: 30, City: "NYC"}
@@ -1141,29 +1153,29 @@ func TestBenchmarkSummary(t *testing.T) {
 			}
 			avg += r
 		}
-		avg /= float64(len(ratios))
+		avg = avg / float64(len(ratios))
 
 		switch cat {
 		case "Compute":
-			t.Logf("  │ Pure Computation (loops, arithmetic):      ~%.0f-%.0fx    │", min, max)
+			t.Logf("  │ Pure Computation (loops, arithmetic):      ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
 		case "Recursion":
-			t.Logf("  │ Recursion (function call heavy):           ~%.0f-%.0fx    │", min, max)
+			t.Logf("  │ Recursion (function call heavy):           ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
 		case "Data Struct":
-			t.Logf("  │ Data Structures (slice, map):              ~%.0f-%.0fx    │", min, max)
+			t.Logf("  │ Data Structures (slice, map):              ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
 		case "Closure":
-			t.Logf("  │ Closures (capture + invoke):              ~%.0f-%.0fx    │", min, max)
+			t.Logf("  │ Closures (capture + invoke):              ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
 		case "Algorithm":
-			t.Logf("  │ Algorithms (sort, GCD, sieve):             ~%.0f-%.0fx    │", min, max)
+			t.Logf("  │ Algorithms (sort, GCD, sieve):             ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
 		case "External Call":
-			t.Logf("  │ External Calls (fmt, strings):             ~%.0f-%.0fx    │", min, max)
+			t.Logf("  │ External Calls (fmt, strings):             ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
 		case "Call Overhead":
-			t.Logf("  │ Function Call Overhead (10K calls):        ~%.0fx         │", max)
+			t.Logf("  │ Function Call Overhead (10K calls):        ~%.0fx (avg: %.0fx)         │", max, avg)
 		case "String":
-			t.Logf("  │ String Operations:                         ~%.0f-%.0fx    │", min, max)
+			t.Logf("  │ String Operations:                         ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
 		case "Complex Syntax":
-			t.Logf("  │ Complex Syntax (interface, struct, etc):    ~%.0f-%.0fx    │", min, max)
+			t.Logf("  │ Complex Syntax (interface, struct, etc):    ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
 		case "Third-party":
-			t.Logf("  │ Third-party Libs (sort, json, math/big):   ~%.0f-%.0fx    │", min, max)
+			t.Logf("  │ Third-party Libs (sort, json, math/big):   ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
 		}
 	}
 
@@ -1231,9 +1243,11 @@ func categorize(name string) string {
 
 // runAllBenchmarks runs all benchmark pairs and returns results
 func runAllBenchmarks(t *testing.T) []benchmarkResult {
+	t.Helper()
 	// Use subprocess to run benchmarks and parse output
 	// This is more reliable than trying to run benchmarks from within a test
-	cmd := exec.Command("go", "test", "-bench=Benchmark", "-benchmem", "-count=1", "./tests/", "-run=^$")
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, "go", "test", "-bench=Benchmark", "-benchmem", "-count=1", "./tests/", "-run=^$")
 	cmd.Dir = "/data/workspace/Code/gig"
 
 	output, err := cmd.CombinedOutput()
@@ -1242,11 +1256,12 @@ func runAllBenchmarks(t *testing.T) []benchmarkResult {
 		return getHardcodedResults()
 	}
 
-	return parseBenchmarkOutput(string(output), t)
+	return parseBenchmarkOutput(t, string(output))
 }
 
 // parseBenchmarkOutput parses go test -bench output and extracts timing data
-func parseBenchmarkOutput(output string, t *testing.T) []benchmarkResult {
+func parseBenchmarkOutput(t *testing.T, output string) []benchmarkResult {
+	t.Helper()
 	results := []benchmarkResult{}
 
 	// Known benchmark pairs to look for

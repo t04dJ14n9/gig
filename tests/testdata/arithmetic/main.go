@@ -16,7 +16,7 @@ func Division() int { return 20 / 4 }
 func Modulo() int { return 17 % 5 }
 
 // ComplexExpr tests complex arithmetic expression
-func ComplexExpr() int { return (2 + 3) * 4 - 10/2 }
+func ComplexExpr() int { return (2+3)*4 - 10/2 }
 
 // Negation tests unary negation
 func Negation() int {

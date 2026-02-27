@@ -15,9 +15,13 @@ func DeepCallChain() int {
 }
 
 func a(x int) int { return b(x + 1) }
+
 func b(x int) int { return c(x + 1) }
+
 func c(x int) int { return d(x + 1) }
+
 func d(x int) int { return e(x + 1) }
+
 func e(x int) int { return x + 1 }
 
 // Complex Control Flow
@@ -253,7 +257,9 @@ func FunctionChain() int {
 }
 
 func add(a, b int) int { return a + b }
+
 func mul(a, b int) int { return a * b }
+
 func sub(a, b int) int { return a - b }
 
 func ComplexExpressions() int {

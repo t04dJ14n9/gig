@@ -1099,15 +1099,16 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		if int(typeIdx) < len(vm.program.Types) {
 			typ := vm.program.Types[typeIdx]
 			// For function types, create a pointer to a Value (to store closures)
-			if sig, ok := typ.(*types.Signature); ok {
-				_ = sig // Function signature not needed for allocation
+			switch t := typ.(type) {
+			case *types.Signature:
+				_ = t // Function signature not needed for allocation
 				// Create a pointer to a nil Value
 				var nilVal value.Value
 				newPtr := reflect.ValueOf(&nilVal)
 				vm.push(value.MakeFromReflect(newPtr))
-			} else if sliceType, ok := typ.(*types.Slice); ok {
+			case *types.Slice:
 				// Check if slice element type is function
-				if _, isFunc := sliceType.Elem().(*types.Signature); isFunc {
+				if _, isFunc := t.Elem().(*types.Signature); isFunc {
 					// Create []value.Value for function slices
 					var slice []value.Value
 					newPtr := reflect.ValueOf(&slice)
@@ -1118,11 +1119,11 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 				} else {
 					vm.push(value.MakeNil())
 				}
-			} else if arr, ok := typ.(*types.Array); ok {
+			case *types.Array:
 				// Check if array element type is function
-				if _, isFunc := arr.Elem().(*types.Signature); isFunc {
+				if _, isFunc := t.Elem().(*types.Signature); isFunc {
 					// Create array of value.Value for function arrays
-					arrLen := int(arr.Len())
+					arrLen := int(t.Len())
 					array := make([]value.Value, arrLen)
 					newPtr := reflect.ValueOf(&array)
 					vm.push(value.MakeFromReflect(newPtr))
@@ -1132,12 +1133,14 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 				} else {
 					vm.push(value.MakeNil())
 				}
-			} else if rt := typeToReflect(typ); rt != nil {
-				// Create a new pointer to zero value of the type
-				newPtr := reflect.New(rt)
-				vm.push(value.MakeFromReflect(newPtr))
-			} else {
-				vm.push(value.MakeNil())
+			default:
+				if rt := typeToReflect(typ); rt != nil {
+					// Create a new pointer to zero value of the type
+					newPtr := reflect.New(rt)
+					vm.push(value.MakeFromReflect(newPtr))
+				} else {
+					vm.push(value.MakeNil())
+				}
 			}
 		} else {
 			vm.push(value.MakeNil())
