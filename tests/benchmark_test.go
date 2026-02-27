@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -15,44 +16,143 @@ import (
 	"time"
 
 	"gig"
+	"gig/tests/testdata/benchmarks"
 
 	_ "gig/stdlib/packages"
 )
 
-// ============================================================================
-// Native helper types (defined at package level for benchmarks)
-// ============================================================================
+//go:embed testdata/benchmarks/*.go
+var benchmarksFS embed.FS
 
-// Adder interface for interface benchmarks
-type Adder interface {
-	Add(x int)
+// getBenchmarksSrc reads all .go files from the embedded filesystem and concatenates them.
+func getBenchmarksSrc() string {
+	// Define the order of files to ensure correct compilation
+	fileOrder := []string{
+		"compute.go",
+		"datastruct.go",
+		"strings.go",
+		"closure.go",
+		"algorithm.go",
+		"external.go",
+		"calls.go",
+		"types.go",
+		"concurrency.go",
+	}
+
+	// Collect unique imports from all files
+	importSet := make(map[string]bool)
+	var importLines []string
+	var codeBlocks []string
+
+	for _, fname := range fileOrder {
+		data, err := benchmarksFS.ReadFile("testdata/benchmarks/" + fname)
+		if err != nil {
+			continue
+		}
+		content := string(data)
+
+		// Extract imports from import block: import (...)
+		if idx := strings.Index(content, "import ("); idx != -1 {
+			end := strings.Index(content[idx:], ")\n")
+			if end != -1 {
+				block := content[idx+8 : idx+end]
+				for _, line := range strings.Split(block, "\n") {
+					line = strings.TrimSpace(line)
+					if line != "" && !strings.HasPrefix(line, "//") {
+						if !importSet[line] {
+							importSet[line] = true
+							importLines = append(importLines, line)
+						}
+					}
+				}
+			}
+		}
+
+		// Extract single-line imports: import "xxx"
+		for {
+			idx := strings.Index(content, "import \"")
+			if idx == -1 {
+				break
+			}
+			end := strings.Index(content[idx+8:], "\"")
+			if end == -1 {
+				break
+			}
+			imp := "\"" + content[idx+8:idx+8+end] + "\""
+			if !importSet[imp] {
+				importSet[imp] = true
+				importLines = append(importLines, imp)
+			}
+			// Remove this import line
+			lineEnd := strings.Index(content[idx:], "\n")
+			if lineEnd != -1 {
+				content = content[:idx] + content[idx+lineEnd+1:]
+			}
+		}
+
+		// Remove package declaration
+		if idx := strings.Index(content, "package benchmarks\n"); idx != -1 {
+			content = content[idx+19:]
+		}
+
+		// Remove import block
+		for {
+			idx := strings.Index(content, "import (")
+			if idx == -1 {
+				break
+			}
+			end := strings.Index(content[idx:], ")\n")
+			if end == -1 {
+				break
+			}
+			content = content[:idx] + content[idx+end+2:]
+		}
+
+		codeBlocks = append(codeBlocks, content)
+	}
+
+	// Build the final source
+	var sb strings.Builder
+	sb.WriteString("package benchmarks\n\n")
+
+	// Write imports first
+	if len(importLines) > 0 {
+		sb.WriteString("import (\n")
+		for _, imp := range importLines {
+			sb.WriteString("\t" + imp + "\n")
+		}
+		sb.WriteString(")\n\n")
+	}
+
+	// Write all code
+	for _, block := range codeBlocks {
+		block = strings.TrimSpace(block)
+		if block != "" {
+			sb.WriteString(block)
+			sb.WriteString("\n\n")
+		}
+	}
+
+	return sb.String()
 }
 
-// nativeCounter implements Adder for native benchmarks
-type nativeCounter struct{ value int }
-
-func (c *nativeCounter) Add(x int) { c.value = c.value + x }
-
-func (c *nativeCounter) Get() int { return c.value }
-
-// IntAdder implements Adder for slice interface benchmarks
-type nativeIntAdder struct{ val int }
-
-func (a *nativeIntAdder) Add(x int) { a.val = a.val + x }
+var benchmarksSrc = getBenchmarksSrc()
 
 // ============================================================================
 // Benchmark Helpers
 // ============================================================================
 
-func benchGig(b *testing.B, source string) {
+// benchGig builds the embedded benchmark source and runs the named function.
+func benchGig(b *testing.B, funcName string) {
 	b.Helper()
-	prog, err := gig.Build(source)
+	src := toMainPackage(benchmarksSrc)
+	prog, err := gig.Build(src)
 	if err != nil {
 		b.Fatalf("Build error: %v", err)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = prog.Run("Compute")
+		_, _ = prog.Run(funcName)
 	}
 }
 
@@ -63,77 +163,31 @@ type benchmarkResult struct {
 	nativeNs float64
 }
 
-// runBenchmarkPair runs both Gig and Native versions and returns their times
-func runBenchmarkPair(b *testing.B, name string, gigBench, nativeBench func(*testing.B)) benchmarkResult {
-	b.Helper()
-	// Run Gig benchmark
-	b.Run("Gig/"+name, func(b *testing.B) {
-		gigBench(b)
-	})
-	gigNs := float64(b.N) * float64(b.Elapsed().Nanoseconds()) / float64(b.N)
-
-	// Reset and run Native benchmark
-	b.ResetTimer()
-	b.Run("Native/"+name, func(b *testing.B) {
-		nativeBench(b)
-	})
-	nativeNs := float64(b.N) * float64(b.Elapsed().Nanoseconds()) / float64(b.N)
-
-	return benchmarkResult{
-		name:     name,
-		gigNs:    gigNs,
-		nativeNs: nativeNs,
-	}
-}
-
 // ============================================================================
 // 1. Arithmetic: sum 1..1000
 // ============================================================================
 
 func BenchmarkGig_ArithmeticSum(b *testing.B) {
-	benchGig(b, `package main
-func Compute() int {
-	sum := 0
-	for i := 1; i <= 1000; i++ {
-		sum = sum + i
-	}
-	return sum
-}`)
+	benchGig(b, "ArithmeticSum")
 }
 
 func BenchmarkNative_ArithmeticSum(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		sum := 0
-		for j := 1; j <= 1000; j++ {
-			sum = sum + j
-		}
-		_ = sum
+		_ = benchmarks.ArithmeticSum()
 	}
 }
 
 // ============================================================================
-// 2. Recursive Fibonacci(20)
+// 2. Recursive Fibonacci(15)
 // ============================================================================
 
 func BenchmarkGig_FibRecursive(b *testing.B) {
-	benchGig(b, `package main
-func fib(n int) int {
-	if n <= 1 { return n }
-	return fib(n-1) + fib(n-2)
-}
-func Compute() int { return fib(15) }`)
-}
-
-func nativeFib(n int) int {
-	if n <= 1 {
-		return n
-	}
-	return nativeFib(n-1) + nativeFib(n-2)
+	benchGig(b, "FibRecursive")
 }
 
 func BenchmarkNative_FibRecursive(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_ = nativeFib(15)
+		_ = benchmarks.FibRecursive()
 	}
 }
 
@@ -142,27 +196,12 @@ func BenchmarkNative_FibRecursive(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_FibIterative(b *testing.B) {
-	benchGig(b, `package main
-func Compute() int {
-	a, b := 0, 1
-	for i := 0; i < 50; i++ {
-		c := a + b
-		a = b
-		b = c
-	}
-	return b
-}`)
+	benchGig(b, "FibIterative")
 }
 
 func BenchmarkNative_FibIterative(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		a, bv := 0, 1
-		for j := 0; j < 50; j++ {
-			c := a + bv
-			a = bv
-			bv = c
-		}
-		_ = bv
+		_ = benchmarks.FibIterative()
 	}
 }
 
@@ -171,24 +210,12 @@ func BenchmarkNative_FibIterative(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_Factorial(b *testing.B) {
-	benchGig(b, `package main
-func factorial(n int) int {
-	if n <= 1 { return 1 }
-	return n * factorial(n-1)
-}
-func Compute() int { return factorial(12) }`)
-}
-
-func nativeFactorial(n int) int {
-	if n <= 1 {
-		return 1
-	}
-	return n * nativeFactorial(n-1)
+	benchGig(b, "Factorial")
 }
 
 func BenchmarkNative_Factorial(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_ = nativeFactorial(12)
+		_ = benchmarks.Factorial()
 	}
 }
 
@@ -197,23 +224,12 @@ func BenchmarkNative_Factorial(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_SliceAppend(b *testing.B) {
-	benchGig(b, `package main
-func Compute() int {
-	s := make([]int, 0)
-	for i := 0; i < 1000; i++ {
-		s = append(s, i)
-	}
-	return len(s)
-}`)
+	benchGig(b, "SliceAppend")
 }
 
 func BenchmarkNative_SliceAppend(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		s := make([]int, 0)
-		for j := 0; j < 1000; j++ {
-			s = append(s, j)
-		}
-		_ = len(s)
+		_ = benchmarks.SliceAppend()
 	}
 }
 
@@ -222,31 +238,12 @@ func BenchmarkNative_SliceAppend(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_SliceSum(b *testing.B) {
-	benchGig(b, `package main
-func Compute() int {
-	s := make([]int, 1000)
-	for i := 0; i < 1000; i++ {
-		s[i] = i
-	}
-	sum := 0
-	for _, v := range s {
-		sum = sum + v
-	}
-	return sum
-}`)
+	benchGig(b, "SliceSum")
 }
 
 func BenchmarkNative_SliceSum(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		s := make([]int, 1000)
-		for j := 0; j < 1000; j++ {
-			s[j] = j
-		}
-		sum := 0
-		for _, v := range s {
-			sum = sum + v
-		}
-		_ = sum
+		_ = benchmarks.SliceSum()
 	}
 }
 
@@ -255,32 +252,12 @@ func BenchmarkNative_SliceSum(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_MapOps(b *testing.B) {
-	benchGig(b, `package main
-import "strconv"
-func Compute() int {
-	m := make(map[string]int)
-	for i := 0; i < 100; i++ {
-		m[strconv.Itoa(i)] = i
-	}
-	sum := 0
-	for _, v := range m {
-		sum = sum + v
-	}
-	return sum
-}`)
+	benchGig(b, "MapOps")
 }
 
 func BenchmarkNative_MapOps(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		m := make(map[string]int)
-		for j := 0; j < 100; j++ {
-			m[strconv.Itoa(j)] = j
-		}
-		sum := 0
-		for _, v := range m {
-			sum = sum + v
-		}
-		_ = sum
+		_ = benchmarks.MapOps()
 	}
 }
 
@@ -289,23 +266,12 @@ func BenchmarkNative_MapOps(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_StringConcat(b *testing.B) {
-	benchGig(b, `package main
-func Compute() int {
-	s := ""
-	for i := 0; i < 100; i++ {
-		s = s + "abcdefghij"
-	}
-	return len(s)
-}`)
+	benchGig(b, "StringConcat")
 }
 
 func BenchmarkNative_StringConcat(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		s := ""
-		for j := 0; j < 100; j++ {
-			s = s + "abcdefghij"
-		}
-		_ = len(s)
+		_ = benchmarks.StringConcat()
 	}
 }
 
@@ -314,107 +280,40 @@ func BenchmarkNative_StringConcat(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_ClosureCalls(b *testing.B) {
-	benchGig(b, `package main
-func Compute() int {
-	sum := 0
-	adder := func(x int) int {
-		sum = sum + x
-		return sum
-	}
-	for i := 0; i < 1000; i++ {
-		adder(i)
-	}
-	return sum
-}`)
+	benchGig(b, "ClosureCalls")
 }
 
 func BenchmarkNative_ClosureCalls(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		sum := 0
-		adder := func(x int) int {
-			sum = sum + x
-			return sum
-		}
-		for j := 0; j < 1000; j++ {
-			adder(j)
-		}
-		_ = sum
+		_ = benchmarks.ClosureCalls()
 	}
 }
 
 // ============================================================================
-// 10. Nested Loops (triple-nested N=20)
+// 10. Nested Loops (triple-nested N=10)
 // ============================================================================
 
 func BenchmarkGig_NestedLoops(b *testing.B) {
-	benchGig(b, `package main
-func Compute() int {
-	sum := 0
-	for i := 0; i < 10; i++ {
-		for j := 0; j < 10; j++ {
-			for k := 0; k < 10; k++ {
-				sum = sum + 1
-			}
-		}
-	}
-	return sum
-}`)
+	benchGig(b, "NestedLoops")
 }
 
 func BenchmarkNative_NestedLoops(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		sum := 0
-		for ii := 0; ii < 10; ii++ {
-			for j := 0; j < 10; j++ {
-				for k := 0; k < 10; k++ {
-					sum = sum + 1
-				}
-			}
-		}
-		_ = sum
+		_ = benchmarks.NestedLoops()
 	}
 }
 
 // ============================================================================
-// 11. Bubble Sort (sort 100 elements)
+// 11. Bubble Sort (sort 50 elements)
 // ============================================================================
 
 func BenchmarkGig_BubbleSort(b *testing.B) {
-	benchGig(b, `package main
-func Compute() int {
-	s := make([]int, 50)
-	for i := 0; i < 50; i++ {
-		s[i] = 50 - i
-	}
-	n := len(s)
-	for i := 0; i < n-1; i++ {
-		for j := 0; j < n-1-i; j++ {
-			if s[j] > s[j+1] {
-				tmp := s[j]
-				s[j] = s[j+1]
-				s[j+1] = tmp
-			}
-		}
-	}
-	return s[0] + s[49]
-}`)
+	benchGig(b, "BubbleSort")
 }
 
 func BenchmarkNative_BubbleSort(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		s := make([]int, 50)
-		for j := 0; j < 50; j++ {
-			s[j] = 50 - j
-		}
-		n := len(s)
-		for ii := 0; ii < n-1; ii++ {
-			for j := 0; j < n-1-ii; j++ {
-				if s[j] > s[j+1] {
-					s[j], s[j+1] = s[j+1], s[j]
-				}
-			}
-		}
-		_ = s[0] + s[49]
+		_ = benchmarks.BubbleSort()
 	}
 }
 
@@ -423,38 +322,12 @@ func BenchmarkNative_BubbleSort(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_GCD(b *testing.B) {
-	benchGig(b, `package main
-func gcd(a, b int) int {
-	for b != 0 {
-		t := b
-		b = a % b
-		a = t
-	}
-	return a
-}
-func Compute() int {
-	sum := 0
-	for i := 1; i <= 100; i++ {
-		sum = sum + gcd(i*7, i*13)
-	}
-	return sum
-}`)
-}
-
-func nativeGCD(a, b int) int {
-	for b != 0 {
-		a, b = b, a%b
-	}
-	return a
+	benchGig(b, "GCD")
 }
 
 func BenchmarkNative_GCD(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		sum := 0
-		for j := 1; j <= 100; j++ {
-			sum += nativeGCD(j*7, j*13)
-		}
-		_ = sum
+		_ = benchmarks.GCD()
 	}
 }
 
@@ -463,49 +336,12 @@ func BenchmarkNative_GCD(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_Sieve(b *testing.B) {
-	benchGig(b, `package main
-func Compute() int {
-	n := 1000
-	sieve := make([]int, n+1)
-	for i := 2; i <= n; i++ {
-		sieve[i] = 1
-	}
-	for i := 2; i*i <= n; i++ {
-		if sieve[i] == 1 {
-			for j := i * i; j <= n; j = j + i {
-				sieve[j] = 0
-			}
-		}
-	}
-	count := 0
-	for i := 2; i <= n; i++ {
-		if sieve[i] == 1 { count = count + 1 }
-	}
-	return count
-}`)
+	benchGig(b, "Sieve")
 }
 
 func BenchmarkNative_Sieve(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		n := 1000
-		sieve := make([]bool, n+1)
-		for j := 2; j <= n; j++ {
-			sieve[j] = true
-		}
-		for j := 2; j*j <= n; j++ {
-			if sieve[j] {
-				for k := j * j; k <= n; k += j {
-					sieve[k] = false
-				}
-			}
-		}
-		count := 0
-		for j := 2; j <= n; j++ {
-			if sieve[j] {
-				count++
-			}
-		}
-		_ = count
+		_ = benchmarks.Sieve()
 	}
 }
 
@@ -514,33 +350,12 @@ func BenchmarkNative_Sieve(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_HigherOrder(b *testing.B) {
-	benchGig(b, `package main
-func Compute() int {
-	s := make([]int, 100)
-	for i := 0; i < 100; i++ {
-		s[i] = i
-	}
-	double := func(x int) int { return x * 2 }
-	sum := 0
-	for _, v := range s {
-		sum = sum + double(v)
-	}
-	return sum
-}`)
+	benchGig(b, "HigherOrder")
 }
 
 func BenchmarkNative_HigherOrder(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		s := make([]int, 100)
-		for j := 0; j < 100; j++ {
-			s[j] = j
-		}
-		double := func(x int) int { return x * 2 }
-		sum := 0
-		for _, v := range s {
-			sum = sum + double(v)
-		}
-		_ = sum
+		_ = benchmarks.HigherOrder()
 	}
 }
 
@@ -549,24 +364,12 @@ func BenchmarkNative_HigherOrder(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_ExternalSprintf(b *testing.B) {
-	benchGig(b, `package main
-import "fmt"
-func Compute() int {
-	s := ""
-	for i := 0; i < 100; i++ {
-		s = fmt.Sprintf("%d", i)
-	}
-	return len(s)
-}`)
+	benchGig(b, "ExternalSprintf")
 }
 
 func BenchmarkNative_ExternalSprintf(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		s := ""
-		for j := 0; j < 100; j++ {
-			s = fmt.Sprintf("%d", j)
-		}
-		_ = len(s)
+		_ = benchmarks.ExternalSprintf()
 	}
 }
 
@@ -575,52 +378,26 @@ func BenchmarkNative_ExternalSprintf(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_ExternalStrings(b *testing.B) {
-	benchGig(b, `package main
-import "strings"
-func Compute() int {
-	s := ""
-	for i := 0; i < 100; i++ {
-		s = strings.ToUpper("hello world test string")
-	}
-	return len(s)
-}`)
+	benchGig(b, "ExternalStrings")
 }
 
 func BenchmarkNative_ExternalStrings(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		s := ""
-		for j := 0; j < 100; j++ {
-			s = strings.ToUpper("hello world test string")
-		}
-		_ = len(s)
+		_ = benchmarks.ExternalStrings()
 	}
 }
 
 // ============================================================================
-// 17. Function Call Overhead (10000 simple calls)
+// 17. Function Call Overhead (1000 simple calls)
 // ============================================================================
 
 func BenchmarkGig_CallOverhead(b *testing.B) {
-	benchGig(b, `package main
-func inc(x int) int { return x + 1 }
-func Compute() int {
-	x := 0
-	for i := 0; i < 1000; i++ {
-		x = inc(x)
-	}
-	return x
-}`)
+	benchGig(b, "CallOverhead")
 }
-
-func nativeInc(x int) int { return x + 1 }
 
 func BenchmarkNative_CallOverhead(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		x := 0
-		for j := 0; j < 1000; j++ {
-			x = nativeInc(x)
-		}
-		_ = x
+		_ = benchmarks.CallOverhead()
 	}
 }
 
@@ -629,184 +406,88 @@ func BenchmarkNative_CallOverhead(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_BuildAndRun(b *testing.B) {
-	source := `package main
-func Compute() int { return 42 }`
+	src := toMainPackage(benchmarksSrc)
 	for i := 0; i < b.N; i++ {
-		prog, err := gig.Build(source)
+		prog, err := gig.Build(src)
 		if err != nil {
 			b.Fatal(err)
 		}
-		_, _ = prog.Run("Compute")
+		_, _ = prog.Run("ArithmeticSum")
 	}
 }
 
 // ============================================================================
-// 19. Complex: Struct with Methods
+// 19. Struct with Methods
 // ============================================================================
 
 func BenchmarkGig_StructMethod(b *testing.B) {
-	benchGig(b, `package main
-type Counter struct {
-	value int
-}
-func (c *Counter) Add(x int) { c.value = c.value + x }
-func (c *Counter) Get() int { return c.value }
-func Compute() int {
-	c := &Counter{}
-	for i := 0; i < 100; i++ {
-		c.Add(i)
-	}
-	return c.Get()
-}`)
+	benchGig(b, "StructMethod")
 }
 
 func BenchmarkNative_StructMethod(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		c := &nativeCounter{}
-		for j := 0; j < 100; j++ {
-			c.Add(j)
-		}
-		_ = c.Get()
+		_ = benchmarks.StructMethod()
 	}
 }
 
 // ============================================================================
-// 20. Complex: Interface Usage
+// 20. Interface Usage
 // ============================================================================
 
 func BenchmarkGig_Interface(b *testing.B) {
-	benchGig(b, `package main
-type Adder interface { Add(int) }
-type Counter struct { value int }
-func (c *Counter) Add(x int) { c.value = c.value + x }
-func Compute() int {
-	var a Adder = &Counter{}
-	for i := 0; i < 100; i++ {
-		a.Add(i)
-	}
-	return a.(*Counter).value
-}`)
+	benchGig(b, "Interface")
 }
 
 func BenchmarkNative_Interface(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		var a Adder = &nativeCounter{}
-		for j := 0; j < 100; j++ {
-			a.Add(j)
-		}
-		_ = a.(*nativeCounter).value
+		_ = benchmarks.Interface()
 	}
 }
 
 // ============================================================================
-// 21. Complex: Type Assertion
+// 21. Type Assertion
 // ============================================================================
 
 func BenchmarkGig_TypeAssertion(b *testing.B) {
-	benchGig(b, `package main
-type Any interface{}
-func Compute() int {
-	var x Any = 42
-	sum := 0
-	for i := 0; i < 100; i++ {
-		if v, ok := x.(int); ok {
-			sum = sum + v
-		}
-	}
-	return sum
-}`)
+	benchGig(b, "TypeAssertion")
 }
 
 func BenchmarkNative_TypeAssertion(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		var x any
-		x = 42
-		sum := 0
-		for j := 0; j < 100; j++ {
-			if v, ok := x.(int); ok {
-				sum = sum + v
-			}
-		}
-		_ = sum
+		_ = benchmarks.TypeAssertion()
 	}
 }
 
 // ============================================================================
-// 22. Complex: Type Switch
+// 22. Type Switch
 // ============================================================================
 
 func BenchmarkGig_TypeSwitch(b *testing.B) {
-	benchGig(b, `package main
-type Any interface{}
-func process(x Any) int {
-	switch v := x.(type) {
-	case int: return v * 2
-	case string: return len(v)
-	default: return 0
-	}
-}
-func Compute() int {
-	values := []Any{1, "hello", 2.5, 3, "world", 4.0}
-	sum := 0
-	for i := 0; i < 100; i++ {
-		for _, v := range values {
-			sum = sum + process(v)
-		}
-	}
-	return sum
-}`)
+	benchGig(b, "TypeSwitch")
 }
 
 func BenchmarkNative_TypeSwitch(b *testing.B) {
-	typeSwitch := func(x any) int {
-		switch v := x.(type) {
-		case int:
-			return v * 2
-		case string:
-			return len(v)
-		default:
-			return 0
-		}
-	}
 	for i := 0; i < b.N; i++ {
-		values := []any{1, "hello", 2.5, 3, "world", 4.0}
-		sum := 0
-		for j := 0; j < 100; j++ {
-			for _, v := range values {
-				sum += typeSwitch(v)
-			}
-		}
-		_ = sum
+		_ = benchmarks.TypeSwitch()
 	}
 }
 
 // ============================================================================
-// 23. Complex: Defer (10 deferred calls)
+// 23. Defer (10 deferred calls)
 // ============================================================================
 
 func BenchmarkGig_Defer(b *testing.B) {
-	benchGig(b, `package main
-func Compute() int {
-	sum := 0
-	for i := 0; i < 10; i++ {
-		defer func() { sum = sum + 1 }()
-	}
-	return sum
-}`)
+	benchGig(b, "Defer")
 }
 
 func BenchmarkNative_Defer(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		sum := 0
-		for j := 0; j < 10; j++ {
-			defer func() { sum = sum + 1 }()
-		}
-		_ = sum
+		_ = benchmarks.Defer()
 	}
 }
 
 // ============================================================================
-// 24. Complex: Panic/Recover
+// 24. Panic/Recover
 // ============================================================================
 
 func BenchmarkGig_PanicRecover(b *testing.B) {
@@ -839,156 +520,63 @@ func BenchmarkNative_PanicRecover(b *testing.B) {
 }
 
 // ============================================================================
-// 25. Complex: Select Statement
+// 25. Select Statement
 // ============================================================================
 
 func BenchmarkGig_Select(b *testing.B) {
-	benchGig(b, `package main
-func Compute() int {
-	ch := make(chan int, 1)
-	sum := 0
-	for i := 0; i < 100; i++ {
-		select {
-		case ch <- i:
-		default:
-			sum = sum + 1
-		}
-		select {
-		case v := <-ch:
-			sum = sum + v
-		default:
-			sum = sum + 1
-		}
-	}
-	return sum
-}`)
+	benchGig(b, "Select")
 }
 
 func BenchmarkNative_Select(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		ch := make(chan int, 1)
-		sum := 0
-		for j := 0; j < 100; j++ {
-			select {
-			case ch <- j:
-			default:
-				sum = sum + 1
-			}
-			select {
-			case v := <-ch:
-				sum = sum + v
-			default:
-				sum = sum + 1
-			}
-		}
-		_ = sum
+		_ = benchmarks.Select()
 	}
 }
 
 // ============================================================================
-// 26. Complex: Slice of Interfaces
+// 26. Slice of Interfaces
 // ============================================================================
 
 func BenchmarkGig_SliceInterface(b *testing.B) {
-	benchGig(b, `package main
-type Counter struct { value int }
-func (c *Counter) Add(x int) { c.value = c.value + x }
-func Compute() int {
-	arr := make([]*Counter, 10)
-	for i := 0; i < 10; i++ {
-		arr[i] = &Counter{}
-	}
-	sum := 0
-	for i := 0; i < 100; i++ {
-		for _, c := range arr {
-			c.Add(i)
-			sum = sum + c.value
-		}
-	}
-	return sum
-}`)
+	benchGig(b, "SliceInterface")
 }
 
 func BenchmarkNative_SliceInterface(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		arr := make([]Adder, 10)
-		for j := 0; j < 10; j++ {
-			arr[j] = &nativeIntAdder{}
-		}
-		sum := 0
-		for k := 0; k < 100; k++ {
-			for _, a := range arr {
-				a.Add(k)
-				sum = sum + a.(*nativeIntAdder).val
-			}
-		}
-		_ = sum
+		_ = benchmarks.SliceInterface()
 	}
 }
 
 // ============================================================================
-// 27. Complex: Composite Literals
+// 27. Composite Literals
 // ============================================================================
 
 func BenchmarkGig_CompositeLiteral(b *testing.B) {
-	benchGig(b, `package main
-type Point struct{ X, Y int }
-func Compute() int {
-	points := []Point{{1, 2}, {3, 4}, {5, 6}, {7, 8}, {9, 10}}
-	sum := 0
-	for i := 0; i < 100; i++ {
-		for _, p := range points {
-			sum = sum + p.X + p.Y
-		}
-	}
-	return sum
-}`)
+	benchGig(b, "CompositeLiteral")
 }
 
 func BenchmarkNative_CompositeLiteral(b *testing.B) {
-	type Point struct{ X, Y int }
 	for i := 0; i < b.N; i++ {
-		points := []Point{{1, 2}, {3, 4}, {5, 6}, {7, 8}, {9, 10}}
-		sum := 0
-		for j := 0; j < 100; j++ {
-			for _, p := range points {
-				sum = sum + p.X + p.Y
-			}
-		}
-		_ = sum
+		_ = benchmarks.CompositeLiteral()
 	}
 }
 
 // ============================================================================
-// 28. Third-party: sort.Ints (external stdlib)
+// 28. sort.Ints (external stdlib)
 // ============================================================================
 
 func BenchmarkGig_SortInts(b *testing.B) {
-	benchGig(b, `package main
-import "sort"
-func Compute() int {
-	s := make([]int, 100)
-	for i := 0; i < 100; i++ {
-		s[i] = 100 - i
-	}
-	sort.Ints(s)
-	return s[0] + s[99]
-}`)
+	benchGig(b, "SortInts")
 }
 
 func BenchmarkNative_SortInts(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		s := make([]int, 100)
-		for j := 0; j < 100; j++ {
-			s[j] = 100 - j
-		}
-		sort.Ints(s)
-		_ = s[0] + s[99]
+		_ = benchmarks.SortInts()
 	}
 }
 
 // ============================================================================
-// 29. Third-party: strings.Builder (external stdlib)
+// 29. strings.Builder (external stdlib)
 // ============================================================================
 
 func BenchmarkGig_StringsBuilder(b *testing.B) {
@@ -1008,7 +596,7 @@ func BenchmarkNative_StringsBuilder(b *testing.B) {
 }
 
 // ============================================================================
-// 30. Third-party: math/big operations (external stdlib)
+// 30. math/big operations (external stdlib)
 // ============================================================================
 
 func BenchmarkGig_MathBig(b *testing.B) {
@@ -1019,42 +607,31 @@ func BenchmarkGig_MathBig(b *testing.B) {
 func BenchmarkNative_MathBig(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		a := big.NewInt(1)
-		b := big.NewInt(1)
+		bv := big.NewInt(1)
 		for j := 0; j < 100; j++ {
-			a.Add(a, b)
-			b.Sub(a, b)
+			a.Add(a, bv)
+			bv.Sub(a, bv)
 		}
 		_ = int(a.Int64() % 1000)
 	}
 }
 
 // ============================================================================
-// 31. Third-party: encoding/json (external stdlib)
+// 31. encoding/json Marshal
 // ============================================================================
 
 func BenchmarkGig_JsonMarshal(b *testing.B) {
-	benchGig(b, `package main
-import "encoding/json"
-type Data struct {
-	Name string
-	Age  int
-	City string
-}
-func Compute() int {
-	d := Data{Name: "John", Age: 30, City: "NYC"}
-	s, _ := json.Marshal(d)
-	return len(s)
-}`)
+	benchGig(b, "JsonMarshal")
 }
 
 func BenchmarkNative_JsonMarshal(b *testing.B) {
-	type Data struct {
+	type NativeData struct {
 		Name string `json:"name"`
 		Age  int    `json:"age"`
 		City string `json:"city"`
 	}
 	for i := 0; i < b.N; i++ {
-		d := Data{Name: "John", Age: 30, City: "NYC"}
+		d := NativeData{Name: "John", Age: 30, City: "NYC"}
 		s, _ := json.Marshal(d)
 		_ = len(s)
 	}
@@ -1196,6 +773,7 @@ func TestBenchmarkSummary(t *testing.T) {
 
 	// Suppress unused warnings
 	_ = strconv.Itoa
+	_ = sort.Ints
 	_ = time.Now()
 }
 
@@ -1261,7 +839,7 @@ func parseBenchmarkOutput(t *testing.T, output string) []benchmarkResult {
 	results := []benchmarkResult{}
 
 	// Known benchmark pairs to look for
-	benchmarks := []struct {
+	benchPairs := []struct {
 		gigName    string
 		nativeName string
 		display    string
@@ -1302,7 +880,7 @@ func parseBenchmarkOutput(t *testing.T, output string) []benchmarkResult {
 	gigTimes := extractTimes(output, "BenchmarkGig_")
 	nativeTimes := extractTimes(output, "BenchmarkNative_")
 
-	for _, bm := range benchmarks {
+	for _, bm := range benchPairs {
 		gigNs, ok1 := gigTimes[bm.gigName]
 		nativeNs, ok2 := nativeTimes[bm.nativeName]
 

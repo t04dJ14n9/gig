@@ -76,7 +76,8 @@ type VM struct {
 	panicVal value.Value
 
 	// extCallCache caches resolved external function info for fast dispatch.
-	extCallCache map[int]*extCallCacheEntry
+	// Uses sync.Map for safe concurrent access from goroutines.
+	extCallCache sync.Map // map[int]*extCallCacheEntry
 }
 
 // extCallCacheEntry caches resolved external function info for fast dispatch.
@@ -102,13 +103,13 @@ type extCallCacheEntry struct {
 // The VM is created with an empty stack and call frame array.
 func New(program *compiler.Program) *VM {
 	return &VM{
-		program:      program,
-		stack:        make([]value.Value, 1024), // initial stack size
-		sp:           0,
-		frames:       make([]*Frame, 64), // max call depth
-		fp:           0,
-		globals:      make([]value.Value, len(program.Globals)),
-		extCallCache: make(map[int]*extCallCacheEntry),
+		program: program,
+		stack:   make([]value.Value, 1024), // initial stack size
+		sp:      0,
+		frames:  make([]*Frame, 64), // max call depth
+		fp:      0,
+		globals: make([]value.Value, len(program.Globals)),
+		// extCallCache is a sync.Map, zero value is ready to use
 	}
 }
 
@@ -1553,12 +1554,14 @@ func (vm *VM) callExternal(funcIdx, numArgs int) {
 	}
 
 	// Check inline cache
-	cacheEntry, cached := vm.extCallCache[funcIdx]
+	cachedEntry, cached := vm.extCallCache.Load(funcIdx)
 	if !cached {
 		// Resolve and cache
-		cacheEntry = vm.resolveExternalFunc(funcIdx)
-		vm.extCallCache[funcIdx] = cacheEntry
+		cacheEntry := vm.resolveExternalFunc(funcIdx)
+		vm.extCallCache.Store(funcIdx, cacheEntry)
+		cachedEntry = cacheEntry
 	}
+	cacheEntry := cachedEntry.(*extCallCacheEntry)
 
 	// Fast path: DirectCall available
 	if cacheEntry.directCall != nil {
