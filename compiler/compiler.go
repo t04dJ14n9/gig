@@ -1080,12 +1080,15 @@ func (c *Compiler) compileSlice(i *ssa.Slice) {
 
 // compileTypeAssert compiles a TypeAssert instruction.
 func (c *Compiler) compileTypeAssert(i *ssa.TypeAssert) {
-	resultIdx := c.symbolTable.AllocLocal(i)
-
 	typeIdx := c.addType(i.AssertedType)
 
 	c.compileValue(i.X)
 	c.emit(OpAssert, uint16(typeIdx))
+
+	// For both CommaOk and non-CommaOk forms, store the result
+	// The CommaOk form returns a tuple (value, ok), non-CommaOk returns just value
+	// The Extract instruction will get individual values when needed
+	resultIdx := c.symbolTable.AllocLocal(i)
 	c.emit(OpSetLocal, uint16(resultIdx))
 }
 

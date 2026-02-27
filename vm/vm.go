@@ -706,7 +706,25 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 
 	case compiler.OpDeref:
 		ptr := vm.pop()
-		vm.push(ptr.Elem())
+		switch ptr.Kind() {
+		case value.KindPointer:
+			vm.push(ptr.Elem())
+		case value.KindInterface:
+			// For interface values, just pass through (interfaces are already dereferenced)
+			vm.push(ptr)
+		case value.KindReflect:
+			if rv, ok := ptr.ReflectValue(); ok && rv.Kind() == reflect.Ptr {
+				if !rv.IsNil() {
+					vm.push(value.MakeFromReflect(rv.Elem()))
+				} else {
+					vm.push(value.MakeNil())
+				}
+			} else {
+				vm.push(ptr)
+			}
+		default:
+			vm.push(ptr)
+		}
 
 	case compiler.OpSetDeref:
 		val := vm.pop()
@@ -716,10 +734,66 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 	// Type operations
 	case compiler.OpAssert:
 		typeIdx := frame.readUint16()
-		_ = typeIdx
+		targetType := vm.program.Types[typeIdx]
 		obj := vm.pop()
-		// Type assertion - for now, just pass through
-		vm.push(obj)
+
+		// Type assertion - check if obj can be asserted to targetType
+		// Returns (value, ok) tuple on stack
+		var result value.Value
+		var assertionOk bool
+
+		if obj.Kind() == value.KindInterface {
+			// Get the underlying interface
+			if rv, isReflect := obj.ReflectValue(); isReflect && rv.Kind() == reflect.Interface {
+				if rv.IsNil() {
+					// Interface is nil, assertion fails
+					result = value.MakeNil()
+					assertionOk = false
+				} else {
+					// Get the underlying value
+					underlying := rv.Elem()
+					targetReflectType := typeToReflect(targetType)
+					if targetReflectType == nil {
+						result = value.MakeNil()
+						assertionOk = false
+					} else if underlying.Type().AssignableTo(targetReflectType) {
+						// Successful assertion - create a value from the underlying
+						result = value.MakeFromReflect(underlying)
+						assertionOk = true
+					} else {
+						result = value.MakeNil()
+						assertionOk = false
+					}
+				}
+			} else {
+				result = obj
+				assertionOk = true
+			}
+		} else if obj.Kind() == value.KindReflect {
+			// Already a reflect value
+			if rv, isReflect := obj.ReflectValue(); isReflect {
+				targetReflectType := typeToReflect(targetType)
+				if targetReflectType != nil && rv.Type().AssignableTo(targetReflectType) {
+					result = obj
+					assertionOk = true
+				} else {
+					result = value.MakeNil()
+					assertionOk = false
+				}
+			} else {
+				result = obj
+				assertionOk = false
+			}
+		} else {
+			// For other kinds, assume success
+			result = obj
+			assertionOk = true
+		}
+
+		// Push result as a tuple [result, ok]
+		// Use a slice to represent the tuple
+		tuple := []value.Value{result, value.MakeBool(assertionOk)}
+		vm.push(value.FromInterface(tuple))
 
 	case compiler.OpConvert:
 		typeIdx := frame.readUint16()
@@ -892,9 +966,23 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 			vm.push(value.MakeInt(int64(len(obj.String()))))
 		case value.KindSlice, value.KindArray, value.KindMap, value.KindChan:
 			vm.push(value.MakeInt(int64(obj.Len())))
-		case value.KindReflect:
+		case value.KindInterface, value.KindReflect:
+			// Handle both interface values and reflect-wrapped values
 			if rv, ok := obj.ReflectValue(); ok {
-				vm.push(value.MakeInt(int64(rv.Len())))
+				kind := rv.Kind()
+				if kind == reflect.Interface {
+					// Unwrap interface to get underlying value
+					if !rv.IsNil() {
+						rv = rv.Elem()
+						kind = rv.Kind()
+					}
+				}
+				switch kind {
+				case reflect.Array, reflect.Chan, reflect.Map, reflect.Slice, reflect.String:
+					vm.push(value.MakeInt(int64(rv.Len())))
+				default:
+					vm.push(value.MakeInt(0))
+				}
 			} else {
 				vm.push(value.MakeInt(0))
 			}
@@ -1612,7 +1700,7 @@ func typeToReflect(t types.Type) reflect.Type {
 	case *types.Pointer:
 		elem := typeToReflect(tt.Elem())
 		if elem != nil {
-			return reflect.PtrTo(elem)
+			return reflect.PointerTo(elem)
 		}
 		return nil
 	case *types.Interface:
@@ -1626,21 +1714,34 @@ func typeToReflect(t types.Type) reflect.Type {
 	case *types.Struct:
 		// Build struct type dynamically using reflect
 		numFields := tt.NumFields()
-		fields := make([]reflect.StructField, numFields)
+		fields := make([]reflect.StructField, 0, numFields)
 		for i := 0; i < numFields; i++ {
 			f := tt.Field(i)
 			ft := typeToReflect(f.Type())
 			if ft == nil {
 				return nil
 			}
-			fields[i] = reflect.StructField{
+			sf := reflect.StructField{
 				Name:      f.Name(),
 				Type:      ft,
 				Anonymous: f.Anonymous(),
 			}
-			if tag := tt.Tag(i); tag != "" {
-				fields[i].Tag = reflect.StructTag(tag)
+			// For unexported fields, we must set PkgPath
+			// Check if the field is exported (starts with uppercase)
+			if len(f.Name()) > 0 && f.Name()[0] >= 'a' && f.Name()[0] <= 'z' {
+				// Unexported field - need to use package path
+				// Use empty string for anonymous unexported, or the package path
+				if !f.Anonymous() {
+					sf.PkgPath = f.Pkg().Path()
+				}
 			}
+			if tag := tt.Tag(i); tag != "" {
+				sf.Tag = reflect.StructTag(tag)
+			}
+			fields = append(fields, sf)
+		}
+		if len(fields) == 0 {
+			return nil
 		}
 		return reflect.StructOf(fields)
 	case *types.Signature:

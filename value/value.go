@@ -856,25 +856,36 @@ func (v Value) Elem() Value {
 // SetElem sets the value pointed to by a pointer.
 func (v Value) SetElem(val Value) {
 	if rv, ok := v.obj.(reflect.Value); ok {
-		// Check if the element type is a function type and the value is a Closure
-		// In gig, closures are stored as *Closure, not actual Go functions
-		elemType := rv.Type().Elem()
-		if elemType.Kind() == reflect.Func {
-			// For function types, store the Value directly
-			// This allows gig closures to be stored in function-typed slots
-			rv.Elem().Set(reflect.ValueOf(val))
+		// Handle different reflect.Value kinds
+		kind := rv.Kind()
+		if kind == reflect.Ptr {
+			// Handle pointer case
+			elemType := rv.Type().Elem()
+			if elemType.Kind() == reflect.Func {
+				rv.Elem().Set(reflect.ValueOf(val))
+				return
+			}
+			if elemType.Name() == "Value" && elemType.PkgPath() == "gig/value" {
+				ptr := rv.Interface().(*Value)
+				*ptr = val
+				return
+			}
+			targetRV := rv.Elem()
+			if targetRV.CanSet() {
+				targetRV.Set(val.ToReflectValue(elemType))
+			}
 			return
 		}
-		// Special case: if the pointer is *value.Value (used for function slots)
-		// We need to set it directly without conversion
-		if elemType.Name() == "Value" && elemType.PkgPath() == "gig/value" {
-			// rv is *value.Value, we need to set the value directly
-			ptr := rv.Interface().(*Value)
-			*ptr = val
+		if kind == reflect.Interface {
+			// For interface, just set the underlying value
+			rv.Set(val.ToReflectValue(rv.Type()))
 			return
 		}
-		rv.Elem().Set(val.ToReflectValue(elemType))
-		return
+		if kind == reflect.Struct {
+			// For struct values, we can't set elements - this shouldn't happen
+			// but handle gracefully
+			return
+		}
 	}
 	panic("invalid reflect.Value in SetElem()")
 }
