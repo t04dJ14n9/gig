@@ -96,7 +96,15 @@ func (v Value) IsNil() bool {
 	}
 	if v.kind == KindReflect {
 		if rv, ok := v.obj.(reflect.Value); ok {
-			return !rv.IsValid() || rv.IsNil()
+			if !rv.IsValid() {
+				return true
+			}
+			// Only call IsNil on types that support it
+			switch rv.Kind() {
+			case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+				return rv.IsNil()
+			}
+			return false
 		}
 	}
 	return false
