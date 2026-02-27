@@ -1136,10 +1136,8 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		// Native int slice fast path
 		if s, ok := slice.IntSlice(); ok {
 			if es, ok2 := elem.IntSlice(); ok2 {
-				// append([]int64, []int64...)
 				vm.push(value.MakeIntSlice(append(s, es...)))
 			} else {
-				// append([]int64, int64)
 				vm.push(value.MakeIntSlice(append(s, elem.RawInt())))
 			}
 			break
