@@ -103,6 +103,8 @@ linters:
         - BUG # Marks issues that should be moved to issue tracker before merging.
         - FIXME # Marks issues that should be resolved before merging.
         - DEBUG # Marks temporary code that should be removed before merging.
+    gomoddirectives:
+      replace-local: true
     gomodguard:
       blocked:
         versions:
@@ -568,9 +570,10 @@ formatters:
   settings:
     gci:
       sections:
-        - standard # Standard section: captures all standard packages.
-        - default # Default section: contains all imports that could not be matched to another section type.
-        - localmodule # Local module section: contains all local packages. This section is not present unless explicitly enabled.
+        - standard
+        - default
+        - prefix(gig)
+        - localmodule
       no-inline-comments: true
       no-prefix-comments: true
     gofmt:

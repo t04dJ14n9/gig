@@ -231,6 +231,76 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 - ✅ 基于上下文的超时控制
 - ✅ 外部 Go 函数调用
 
+## 性能：跨解释器基准测试
+
+在同一台机器上使用相同算法，对比 **Gig**、**Yaegi**（Go 解释器）、**GopherLua**（Lua VM）和 **原生 Go** 的真实基准测试。
+
+> **测试环境**：AMD EPYC 9754 128 核, 32 线程, Linux amd64, Go 1.23.1  
+> 使用 `-count=3` 取中位数。源码：[`benchmarks/bench_test.go`](benchmarks/bench_test.go)
+
+### Go 解释器对比 (Gig vs Yaegi vs 原生 Go)
+
+Gig 和 Yaegi 都解释标准 Go 源代码，属于同类直接对比：
+
+| 工作负载 | 原生 Go | Gig | Yaegi | Gig / 原生 | Yaegi / 原生 |
+|---|---:|---:|---:|---:|---:|
+| **Fibonacci(25)** 递归 | 450 μs | 171 ms | 107 ms | 380x | 238x |
+| **ArithmeticSum(1K)** 循环 | 660 ns | 366 μs | 40 μs | 555x | 61x |
+| **BubbleSort(100)** 嵌套循环 | 6.4 μs | 10.8 ms | 1.2 ms | 1,688x | 190x |
+| **Sieve(1000)** 质数筛 | 1.85 μs | 1.88 ms | 204 μs | 1,016x | 110x |
+| **ClosureCalls(1K)** 闭包调用 | 338 ns | 993 μs | 998 μs | 2,938x | 2,953x |
+
+### 脚本语言对比 (Gig vs GopherLua)
+
+GopherLua 是用 Go 编写的优化 Lua 5.1 虚拟机——最流行的可嵌入脚本引擎之一。使用等价的 Lua 实现进行对比：
+
+| 工作负载 | GopherLua | Gig | Lua / Gig |
+|---|---:|---:|---:|
+| **Fibonacci(25)** 递归 | 20.7 ms | 171 ms | Lua 快 8.3 倍 |
+| **ArithmeticSum(1K)** 循环 | 40 μs | 366 μs | Lua 快 9.2 倍 |
+| **BubbleSort(100)** 嵌套循环 | 770 μs | 10.8 ms | Lua 快 14 倍 |
+| **Sieve(1000)** 质数筛 | 209 μs | 1.88 ms | Lua 快 9.0 倍 |
+| **ClosureCalls(1K)** 闭包调用 | 123 μs | 993 μs | Lua 快 8.1 倍 |
+
+### 表达式引擎对比 (Expr)
+
+[Expr](https://github.com/expr-lang/expr) 是编译型表达式求值器——不同的定位（无循环、函数或通用编程）。仅在其擅长领域展示供参考：
+
+| 工作负载 | Expr | 说明 |
+|---|---:|---|
+| 条件表达式 | 122 ns/op | 简单 `x > y ? ... : ...` |
+| Map/结构体访问 | 376 ns/op | 字段访问 + 比较 |
+| 数组过滤 (1K 元素) | 43 μs/op | `filter(values, {# > 500})` |
+
+Expr 擅长计算独立表达式。Gig 面向不同的使用场景：执行**完整的 Go 程序**，支持全部语言特性。
+
+### 分析
+
+**Gig 目前的定位：**
+- Gig 的字节码 VM **正确且功能完备** —— 支持完整的 Go 语言，包括 goroutine、channel、接口、闭包、defer 以及 40+ 标准库包
+- 原始执行速度目前慢于 Yaegi（AST 遍历解释器）和 GopherLua（成熟的基于寄存器的 Lua VM）
+- 开销主要来自 tagged-union 值系统和基于栈的调度，以速度换取安全性和正确性
+
+**为什么选择 Gig：**
+
+| | Gig | Yaegi | GopherLua | Expr |
+|---|---|---|---|---|
+| **语言** | Go | Go | Lua | 表达式 DSL |
+| **完整 Go 语法** | ✅ | ✅ | ❌ | ❌ |
+| **Goroutine/Channel** | ✅ | ✅ | ❌ | ❌ |
+| **安全沙箱** | ✅（禁止 unsafe/reflect/panic） | ❌ | ❌ | ✅ |
+| **结构体/接口/方法** | ✅ | ✅ | ❌ | 有限 |
+| **40+ 标准库包** | ✅ | ✅ | N/A | N/A |
+| **自定义 Go 包导入** | ✅（代码生成） | ✅（符号表） | N/A | N/A |
+| **Context 取消** | ✅ | ❌ | ❌ | ❌ |
+| **可嵌入** | ✅ | ✅ | ✅ | ✅ |
+
+**复现这些基准测试：**
+```bash
+cd benchmarks
+go test -bench=. -benchmem -count=3 -timeout=30m -run='^$'
+```
+
 ## 安全性
 
 Gig 通过禁止某些导入来强制安全性：

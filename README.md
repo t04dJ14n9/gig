@@ -231,6 +231,76 @@ gig gen ./mydep                 # Generates registration code in myapp/mydep/pac
 - ✅ Context-based timeouts
 - ✅ External Go function calls
 
+## Performance: Cross-Interpreter Benchmark
+
+Real benchmarks comparing **Gig**, **Yaegi** (Go interpreter), **GopherLua** (Lua VM), and **native Go**, all running on the same machine with identical algorithms.
+
+> **Environment**: AMD EPYC 9754 128-Core, 32 threads, Linux amd64, Go 1.23.1  
+> Benchmarks use `-count=3`; median values shown. Source: [`benchmarks/bench_test.go`](benchmarks/bench_test.go)
+
+### Go Interpreter Comparison (Gig vs Yaegi vs Native Go)
+
+Both Gig and Yaegi interpret standard Go source code. This is a direct apples-to-apples comparison:
+
+| Workload | Native Go | Gig | Yaegi | Gig / Native | Yaegi / Native |
+|---|---:|---:|---:|---:|---:|
+| **Fibonacci(25)** recursive | 450 μs | 171 ms | 107 ms | 380x | 238x |
+| **ArithmeticSum(1K)** loop | 660 ns | 366 μs | 40 μs | 555x | 61x |
+| **BubbleSort(100)** nested loops | 6.4 μs | 10.8 ms | 1.2 ms | 1,688x | 190x |
+| **Sieve(1000)** primes | 1.85 μs | 1.88 ms | 204 μs | 1,016x | 110x |
+| **ClosureCalls(1K)** captured var | 338 ns | 993 μs | 998 μs | 2,938x | 2,953x |
+
+### Scripting Language Comparison (Gig vs GopherLua)
+
+GopherLua is an optimized Lua 5.1 VM written in Go - one of the most popular embeddable scripting engines. Equivalent algorithms were implemented in Lua:
+
+| Workload | GopherLua | Gig | Lua / Gig |
+|---|---:|---:|---:|
+| **Fibonacci(25)** recursive | 20.7 ms | 171 ms | Lua 8.3x faster |
+| **ArithmeticSum(1K)** loop | 40 μs | 366 μs | Lua 9.2x faster |
+| **BubbleSort(100)** nested loops | 770 μs | 10.8 ms | Lua 14x faster |
+| **Sieve(1000)** primes | 209 μs | 1.88 ms | Lua 9.0x faster |
+| **ClosureCalls(1K)** captured var | 123 μs | 993 μs | Lua 8.1x faster |
+
+### Expression Engine Comparison (Expr)
+
+[Expr](https://github.com/expr-lang/expr) is a compiled expression evaluator - a different category (no loops, functions, or general-purpose programming). Shown for reference in its sweet spot:
+
+| Workload | Expr | Note |
+|---|---:|---|
+| Conditional expression | 122 ns/op | Simple `x > y ? ... : ...` |
+| Map/struct access | 376 ns/op | Field access + comparison |
+| Array filter (1K elements) | 43 μs/op | `filter(values, {# > 500})` |
+
+Expr excels at evaluating isolated expressions. Gig targets a different use case: executing **complete Go programs** with full language support.
+
+### Analysis
+
+**Where Gig currently stands:**
+- Gig's bytecode VM is **correct and feature-complete** - it supports the full Go language including goroutines, channels, interfaces, closures, defer, and 40+ stdlib packages
+- Raw execution speed is currently slower than Yaegi (AST-walking interpreter) and GopherLua (mature register-based Lua VM)
+- The overhead primarily comes from the tagged-union value system and stack-based dispatch, which trade speed for safety and correctness
+
+**Why choose Gig over alternatives:**
+
+| | Gig | Yaegi | GopherLua | Expr |
+|---|---|---|---|---|
+| **Language** | Go | Go | Lua | Expression DSL |
+| **Full Go syntax** | ✅ | ✅ | ❌ | ❌ |
+| **Goroutines/Channels** | ✅ | ✅ | ❌ | ❌ |
+| **Security sandbox** | ✅ (bans unsafe/reflect/panic) | ❌ | ❌ | ✅ |
+| **Struct/Interface/Methods** | ✅ | ✅ | ❌ | Limited |
+| **40+ stdlib packages** | ✅ | ✅ | N/A | N/A |
+| **Custom Go package import** | ✅ (code-gen) | ✅ (symbols) | N/A | N/A |
+| **Context cancellation** | ✅ | ❌ | ❌ | ❌ |
+| **Embeddable** | ✅ | ✅ | ✅ | ✅ |
+
+**Reproduce these benchmarks:**
+```bash
+cd benchmarks
+go test -bench=. -benchmem -count=3 -timeout=30m -run='^$'
+```
+
 ## Security
 
 Gig enforces security by banning certain imports:
