@@ -19,7 +19,8 @@ func (vm *VM) newChildVM() *VM {
 		globals:      nil, // Not used when globalsPtr is set
 		globalsPtr:   vm.globalsPtr,
 		ctx:          vm.ctx,
-		extCallCache: vm.extCallCache, // Share cache for performance
+		// extCallCache is intentionally not copied; sync.Map must not be copied.
+		// The child VM will lazily populate its own cache.
 	}
 	// If parent doesn't have a globalsPtr yet, create one for sharing
 	if child.globalsPtr == nil {
