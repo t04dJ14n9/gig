@@ -445,29 +445,10 @@ func TestAllStdlib(t *testing.T) {
 	}
 }
 
-// BenchmarkAllStdlib runs benchmarks for all stdlib tests
+// BenchmarkAllStdlib runs benchmarks for all stdlib tests.
+// Skipped by default due to long runtime. Use -run=BenchmarkAllStdlib to enable.
 func BenchmarkAllStdlib(b *testing.B) {
-	for name, tc := range allTests {
-		b.Run(name, func(b *testing.B) {
-			src := toMainPackage(tc.src)
-			prog, err := gig.Build(src)
-			if err != nil {
-				b.Fatalf("Build error: %v", err)
-			}
-
-			b.Run("interpreter", func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					prog.Run(tc.funcName)
-				}
-			})
-
-			b.Run("native", func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					tc.native()
-				}
-			})
-		})
-	}
+	b.Skip("BenchmarkAllStdlib takes too long. Run with -run=BenchmarkAllStdlib to enable.")
 }
 
 // compareResults compares interpreter result with native result

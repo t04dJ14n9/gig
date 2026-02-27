@@ -356,8 +356,20 @@ const (
 	// Concurrency Operations
 	// ========================================
 
-	// OpGo starts a new goroutine.
-	OpGo
+	// OpGoCall starts a new goroutine with a function call.
+	// Operands: [func_idx:2, num_args:1]
+	// Stack: [... args] -> [...]
+	// Spawns a new goroutine that calls the function with the given arguments.
+	// Arguments are evaluated in the current goroutine, but the function
+	// executes in a new goroutine with its own VM instance.
+	OpGoCall
+
+	// OpGoCallIndirect starts a new goroutine with a closure call.
+	// Operands: [num_args:1]
+	// Stack: [... closure args...] -> [...]
+	// Spawns a new goroutine that calls the closure with the given arguments.
+	// The closure and its captured free variables are copied to the new goroutine.
+	OpGoCallIndirect
 
 	// OpSend sends a value on a channel.
 	// Stack: [... ch value] -> [...]
@@ -366,6 +378,11 @@ const (
 	// OpRecv receives a value from a channel.
 	// Stack: [... ch] -> [... value]
 	OpRecv
+
+	// OpRecvOk receives a value from a channel with comma-ok.
+	// Stack: [... ch] -> [... (value, ok) tuple]
+	// Returns a tuple (value, ok) where ok is true if the channel is open.
+	OpRecvOk
 
 	// OpTrySend sends non-blocking.
 	OpTrySend
@@ -600,12 +617,16 @@ func (op OpCode) String() string {
 		return "METHOD"
 	case OpMethodCall:
 		return "METHODCALL"
-	case OpGo:
-		return "GO"
+	case OpGoCall:
+		return "GOCALL"
+	case OpGoCallIndirect:
+		return "GOCALLINDIRECT"
 	case OpSend:
 		return "SEND"
 	case OpRecv:
 		return "RECV"
+	case OpRecvOk:
+		return "RECVOK"
 	case OpTrySend:
 		return "TRYSEND"
 	case OpTryRecv:
@@ -660,34 +681,37 @@ func (op OpCode) String() string {
 // OperandWidths maps opcodes to their operand widths.
 // 0 means no operands, 1 means 1-byte operand, 2 means 2-byte operand.
 var OperandWidths = map[OpCode]int{
-	OpConst:        2,
-	OpLocal:        2,
-	OpSetLocal:     2,
-	OpGlobal:       2,
-	OpSetGlobal:    2,
-	OpFree:         1,
-	OpSetFree:      1,
-	OpJump:         2,
-	OpJumpTrue:     2,
-	OpJumpFalse:    2,
-	OpCall:         3, // func_idx(2) + num_args(1)
-	OpMakeArray:    2,
-	OpMakeStruct:   2,
-	OpField:        2,
-	OpSetField:     2,
-	OpAddr:         2,
-	OpFieldAddr:    2,
-	OpAssert:       2,
-	OpConvert:      2,
-	OpClosure:      3, // func_idx(2) + num_free(1)
-	OpMethod:       2,
-	OpMethodCall:   3, // method_idx(2) + num_args(1)
-	OpDefer:        2,
-	OpCallExternal: 3, // func_idx(2) + num_args(1)
-	OpCallIndirect: 1, // num_args(1)
-	OpPack:         2, // count(2)
-	OpNew:          2,
-	OpMake:         4, // type_idx(2) + size_idx(2)
+	OpConst:          2,
+	OpLocal:          2,
+	OpSetLocal:       2,
+	OpGlobal:         2,
+	OpSetGlobal:      2,
+	OpFree:           1,
+	OpSetFree:        1,
+	OpJump:           2,
+	OpJumpTrue:       2,
+	OpJumpFalse:      2,
+	OpCall:           3, // func_idx(2) + num_args(1)
+	OpMakeArray:      2,
+	OpMakeStruct:     2,
+	OpField:          2,
+	OpSetField:       2,
+	OpAddr:           2,
+	OpFieldAddr:      2,
+	OpAssert:         2,
+	OpConvert:        2,
+	OpClosure:        3, // func_idx(2) + num_free(1)
+	OpMethod:         2,
+	OpMethodCall:     3, // method_idx(2) + num_args(1)
+	OpDefer:          2,
+	OpCallExternal:   3, // func_idx(2) + num_args(1)
+	OpCallIndirect:   1, // num_args(1)
+	OpGoCall:         3, // func_idx(2) + num_args(1)
+	OpGoCallIndirect: 1, // num_args(1)
+	OpSelect:         2, // meta_idx(2)
+	OpPack:           2, // count(2)
+	OpNew:            2,
+	OpMake:           4, // type_idx(2) + size_idx(2)
 }
 
 // ReadUint16 reads a 2-byte operand from the bytecode.
@@ -699,4 +723,13 @@ func ReadUint16(code []byte, ip int) uint16 {
 func WriteUint16(code []byte, offset int, val uint16) {
 	code[offset] = byte(val >> 8)
 	code[offset+1] = byte(val)
+}
+
+// SelectMeta stores metadata for a select statement.
+// It is stored in the constant pool and referenced by OpSelect.
+type SelectMeta struct {
+	NumStates int    // total number of select cases (excluding default)
+	Blocking  bool   // true if no default branch
+	Dirs      []bool // direction for each case: true=send, false=recv
+	NumRecv   int    // number of recv cases (determines result tuple size)
 }

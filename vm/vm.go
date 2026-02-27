@@ -62,6 +62,10 @@ type VM struct {
 	// globals stores global variables.
 	globals []value.Value
 
+	// globalsPtr is a pointer to shared globals (for goroutine communication).
+	// If set, globals operations use this pointer instead of the local slice.
+	globalsPtr *[]value.Value
+
 	// ctx is the execution context for cancellation/timeout.
 	ctx context.Context
 
@@ -152,6 +156,36 @@ func (vm *VM) ExecuteWithValues(funcName string, ctx context.Context, args []val
 
 	// Run the VM
 	return vm.run()
+}
+
+// getGlobals returns the globals slice, using the shared pointer if available.
+// This allows goroutines to share globals for communication.
+func (vm *VM) getGlobals() []value.Value {
+	if vm.globalsPtr != nil {
+		return *vm.globalsPtr
+	}
+	return vm.globals
+}
+
+// newChildVM creates a child VM for goroutine execution.
+// The child VM shares the globals pointer with the parent for communication.
+func (vm *VM) newChildVM() *VM {
+	child := &VM{
+		program:      vm.program,
+		stack:        make([]value.Value, 1024),
+		sp:           0,
+		frames:       make([]*Frame, 64),
+		fp:           0,
+		globals:      nil, // Not used when globalsPtr is set
+		globalsPtr:   vm.globalsPtr,
+		ctx:          vm.ctx,
+		extCallCache: vm.extCallCache, // Share cache for performance
+	}
+	// If parent doesn't have a globalsPtr yet, create one for sharing
+	if child.globalsPtr == nil {
+		child.globalsPtr = &vm.globals
+	}
+	return child
 }
 
 // run is the main execution loop for the VM.
@@ -277,15 +311,20 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 
 	case compiler.OpGlobal:
 		idx := frame.readUint16()
-		if int(idx) < len(vm.globals) {
-			vm.push(vm.globals[idx])
+		globals := vm.getGlobals()
+		if int(idx) < len(globals) {
+			// Push a pointer to the global slot
+			// This allows OpDeref/OpSetDeref to work correctly
+			ptr := &globals[idx]
+			vm.push(value.FromInterface(ptr))
 		}
 
 	case compiler.OpSetGlobal:
 		idx := frame.readUint16()
 		val := vm.pop()
-		if int(idx) < len(vm.globals) {
-			vm.globals[idx] = val
+		globals := vm.getGlobals()
+		if int(idx) < len(globals) {
+			globals[idx] = val
 		}
 
 	case compiler.OpFree:
@@ -969,9 +1008,76 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		}
 
 	// Concurrency
-	case compiler.OpGo:
-		// Start goroutine - simplified implementation
-		// Would need to capture the function and arguments
+	case compiler.OpGoCall:
+		// OpGoCall spawns a new goroutine to execute a function call.
+		// Operands: [func_idx:2, num_args:1]
+		// Stack: [... args] -> [...] (arguments consumed)
+		funcIdx := frame.readUint16()
+		numArgs := frame.readByte()
+
+		// Pop arguments from current goroutine's stack
+		args := make([]value.Value, numArgs)
+		for i := int(numArgs) - 1; i >= 0; i-- {
+			args[i] = vm.pop()
+		}
+
+		// Get the function to call
+		var fn *compiler.CompiledFunction
+		for _, f := range vm.program.Functions {
+			if vm.program.FuncIndex[f.Source] == int(funcIdx) {
+				fn = f
+				break
+			}
+		}
+
+		if fn != nil {
+			// Create a child VM with shared globals
+			childVM := vm.newChildVM()
+
+			// Track the goroutine
+			StartGoroutine(func() {
+				// Create initial frame for the child goroutine
+				childFrame := newFrame(fn, 0, args, nil)
+				childVM.frames[0] = childFrame
+				childVM.fp = 1
+
+				// Run the child VM (ignore return value - goroutine result is discarded)
+				_, _ = childVM.run()
+			})
+		}
+
+	case compiler.OpGoCallIndirect:
+		// OpGoCallIndirect spawns a new goroutine to execute a closure call.
+		// Operands: [num_args:1]
+		// Stack: [... closure args...] -> [...] (closure and arguments consumed)
+		numArgs := frame.readByte()
+
+		// Pop arguments from current goroutine's stack
+		args := make([]value.Value, numArgs)
+		for i := int(numArgs) - 1; i >= 0; i-- {
+			args[i] = vm.pop()
+		}
+
+		// Pop the closure
+		callee := vm.pop()
+		calleeIface := callee.Interface()
+
+		switch closure := calleeIface.(type) {
+		case *Closure:
+			// Create a child VM with shared globals
+			childVM := vm.newChildVM()
+
+			// Track the goroutine
+			StartGoroutine(func() {
+				// Create initial frame for the child goroutine with free vars
+				childFrame := newFrame(closure.Fn, 0, args, closure.FreeVars)
+				childVM.frames[0] = childFrame
+				childVM.fp = 1
+
+				// Run the child VM (ignore return value - goroutine result is discarded)
+				_, _ = childVM.run()
+			})
+		}
 
 	case compiler.OpSend:
 		val := vm.pop()
@@ -983,9 +1089,102 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		val, _ := ch.Recv()
 		vm.push(val)
 
+	case compiler.OpRecvOk:
+		// Receive with comma-ok: returns (value, ok) tuple
+		ch := vm.pop()
+		val, ok := ch.Recv()
+		// Push as tuple (value, ok)
+		tuple := []value.Value{val, value.MakeBool(ok)}
+		vm.push(value.FromInterface(tuple))
+
 	case compiler.OpClose:
 		ch := vm.pop()
 		ch.Close()
+
+	case compiler.OpSelect:
+		// OpSelect performs a select statement using reflect.Select.
+		// Operands: [meta_idx:2]
+		// Stack (bottom to top): for each state, Chan; if send, also SendVal.
+		// Result pushed: tuple (index, recvOk, recv_0, ..., recv_{n-1})
+		metaIdx := frame.readUint16()
+		meta, ok := vm.program.Constants[metaIdx].(compiler.SelectMeta)
+		if !ok {
+			return fmt.Errorf("OpSelect: invalid meta at index %d", metaIdx)
+		}
+
+		// Pop channels and send values from stack (they were pushed in order,
+		// so we need to pop in reverse).
+		type stateData struct {
+			ch      value.Value
+			sendVal value.Value
+			isSend  bool
+		}
+		states := make([]stateData, meta.NumStates)
+		// Pop in reverse order
+		for i := meta.NumStates - 1; i >= 0; i-- {
+			if meta.Dirs[i] { // send
+				states[i].sendVal = vm.pop()
+				states[i].ch = vm.pop()
+				states[i].isSend = true
+			} else { // recv
+				states[i].ch = vm.pop()
+			}
+		}
+
+		// Build reflect.SelectCase slice
+		numCases := meta.NumStates
+		if !meta.Blocking {
+			numCases++ // add default case
+		}
+		cases := make([]reflect.SelectCase, numCases)
+		for i := 0; i < meta.NumStates; i++ {
+			rv, _ := states[i].ch.ReflectValue()
+			if states[i].isSend {
+				sendRV := states[i].sendVal.ToReflectValue(rv.Type().Elem())
+				cases[i] = reflect.SelectCase{
+					Dir:  reflect.SelectSend,
+					Chan: rv,
+					Send: sendRV,
+				}
+			} else {
+				cases[i] = reflect.SelectCase{
+					Dir:  reflect.SelectRecv,
+					Chan: rv,
+				}
+			}
+		}
+		if !meta.Blocking {
+			cases[meta.NumStates] = reflect.SelectCase{Dir: reflect.SelectDefault}
+		}
+
+		// Perform the select
+		chosen, recv, recvOK := reflect.Select(cases)
+
+		// Adjust chosen index: if default was selected, chosen == meta.NumStates → map to -1
+		if !meta.Blocking && chosen == meta.NumStates {
+			chosen = -1
+		}
+
+		// Build result tuple: (index, recvOk, recv_0, ..., recv_{n-1})
+		tupleLen := 2 + meta.NumRecv
+		tuple := make([]value.Value, tupleLen)
+		tuple[0] = value.MakeInt(int64(chosen))
+		tuple[1] = value.MakeBool(recvOK)
+
+		// Fill recv values: for each recv state (in order), if it was the chosen one, set the value
+		recvIdx := 0
+		for i := 0; i < meta.NumStates; i++ {
+			if !meta.Dirs[i] { // recv state
+				if i == chosen {
+					tuple[2+recvIdx] = value.MakeFromReflect(recv)
+				} else {
+					tuple[2+recvIdx] = value.MakeNil()
+				}
+				recvIdx++
+			}
+		}
+
+		vm.push(value.FromInterface(tuple))
 
 	// Defer/recover
 	case compiler.OpDefer:
@@ -1646,6 +1845,9 @@ func (it *iterator) next() (key, val value.Value, ok bool) {
 		key = value.MakeFromReflect(it.mapIter.Key())
 		val = value.MakeFromReflect(it.mapIter.Value())
 		return key, val, true
+	case value.KindChan:
+		val, ok = it.collection.Recv()
+		return value.MakeNil(), val, ok
 	default:
 		// Try to use reflect for other types
 		if rv, isValid := it.collection.ReflectValue(); isValid {
@@ -1667,6 +1869,12 @@ func (it *iterator) next() (key, val value.Value, ok bool) {
 				key = value.MakeFromReflect(it.mapIter.Key())
 				val = value.MakeFromReflect(it.mapIter.Value())
 				return key, val, true
+			case reflect.Chan:
+				v, ok := rv.Recv()
+				if !ok {
+					return value.MakeNil(), value.MakeNil(), false
+				}
+				return value.MakeNil(), value.MakeFromReflect(v), true
 			}
 		}
 		return value.MakeNil(), value.MakeNil(), false

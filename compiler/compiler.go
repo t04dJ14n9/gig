@@ -238,6 +238,7 @@ func Compile(mainPkg *ssa.Package) (*Program, error) {
 
 	c.program.Constants = c.constants
 	c.program.Types = c.types
+	c.program.Globals = c.globals
 
 	return c.program, nil
 }
@@ -583,7 +584,12 @@ func (c *Compiler) compileUnOp(i *ssa.UnOp) {
 		op = OpXor
 	case token.ARROW:
 		// Channel receive
-		op = OpRecv
+		if i.CommaOk {
+			// Receive with comma-ok: returns (value, ok) tuple
+			op = OpRecvOk
+		} else {
+			op = OpRecv
+		}
 	case token.MUL:
 		// Pointer dereference
 		op = OpDeref
@@ -641,7 +647,7 @@ func (c *Compiler) compileCall(i *ssa.Call) {
 }
 
 // compileBuiltinCall compiles a call to a builtin function.
-// Supported builtins: len, cap, append, copy, delete, panic, print, println, new, make.
+// Supported builtins: len, cap, append, copy, delete, close, panic, print, println, new, make.
 func (c *Compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, resultIdx int) {
 	name := builtin.Name()
 
@@ -689,6 +695,10 @@ func (c *Compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, re
 		c.emit(OpNew, uint16(typeIdx))
 	case "make":
 		c.compileMakeBuiltin(args)
+	case "close":
+		c.compileValue(args[0])
+		c.emit(OpClose)
+		return // close has no return value
 	default:
 		// Unknown builtin
 		c.emit(OpNil)
@@ -893,6 +903,7 @@ func (c *Compiler) compileReturn(i *ssa.Return) {
 //   - Phi nodes (reads from pre-allocated slot)
 //   - Free variables (closure captures)
 //   - Local variables (reads from slot)
+//   - Global variables (pushes global address)
 func (c *Compiler) compileValue(v ssa.Value) {
 	switch val := v.(type) {
 	case *ssa.Const:
@@ -922,6 +933,18 @@ func (c *Compiler) compileValue(v ssa.Value) {
 		} else {
 			c.emit(OpNil)
 		}
+	case *ssa.Global:
+		// Global variables - push the global address
+		// Globals are represented as pointers in SSA
+		globalName := val.Name()
+		globalIdx, ok := c.globals[globalName]
+		if !ok {
+			globalIdx = len(c.globals)
+			c.globals[globalName] = globalIdx
+		}
+		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+			byte(OpGlobal),
+			byte(globalIdx>>8), byte(globalIdx))
 	default:
 		// Handle values stored in locals
 		if idx, ok := c.symbolTable.GetLocal(v); ok {
@@ -1163,10 +1186,49 @@ func (c *Compiler) compileNext(i *ssa.Next) {
 }
 
 // compileSelect compiles a Select instruction.
+//
+// SSA Select returns an n+2-tuple: (index int, recvOk bool, r_0, ..., r_{n-1})
+// where n is the number of RECV states.
+//
+// The compiler pushes all channel values and send values onto the stack,
+// stores a SelectMeta descriptor in the constant pool, and emits OpSelect.
 func (c *Compiler) compileSelect(i *ssa.Select) {
-	// Build select cases
-	// This is complex - for now, use reflect.Select
-	c.emit(OpSelect)
+	// Count receive states for the result tuple size
+	numRecv := 0
+	for _, st := range i.States {
+		if st.Dir == types.RecvOnly {
+			numRecv++
+		}
+	}
+
+	// Build metadata: direction for each state (true=send, false=recv)
+	dirs := make([]bool, len(i.States))
+	for idx, st := range i.States {
+		dirs[idx] = (st.Dir == types.SendOnly)
+	}
+
+	meta := SelectMeta{
+		NumStates: len(i.States),
+		Blocking:  i.Blocking,
+		Dirs:      dirs,
+		NumRecv:   numRecv,
+	}
+
+	// Push channels and (for sends) the send values onto the stack.
+	// Order: for each state, push Chan; if send, also push SendVal.
+	for _, st := range i.States {
+		c.compileValue(st.Chan)
+		if st.Dir == types.SendOnly {
+			c.compileValue(st.Send)
+		}
+	}
+
+	metaIdx := c.addConstant(meta)
+	c.emit(OpSelect, metaIdx)
+
+	// Store the result tuple into a local
+	resultIdx := c.symbolTable.AllocLocal(i)
+	c.emit(OpSetLocal, uint16(resultIdx))
 }
 
 // compileSlice compiles a Slice instruction.
@@ -1280,18 +1342,38 @@ func (c *Compiler) compileDefer(i *ssa.Defer) {
 }
 
 // compileGo compiles a Go instruction.
+// It emits OpGoCall to spawn a new goroutine that executes the function call.
+// Arguments are evaluated in the current goroutine, then passed to the spawned goroutine.
+// Supports both direct function calls (go foo()) and closure calls (go func(){}()).
 func (c *Compiler) compileGo(i *ssa.Go) {
-	// Push arguments
+	// Push arguments (evaluated in current goroutine)
 	for _, arg := range i.Call.Args {
 		c.compileValue(arg)
 	}
 
-	// Start goroutine
+	// Check if it's a direct function call
 	if fn, ok := i.Call.Value.(*ssa.Function); ok {
-		fnIdx := c.funcIndex[fn]
-		c.emit(OpCall, uint16(fnIdx), uint16(len(i.Call.Args)))
-		c.emit(OpGo)
+		// Emit OpGoCall to spawn goroutine
+		// Manually encode with proper operand sizes: [opcode(1)] [funcIdx(2)] [numArgs(1)]
+		funcIdx := c.funcIndex[fn]
+		numArgs := len(i.Call.Args)
+		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+			byte(OpGoCall),
+			byte(funcIdx>>8), byte(funcIdx),
+			byte(numArgs))
+		return
 	}
+
+	// It's a closure or indirect call
+	// Push the closure value onto the stack
+	c.compileValue(i.Call.Value)
+
+	// Emit OpGoCallIndirect to spawn goroutine with closure
+	// Manually encode: [opcode(1)] [numArgs(1)]
+	numArgs := len(i.Call.Args)
+	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+		byte(OpGoCallIndirect),
+		byte(numArgs))
 }
 
 // emit appends an opcode and its operands to the current function's bytecode.
