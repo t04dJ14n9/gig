@@ -1,14 +1,8 @@
 package leetcode_hard
 
-// NOTE: Some problems use iterative approaches instead of recursive closures.
-// Gig currently has a limitation with recursive closures (closures that call themselves).
-// Pattern that doesn't work:
-//
-//	var f func(int) int
-//	f = func(x int) int { return f(x-1) }  // f captures itself before assignment
-//
-// This is because the closure captures the variable's slot before it's assigned a value.
-// Use iterative approaches or named functions for recursive patterns.
+// Classic LeetCode Hard Problems for gig interpreter testing.
+// These problems demonstrate advanced algorithmic patterns including
+// dynamic programming, backtracking, and graph algorithms.
 
 // Problem 1: Trapping Rain Water
 // Given n non-negative integers representing an elevation map where the width of each bar is 1,

@@ -93,3 +93,22 @@ func Compose() int {
 	square := func(x int) int { return x * x }
 	return square(double(addOne(5)))
 }
+
+// ClosureForLoopTest test if the for loop create a new for-loop variable for each iteration
+//
+// # This behaviour is changed after Go1.22, before that, only the last iteration variable is captured
+//
+// Expect result: 10 after go1.22 and 25 before go1.22
+func ClosureForLoopTest() int {
+	sum := 0
+	var funcs []func()
+	for i := 0; i < 5; i++ {
+		funcs = append(funcs, func() {
+			sum = sum + i
+		})
+	}
+	for _, f := range funcs {
+		f()
+	}
+	return sum
+}

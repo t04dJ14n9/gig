@@ -81,6 +81,7 @@ const (
 
 	// Pointer operations
 	OpAddr      // push address of local [local_idx:2]
+	OpFieldAddr // pop struct ptr, push &struct.field [field_idx:2]
 	OpIndexAddr // pop index, pop slice/array, push &slice[index]
 	OpDeref     // pop pointer, push *pointer
 	OpSetDeref  // pop val, pop pointer, *pointer = val
@@ -244,6 +245,8 @@ func (op OpCode) String() string {
 		return "SETFIELD"
 	case OpAddr:
 		return "ADDR"
+	case OpFieldAddr:
+		return "FIELDADDR"
 	case OpIndexAddr:
 		return "INDEXADDR"
 	case OpDeref:
@@ -336,6 +339,7 @@ var OperandWidths = map[OpCode]int{
 	OpField:        2,
 	OpSetField:     2,
 	OpAddr:         2,
+	OpFieldAddr:    2,
 	OpAssert:       2,
 	OpConvert:      2,
 	OpClosure:      3, // func_idx(2) + num_free(1)

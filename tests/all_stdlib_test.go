@@ -30,6 +30,7 @@ import (
 	"gig/tests/testdata/slices"
 	"gig/tests/testdata/slicing"
 	"gig/tests/testdata/strings_pkg"
+	"gig/tests/testdata/structs"
 	switch_pkg "gig/tests/testdata/switch"
 	"gig/tests/testdata/typeconv"
 	"gig/tests/testdata/variables"
@@ -99,6 +100,9 @@ var slicingSrc string
 
 //go:embed testdata/strings_pkg/main.go
 var stringsPkgSrc string
+
+//go:embed testdata/structs/main.go
+var structsSrc string
 
 //go:embed testdata/switch/main.go
 var switchSrc string
@@ -206,12 +210,13 @@ var allTests = map[string]testCase{
 	"closures/Accumulator":       {closuresSrc, "Accumulator", func() any { return closures.Accumulator() }},
 
 	// closures_advanced
-	"closures_advanced/Generator":       {closuresAdvancedSrc, "Generator", func() any { return closures_advanced.Generator() }},
-	"closures_advanced/Predicate":       {closuresAdvancedSrc, "Predicate", func() any { return closures_advanced.Predicate() }},
-	"closures_advanced/StateMachine":    {closuresAdvancedSrc, "StateMachine", func() any { return closures_advanced.StateMachine() }},
-	"closures_advanced/RecursiveHelper": {closuresAdvancedSrc, "RecursiveHelper", func() any { return closures_advanced.RecursiveHelper() }},
-	"closures_advanced/ApplyN":          {closuresAdvancedSrc, "ApplyN", func() any { return closures_advanced.ApplyN() }},
-	"closures_advanced/Compose":         {closuresAdvancedSrc, "Compose", func() any { return closures_advanced.Compose() }},
+	"closures_advanced/Generator":          {closuresAdvancedSrc, "Generator", func() any { return closures_advanced.Generator() }},
+	"closures_advanced/Predicate":          {closuresAdvancedSrc, "Predicate", func() any { return closures_advanced.Predicate() }},
+	"closures_advanced/StateMachine":       {closuresAdvancedSrc, "StateMachine", func() any { return closures_advanced.StateMachine() }},
+	"closures_advanced/RecursiveHelper":    {closuresAdvancedSrc, "RecursiveHelper", func() any { return closures_advanced.RecursiveHelper() }},
+	"closures_advanced/ApplyN":             {closuresAdvancedSrc, "ApplyN", func() any { return closures_advanced.ApplyN() }},
+	"closures_advanced/Compose":            {closuresAdvancedSrc, "Compose", func() any { return closures_advanced.Compose() }},
+	"closures_advanced/ClosureForLoopTest": {closuresAdvancedSrc, "ClosureForLoopTest", func() any { return closures_advanced.ClosureForLoopTest() }},
 
 	// controlflow
 	"controlflow/IfTrue":              {controlflowSrc, "IfTrue", func() any { return controlflow.IfTrue() }},
@@ -350,6 +355,19 @@ var allTests = map[string]testCase{
 	"strings_pkg/Comparison": {stringsPkgSrc, "Comparison", func() any { return strings_pkg.Comparison() }},
 	"strings_pkg/Equality":   {stringsPkgSrc, "Equality", func() any { return strings_pkg.Equality() }},
 	"strings_pkg/EmptyCheck": {stringsPkgSrc, "EmptyCheck", func() any { return strings_pkg.EmptyCheck() }},
+
+	// structs
+	"structs/BasicStruct":        {structsSrc, "BasicStruct", func() any { return structs.BasicStruct() }},
+	"structs/StructPointer":      {structsSrc, "StructPointer", func() any { return structs.StructPointer() }},
+	"structs/NestedStruct":       {structsSrc, "NestedStruct", func() any { return structs.NestedStruct() }},
+	"structs/EmbeddedField":      {structsSrc, "EmbeddedField", func() any { return structs.EmbeddedField() }},
+	"structs/StructInSlice":      {structsSrc, "StructInSlice", func() any { return structs.StructInSlice() }},
+	"structs/StructAsParam":      {structsSrc, "StructAsParam", func() any { return structs.StructAsParam() }},
+	"structs/StructZeroValue":    {structsSrc, "StructZeroValue", func() any { return structs.StructZeroValue() }},
+	"structs/MultipleEmbedded":   {structsSrc, "MultipleEmbedded", func() any { return structs.MultipleEmbedded() }},
+	"structs/DeepNesting":        {structsSrc, "DeepNesting", func() any { return structs.DeepNesting() }},
+	"structs/StructFieldMutation": {structsSrc, "StructFieldMutation", func() any { return structs.StructFieldMutation() }},
+	"structs/StructWithBool":     {structsSrc, "StructWithBool", func() any { return structs.StructWithBool() }},
 
 	// switch
 	"switch/Simple":      {switchSrc, "Simple", func() any { return switch_pkg.Simple() }},

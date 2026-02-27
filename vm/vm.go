@@ -224,7 +224,17 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 	case compiler.OpFree:
 		idx := frame.readByte()
 		if int(idx) < len(frame.freeVars) && frame.freeVars[idx] != nil {
-			vm.push(*frame.freeVars[idx])
+			val := *frame.freeVars[idx]
+			// If the value is a Value containing a Closure, return it directly for indirect calls
+			// Check if this is a wrapped closure
+			if val.Kind() == value.KindReflect {
+				iface := val.Interface()
+				if closure, ok := iface.(*Closure); ok {
+					vm.push(value.FromInterface(closure))
+					return nil
+				}
+			}
+			vm.push(val)
 		}
 
 	case compiler.OpSetFree:
@@ -363,6 +373,8 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 			prevFrame := vm.frames[vm.fp-1]
 			vm.sp = prevFrame.basePtr
 		}
+		// Push nil for void returns (SSA may expect a value)
+		vm.push(value.MakeNil())
 
 	case compiler.OpReturnVal:
 		// Save return value
@@ -386,6 +398,16 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		// Create slice using the type from the type pool
 		if int(typeIdx) < len(vm.program.Types) {
 			typ := vm.program.Types[typeIdx]
+			// Check if this is a slice of function type
+			if sliceType, ok := typ.(*types.Slice); ok {
+				elemType := sliceType.Elem()
+				if _, isFunc := elemType.(*types.Signature); isFunc {
+					// Create []value.Value for function slices
+					slice := make([]value.Value, int(lenVal.Int()), int(capVal.Int()))
+					vm.push(value.FromInterface(slice))
+					break
+				}
+			}
 			if rt := typeToReflect(typ); rt != nil {
 				slice := reflect.MakeSlice(rt, int(lenVal.Int()), int(capVal.Int()))
 				vm.push(value.MakeFromReflect(slice))
@@ -563,9 +585,23 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		}
 
 		if rv, ok := container.ReflectValue(); ok {
-			// If it's a pointer to an array, dereference it first
-			if rv.Kind() == reflect.Ptr && rv.Elem().Kind() == reflect.Array {
-				rv = rv.Elem()
+			// If it's a pointer to an array or slice, dereference it first
+			if rv.Kind() == reflect.Ptr {
+				elemKind := rv.Elem().Kind()
+				if elemKind == reflect.Array || elemKind == reflect.Slice {
+					rv = rv.Elem()
+				}
+			}
+
+			// Handle native []value.Value slices (used for function slices)
+			if rv.Kind() == reflect.Slice && rv.Type().Elem() == reflect.TypeOf(value.Value{}) {
+				high := int(highVal.Int())
+				if high == 0xFFFF {
+					high = rv.Len()
+				}
+				sliced := rv.Slice(low, high)
+				vm.push(value.MakeFromReflect(sliced))
+				break
 			}
 
 			high := int(highVal.Int())
@@ -610,6 +646,30 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 			vm.push(value.MakeNil())
 		}
 
+	case compiler.OpFieldAddr:
+		// Get address of a struct field: &struct.field
+		fieldIdx := frame.readUint16()
+		structPtr := vm.pop()
+		if rv, ok := structPtr.ReflectValue(); ok {
+			// Dereference pointer to get struct
+			s := rv
+			if s.Kind() == reflect.Ptr {
+				s = s.Elem()
+			}
+			if s.Kind() == reflect.Struct {
+				field := s.Field(int(fieldIdx))
+				if field.CanAddr() {
+					vm.push(value.MakeFromReflect(field.Addr()))
+				} else {
+					vm.push(value.MakeFromReflect(field))
+				}
+			} else {
+				vm.push(value.MakeNil())
+			}
+		} else {
+			vm.push(value.MakeNil())
+		}
+
 	case compiler.OpIndexAddr:
 		// Get address of slice/array element: &slice[index]
 		index := vm.pop()
@@ -621,14 +681,24 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 			if rv.Kind() == reflect.Ptr {
 				rv = rv.Elem()
 			}
-			// Get element address using reflect
-			elem := rv.Index(idx)
-			if elem.CanAddr() {
-				elemPtr := elem.Addr()
-				vm.push(value.MakeFromReflect(elemPtr))
+			// Handle []value.Value slices (used for function slices)
+			if rv.Kind() == reflect.Slice && rv.Type().Elem() == reflect.TypeOf(value.Value{}) {
+				elem := rv.Index(idx)
+				if elem.CanAddr() {
+					vm.push(value.MakeFromReflect(elem.Addr()))
+				} else {
+					vm.push(value.MakeFromReflect(elem))
+				}
 			} else {
-				// Can't address - set directly
-				vm.push(value.MakeFromReflect(elem))
+				// Get element address using reflect
+				elem := rv.Index(idx)
+				if elem.CanAddr() {
+					elemPtr := elem.Addr()
+					vm.push(value.MakeFromReflect(elemPtr))
+				} else {
+					// Can't address - set directly
+					vm.push(value.MakeFromReflect(elem))
+				}
 			}
 		} else {
 			vm.push(value.MakeNil())
@@ -727,6 +797,19 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		freeVars := make([]*value.Value, numFree)
 		for i := int(numFree) - 1; i >= 0; i-- {
 			v := vm.pop()
+			// Check if this is a slot reference (pointer to a Value)
+			// This happens when OpAddr is used for closure capture
+			if v.Kind() == value.KindReflect {
+				// The obj field contains the actual pointer
+				iface := v.Interface()
+				// OpAddr creates a *value.Value pointing to a local slot
+				if ptr, ok := iface.(*value.Value); ok && ptr != nil {
+					freeVars[i] = ptr
+					continue
+				}
+			}
+			// Otherwise, take address of the value (copy)
+			// This is the old behavior for non-reference captures
 			freeVars[i] = &v
 		}
 		// Look up the function by index
@@ -840,14 +923,45 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		// Append element to slice
 		if rv, ok := slice.ReflectValue(); ok {
 			sliceElemType := rv.Type().Elem()
-			// Check if SSA packed variadic args into a slice (e.g., append(s, elems...))
-			if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice && elemRV.Type().Elem() == sliceElemType {
-				// The element is a slice of the same element type — spread it
-				newSlice := reflect.AppendSlice(rv, elemRV)
-				vm.push(value.MakeFromReflect(newSlice))
+			// Handle []value.Value slices (used for function slices)
+			if sliceElemType == reflect.TypeOf(value.Value{}) {
+				// Append value.Value element(s) to []value.Value
+				if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice && elemRV.Type().Elem() == sliceElemType {
+					newSlice := reflect.AppendSlice(rv, elemRV)
+					vm.push(value.MakeFromReflect(newSlice))
+				} else {
+					newSlice := reflect.Append(rv, reflect.ValueOf(elem))
+					vm.push(value.MakeFromReflect(newSlice))
+				}
 			} else {
-				newSlice := reflect.Append(rv, elem.ToReflectValue(sliceElemType))
-				vm.push(value.MakeFromReflect(newSlice))
+				// Check if SSA packed variadic args into a slice (e.g., append(s, elems...))
+				if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice && elemRV.Type().Elem() == sliceElemType {
+					// The element is a slice of the same element type — spread it
+					newSlice := reflect.AppendSlice(rv, elemRV)
+					vm.push(value.MakeFromReflect(newSlice))
+				} else {
+					newSlice := reflect.Append(rv, elem.ToReflectValue(sliceElemType))
+					vm.push(value.MakeFromReflect(newSlice))
+				}
+			}
+		} else if slice.IsNil() {
+			// Nil slice: check if elem is a []value.Value (function slice)
+			if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice {
+				if elemRV.Type().Elem() == reflect.TypeOf(value.Value{}) {
+					// Create new []value.Value from the element slice
+					newSlice := make([]value.Value, 0)
+					newRV := reflect.ValueOf(newSlice)
+					result := reflect.AppendSlice(newRV, elemRV)
+					vm.push(value.MakeFromReflect(result))
+				} else {
+					// Create new slice of the element's type
+					sliceType := reflect.SliceOf(elemRV.Type().Elem())
+					newSlice := reflect.MakeSlice(sliceType, 0, 0)
+					result := reflect.AppendSlice(newSlice, elemRV)
+					vm.push(value.MakeFromReflect(result))
+				}
+			} else {
+				vm.push(slice)
 			}
 		} else {
 			vm.push(slice)
@@ -896,7 +1010,41 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 		// Allocate new pointer to value of the given type
 		if int(typeIdx) < len(vm.program.Types) {
 			typ := vm.program.Types[typeIdx]
-			if rt := typeToReflect(typ); rt != nil {
+			// For function types, create a pointer to a Value (to store closures)
+			if sig, ok := typ.(*types.Signature); ok {
+				_ = sig // Function signature not needed for allocation
+				// Create a pointer to a nil Value
+				var nilVal value.Value
+				newPtr := reflect.ValueOf(&nilVal)
+				vm.push(value.MakeFromReflect(newPtr))
+			} else if sliceType, ok := typ.(*types.Slice); ok {
+				// Check if slice element type is function
+				if _, isFunc := sliceType.Elem().(*types.Signature); isFunc {
+					// Create []value.Value for function slices
+					var slice []value.Value
+					newPtr := reflect.ValueOf(&slice)
+					vm.push(value.MakeFromReflect(newPtr))
+				} else if rt := typeToReflect(typ); rt != nil {
+					newPtr := reflect.New(rt)
+					vm.push(value.MakeFromReflect(newPtr))
+				} else {
+					vm.push(value.MakeNil())
+				}
+			} else if arr, ok := typ.(*types.Array); ok {
+				// Check if array element type is function
+				if _, isFunc := arr.Elem().(*types.Signature); isFunc {
+					// Create array of value.Value for function arrays
+					arrLen := int(arr.Len())
+					array := make([]value.Value, arrLen)
+					newPtr := reflect.ValueOf(&array)
+					vm.push(value.MakeFromReflect(newPtr))
+				} else if rt := typeToReflect(typ); rt != nil {
+					newPtr := reflect.New(rt)
+					vm.push(value.MakeFromReflect(newPtr))
+				} else {
+					vm.push(value.MakeNil())
+				}
+			} else if rt := typeToReflect(typ); rt != nil {
 				// Create a new pointer to zero value of the type
 				newPtr := reflect.New(rt)
 				vm.push(value.MakeFromReflect(newPtr))
@@ -1475,6 +1623,50 @@ func typeToReflect(t types.Type) reflect.Type {
 	case *types.Named:
 		// For named types, try to get the underlying type
 		return typeToReflect(tt.Underlying())
+	case *types.Struct:
+		// Build struct type dynamically using reflect
+		numFields := tt.NumFields()
+		fields := make([]reflect.StructField, numFields)
+		for i := 0; i < numFields; i++ {
+			f := tt.Field(i)
+			ft := typeToReflect(f.Type())
+			if ft == nil {
+				return nil
+			}
+			fields[i] = reflect.StructField{
+				Name:      f.Name(),
+				Type:      ft,
+				Anonymous: f.Anonymous(),
+			}
+			if tag := tt.Tag(i); tag != "" {
+				fields[i].Tag = reflect.StructTag(tag)
+			}
+		}
+		return reflect.StructOf(fields)
+	case *types.Signature:
+		// Function type - need to build the function type dynamically
+		// Get parameter types
+		params := tt.Params()
+		paramTypes := make([]reflect.Type, params.Len())
+		for i := 0; i < params.Len(); i++ {
+			pt := typeToReflect(params.At(i).Type())
+			if pt == nil {
+				return nil
+			}
+			paramTypes[i] = pt
+		}
+		// Get result types
+		results := tt.Results()
+		resultTypes := make([]reflect.Type, results.Len())
+		for i := 0; i < results.Len(); i++ {
+			rt := typeToReflect(results.At(i).Type())
+			if rt == nil {
+				return nil
+			}
+			resultTypes[i] = rt
+		}
+		// Create function type using reflect.FuncOf
+		return reflect.FuncOf(paramTypes, resultTypes, tt.Variadic())
 	default:
 		return nil
 	}

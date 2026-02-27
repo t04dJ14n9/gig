@@ -707,13 +707,43 @@ func (v Value) Index(i int) Value {
 		return MakeUint(uint64(v.str[i]))
 	case KindSlice, KindArray:
 		if rv, ok := v.obj.(reflect.Value); ok {
-			return MakeFromReflect(rv.Index(i))
+			elem := rv.Index(i)
+			// For function element types, unwrap the stored Value
+			if rv.Type().Elem().Kind() == reflect.Func {
+				if val, ok := elem.Interface().(Value); ok {
+					return val
+				}
+			}
+			// For []value.Value slices (used for function slices)
+			if rv.Type().Elem() == reflect.TypeOf(Value{}) {
+				return elem.Interface().(Value)
+			}
+			return MakeFromReflect(elem)
+		}
+		// Handle native []value.Value slice
+		if slice, ok := v.obj.([]Value); ok {
+			return slice[i]
 		}
 		panic("invalid reflect.Value in Index()")
 	case KindReflect:
 		// Handle reflect.Value containing a slice
 		if rv, ok := v.obj.(reflect.Value); ok {
-			return MakeFromReflect(rv.Index(i))
+			elem := rv.Index(i)
+			// For function element types, unwrap the stored Value
+			if rv.Type().Elem().Kind() == reflect.Func {
+				if val, ok := elem.Interface().(Value); ok {
+					return val
+				}
+			}
+			// For []value.Value slices (used for function slices)
+			if rv.Type().Elem() == reflect.TypeOf(Value{}) {
+				return elem.Interface().(Value)
+			}
+			return MakeFromReflect(elem)
+		}
+		// Handle native []value.Value slice
+		if slice, ok := v.obj.([]Value); ok {
+			return slice[i]
 		}
 		panic("invalid reflect.Value in Index()")
 	default:
@@ -724,7 +754,23 @@ func (v Value) Index(i int) Value {
 // SetIndex sets element at index i for slice or array.
 func (v Value) SetIndex(i int, val Value) {
 	if rv, ok := v.obj.(reflect.Value); ok {
-		rv.Index(i).Set(val.ToReflectValue(rv.Type().Elem()))
+		elemType := rv.Type().Elem()
+		// For function element types, store the Value directly (closures are *Closure)
+		if elemType.Kind() == reflect.Func {
+			rv.Index(i).Set(reflect.ValueOf(val))
+			return
+		}
+		// For []value.Value slices (used for function slices)
+		if elemType == reflect.TypeOf(Value{}) {
+			rv.Index(i).Set(reflect.ValueOf(val))
+			return
+		}
+		rv.Index(i).Set(val.ToReflectValue(elemType))
+		return
+	}
+	// Handle native []value.Value slice
+	if slice, ok := v.obj.([]Value); ok {
+		slice[i] = val
 		return
 	}
 	panic("invalid reflect.Value in SetIndex()")
@@ -802,7 +848,24 @@ func (v Value) Elem() Value {
 // SetElem sets the value pointed to by a pointer.
 func (v Value) SetElem(val Value) {
 	if rv, ok := v.obj.(reflect.Value); ok {
-		rv.Elem().Set(val.ToReflectValue(rv.Type().Elem()))
+		// Check if the element type is a function type and the value is a Closure
+		// In gig, closures are stored as *Closure, not actual Go functions
+		elemType := rv.Type().Elem()
+		if elemType.Kind() == reflect.Func {
+			// For function types, store the Value directly
+			// This allows gig closures to be stored in function-typed slots
+			rv.Elem().Set(reflect.ValueOf(val))
+			return
+		}
+		// Special case: if the pointer is *value.Value (used for function slots)
+		// We need to set it directly without conversion
+		if elemType.Name() == "Value" && elemType.PkgPath() == "gig/value" {
+			// rv is *value.Value, we need to set the value directly
+			ptr := rv.Interface().(*Value)
+			*ptr = val
+			return
+		}
+		rv.Elem().Set(val.ToReflectValue(elemType))
 		return
 	}
 	panic("invalid reflect.Value in SetElem()")

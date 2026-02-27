@@ -879,7 +879,7 @@ func (c *Compiler) compileFieldAddr(i *ssa.FieldAddr) {
 	resultIdx := c.symbolTable.AllocLocal(i)
 
 	c.compileValue(i.X)
-	c.emit(OpAddr, uint16(i.Field))
+	c.emit(OpFieldAddr, uint16(i.Field))
 	c.emit(OpSetLocal, uint16(resultIdx))
 }
 
@@ -991,6 +991,17 @@ func (c *Compiler) compileMakeClosure(i *ssa.MakeClosure) {
 
 	// Push free variables
 	for _, binding := range i.Bindings {
+		// Check if binding is an Alloc (a local variable that needs reference semantics)
+		// For recursive closures, we need to capture the variable slot, not its value
+		if alloc, ok := binding.(*ssa.Alloc); ok {
+			// Check if this Alloc has a local slot (it's a local variable being captured)
+			if slotIdx, ok := c.symbolTable.GetLocal(alloc); ok {
+				// Emit OpAddr to push a reference to the slot
+				c.emit(OpAddr, uint16(slotIdx))
+				continue
+			}
+		}
+		// Default: compile the binding value (for non-Alloc bindings)
 		c.compileValue(binding)
 	}
 
