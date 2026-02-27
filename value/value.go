@@ -1,6 +1,57 @@
 // Package value implements a tagged-union Value system for high-performance interpretation.
-// Primitive types (bool, int, uint, float, string) use native Go operations with zero reflect overhead.
-// Complex types fall back to reflect.Value.
+//
+// The Value type is the fundamental data unit in the Gig interpreter. It uses a tagged-union
+// design that stores primitive types (bool, int, uint, float, string, complex) directly in
+// the struct fields, avoiding allocation and reflection overhead for common operations.
+//
+// # Design Philosophy
+//
+// The Value type is designed for:
+//   - Zero allocation for primitive values
+//   - Fast arithmetic and comparison operations without reflection
+//   - Seamless interop with Go's reflect package for complex types
+//   - Type safety through explicit kind checking
+//
+// # Memory Layout
+//
+// The Value struct is 48 bytes on 64-bit systems:
+//   - kind: 1 byte (type tag)
+//   - num: 8 bytes (stores bool, int, uint bits, float bits, complex real)
+//   - num2: 8 bytes (stores complex imaginary)
+//   - str: 16 bytes (string pointer + length)
+//   - obj: 16 bytes (interface for reflect.Value or composite types)
+//
+// # Kind Types
+//
+//   - KindNil: null value
+//   - KindBool: boolean (stored in num)
+//   - KindInt: signed integers (stored in num)
+//   - KindUint: unsigned integers (stored in num as bits)
+//   - KindFloat: floating point (stored in num as float64 bits)
+//   - KindString: string (stored in str)
+//   - KindComplex: complex number (real in num, imag in num2)
+//   - KindPointer, KindSlice, KindArray, KindMap, KindChan, KindFunc, KindStruct, KindInterface:
+//     stored in obj as reflect.Value or native Go value
+//   - KindReflect: fallback for types not directly supported
+//
+// # Example Usage
+//
+//	// Create values
+//	i := value.MakeInt(42)
+//	s := value.MakeString("hello")
+//	f := value.MakeFloat(3.14)
+//
+//	// Arithmetic
+//	sum := i.Add(value.MakeInt(8)) // sum.Int() == 50
+//
+//	// Comparison
+//	if i.Cmp(value.MakeInt(40)) > 0 {
+//	    fmt.Println("42 > 40")
+//	}
+//
+//	// Convert to/from interface{}
+//	v := value.FromInterface(myStruct)
+//	obj := v.Interface()
 package value
 
 import (

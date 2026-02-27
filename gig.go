@@ -1,6 +1,54 @@
 // Package gig provides a Go interpreter with SSA-to-bytecode compilation and VM execution.
+//
 // Gig (Go Interpreter in Go) is designed for high-performance interpretation of Go code
 // within a Go application, suitable for rule engines, scripting, and embedded logic.
+//
+// # Overview
+//
+// Gig compiles Go source code to SSA (Static Single Assignment) form using golang.org/x/tools/go/ssa,
+// then translates SSA to a custom bytecode format. The bytecode is executed by a stack-based
+// virtual machine with a tagged-union value system for efficient primitive operations.
+//
+// # Architecture
+//
+// The interpreter consists of three main components:
+//
+//  1. Compiler (gig/compiler) - Translates SSA IR to bytecode instructions
+//  2. VM (gig/vm) - Stack-based virtual machine for bytecode execution
+//  3. Value (gig/value) - Tagged-union value system for efficient type handling
+//
+// # Security Model
+//
+// For safety in embedded contexts, Gig bans:
+//   - "unsafe" package - prevents raw memory access
+//   - "reflect" package - prevents type introspection bypass
+//   - "panic" builtin - prevents uncontrolled control flow
+//
+// # Example Usage
+//
+// Basic usage with built-in standard library:
+//
+//	prog, err := gig.Build(`
+//		package main
+//
+//		import "fmt"
+//
+//		func Greet(name string) string {
+//			return fmt.Sprintf("Hello, %s!", name)
+//		}
+//	`)
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	result, err := prog.Run("Greet", "World")
+//	fmt.Println(result) // Output: Hello, World!
+//
+// # External Packages
+//
+// Gig supports calling external Go packages by registering them before compilation.
+// See gig/stdlib for built-in standard library packages, or use the gig CLI tool
+// to generate wrappers for third-party libraries.
 package gig
 
 import (
@@ -27,15 +75,34 @@ const DefaultTimeout = 10 * time.Second
 // ErrTimeout is returned when execution times out.
 var ErrTimeout = context.DeadlineExceeded
 
-// Program represents a compiled Go program.
+// Program represents a compiled Go program ready for execution.
+// It contains the compiled bytecode, constant pool, type information, and SSA package reference.
 type Program struct {
-	program *compiler.Program
-	ssaPkg  *ssa.Package
+	program *compiler.Program // compiled bytecode and metadata
+	ssaPkg  *ssa.Package      // SSA package for debugging/inspection
 }
 
 // Build compiles Go source code into a Program.
+//
 // The source must define a function that can be called via Run/RunWithContext.
 // If the source does not start with a package declaration, "package main" is prepended automatically.
+//
+// The compilation process:
+//  1. Parse source code into AST
+//  2. Check for banned imports (unsafe, reflect)
+//  3. Type-check with custom importer for external packages
+//  4. Check for banned panic usage
+//  5. Build SSA intermediate representation
+//  6. Compile SSA to bytecode
+//
+// Example:
+//
+//	prog, err := gig.Build(`
+//		func Add(a, b int) int {
+//			return a + b
+//		}
+//	`)
+//	result, _ := prog.Run("Add", 1, 2) // result = 3
 func Build(sourceCode string, packages ...string) (*Program, error) {
 	// Auto-wrap with "package main" if no package declaration
 	sourceCode = strings.TrimSpace(sourceCode)
@@ -121,6 +188,12 @@ func Build(sourceCode string, packages ...string) (*Program, error) {
 }
 
 // Run executes a function in the program with the given arguments.
+// It uses the default timeout (DefaultTimeout = 10 seconds).
+// Parameters are automatically converted to value.Value using FromInterface.
+//
+// Example:
+//
+//	result, err := prog.Run("Add", 1, 2)
 func (p *Program) Run(funcName string, params ...any) (any, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancel()
@@ -128,7 +201,14 @@ func (p *Program) Run(funcName string, params ...any) (any, error) {
 }
 
 // RunWithContext executes a function in the program with context for timeout control.
+// This allows custom timeout values and cancellation.
 // Context is the first parameter following Go idioms.
+//
+// Example:
+//
+//	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+//	defer cancel()
+//	result, err := prog.RunWithContext(ctx, "LongRunningTask", input)
 func (p *Program) RunWithContext(ctx context.Context, funcName string, params ...any) (any, error) {
 	// Convert params to Value
 	args := make([]value.Value, len(params))
@@ -147,6 +227,8 @@ func (p *Program) RunWithContext(ctx context.Context, funcName string, params ..
 }
 
 // RunWithValues executes a function with pre-converted Value arguments.
+// This is more efficient than Run/RunWithContext when you need to call the same function
+// multiple times with the same parameter types, as it avoids repeated type conversion.
 // Context is the first parameter following Go idioms.
 func (p *Program) RunWithValues(ctx context.Context, funcName string, args []value.Value) (value.Value, error) {
 	virtualMachine := vm.New(p.program)
@@ -154,6 +236,8 @@ func (p *Program) RunWithValues(ctx context.Context, funcName string, args []val
 }
 
 // checkBannedImports checks for banned imports (unsafe, reflect).
+// These packages are banned because they can bypass the interpreter's safety guarantees.
+// Returns an error if any banned import is found.
 func checkBannedImports(file *ast.File) error {
 	for _, imp := range file.Imports {
 		path := strings.Trim(imp.Path.Value, `"`)
@@ -168,6 +252,9 @@ func checkBannedImports(file *ast.File) error {
 }
 
 // autoImport automatically adds imports for registered packages if used.
+// This allows users to reference package names without explicit import declarations.
+// It scans the AST for selector expressions (e.g., fmt.Println) and checks if
+// the identifier matches a registered package name.
 func autoImport(file *ast.File) {
 	// Scan for identifiers that match package names
 	usedPackages := make(map[string]bool)
@@ -191,6 +278,9 @@ func autoImport(file *ast.File) {
 }
 
 // checkPanicUsage checks for panic usage in the code.
+// Panic is banned because it can cause uncontrolled control flow that bypasses
+// the interpreter's execution model.
+// Returns an error if the builtin panic function is called.
 func checkPanicUsage(file *ast.File, info *types.Info) error {
 	found := false
 
@@ -218,6 +308,8 @@ func checkPanicUsage(file *ast.File, info *types.Info) error {
 }
 
 // externalValueWrap wraps external package references in SSA.
+// This processes external function calls in the SSA package to ensure
+// proper interfacing with the external package registry.
 func externalValueWrap(ssaPkg *ssa.Package, imp *importer.Importer) {
 	// Iterate through all functions in the package
 	for _, member := range ssaPkg.Members {
@@ -240,21 +332,27 @@ func externalValueWrap(ssaPkg *ssa.Package, imp *importer.Importer) {
 }
 
 // RegisterPackage registers an external package for use in interpreted code.
+// This is typically called by init() functions in generated package wrappers.
+// The path is the import path (e.g., "fmt"), and name is the package identifier (e.g., "fmt").
 func RegisterPackage(path, name string) *importer.ExternalPackage {
 	return importer.RegisterPackage(path, name)
 }
 
 // GetPackageByPath returns a registered package by import path.
+// Returns nil if no package with the given path is registered.
 func GetPackageByPath(path string) *importer.ExternalPackage {
 	return importer.GetPackageByPath(path)
 }
 
 // GetPackageByName returns a registered package by name.
+// This is used for auto-import functionality.
+// Returns nil if no package with the given name is registered.
 func GetPackageByName(name string) *importer.ExternalPackage {
 	return importer.GetPackageByName(name)
 }
 
 // GetAllPackages returns all registered packages.
+// The returned map is keyed by import path.
 func GetAllPackages() map[string]*importer.ExternalPackage {
 	return importer.GetAllPackages()
 }

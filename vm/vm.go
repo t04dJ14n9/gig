@@ -1,3 +1,32 @@
+// Package vm provides a stack-based bytecode virtual machine for executing compiled Gig programs.
+//
+// The VM executes bytecode instructions produced by the compiler. It uses a stack-based
+// architecture for operand handling and a frame-based call stack for function calls.
+//
+// # Architecture
+//
+// The VM maintains:
+//   - An operand stack for intermediate values
+//   - A call frame stack for function calls
+//   - A global variable array for package-level variables
+//   - An inline cache for external function calls
+//
+// # Execution Model
+//
+// The VM fetches, decodes, and executes bytecode instructions in a loop.
+// Each instruction may push/pop values from the operand stack and modify the call stack.
+// Execution continues until all frames return or an error occurs.
+//
+// # Context Support
+//
+// The VM supports context-based cancellation and timeout. It checks the context
+// every 1024 instructions to avoid blocking on long-running operations.
+//
+// # Closures
+//
+// Closures are represented as Closure structs containing a function reference
+// and captured free variables. Free variables are stored as pointers to allow
+// shared state between closures.
 package vm
 
 import (
@@ -13,31 +42,60 @@ import (
 )
 
 // VM is the bytecode virtual machine.
+// It executes compiled programs using a stack-based architecture.
 type VM struct {
-	program   *compiler.Program
-	stack     []value.Value
-	sp        int      // stack pointer
-	frames    []*Frame // call frames
-	fp        int      // frame pointer
-	globals   []value.Value
-	ctx       context.Context
-	panicking bool
-	panicVal  value.Value
+	// program is the compiled program to execute.
+	program *compiler.Program
 
-	// Inline cache for external function calls - maps constant index to resolved info
+	// stack is the operand stack for intermediate values.
+	stack []value.Value
+
+	// sp is the stack pointer (index of next free slot).
+	sp int
+
+	// frames is the call frame stack.
+	frames []*Frame
+
+	// fp is the frame pointer (number of active frames).
+	fp int
+
+	// globals stores global variables.
+	globals []value.Value
+
+	// ctx is the execution context for cancellation/timeout.
+	ctx context.Context
+
+	// panicking indicates a panic is in progress.
+	panicking bool
+
+	// panicVal is the current panic value.
+	panicVal value.Value
+
+	// extCallCache caches resolved external function info for fast dispatch.
 	extCallCache map[int]*extCallCacheEntry
 }
 
 // extCallCacheEntry caches resolved external function info for fast dispatch.
+// This avoids repeated reflection lookups for external function calls.
 type extCallCacheEntry struct {
-	fn         reflect.Value
-	fnType     reflect.Type
+	// fn is the reflect.Value of the function.
+	fn reflect.Value
+
+	// fnType is the function's type.
+	fnType reflect.Type
+
+	// directCall is a typed wrapper that bypasses reflect.Call.
 	directCall func([]value.Value) value.Value
+
+	// isVariadic indicates if the function takes variadic arguments.
 	isVariadic bool
-	numIn      int
+
+	// numIn is the number of declared parameters.
+	numIn int
 }
 
-// New creates a new VM.
+// New creates a new VM for executing the given program.
+// The VM is created with an empty stack and call frame array.
 func New(program *compiler.Program) *VM {
 	return &VM{
 		program:      program,
@@ -51,6 +109,8 @@ func New(program *compiler.Program) *VM {
 }
 
 // Execute runs the specified function with the given arguments.
+// It creates an initial call frame and starts the execution loop.
+// Returns the result value or an error if execution fails.
 func (vm *VM) Execute(funcName string, ctx context.Context, args ...value.Value) (value.Value, error) {
 	vm.ctx = ctx
 
@@ -74,7 +134,8 @@ func (vm *VM) Execute(funcName string, ctx context.Context, args ...value.Value)
 	return result, err
 }
 
-// ExecuteWithValues runs the specified function with pre-converted arguments.
+// ExecuteWithValues runs the specified function with pre-converted Value arguments.
+// This is more efficient than Execute when the arguments are already Value types.
 func (vm *VM) ExecuteWithValues(funcName string, ctx context.Context, args []value.Value) (value.Value, error) {
 	vm.ctx = ctx
 
@@ -93,7 +154,11 @@ func (vm *VM) ExecuteWithValues(funcName string, ctx context.Context, args []val
 	return vm.run()
 }
 
-// run executes the VM loop.
+// run is the main execution loop for the VM.
+// It fetches, decodes, and executes bytecode instructions until:
+//   - All call frames return (normal termination)
+//   - Context is cancelled (timeout/cancellation)
+//   - A panic propagates to the top frame (error return)
 func (vm *VM) run() (value.Value, error) {
 	instructionCount := 0
 
@@ -165,7 +230,9 @@ func (vm *VM) run() (value.Value, error) {
 	return value.MakeNil(), nil
 }
 
-// executeOp executes a single opcode.
+// executeOp executes a single bytecode instruction.
+// This is the heart of the VM - it dispatches to the appropriate handler
+// for each opcode type.
 func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 	switch op {
 	// Stack operations
@@ -1207,7 +1274,8 @@ func (vm *VM) executeOp(op compiler.OpCode, frame *Frame) error {
 	return nil
 }
 
-// push pushes a value onto the stack.
+// push pushes a value onto the operand stack.
+// Grows the stack if necessary.
 func (vm *VM) push(val value.Value) {
 	if vm.sp >= len(vm.stack) {
 		// Grow stack
@@ -1219,7 +1287,8 @@ func (vm *VM) push(val value.Value) {
 	vm.sp++
 }
 
-// pop pops a value from the stack.
+// pop pops a value from the operand stack.
+// Does not check for underflow - caller must ensure stack is not empty.
 func (vm *VM) pop() value.Value {
 	vm.sp--
 	return vm.stack[vm.sp]
@@ -1230,7 +1299,8 @@ func (vm *VM) peek() value.Value {
 	return vm.stack[vm.sp-1]
 }
 
-// callCompiledFunction calls a compiled function.
+// callCompiledFunction calls a compiled function by its index.
+// It creates a new call frame with the function's local variables.
 func (vm *VM) callCompiledFunction(funcIdx, numArgs int) {
 	// Get function
 	var fn *compiler.CompiledFunction
@@ -1257,14 +1327,17 @@ func (vm *VM) callCompiledFunction(funcIdx, numArgs int) {
 	vm.fp++
 }
 
-// callFunction calls a function with the given arguments.
+// callFunction calls a function with the given arguments and free variables.
+// Used for calling closures.
 func (vm *VM) callFunction(fn *compiler.CompiledFunction, args []value.Value, freeVars []*value.Value) {
 	frame := newFrame(fn, vm.sp, args, freeVars)
 	vm.frames[vm.fp] = frame
 	vm.fp++
 }
 
-// callExternal calls an external function.
+// callExternal calls an external (native Go) function.
+// It first checks the inline cache, then resolves the function if not cached.
+// Supports both DirectCall (fast path) and reflect.Call (slow path).
 func (vm *VM) callExternal(funcIdx, numArgs int) {
 	// Pop arguments first (before any cache lookup)
 	args := make([]value.Value, numArgs)
@@ -1314,7 +1387,8 @@ func (vm *VM) callExternal(funcIdx, numArgs int) {
 	vm.callExternalReflect(cacheEntry, args)
 }
 
-// resolveExternalFunc resolves an external function and creates a cache entry.
+// resolveExternalFunc resolves an external function from the constant pool.
+// It creates a cache entry for future calls.
 func (vm *VM) resolveExternalFunc(funcIdx int) *extCallCacheEntry {
 	entry := &extCallCacheEntry{}
 
@@ -1345,7 +1419,8 @@ func (vm *VM) resolveExternalFunc(funcIdx int) *extCallCacheEntry {
 	return entry
 }
 
-// callExternalReflect executes an external function using reflection.
+// callExternalReflect executes an external function using reflect.Call.
+// This is the slow path when no DirectCall wrapper is available.
 func (vm *VM) callExternalReflect(entry *extCallCacheEntry, args []value.Value) {
 	if !entry.fn.IsValid() || entry.fn.Kind() != reflect.Func {
 		vm.push(value.MakeNil())
@@ -1523,19 +1598,31 @@ func (vm *VM) callExternalMethod(methodInfo *compiler.ExternalMethodInfo, args [
 }
 
 // Closure represents a closure with captured free variables.
+// When a closure is called, its free variables are bound to the calling context.
 type Closure struct {
-	Fn       *compiler.CompiledFunction
+	// Fn is the compiled function bytecode.
+	Fn *compiler.CompiledFunction
+
+	// FreeVars are pointers to captured variables.
+	// They are stored as pointers to allow shared state between closures.
 	FreeVars []*value.Value
 }
 
-// iterator is a helper for range iteration.
+// iterator is a helper for range iteration over slices, arrays, maps, and strings.
 type iterator struct {
+	// collection is the value being iterated.
 	collection value.Value
-	index      int
-	mapIter    *reflect.MapIter // for map iteration
+
+	// index is the current position (for slices/arrays/strings).
+	index int
+
+	// mapIter is the map iterator (for maps).
+	mapIter *reflect.MapIter
 }
 
 // next advances the iterator and returns the next key, value, and whether there are more elements.
+// For slices/arrays/strings, key is the index.
+// For maps, key is the map key.
 func (it *iterator) next() (key, val value.Value, ok bool) {
 	switch it.collection.Kind() {
 	case value.KindSlice, value.KindArray, value.KindString:
@@ -1586,10 +1673,11 @@ func (it *iterator) next() (key, val value.Value, ok bool) {
 	}
 }
 
-// Goroutine tracking for concurrent execution
+// Goroutine tracking for concurrent execution.
 var activeGoroutines int64
 
 // StartGoroutine starts a new goroutine and tracks it.
+// Used for the "go" statement implementation.
 func StartGoroutine(fn func()) {
 	atomic.AddInt64(&activeGoroutines, 1)
 	go func() {
@@ -1598,21 +1686,23 @@ func StartGoroutine(fn func()) {
 	}()
 }
 
-// WaitGoroutines waits for all goroutines to complete.
+// WaitGoroutines waits for all tracked goroutines to complete.
+// Uses busy waiting - could be improved with sync.WaitGroup.
 func WaitGoroutines() {
 	for atomic.LoadInt64(&activeGoroutines) > 0 {
 		// Busy wait - could use a WaitGroup instead
 	}
 }
 
-// Global VM registry for concurrent execution
+// Global VM registry for concurrent execution.
 var (
 	vmRegistryMutex sync.Mutex
 	vmRegistry      = make(map[int64]*VM)
 	vmIDCounter     int64
 )
 
-// RegisterVM registers a VM for later use.
+// RegisterVM registers a VM for later use in concurrent execution.
+// Returns a unique ID for the VM.
 func RegisterVM(vm *VM) int64 {
 	vmRegistryMutex.Lock()
 	defer vmRegistryMutex.Unlock()
@@ -1621,7 +1711,7 @@ func RegisterVM(vm *VM) int64 {
 	return vmIDCounter
 }
 
-// UnregisterVM unregisters a VM.
+// UnregisterVM removes a VM from the registry.
 func UnregisterVM(id int64) {
 	vmRegistryMutex.Lock()
 	defer vmRegistryMutex.Unlock()
@@ -1629,7 +1719,8 @@ func UnregisterVM(id int64) {
 }
 
 // typeToReflect converts a go/types.Type to reflect.Type.
-// This is a simplified implementation that handles common cases.
+// This is used for runtime type operations like allocations and type assertions.
+// It handles basic types, slices, arrays, maps, channels, pointers, structs, and functions.
 func typeToReflect(t types.Type) reflect.Type {
 	if t == nil {
 		return nil

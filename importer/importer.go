@@ -1,3 +1,5 @@
+// Package importer provides type information and package registration for the interpreter.
+// This file implements the types.Importer interface and type conversion utilities.
 package importer
 
 import (
@@ -18,13 +20,17 @@ func init() {
 	typeOf = convertReflectType
 }
 
-// Importer implements types.Importer for registered packages.
+// Importer implements types.Importer for registered external packages.
+// It allows the Go type checker to resolve imports to registered packages.
 type Importer struct {
+	// packages caches resolved types.Package values.
 	packages map[string]*types.Package
-	mutex    sync.RWMutex
+
+	// mutex protects concurrent access to packages.
+	mutex sync.RWMutex
 }
 
-// NewImporter creates a new Importer.
+// NewImporter creates a new Importer for resolving registered packages.
 func NewImporter() *Importer {
 	return &Importer{
 		packages: make(map[string]*types.Package),
@@ -32,6 +38,8 @@ func NewImporter() *Importer {
 }
 
 // Import returns the types.Package for the given import path.
+// It first checks the cache, then looks up registered external packages.
+// Returns an error if the package is not registered.
 func (i *Importer) Import(path string) (*types.Package, error) {
 	i.mutex.RLock()
 	if pkg, ok := i.packages[path]; ok {
@@ -63,7 +71,8 @@ func (i *Importer) Import(path string) (*types.Package, error) {
 	return pkg, nil
 }
 
-// buildPackage creates a types.Package from an ExternalPackage.
+// buildPackage creates a types.Package from a registered ExternalPackage.
+// It converts all objects (functions, variables, constants, types) to types.Object.
 func (i *Importer) buildPackage(extPkg *ExternalPackage) *types.Package {
 	pkg := types.NewPackage(extPkg.Path, extPkg.Name)
 
@@ -120,7 +129,9 @@ func (i *Importer) buildPackage(extPkg *ExternalPackage) *types.Package {
 	return pkg
 }
 
-// convertToConstantValue converts a Go value to a types.Const value.
+// convertToConstantValue converts a Go value to a constant.Value for use in types.Const.
+// Handles basic types (bool, int, uint, float, complex, string) and falls back
+// to reflection for other types.
 func convertToConstantValue(val any) constant.Value {
 	switch v := val.(type) {
 	case bool:
@@ -186,6 +197,8 @@ func convertToConstantValue(val any) constant.Value {
 }
 
 // convertReflectType converts a reflect.Type to types.Type.
+// This is the main entry point for type conversion, handling all Go types.
+// Uses a cache to prevent infinite recursion for self-referential types.
 func convertReflectType(rt reflect.Type) types.Type {
 	if rt == nil {
 		return types.Typ[types.Invalid]
@@ -324,8 +337,9 @@ func convertReflectType(rt reflect.Type) types.Type {
 	}
 }
 
-// convertReflectTypeForUnderlying handles underlying types for named types.
-// It returns the actual underlying type (not a Named type).
+// convertReflectTypeForUnderlying converts a reflect.Type to its underlying types.Type.
+// This is used for named types to avoid wrapping in another Named type.
+// It returns the actual underlying type (e.g., struct, pointer, slice).
 func convertReflectTypeForUnderlying(rt reflect.Type) types.Type {
 	// For basic named types, return the corresponding basic type
 	switch rt.Kind() {
@@ -399,7 +413,8 @@ func convertReflectTypeForUnderlying(rt reflect.Type) types.Type {
 	}
 }
 
-// convertFuncType converts a reflect.Func type to types.Signature.
+// convertFuncType converts a reflect.Func type to a types.Signature.
+// It builds parameter and result tuples from the function's type information.
 func convertFuncType(rt reflect.Type) *types.Signature {
 	// Build parameter types
 	var params []*types.Var
@@ -427,7 +442,8 @@ func convertFuncType(rt reflect.Type) *types.Signature {
 	)
 }
 
-// convertInterfaceType converts a reflect.Interface type to types.Interface.
+// convertInterfaceType converts a reflect.Interface type to a types.Interface.
+// For empty interfaces (any), returns types.NewInterfaceType(nil, nil).
 func convertInterfaceType(rt reflect.Type) *types.Interface {
 	if rt.NumMethod() == 0 {
 		// Empty interface (any)
@@ -444,7 +460,8 @@ func convertInterfaceType(rt reflect.Type) *types.Interface {
 	return types.NewInterfaceType(methods, nil)
 }
 
-// convertStructType converts a reflect.Struct type to types.Struct.
+// convertStructType converts a reflect.Struct type to a types.Struct.
+// It preserves field names, types, anonymous fields, and struct tags.
 func convertStructType(rt reflect.Type) *types.Struct {
 	var fields []*types.Var
 	var tags []string
@@ -459,7 +476,8 @@ func convertStructType(rt reflect.Type) *types.Struct {
 	return types.NewStruct(fields, tags)
 }
 
-// LookupPackage looks up a package by path or name.
+// LookupPackage looks up a package by import path or name.
+// Returns the package or an error if not found.
 func LookupPackage(name string) (*ExternalPackage, error) {
 	// Try by path first
 	if pkg := GetPackageByPath(name); pkg != nil {
@@ -475,7 +493,8 @@ func LookupPackage(name string) (*ExternalPackage, error) {
 }
 
 // addMethodsToNamed adds methods from a reflect.Type to a types.Named type.
-// This allows the type checker to find methods on external types (e.g., gjson.Result.String()).
+// This allows the type checker to find methods on external types.
+// Both value receiver and pointer receiver methods are added.
 func addMethodsToNamed(named *types.Named, rt reflect.Type) {
 	// Enumerate all exported methods on the value receiver
 	for i := 0; i < rt.NumMethod(); i++ {
@@ -571,7 +590,9 @@ func addMethodsToNamed(named *types.Named, rt reflect.Type) {
 	}
 }
 
-// AutoImport tries to find and import a package by name.
+// AutoImport tries to find and import a package by name or path suffix.
+// This enables automatic import resolution when users reference packages without explicit imports.
+// Returns the package path, the package, and whether it was found.
 func AutoImport(name string) (path string, pkg *ExternalPackage, ok bool) {
 	// Try exact match first
 	if pkg := GetPackageByName(name); pkg != nil {

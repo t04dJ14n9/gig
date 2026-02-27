@@ -1,18 +1,54 @@
 // gig is a CLI tool for generating gig dependency packages.
 //
-// Usage:
+// The gig CLI tool helps you create and generate dependency packages for the Gig interpreter.
+// These packages register external Go packages (standard library and third-party) so they
+// can be used in interpreted code.
 //
-//	# Initialize a dependency package directory
-//	gig init -package mydep
+// # Commands
 //
-//	# Edit mydep/pkgs.go to add third-party libraries, then generate
-//	gig gen ./mydep
+//	gig init -package <name>    Create a new dependency package directory
+//	gig gen <dir>               Generate registration code from <dir>/pkgs.go
 //
-//	# In your program, import the generated package
-//	import _ "myapp/mydep/packages"
+// # Workflow
 //
-//	# Run directly from remote (Go 1.21+)
+//  1. Initialize a dependency package:
+//
+//     gig init -package mydep
+//
+//     This creates:
+//     mydep/
+//     └── pkgs.go    # Edit this to add packages
+//
+//  2. Edit pkgs.go to add your imports:
+//
+//     package mydep
+//
+//     import (
+//     _ "encoding/json"          // Standard library
+//     _ "fmt"                    // Standard library
+//     _ "github.com/spf13/cast"  // Third-party
+//     )
+//
+//  3. Generate registration code:
+//
+//     gig gen ./mydep
+//
+//     This creates:
+//     mydep/packages/
+//     ├── fmt.go              // fmt registration
+//     ├── encoding_json.go    // encoding/json registration
+//     └── github_spf13_cast.go // cast registration
+//
+//  4. Import in your program:
+//
+//     import _ "your/module/mydep/packages"
+//
+// # Running from Remote
+//
+// You can run gig directly without installing (Go 1.21+):
+//
 //	go run github.com/t04dJ14n9/gig/cmd/gig@latest init -package mydep
+//	go run github.com/t04dJ14n9/gig/cmd/gig@latest gen ./mydep
 package main
 
 import (

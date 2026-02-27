@@ -13,67 +13,136 @@ import (
 	"gig/value"
 )
 
-// CompiledFunction represents a compiled function.
+// CompiledFunction represents a function compiled to bytecode.
+// It contains the bytecode instructions, local variable count, and metadata.
 type CompiledFunction struct {
-	Name         string
+	// Name is the function name for debugging.
+	Name string
+
+	// Instructions is the compiled bytecode.
 	Instructions []byte
-	NumLocals    int
-	NumParams    int
-	NumFreeVars  int
-	MaxStack     int
-	Source       *ssa.Function // for debugging
+
+	// NumLocals is the number of local variable slots.
+	// This includes parameters and intermediate values.
+	NumLocals int
+
+	// NumParams is the number of function parameters.
+	NumParams int
+
+	// NumFreeVars is the number of free variables (for closures).
+	NumFreeVars int
+
+	// MaxStack is the maximum stack depth (for future optimization).
+	MaxStack int
+
+	// Source is the original SSA function for debugging.
+	Source *ssa.Function
 }
 
 // ExternalFuncInfo contains pre-resolved external function info for fast calls.
+// This allows the VM to bypass reflection when calling external functions.
 type ExternalFuncInfo struct {
-	Func       any                             // The actual function value
-	DirectCall func([]value.Value) value.Value // DirectCall wrapper (nil if not available)
+	// Func is the actual function value.
+	Func any
+
+	// DirectCall is a typed wrapper that avoids reflect.Call.
+	// If nil, the VM will use reflection for the call.
+	DirectCall func([]value.Value) value.Value
 }
 
-// Program represents a compiled program.
+// Program represents a compiled program ready for execution.
+// It contains all compiled functions, constants, types, and global variables.
 type Program struct {
+	// Functions maps function names to their compiled bytecode.
 	Functions map[string]*CompiledFunction
-	Constants []any          // constant pool
-	Globals   map[string]int // global name -> index
-	MainPkg   *ssa.Package
-	Types     []types.Type          // type pool (indexed by addType)
-	FuncIndex map[*ssa.Function]int // SSA function -> index for calls
+
+	// Constants is the constant pool for literal values and external references.
+	Constants []any
+
+	// Globals maps global variable names to their indices.
+	Globals map[string]int
+
+	// MainPkg is the SSA package (for debugging/inspection).
+	MainPkg *ssa.Package
+
+	// Types is the type pool for runtime type operations.
+	Types []types.Type
+
+	// FuncIndex maps SSA functions to their indices for call instructions.
+	FuncIndex map[*ssa.Function]int
 }
 
 // Compiler compiles SSA IR to bytecode.
+// It maintains state during compilation including the current function,
+// symbol table, and jump targets that need patching.
 type Compiler struct {
-	program     *Program
-	constants   []any
-	types       []types.Type
-	globals     map[string]int
-	funcs       map[string]*CompiledFunction
-	funcIndex   map[*ssa.Function]int
+	// program is the output program being compiled.
+	program *Program
+
+	// constants is the constant pool being built.
+	constants []any
+
+	// types is the type pool being built.
+	types []types.Type
+
+	// globals maps global names to indices.
+	globals map[string]int
+
+	// funcs maps function names to compiled functions.
+	funcs map[string]*CompiledFunction
+
+	// funcIndex maps SSA functions to call indices.
+	funcIndex map[*ssa.Function]int
+
+	// currentFunc is the function being compiled.
 	currentFunc *CompiledFunction
+
+	// symbolTable tracks SSA values to local slots.
 	symbolTable *SymbolTable
-	jumps       []jumpInfo       // tracks jumps that need patching
-	phiSlots    map[*ssa.Phi]int // Phi nodes -> local slots
+
+	// jumps tracks jump instructions needing target patching.
+	jumps []jumpInfo
+
+	// phiSlots maps Phi nodes to their allocated local slots.
+	phiSlots map[*ssa.Phi]int
 }
 
 // jumpInfo tracks a jump instruction that needs its target patched.
+// Jumps are emitted with placeholder targets, then patched after
+// all basic blocks have been compiled.
 type jumpInfo struct {
-	offset      int             // offset of the jump instruction in bytecode
-	targetBlock *ssa.BasicBlock // the target basic block
+	// offset is the bytecode offset of the jump instruction.
+	offset int
+
+	// targetBlock is the SSA basic block to jump to.
+	targetBlock *ssa.BasicBlock
 }
 
 // phiMove represents a move instruction for Phi elimination.
+// Phi nodes are eliminated by copying values in predecessor blocks.
 type phiMove struct {
-	sourceValue ssa.Value // the value to copy
-	targetSlot  int       // the local slot to copy to
+	// sourceValue is the SSA value to copy.
+	sourceValue ssa.Value
+
+	// targetSlot is the local slot to copy to.
+	targetSlot int
 }
 
 // SymbolTable tracks SSA values to local slots.
+// This maps SSA instructions and values to their storage locations
+// in the VM's local variable array.
 type SymbolTable struct {
-	locals    map[ssa.Value]int // SSA value -> local slot
-	freeVars  map[ssa.Value]int // free var -> index
+	// locals maps SSA values to local slot indices.
+	locals map[ssa.Value]int
+
+	// freeVars maps free variables to their indices.
+	freeVars map[ssa.Value]int
+
+	// numLocals is the total number of allocated slots.
 	numLocals int
 }
 
-// NewSymbolTable creates a new symbol table.
+// NewSymbolTable creates a new symbol table for tracking SSA values.
 func NewSymbolTable() *SymbolTable {
 	return &SymbolTable{
 		locals:   make(map[ssa.Value]int),
@@ -81,7 +150,9 @@ func NewSymbolTable() *SymbolTable {
 	}
 }
 
-// AllocLocal allocates a new local slot for a value.
+// AllocLocal allocates a new local slot for an SSA value.
+// If the value already has a slot, returns the existing slot.
+// Otherwise, allocates a new slot and returns its index.
 func (s *SymbolTable) AllocLocal(v ssa.Value) int {
 	if idx, ok := s.locals[v]; ok {
 		return idx
@@ -92,18 +163,19 @@ func (s *SymbolTable) AllocLocal(v ssa.Value) int {
 	return idx
 }
 
-// GetLocal returns the local slot for a value.
+// GetLocal returns the local slot index for an SSA value.
+// Returns the index and true if found, or 0 and false if not.
 func (s *SymbolTable) GetLocal(v ssa.Value) (int, bool) {
 	idx, ok := s.locals[v]
 	return idx, ok
 }
 
-// NumLocals returns the number of allocated locals.
+// NumLocals returns the number of allocated local slots.
 func (s *SymbolTable) NumLocals() int {
 	return s.numLocals
 }
 
-// NewCompiler creates a new compiler.
+// NewCompiler creates a new compiler with empty pools.
 func NewCompiler() *Compiler {
 	return &Compiler{
 		constants: make([]any, 0),
@@ -114,7 +186,15 @@ func NewCompiler() *Compiler {
 	}
 }
 
-// Compile compiles an SSA package to bytecode.
+// Compile compiles an SSA package to a bytecode Program.
+//
+// The compilation process:
+//  1. Collect all functions (including nested/anonymous)
+//  2. Assign indices to functions for call instructions
+//  3. Compile each function to bytecode
+//  4. Assemble the final Program
+//
+// Returns the compiled Program or an error if compilation fails.
 func Compile(mainPkg *ssa.Package) (*Program, error) {
 	c := NewCompiler()
 	c.program = &Program{
@@ -162,7 +242,17 @@ func Compile(mainPkg *ssa.Package) (*Program, error) {
 	return c.program, nil
 }
 
-// compileFunction compiles a single SSA function.
+// compileFunction compiles a single SSA function to bytecode.
+//
+// The process:
+//  1. Allocate local slots for parameters and free variables
+//  2. Allocate slots for Phi nodes (for SSA phi elimination)
+//  3. Allocate slots for all other values
+//  4. Compile basic blocks in reverse postorder
+//  5. Patch jump targets
+//
+// Phi elimination is done by storing to the phi's slot in each predecessor block
+// before jumping to the block containing the phi.
 func (c *Compiler) compileFunction(fn *ssa.Function) (*CompiledFunction, error) {
 	c.currentFunc = &CompiledFunction{
 		Name:         fn.Name(),
@@ -242,7 +332,9 @@ func (c *Compiler) compileFunction(fn *ssa.Function) (*CompiledFunction, error) 
 	return c.currentFunc, nil
 }
 
-// compileBlock compiles a single basic block.
+// compileBlock compiles a single basic block to bytecode.
+// It compiles each instruction in order, then handles the block terminator
+// (Jump, If, Return, or Panic).
 func (c *Compiler) compileBlock(fn *ssa.Function, block *ssa.BasicBlock) {
 	for _, instr := range block.Instrs {
 		c.compileInstruction(fn, instr)
@@ -274,8 +366,15 @@ func (c *Compiler) compileBlock(fn *ssa.Function, block *ssa.BasicBlock) {
 	}
 }
 
-// emitPhiMoves emits move instructions for Phi nodes in the target block.
-// This is called before jumping to the target block.
+// emitPhiMoves emits move instructions for Phi nodes before jumping to a block.
+//
+// In SSA form, Phi nodes select a value based on which predecessor block
+// was executed. In bytecode, we implement this by storing the appropriate
+// value to the phi's slot in each predecessor before jumping.
+//
+// For each Phi in the target block, this function emits:
+//  1. Compile the value for this predecessor
+//  2. Store to the phi's local slot
 func (c *Compiler) emitPhiMoves(predBlock, targetBlock *ssa.BasicBlock) {
 	// Find the index of predBlock in targetBlock's predecessors
 	predIndex := -1
@@ -308,7 +407,11 @@ func (c *Compiler) emitPhiMoves(predBlock, targetBlock *ssa.BasicBlock) {
 	}
 }
 
-// compileInstruction compiles a single SSA instruction.
+// compileInstruction compiles a single SSA instruction to bytecode.
+// It dispatches to the appropriate compile function based on instruction type.
+//
+// Value-producing instructions store their result in a local slot.
+// Non-value instructions (Defer, Go, MapUpdate, etc.) produce side effects.
 func (c *Compiler) compileInstruction(fn *ssa.Function, instr ssa.Instruction) {
 	switch i := instr.(type) {
 	// Value-producing instructions
@@ -387,7 +490,9 @@ func (c *Compiler) compileInstruction(fn *ssa.Function, instr ssa.Instruction) {
 	}
 }
 
-// compileAlloc compiles an Alloc instruction.
+// compileAlloc compiles an Alloc instruction (variable allocation).
+// Alloc creates a pointer to a zero value of the specified type.
+// Both heap and stack allocs are handled the same way (heap promotion).
 func (c *Compiler) compileAlloc(i *ssa.Alloc) {
 	// Allocate a local slot for the address
 	addrIdx := c.symbolTable.AllocLocal(i)
@@ -399,7 +504,8 @@ func (c *Compiler) compileAlloc(i *ssa.Alloc) {
 	c.emit(OpSetLocal, uint16(addrIdx))
 }
 
-// compileBinOp compiles a BinOp instruction.
+// compileBinOp compiles a binary operation (arithmetic, comparison, logical).
+// It compiles both operands and emits the appropriate opcode.
 func (c *Compiler) compileBinOp(i *ssa.BinOp) {
 	// Compile operands
 	c.compileValue(i.X)
@@ -490,7 +596,12 @@ func (c *Compiler) compileUnOp(i *ssa.UnOp) {
 	c.emit(OpSetLocal, uint16(resultIdx))
 }
 
-// compileCall compiles a Call instruction.
+// compileCall compiles a function call instruction.
+// It handles:
+//   - Builtin functions (len, cap, append, etc.)
+//   - Static calls to compiled functions
+//   - Static calls to external functions
+//   - Indirect calls (closures, function values)
 func (c *Compiler) compileCall(i *ssa.Call) {
 	resultIdx := c.symbolTable.AllocLocal(i)
 
@@ -529,7 +640,8 @@ func (c *Compiler) compileCall(i *ssa.Call) {
 	c.compileIndirectCall(i)
 }
 
-// compileBuiltinCall compiles a builtin function call.
+// compileBuiltinCall compiles a call to a builtin function.
+// Supported builtins: len, cap, append, copy, delete, panic, print, println, new, make.
 func (c *Compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, resultIdx int) {
 	name := builtin.Name()
 
@@ -647,12 +759,16 @@ func (c *Compiler) compileExternalCall(i *ssa.Call) {
 	c.emit(OpSetLocal, uint16(resultIdx))
 }
 
-// ExternalMethodInfo contains info for dispatching method calls on external types via reflection.
+// ExternalMethodInfo contains info for dispatching method calls on external types.
+// This is used when calling methods on types from external packages via reflection.
 type ExternalMethodInfo struct {
-	MethodName string // The method name (e.g., "String")
+	// MethodName is the name of the method (e.g., "String", "Error").
+	MethodName string
 }
 
 // compileExternalStaticCall compiles a call to an external package function.
+// It looks up the function in the importer registry and emits OpCallExternal.
+// For methods, it emits ExternalMethodInfo for VM dispatch.
 func (c *Compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resultIdx int) {
 	// Push arguments (for methods, the first arg is the receiver)
 	for _, arg := range i.Call.Args {
@@ -726,7 +842,8 @@ func (c *Compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 	c.emit(OpSetLocal, uint16(resultIdx))
 }
 
-// compileIndirectCall compiles an indirect call (closure, function value).
+// compileIndirectCall compiles an indirect call (closure or function value).
+// The callee is determined at runtime from a variable or closure.
 func (c *Compiler) compileIndirectCall(i *ssa.Call) {
 	resultIdx := c.symbolTable.AllocLocal(i)
 
@@ -769,7 +886,13 @@ func (c *Compiler) compileReturn(i *ssa.Return) {
 	c.emit(OpReturnVal)
 }
 
-// compileValue compiles a value to push it onto the stack.
+// compileValue compiles an SSA value to push it onto the stack.
+// It handles:
+//   - Constants (literal values)
+//   - Function references (for closures)
+//   - Phi nodes (reads from pre-allocated slot)
+//   - Free variables (closure captures)
+//   - Local variables (reads from slot)
 func (c *Compiler) compileValue(v ssa.Value) {
 	switch val := v.(type) {
 	case *ssa.Const:
@@ -1171,7 +1294,8 @@ func (c *Compiler) compileGo(i *ssa.Go) {
 	}
 }
 
-// emit appends an opcode to the current function.
+// emit appends an opcode and its operands to the current function's bytecode.
+// Operand width is determined by OperandWidths map.
 func (c *Compiler) emit(op OpCode, operands ...uint16) {
 	c.currentFunc.Instructions = append(c.currentFunc.Instructions, byte(op))
 
@@ -1199,21 +1323,25 @@ func (c *Compiler) emit(op OpCode, operands ...uint16) {
 	}
 }
 
-// emitJump emits a jump instruction (placeholder, patched later).
+// emitJump emits an unconditional jump instruction.
+// The target offset is a placeholder that will be patched by patchJumps.
 func (c *Compiler) emitJump(target *ssa.BasicBlock) {
 	offset := len(c.currentFunc.Instructions)
 	c.currentFunc.Instructions = append(c.currentFunc.Instructions, byte(OpJump), 0, 0)
 	c.jumps = append(c.jumps, jumpInfo{offset: offset, targetBlock: target})
 }
 
-// emitJumpFalse emits a conditional jump (placeholder, patched later).
+// emitJumpFalse emits a conditional jump that executes if the top of stack is false.
+// The target offset is a placeholder that will be patched by patchJumps.
 func (c *Compiler) emitJumpFalse(target *ssa.BasicBlock) {
 	offset := len(c.currentFunc.Instructions)
 	c.currentFunc.Instructions = append(c.currentFunc.Instructions, byte(OpJumpFalse), 0, 0)
 	c.jumps = append(c.jumps, jumpInfo{offset: offset, targetBlock: target})
 }
 
-// patchJumps patches jump targets with actual offsets.
+// patchJumps resolves jump targets with actual bytecode offsets.
+// This is called after all basic blocks have been compiled,
+// when the offset of each block is known.
 func (c *Compiler) patchJumps(blockOffsets map[*ssa.BasicBlock]int) {
 	for _, jump := range c.jumps {
 		targetOffset := blockOffsets[jump.targetBlock]
@@ -1223,21 +1351,25 @@ func (c *Compiler) patchJumps(blockOffsets map[*ssa.BasicBlock]int) {
 	}
 }
 
-// addConstant adds a constant to the pool and returns its index.
+// addConstant adds a value to the constant pool and returns its index.
+// Constants include literals, function references, and external objects.
 func (c *Compiler) addConstant(val any) uint16 {
 	idx := len(c.constants)
 	c.constants = append(c.constants, val)
 	return uint16(idx)
 }
 
-// addType adds a type to the pool and returns its index.
+// addType adds a types.Type to the type pool and returns its index.
+// Types are used for type assertions, conversions, and allocations.
 func (c *Compiler) addType(t types.Type) uint16 {
 	idx := len(c.types)
 	c.types = append(c.types, t)
 	return uint16(idx)
 }
 
-// reversePostorder returns blocks in reverse postorder.
+// reversePostorder returns basic blocks in reverse postorder.
+// This ordering ensures that each block is processed before its successors,
+// which is useful for optimization and for consistent jump targets.
 func reversePostorder(fn *ssa.Function) []*ssa.BasicBlock {
 	if len(fn.Blocks) == 0 {
 		return nil

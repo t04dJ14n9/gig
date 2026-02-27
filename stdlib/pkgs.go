@@ -1,6 +1,55 @@
-// Package stdlib declares dependencies for gig interpreter.
-// Standard library packages are included by default.
-// Add your custom third-party library imports at the end.
+// Package stdlib declares dependencies for the gig interpreter.
+//
+// This package lists the standard library packages that are pre-registered for use
+// in interpreted Go code. When you import gig/stdlib/packages, all these packages
+// become available to your interpreted programs.
+//
+// # Included Packages
+//
+// The stdlib includes 39 standard library packages:
+//
+//   - bytes, strings, strconv: String and byte manipulation
+//   - fmt: Formatted I/O
+//   - math, math/rand/v2: Mathematical operations
+//   - time: Time and duration handling
+//   - encoding/json, encoding/xml, encoding/base64, encoding/csv, encoding/hex: Data encoding
+//   - errors: Error handling
+//   - sort, slices, maps, cmp: Collection utilities
+//   - regexp: Regular expressions
+//   - container/heap, container/list, container/ring: Container types
+//   - context: Context handling
+//   - crypto/hmac, crypto/sha256: Cryptographic functions
+//   - html, html/template, text/template: HTML and template processing
+//   - io: I/O primitives
+//   - log: Logging
+//   - net/http, net/url: HTTP client and URL handling
+//   - os: Operating system interface
+//   - path, path/filepath: Path manipulation
+//   - sync, sync/atomic: Synchronization primitives
+//   - unicode, unicode/utf8, unicode/utf16: Unicode handling
+//
+// # Usage
+//
+// Import the stdlib packages before building interpreted code:
+//
+//	import _ "gig/stdlib/packages"
+//
+//	func main() {
+//	    prog, err := gig.Build(`
+//	        package main
+//	        import "fmt"
+//	        func Hello() { fmt.Println("Hello, World!") }
+//	    `)
+//	    // ...
+//	}
+//
+// # Adding Custom Packages
+//
+// To add third-party libraries or additional standard library packages:
+//  1. Create a custom dependency package using `gig init -package mydep`
+//  2. Edit mydep/pkgs.go to add your imports
+//  3. Run `gig gen ./mydep`
+//  4. Import both stdlib and your custom packages in your program
 package stdlib
 
 import (

@@ -1,144 +1,481 @@
-// Package compiler provides SSA-to-bytecode compilation.
+// Package compiler provides SSA-to-bytecode compilation for the Gig interpreter.
+//
+// The compiler translates Go SSA (Static Single Assignment) intermediate representation
+// into a custom bytecode format that can be executed by the VM.
+//
+// # Compilation Process
+//
+//  1. SSA Package Input - The compiler receives an SSA package from golang.org/x/tools/go/ssa
+//  2. Function Collection - All functions (including nested/anonymous) are collected
+//  3. Index Assignment - Each function is assigned a unique index for call instructions
+//  4. Per-Function Compilation - Each function is compiled to bytecode:
+//     - Symbol table construction for locals, parameters, and free variables
+//     - Phi node slot allocation
+//     - Basic block compilation in reverse postorder
+//     - Jump target patching
+//  5. Program Assembly - All compiled functions are combined into a Program
+//
+// # Bytecode Format
+//
+// Each instruction consists of:
+//   - 1 byte opcode (see OpCode constants)
+//   - 0-3 bytes of operands (see OperandWidths)
+//
+// Most instructions operate on a stack: pop operands, push result.
+// Local variables are accessed by index into the frame's local array.
+//
+// # Example
+//
+// The Go function:
+//
+//	func add(a, b int) int {
+//	    return a + b
+//	}
+//
+// Compiles to approximately:
+//
+//	LOCAL 0      ; push local 0 (a)
+//	LOCAL 1      ; push local 1 (b)
+//	ADD          ; pop a, pop b, push a+b
+//	RETURNVAL    ; return top of stack
 package compiler
 
 // OpCode represents a single bytecode instruction.
+// Each opcode may have 0-3 bytes of operands following it.
+// See OperandWidths for the expected operand size for each opcode.
 type OpCode byte
 
+// Opcode constants define the bytecode instruction set.
+// They are grouped by category:
+//   - Stack operations: push, pop, duplicate values
+//   - Constants/locals: access constant pool and local variables
+//   - Arithmetic: add, sub, mul, div, mod, neg
+//   - Bitwise: and, or, xor, shifts
+//   - Comparison: equal, not-equal, less, greater, etc.
+//   - Control flow: jumps, calls, returns
+//   - Container ops: slice, map, array, struct operations
+//   - Pointer ops: address-of, dereference
+//   - Interface ops: type assertions, conversions
+//   - Concurrency: goroutines, channels
+//   - Builtins: len, cap, append, copy, etc.
 const (
-	// Stack operations
-	OpNop OpCode = iota // no operation
-	OpPop               // pop top of stack
-	OpDup               // duplicate top of stack
+	// ========================================
+	// Stack Operations
+	// ========================================
 
-	// Constants and locals
-	OpConst     // push constant from pool [const_idx:2]
-	OpNil       // push nil
-	OpTrue      // push true
-	OpFalse     // push false
-	OpLocal     // push local variable [local_idx:2]
-	OpSetLocal  // pop and set local variable [local_idx:2]
-	OpGlobal    // push global variable [global_idx:2]
-	OpSetGlobal // pop and set global variable [global_idx:2]
-	OpFree      // push free variable (closure) [free_idx:1]
-	OpSetFree   // pop and set free variable [free_idx:1]
+	// OpNop is a no-operation instruction.
+	// Used as a placeholder or for debugging.
+	OpNop OpCode = iota
 
-	// Arithmetic
-	OpAdd // pop b, pop a, push a + b
-	OpSub // pop b, pop a, push a - b
-	OpMul // pop b, pop a, push a * b
-	OpDiv // pop b, pop a, push a / b
-	OpMod // pop b, pop a, push a % b
-	OpNeg // pop a, push -a
+	// OpPop discards the top value from the stack.
+	OpPop
 
-	// Bitwise
-	OpAnd    // pop b, pop a, push a & b
-	OpOr     // pop b, pop a, push a | b
-	OpXor    // pop b, pop a, push a ^ b
-	OpAndNot // pop b, pop a, push a &^ b
-	OpLsh    // pop b, pop a, push a << b
-	OpRsh    // pop b, pop a, push a >> b
+	// OpDup duplicates the top value on the stack.
+	OpDup
 
-	// Comparison
-	OpEqual     // pop b, pop a, push a == b
-	OpNotEqual  // pop b, pop a, push a != b
-	OpLess      // pop b, pop a, push a < b
-	OpLessEq    // pop b, pop a, push a <= b
-	OpGreater   // pop b, pop a, push a > b
-	OpGreaterEq // pop b, pop a, push a >= b
+	// ========================================
+	// Constants and Locals
+	// ========================================
 
-	// Logical
-	OpNot // pop a, push !a
+	// OpConst pushes a constant from the constant pool.
+	// Operands: [const_idx:2] - 2-byte index into constant pool
+	OpConst
 
-	// Control flow
-	OpJump      // unconditional jump [offset:2]
-	OpJumpTrue  // jump if true [offset:2]
-	OpJumpFalse // jump if false [offset:2]
-	OpCall      // call function [num_args:1]
-	OpReturn    // return from function
-	OpReturnVal // pop and return value
+	// OpNil pushes a nil value onto the stack.
+	OpNil
 
-	// Container operations
-	OpMakeSlice  // make slice: pop cap, pop len, pop typeIdx from stack
-	OpMakeMap    // make map: pop size, pop typeIdx from stack
-	OpMakeChan   // make chan: pop size, pop typeIdx from stack
-	OpMakeArray  // make array [type_idx:2]
-	OpMakeStruct // make struct [type_idx:2]
+	// OpTrue pushes the boolean value true.
+	OpTrue
 
-	// Index operations
-	OpIndex    // pop key, pop container, push container[key]
-	OpIndexOk  // pop key, pop container, push (value, ok) for map lookup
-	OpSetIndex // pop val, pop key, pop container, container[key] = val
-	OpSlice    // slice operation: pop max, pop high, pop low, pop container from stack
-	OpSliceLen // get length
+	// OpFalse pushes the boolean value false.
+	OpFalse
 
-	// Map operations
-	OpMapIter     // push map iterator
-	OpMapIterNext // pop iter, push (key, value, ok)
+	// OpLocal pushes a local variable onto the stack.
+	// Operands: [local_idx:2] - 2-byte index into local variable array
+	OpLocal
 
-	// Struct operations
-	OpField    // pop struct, push field [field_idx:2]
-	OpSetField // pop val, pop struct, struct.field = val [field_idx:2]
+	// OpSetLocal pops a value and stores it in a local variable.
+	// Operands: [local_idx:2] - 2-byte index into local variable array
+	OpSetLocal
 
-	// Pointer operations
-	OpAddr      // push address of local [local_idx:2]
-	OpFieldAddr // pop struct ptr, push &struct.field [field_idx:2]
-	OpIndexAddr // pop index, pop slice/array, push &slice[index]
-	OpDeref     // pop pointer, push *pointer
-	OpSetDeref  // pop val, pop pointer, *pointer = val
+	// OpGlobal pushes a global variable onto the stack.
+	// Operands: [global_idx:2] - 2-byte index into global variable array
+	OpGlobal
 
-	// Interface operations
-	OpAssert  // type assertion [type_idx:2]
-	OpConvert // type conversion [type_idx:2]
+	// OpSetGlobal pops a value and stores it in a global variable.
+	// Operands: [global_idx:2] - 2-byte index into global variable array
+	OpSetGlobal
 
-	// Function operations
-	OpClosure    // create closure [func_idx:2, num_free:1]
-	OpMethod     // method value [method_idx:2]
-	OpMethodCall // method call [method_idx:2, num_args:1]
+	// OpFree pushes a free variable (closure capture) onto the stack.
+	// Operands: [free_idx:1] - 1-byte index into free variable array
+	OpFree
 
-	// Goroutine and channel
-	OpGo      // start goroutine
-	OpSend    // channel send
-	OpRecv    // channel recv
-	OpTrySend // non-blocking send
-	OpTryRecv // non-blocking recv
-	OpClose   // close channel
-	OpSelect  // select statement
+	// OpSetFree pops a value and stores it in a free variable.
+	// Operands: [free_idx:1] - 1-byte index into free variable array
+	OpSetFree
 
-	// Defer/recover
-	OpDefer   // defer function call [func_idx:2]
-	OpRecover // recover from panic
+	// ========================================
+	// Arithmetic Operations
+	// ========================================
 
-	// Range
-	OpRange     // range over slice/map/string
-	OpRangeNext // next iteration
+	// OpAdd pops b, pops a, pushes a + b.
+	// Works for int, uint, float, string (concatenation), complex.
+	OpAdd
 
-	// Builtin functions
-	OpLen     // len()
-	OpCap     // cap()
-	OpAppend  // append()
-	OpCopy    // copy()
-	OpDelete  // delete()
-	OpPanic   // panic() - should be banned but VM needs to handle it
-	OpPrint   // print()
-	OpPrintln // println()
-	OpNew     // new()
-	OpMake    // make() - generic
+	// OpSub pops b, pops a, pushes a - b.
+	// Works for int, uint, float, complex.
+	OpSub
 
-	// External function call
-	OpCallExternal // call external function [func_idx:2, num_args:1]
+	// OpMul pops b, pops a, pushes a * b.
+	// Works for int, uint, float, complex.
+	OpMul
 
-	// Indirect call (closures, function values)
-	OpCallIndirect // call function value on stack [num_args:1]
+	// OpDiv pops b, pops a, pushes a / b.
+	// Works for int, uint, float, complex.
+	OpDiv
 
-	// Tuple/multi-value operations
-	OpPack   // pack N values from stack into a slice [count:2]
-	OpUnpack // unpack a slice onto the stack
+	// OpMod pops b, pops a, pushes a % b.
+	// Works for int, uint, float.
+	OpMod
 
-	// Halt
-	OpHalt // stop execution
+	// OpNeg pops a, pushes -a.
+	// Works for int, float, complex.
+	OpNeg
+
+	// ========================================
+	// Bitwise Operations
+	// ========================================
+
+	// OpAnd pops b, pops a, pushes a & b.
+	// Works for int, uint.
+	OpAnd
+
+	// OpOr pops b, pops a, pushes a | b.
+	// Works for int, uint.
+	OpOr
+
+	// OpXor pops b, pops a, pushes a ^ b.
+	// Works for int, uint.
+	OpXor
+
+	// OpAndNot pops b, pops a, pushes a &^ b (bit clear).
+	// Works for int, uint.
+	OpAndNot
+
+	// OpLsh pops n, pops a, pushes a << n.
+	// Works for int, uint.
+	OpLsh
+
+	// OpRsh pops n, pops a, pushes a >> n.
+	// Works for int, uint.
+	OpRsh
+
+	// ========================================
+	// Comparison Operations
+	// ========================================
+
+	// OpEqual pops b, pops a, pushes a == b.
+	OpEqual
+
+	// OpNotEqual pops b, pops a, pushes a != b.
+	OpNotEqual
+
+	// OpLess pops b, pops a, pushes a < b.
+	OpLess
+
+	// OpLessEq pops b, pops a, pushes a <= b.
+	OpLessEq
+
+	// OpGreater pops b, pops a, pushes a > b.
+	OpGreater
+
+	// OpGreaterEq pops b, pops a, pushes a >= b.
+	OpGreaterEq
+
+	// ========================================
+	// Logical Operations
+	// ========================================
+
+	// OpNot pops a, pushes !a.
+	// Works for bool.
+	OpNot
+
+	// ========================================
+	// Control Flow
+	// ========================================
+
+	// OpJump jumps to a bytecode offset.
+	// Operands: [offset:2] - 2-byte target instruction offset
+	OpJump
+
+	// OpJumpTrue pops a condition; if true, jumps to offset.
+	// Operands: [offset:2] - 2-byte target instruction offset
+	OpJumpTrue
+
+	// OpJumpFalse pops a condition; if false, jumps to offset.
+	// Operands: [offset:2] - 2-byte target instruction offset
+	OpJumpFalse
+
+	// OpCall calls a compiled function.
+	// Operands: [func_idx:2] [num_args:1]
+	OpCall
+
+	// OpReturn returns from a function with no value.
+	OpReturn
+
+	// OpReturnVal pops a value and returns it.
+	OpReturnVal
+
+	// ========================================
+	// Container Operations
+	// ========================================
+
+	// OpMakeSlice creates a new slice.
+	// Stack: [... typeIdx len cap] -> [... slice]
+	OpMakeSlice
+
+	// OpMakeMap creates a new map.
+	// Stack: [... typeIdx size] -> [... map]
+	OpMakeMap
+
+	// OpMakeChan creates a new channel.
+	// Stack: [... typeIdx size] -> [... chan]
+	OpMakeChan
+
+	// OpMakeArray creates a new array (rarely used).
+	// Operands: [type_idx:2]
+	OpMakeArray
+
+	// OpMakeStruct creates a new struct (rarely used).
+	// Operands: [type_idx:2]
+	OpMakeStruct
+
+	// ========================================
+	// Index Operations
+	// ========================================
+
+	// OpIndex indexes into a container.
+	// Stack: [... container key] -> [... value]
+	OpIndex
+
+	// OpIndexOk indexes with comma-ok (for maps).
+	// Stack: [... container key] -> [... (value, ok) tuple]
+	OpIndexOk
+
+	// OpSetIndex sets an element in a container.
+	// Stack: [... container key value] -> [...]
+	OpSetIndex
+
+	// OpSlice slices a slice/array/string.
+	// Stack: [... container low high max] -> [... sliced]
+	OpSlice
+
+	// OpSliceLen gets the length (legacy, use OpLen).
+	OpSliceLen
+
+	// ========================================
+	// Map Operations
+	// ========================================
+
+	// OpMapIter creates a map iterator.
+	OpMapIter
+
+	// OpMapIterNext advances a map iterator.
+	OpMapIterNext
+
+	// ========================================
+	// Struct Operations
+	// ========================================
+
+	// OpField accesses a struct field.
+	// Operands: [field_idx:2]
+	// Stack: [... struct] -> [... field_value]
+	OpField
+
+	// OpSetField sets a struct field.
+	// Operands: [field_idx:2]
+	// Stack: [... struct value] -> [...]
+	OpSetField
+
+	// ========================================
+	// Pointer Operations
+	// ========================================
+
+	// OpAddr pushes the address of a local variable.
+	// Operands: [local_idx:2]
+	OpAddr
+
+	// OpFieldAddr pushes the address of a struct field.
+	// Operands: [field_idx:2]
+	// Stack: [... struct_ptr] -> [... field_ptr]
+	OpFieldAddr
+
+	// OpIndexAddr pushes the address of a slice/array element.
+	// Stack: [... container index] -> [... element_ptr]
+	OpIndexAddr
+
+	// OpDeref dereferences a pointer.
+	// Stack: [... ptr] -> [... *ptr]
+	OpDeref
+
+	// OpSetDeref sets the value pointed to.
+	// Stack: [... ptr value] -> [...]
+	OpSetDeref
+
+	// ========================================
+	// Interface Operations
+	// ========================================
+
+	// OpAssert performs a type assertion.
+	// Operands: [type_idx:2]
+	// Stack: [... interface] -> [... (value, ok) tuple]
+	OpAssert
+
+	// OpConvert performs a type conversion.
+	// Operands: [type_idx:2]
+	// Stack: [... value] -> [... converted_value]
+	OpConvert
+
+	// ========================================
+	// Function Operations
+	// ========================================
+
+	// OpClosure creates a closure with captured variables.
+	// Operands: [func_idx:2] [num_free:1]
+	OpClosure
+
+	// OpMethod gets a method value.
+	// Operands: [method_idx:2]
+	OpMethod
+
+	// OpMethodCall calls a method.
+	// Operands: [method_idx:2] [num_args:1]
+	OpMethodCall
+
+	// ========================================
+	// Concurrency Operations
+	// ========================================
+
+	// OpGo starts a new goroutine.
+	OpGo
+
+	// OpSend sends a value on a channel.
+	// Stack: [... ch value] -> [...]
+	OpSend
+
+	// OpRecv receives a value from a channel.
+	// Stack: [... ch] -> [... value]
+	OpRecv
+
+	// OpTrySend sends non-blocking.
+	OpTrySend
+
+	// OpTryRecv receives non-blocking.
+	OpTryRecv
+
+	// OpClose closes a channel.
+	// Stack: [... ch] -> [...]
+	OpClose
+
+	// OpSelect performs a select statement.
+	OpSelect
+
+	// ========================================
+	// Defer/Recover
+	// ========================================
+
+	// OpDefer defers a function call.
+	// Operands: [func_idx:2]
+	OpDefer
+
+	// OpRecover recovers from a panic.
+	OpRecover
+
+	// ========================================
+	// Range Operations
+	// ========================================
+
+	// OpRange creates an iterator for range loops.
+	// Stack: [... collection] -> [... iterator]
+	OpRange
+
+	// OpRangeNext advances an iterator.
+	// Stack: [... iterator] -> [... (ok, key, value) tuple]
+	OpRangeNext
+
+	// ========================================
+	// Builtin Functions
+	// ========================================
+
+	// OpLen returns the length of a string, slice, array, map, or channel.
+	// Stack: [... value] -> [... len]
+	OpLen
+
+	// OpCap returns the capacity of a slice, array, or channel.
+	// Stack: [... value] -> [... cap]
+	OpCap
+
+	// OpAppend appends elements to a slice.
+	// Stack: [... slice elem] -> [... new_slice]
+	OpAppend
+
+	// OpCopy copies elements between slices.
+	// Stack: [... dst src] -> [... n]
+	OpCopy
+
+	// OpDelete deletes a key from a map.
+	// Stack: [... map key] -> [...]
+	OpDelete
+
+	// OpPanic triggers a panic (banned but handled for error messages).
+	// Stack: [... message] -> [panic]
+	OpPanic
+
+	// OpPrint prints values.
+	// Operands: [count:1]
+	OpPrint
+
+	// OpPrintln prints values with newlines.
+	// Operands: [count:1]
+	OpPrintln
+
+	// OpNew allocates a new pointer.
+	// Operands: [type_idx:2]
+	OpNew
+
+	// OpMake allocates with make (generic).
+	// Operands: [type_idx:2] [size_idx:2]
+	OpMake
+
+	// ========================================
+	// External Function Calls
+	// ========================================
+
+	// OpCallExternal calls an external (native Go) function.
+	// Operands: [func_idx:2] [num_args:1]
+	OpCallExternal
+
+	// OpCallIndirect calls a function value (closure, function variable).
+	// Operands: [num_args:1]
+	// Stack: [... func_value args...] -> [... result]
+	OpCallIndirect
+
+	// ========================================
+	// Tuple/Multi-value Operations
+	// ========================================
+
+	// OpPack packs N values into a slice.
+	// Operands: [count:2]
+	OpPack
+
+	// OpUnpack unpacks a slice onto the stack.
+	OpUnpack
+
+	// OpHalt stops execution (for debugging).
+	OpHalt
 )
 
-// String returns the name of the opcode.
+// String returns the name of the opcode as a human-readable string.
 func (op OpCode) String() string {
 	switch op {
 	case OpNop:
