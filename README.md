@@ -242,25 +242,25 @@ Real benchmarks comparing **Gig**, **Yaegi** (Go interpreter), **GopherLua** (Lu
 
 Both Gig and Yaegi interpret standard Go source code. This is a direct apples-to-apples comparison:
 
-| Workload | Native Go | Gig | Yaegi | Gig / Native | Yaegi / Native |
-|---|---:|---:|---:|---:|---:|
-| **Fibonacci(25)** recursive | 450 μs | 171 ms | 107 ms | 380x | 238x |
-| **ArithmeticSum(1K)** loop | 660 ns | 366 μs | 40 μs | 555x | 61x |
-| **BubbleSort(100)** nested loops | 6.4 μs | 10.8 ms | 1.2 ms | 1,688x | 190x |
-| **Sieve(1000)** primes | 1.85 μs | 1.88 ms | 204 μs | 1,016x | 110x |
-| **ClosureCalls(1K)** captured var | 338 ns | 993 μs | 998 μs | 2,938x | 2,953x |
+| Workload | Native Go | Gig | Yaegi | Gig / Native | Yaegi / Native | Gig vs Yaegi |
+|---|---:|---:|---:|---:|---:|---:|
+| **Fibonacci(25)** recursive | 458 μs | **46.7 ms** | 111 ms | 102x | 242x | **Gig 2.4x faster** |
+| **ArithmeticSum(1K)** loop | 673 ns | 200 μs | 40 μs | 297x | 60x | Yaegi 5.0x faster |
+| **BubbleSort(100)** nested loops | 6.4 μs | 5.0 ms | 1.24 ms | 775x | 194x | Yaegi 4.0x faster |
+| **Sieve(1000)** primes | 1.88 μs | 841 μs | 207 μs | 447x | 110x | Yaegi 4.1x faster |
+| **ClosureCalls(1K)** captured var | 340 ns | **584 μs** | 1,008 μs | 1,718x | 2,965x | **Gig 1.7x faster** |
 
 ### Scripting Language Comparison (Gig vs GopherLua)
 
 GopherLua is an optimized Lua 5.1 VM written in Go - one of the most popular embeddable scripting engines. Equivalent algorithms were implemented in Lua:
 
-| Workload | GopherLua | Gig | Lua / Gig |
+| Workload | GopherLua | Gig | Gig vs Lua |
 |---|---:|---:|---:|
-| **Fibonacci(25)** recursive | 20.7 ms | 171 ms | Lua 8.3x faster |
-| **ArithmeticSum(1K)** loop | 40 μs | 366 μs | Lua 9.2x faster |
-| **BubbleSort(100)** nested loops | 770 μs | 10.8 ms | Lua 14x faster |
-| **Sieve(1000)** primes | 209 μs | 1.88 ms | Lua 9.0x faster |
-| **ClosureCalls(1K)** captured var | 123 μs | 993 μs | Lua 8.1x faster |
+| **Fibonacci(25)** recursive | 21 ms | **46.7 ms** | Lua 2.2x faster |
+| **ArithmeticSum(1K)** loop | 40 μs | 200 μs | Lua 5.0x faster |
+| **BubbleSort(100)** nested loops | 774 μs | 5.0 ms | Lua 6.5x faster |
+| **Sieve(1000)** primes | 212 μs | 841 μs | Lua 4.0x faster |
+| **ClosureCalls(1K)** captured var | 122 μs | 584 μs | Lua 4.8x faster |
 
 ### Expression Engine Comparison (Expr)
 
@@ -278,8 +278,10 @@ Expr excels at evaluating isolated expressions. Gig targets a different use case
 
 **Where Gig currently stands:**
 - Gig's bytecode VM is **correct and feature-complete** - it supports the full Go language including goroutines, channels, interfaces, closures, defer, and 40+ stdlib packages
-- Raw execution speed is currently slower than Yaegi (AST-walking interpreter) and GopherLua (mature register-based Lua VM)
-- The overhead primarily comes from the tagged-union value system and stack-based dispatch, which trade speed for safety and correctness
+- **Gig outperforms Yaegi** on recursion-heavy workloads (2.4x faster on Fib25) and closure-heavy workloads (1.7x faster on ClosureCalls), thanks to O(1) function lookup, frame pooling, pre-baked constants, native `[]int64` representation, and inlined hot-path dispatch
+- Yaegi still leads on tight arithmetic/slice loops (ArithSum, BubbleSort, Sieve) due to its tree-walking interpreter's lower per-instruction overhead
+- GopherLua (register-based Lua VM) is faster across most benchmarks, but the gap has narrowed significantly from 8-14x to 2-6x after recent optimizations
+- Memory efficiency: Gig uses **14-68 allocations/op** for loop benchmarks vs Yaegi's thousands-to-millions
 
 **Why choose Gig over alternatives:**
 

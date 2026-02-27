@@ -242,25 +242,25 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 
 Gig 和 Yaegi 都解释标准 Go 源代码，属于同类直接对比：
 
-| 工作负载 | 原生 Go | Gig | Yaegi | Gig / 原生 | Yaegi / 原生 |
-|---|---:|---:|---:|---:|---:|
-| **Fibonacci(25)** 递归 | 450 μs | 171 ms | 107 ms | 380x | 238x |
-| **ArithmeticSum(1K)** 循环 | 660 ns | 366 μs | 40 μs | 555x | 61x |
-| **BubbleSort(100)** 嵌套循环 | 6.4 μs | 10.8 ms | 1.2 ms | 1,688x | 190x |
-| **Sieve(1000)** 质数筛 | 1.85 μs | 1.88 ms | 204 μs | 1,016x | 110x |
-| **ClosureCalls(1K)** 闭包调用 | 338 ns | 993 μs | 998 μs | 2,938x | 2,953x |
+| 工作负载 | 原生 Go | Gig | Yaegi | Gig / 原生 | Yaegi / 原生 | Gig vs Yaegi |
+|---|---:|---:|---:|---:|---:|---:|
+| **Fibonacci(25)** 递归 | 458 μs | **46.7 ms** | 111 ms | 102x | 242x | **Gig 快 2.4 倍** |
+| **ArithmeticSum(1K)** 循环 | 673 ns | 200 μs | 40 μs | 297x | 60x | Yaegi 快 5.0 倍 |
+| **BubbleSort(100)** 嵌套循环 | 6.4 μs | 5.0 ms | 1.24 ms | 775x | 194x | Yaegi 快 4.0 倍 |
+| **Sieve(1000)** 质数筛 | 1.88 μs | 841 μs | 207 μs | 447x | 110x | Yaegi 快 4.1 倍 |
+| **ClosureCalls(1K)** 闭包调用 | 340 ns | **584 μs** | 1,008 μs | 1,718x | 2,965x | **Gig 快 1.7 倍** |
 
 ### 脚本语言对比 (Gig vs GopherLua)
 
 GopherLua 是用 Go 编写的优化 Lua 5.1 虚拟机——最流行的可嵌入脚本引擎之一。使用等价的 Lua 实现进行对比：
 
-| 工作负载 | GopherLua | Gig | Lua / Gig |
+| 工作负载 | GopherLua | Gig | Gig vs Lua |
 |---|---:|---:|---:|
-| **Fibonacci(25)** 递归 | 20.7 ms | 171 ms | Lua 快 8.3 倍 |
-| **ArithmeticSum(1K)** 循环 | 40 μs | 366 μs | Lua 快 9.2 倍 |
-| **BubbleSort(100)** 嵌套循环 | 770 μs | 10.8 ms | Lua 快 14 倍 |
-| **Sieve(1000)** 质数筛 | 209 μs | 1.88 ms | Lua 快 9.0 倍 |
-| **ClosureCalls(1K)** 闭包调用 | 123 μs | 993 μs | Lua 快 8.1 倍 |
+| **Fibonacci(25)** 递归 | 21 ms | **46.7 ms** | Lua 快 2.2 倍 |
+| **ArithmeticSum(1K)** 循环 | 40 μs | 200 μs | Lua 快 5.0 倍 |
+| **BubbleSort(100)** 嵌套循环 | 774 μs | 5.0 ms | Lua 快 6.5 倍 |
+| **Sieve(1000)** 质数筛 | 212 μs | 841 μs | Lua 快 4.0 倍 |
+| **ClosureCalls(1K)** 闭包调用 | 122 μs | 584 μs | Lua 快 4.8 倍 |
 
 ### 表达式引擎对比 (Expr)
 
@@ -278,8 +278,10 @@ Expr 擅长计算独立表达式。Gig 面向不同的使用场景：执行**完
 
 **Gig 目前的定位：**
 - Gig 的字节码 VM **正确且功能完备** —— 支持完整的 Go 语言，包括 goroutine、channel、接口、闭包、defer 以及 40+ 标准库包
-- 原始执行速度目前慢于 Yaegi（AST 遍历解释器）和 GopherLua（成熟的基于寄存器的 Lua VM）
-- 开销主要来自 tagged-union 值系统和基于栈的调度，以速度换取安全性和正确性
+- **Gig 在递归密集型工作负载上超越 Yaegi**（Fib25 快 2.4 倍）和闭包密集型工作负载（ClosureCalls 快 1.7 倍），得益于 O(1) 函数查找、帧池化、预烘焙常量、原生 `[]int64` 表示和内联热路径分发
+- Yaegi 在紧凑算术/切片循环上仍然领先（ArithSum、BubbleSort、Sieve），因为其树遍历解释器的每指令开销更低
+- GopherLua（基于寄存器的 Lua VM）在大多数基准测试中更快，但经过最近的优化，差距已从 8-14 倍显著缩小至 2-6 倍
+- 内存效率：Gig 在循环基准测试中仅使用 **14-68 次分配/操作**，而 Yaegi 需要数千到数百万次
 
 **为什么选择 Gig：**
 

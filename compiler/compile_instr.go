@@ -88,7 +88,8 @@ func (c *compiler) compileInstruction(fn *ssa.Function, instr ssa.Instruction) {
 // compileAlloc compiles an Alloc instruction (variable allocation).
 func (c *compiler) compileAlloc(i *ssa.Alloc) {
 	addrIdx := c.symbolTable.AllocLocal(i)
-	typeIdx := c.addType(i.Type().(*types.Pointer).Elem())
+	elemType := i.Type().(*types.Pointer).Elem()
+	typeIdx := c.addType(elemType)
 	c.emit(bytecode.OpNew, uint16(typeIdx))
 	c.emit(bytecode.OpSetLocal, uint16(addrIdx))
 }

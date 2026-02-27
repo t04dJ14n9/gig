@@ -227,6 +227,28 @@ func MakePointer(ptr unsafe.Pointer, elemType reflect.Type) Value {
 	}
 }
 
+// MakeIntPtr creates a Value wrapping a *int64 pointer (KindPointer).
+// Used by OpIndexAddr on native int slices to avoid reflect overhead.
+func MakeIntPtr(p *int64) Value {
+	return Value{kind: KindPointer, obj: p}
+}
+
+// MakeIntSlice creates a Value backed by a native []int64 (KindSlice).
+// This avoids reflect overhead for the common []int case.
+func MakeIntSlice(s []int64) Value {
+	return Value{kind: KindSlice, obj: s}
+}
+
+// IntSlice returns the underlying []int64 if this is a native int slice.
+// Returns nil, false if not a native int slice.
+func (v Value) IntSlice() ([]int64, bool) {
+	if v.kind == KindSlice {
+		s, ok := v.obj.([]int64)
+		return s, ok
+	}
+	return nil, false
+}
+
 // MakeFromReflect creates a Value from reflect.Value.
 func MakeFromReflect(rv reflect.Value) Value {
 	if !rv.IsValid() {

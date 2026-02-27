@@ -10,7 +10,16 @@ func (v Value) Len() int {
 	switch v.kind {
 	case KindString:
 		return len(v.str)
-	case KindSlice, KindArray, KindMap, KindChan:
+	case KindSlice:
+		// Native int slice fast path
+		if s, ok := v.obj.([]int64); ok {
+			return len(s)
+		}
+		if rv, ok := v.obj.(reflect.Value); ok {
+			return rv.Len()
+		}
+		panic("invalid obj in Len()")
+	case KindArray, KindMap, KindChan:
 		if rv, ok := v.obj.(reflect.Value); ok {
 			return rv.Len()
 		}
@@ -23,7 +32,15 @@ func (v Value) Len() int {
 // Cap returns the capacity of slice, array, or chan.
 func (v Value) Cap() int {
 	switch v.kind {
-	case KindSlice, KindArray, KindChan:
+	case KindSlice:
+		if s, ok := v.obj.([]int64); ok {
+			return cap(s)
+		}
+		if rv, ok := v.obj.(reflect.Value); ok {
+			return rv.Cap()
+		}
+		panic("invalid obj in Cap()")
+	case KindArray, KindChan:
 		if rv, ok := v.obj.(reflect.Value); ok {
 			return rv.Cap()
 		}
@@ -39,22 +56,22 @@ func (v Value) Index(i int) Value {
 	case KindString:
 		// s[i] returns a byte (uint8), not a string
 		return MakeUint(uint64(v.str[i]))
-	case KindSlice, KindArray:
-		if rv, ok := v.obj.(reflect.Value); ok {
-			elem := rv.Index(i)
-			// For function element types, unwrap the stored Value
-			if rv.Type().Elem().Kind() == reflect.Func {
-				if val, ok := elem.Interface().(Value); ok {
-					return val
-				}
-			}
-			// For []value.Value slices (used for function slices)
-			if rv.Type().Elem() == reflect.TypeOf(Value{}) {
-				return elem.Interface().(Value)
-			}
-			return MakeFromReflect(elem)
+	case KindSlice:
+		// Native int slice fast path
+		if s, ok := v.obj.([]int64); ok {
+			return MakeInt(s[i])
 		}
-		// Handle native []value.Value slice
+		if rv, ok := v.obj.(reflect.Value); ok {
+			return indexReflectSlice(rv, i)
+		}
+		if slice, ok := v.obj.([]Value); ok {
+			return slice[i]
+		}
+		panic("invalid obj in Index()")
+	case KindArray:
+		if rv, ok := v.obj.(reflect.Value); ok {
+			return indexReflectSlice(rv, i)
+		}
 		if slice, ok := v.obj.([]Value); ok {
 			return slice[i]
 		}
@@ -62,18 +79,7 @@ func (v Value) Index(i int) Value {
 	case KindReflect:
 		// Handle reflect.Value containing a slice
 		if rv, ok := v.obj.(reflect.Value); ok {
-			elem := rv.Index(i)
-			// For function element types, unwrap the stored Value
-			if rv.Type().Elem().Kind() == reflect.Func {
-				if val, ok := elem.Interface().(Value); ok {
-					return val
-				}
-			}
-			// For []value.Value slices (used for function slices)
-			if rv.Type().Elem() == reflect.TypeOf(Value{}) {
-				return elem.Interface().(Value)
-			}
-			return MakeFromReflect(elem)
+			return indexReflectSlice(rv, i)
 		}
 		// Handle native []value.Value slice
 		if slice, ok := v.obj.([]Value); ok {
@@ -85,8 +91,29 @@ func (v Value) Index(i int) Value {
 	}
 }
 
+// indexReflectSlice handles indexing into a reflect.Value slice/array.
+func indexReflectSlice(rv reflect.Value, i int) Value {
+	elem := rv.Index(i)
+	if rv.Type().Elem().Kind() == reflect.Func {
+		if val, ok := elem.Interface().(Value); ok {
+			return val
+		}
+	}
+	if rv.Type().Elem() == reflect.TypeOf(Value{}) {
+		return elem.Interface().(Value)
+	}
+	return MakeFromReflect(elem)
+}
+
 // SetIndex sets element at index i for slice or array.
 func (v Value) SetIndex(i int, val Value) {
+	// Native int slice fast path
+	if v.kind == KindSlice {
+		if s, ok := v.obj.([]int64); ok {
+			s[i] = val.RawInt()
+			return
+		}
+	}
 	if rv, ok := v.obj.(reflect.Value); ok {
 		elemType := rv.Type().Elem()
 		// For function element types, store the Value directly (closures are *Closure)
@@ -173,6 +200,10 @@ func (v Value) SetField(i int, val Value) {
 
 // Elem dereferences a pointer or returns the underlying value of interface.
 func (v Value) Elem() Value {
+	// Fast path: *int64 pointer (from native int slice)
+	if ptr, ok := v.obj.(*int64); ok {
+		return MakeInt(*ptr)
+	}
 	if rv, ok := v.obj.(reflect.Value); ok {
 		return MakeFromReflect(rv.Elem())
 	}
@@ -181,6 +212,11 @@ func (v Value) Elem() Value {
 
 // SetElem sets the value pointed to by a pointer.
 func (v Value) SetElem(val Value) {
+	// Fast path: *int64 pointer (from native int slice OpIndexAddr)
+	if ptr, ok := v.obj.(*int64); ok {
+		*ptr = val.num
+		return
+	}
 	if rv, ok := v.obj.(reflect.Value); ok {
 		// Handle different reflect.Value kinds
 		kind := rv.Kind()
@@ -198,6 +234,18 @@ func (v Value) SetElem(val Value) {
 			}
 			targetRV := rv.Elem()
 			if targetRV.CanSet() {
+				// Native int slice → reflect conversion when assigning to *[]int
+				if val.kind == KindSlice {
+					if s, isInt := val.obj.([]int64); isInt && elemType.Kind() == reflect.Slice {
+						// Convert []int64 to the target slice type (e.g. []int)
+						target := reflect.MakeSlice(elemType, len(s), cap(s))
+						for i, n := range s {
+							target.Index(i).SetInt(n)
+						}
+						targetRV.Set(target)
+						return
+					}
+				}
 				targetRV.Set(val.ToReflectValue(elemType))
 			}
 			return

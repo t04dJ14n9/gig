@@ -290,21 +290,33 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		// Create slice using the type from the type pool
 		if int(typeIdx) < len(vm.program.Types) {
 			typ := vm.program.Types[typeIdx]
-			// Check if this is a slice of function type
+			made := false
 			if sliceType, ok := typ.(*types.Slice); ok {
 				elemType := sliceType.Elem()
-				if _, isFunc := elemType.(*types.Signature); isFunc {
-					// Create []value.Value for function slices
-					slice := make([]value.Value, int(lenVal.Int()), int(capVal.Int()))
-					vm.push(value.FromInterface(slice))
-					break
+				// Native []int64 fast path for integer slice types
+				if basic, isBasic := elemType.(*types.Basic); isBasic {
+					switch basic.Kind() {
+					case types.Int, types.Int64:
+						vm.push(value.MakeIntSlice(make([]int64, int(lenVal.Int()), int(capVal.Int()))))
+						made = true
+					}
+				}
+				// Function slice special case
+				if !made {
+					if _, isFunc := elemType.(*types.Signature); isFunc {
+						slice := make([]value.Value, int(lenVal.Int()), int(capVal.Int()))
+						vm.push(value.FromInterface(slice))
+						made = true
+					}
 				}
 			}
-			if rt := typeToReflect(typ); rt != nil {
-				slice := reflect.MakeSlice(rt, int(lenVal.Int()), int(capVal.Int()))
-				vm.push(value.MakeFromReflect(slice))
-			} else {
-				vm.push(value.MakeNil())
+			if !made {
+				if rt := typeToReflect(typ); rt != nil {
+					slice := reflect.MakeSlice(rt, int(lenVal.Int()), int(capVal.Int()))
+					vm.push(value.MakeFromReflect(slice))
+				} else {
+					vm.push(value.MakeNil())
+				}
 			}
 		} else {
 			vm.push(value.MakeNil())
@@ -348,7 +360,14 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		key := vm.pop()
 		container := vm.pop()
 		switch container.Kind() {
-		case value.KindSlice, value.KindArray:
+		case value.KindSlice:
+			// Native int slice fast path
+			if s, ok := container.IntSlice(); ok {
+				vm.push(value.MakeInt(s[int(key.RawInt())]))
+			} else {
+				vm.push(container.Index(int(key.Int())))
+			}
+		case value.KindArray:
 			idx := int(key.Int())
 			vm.push(container.Index(idx))
 		case value.KindMap:
@@ -440,7 +459,14 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		key := vm.pop()
 		container := vm.pop()
 		switch container.Kind() {
-		case value.KindSlice, value.KindArray:
+		case value.KindSlice:
+			// Native int slice fast path
+			if s, ok := container.IntSlice(); ok {
+				s[int(key.RawInt())] = val.RawInt()
+			} else {
+				container.SetIndex(int(key.Int()), val)
+			}
+		case value.KindArray:
 			idx := int(key.Int())
 			container.SetIndex(idx, val)
 		case value.KindMap:
@@ -476,6 +502,20 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			break
 		}
 
+		// Native []int64 slice fast path
+		if s, ok := container.IntSlice(); ok {
+			high := int(highVal.Int())
+			if high == 0xFFFF {
+				high = len(s)
+			}
+			if maxVal.Kind() != value.KindNil && maxVal.Int() != 0xFFFF {
+				vm.push(value.MakeIntSlice(s[low:high:int(maxVal.Int())]))
+			} else {
+				vm.push(value.MakeIntSlice(s[low:high]))
+			}
+			break
+		}
+
 		if rv, ok := container.ReflectValue(); ok {
 			// If it's a pointer to an array or slice, dereference it first
 			if rv.Kind() == reflect.Ptr {
@@ -483,6 +523,27 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				if elemKind == reflect.Array || elemKind == reflect.Slice {
 					rv = rv.Elem()
 				}
+			}
+
+			// Native int array/slice → []int64 fast path
+			// SSA compiles make([]int, N) with constant N as Alloc([N]int) + Slice,
+			// so we intercept it here to produce a native []int64.
+			if (rv.Kind() == reflect.Array || rv.Kind() == reflect.Slice) && rv.Type().Elem().Kind() == reflect.Int {
+				n := rv.Len()
+				high := int(highVal.Int())
+				if high == 0xFFFF {
+					high = n
+				}
+				s := make([]int64, n)
+				for i := 0; i < n; i++ {
+					s[i] = rv.Index(i).Int()
+				}
+				if maxVal.Kind() != value.KindNil && maxVal.Int() != 0xFFFF {
+					vm.push(value.MakeIntSlice(s[low:high:int(maxVal.Int())]))
+				} else {
+					vm.push(value.MakeIntSlice(s[low:high]))
+				}
+				break
 			}
 
 			// Handle native []value.Value slices (used for function slices)
@@ -569,6 +630,12 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		index := vm.pop()
 		container := vm.pop()
 		idx := int(index.Int())
+
+		// Native int slice: return *int64 pointer directly (avoids reflect)
+		if s, ok := container.IntSlice(); ok {
+			vm.push(value.MakeIntPtr(&s[idx]))
+			break
+		}
 
 		if rv, ok := container.ReflectValue(); ok {
 			// Dereference pointer if needed
@@ -1020,7 +1087,9 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		switch obj.Kind() {
 		case value.KindString:
 			vm.push(value.MakeInt(int64(len(obj.String()))))
-		case value.KindSlice, value.KindArray, value.KindMap, value.KindChan:
+		case value.KindSlice:
+			vm.push(value.MakeInt(int64(obj.Len())))
+		case value.KindArray, value.KindMap, value.KindChan:
 			vm.push(value.MakeInt(int64(obj.Len())))
 		case value.KindInterface, value.KindReflect:
 			// Handle both interface values and reflect-wrapped values
@@ -1064,6 +1133,17 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	case bytecode.OpAppend:
 		elem := vm.pop()
 		slice := vm.pop()
+		// Native int slice fast path
+		if s, ok := slice.IntSlice(); ok {
+			if es, ok2 := elem.IntSlice(); ok2 {
+				// append([]int64, []int64...)
+				vm.push(value.MakeIntSlice(append(s, es...)))
+			} else {
+				// append([]int64, int64)
+				vm.push(value.MakeIntSlice(append(s, elem.RawInt())))
+			}
+			break
+		}
 		// Append element to slice
 		if rv, ok := slice.ReflectValue(); ok {
 			sliceElemType := rv.Type().Elem()
@@ -1114,6 +1194,13 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	case bytecode.OpCopy:
 		src := vm.pop()
 		dst := vm.pop()
+		// Native int slice fast path
+		if ds, ok := dst.IntSlice(); ok {
+			if ss, ok2 := src.IntSlice(); ok2 {
+				vm.push(value.MakeInt(int64(copy(ds, ss))))
+				break
+			}
+		}
 		// Copy slice
 		if dstRV, ok := dst.ReflectValue(); ok {
 			if srcRV, ok := src.ReflectValue(); ok {

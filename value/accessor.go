@@ -101,6 +101,19 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 		return reflect.ValueOf(v.str)
 	case KindComplex:
 		return reflect.ValueOf(v.Complex())
+	case KindSlice:
+		// Native int slice → target type conversion
+		if s, ok := v.obj.([]int64); ok && typ.Kind() == reflect.Slice {
+			target := reflect.MakeSlice(typ, len(s), cap(s))
+			for i, n := range s {
+				target.Index(i).SetInt(n)
+			}
+			return target
+		}
+		if rv, ok := v.obj.(reflect.Value); ok {
+			return rv
+		}
+		return reflect.ValueOf(v.obj)
 	case KindReflect:
 		if rv, ok := v.obj.(reflect.Value); ok {
 			return rv
