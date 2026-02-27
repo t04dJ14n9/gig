@@ -140,6 +140,14 @@ type Value struct {
 // Kind returns the kind of the value.
 func (v Value) Kind() Kind { return v.kind }
 
+// RawInt returns the raw int64 value without kind checking.
+// Only valid when Kind() == KindInt. Designed to be inlined by the Go compiler.
+func (v Value) RawInt() int64 { return v.num }
+
+// RawBool returns the raw bool value without kind checking.
+// Only valid when Kind() == KindBool. Designed to be inlined by the Go compiler.
+func (v Value) RawBool() bool { return v.num != 0 }
+
 // IsNil returns true if the value is nil.
 func (v Value) IsNil() bool {
 	if v.kind == KindNil {

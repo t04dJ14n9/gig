@@ -82,6 +82,9 @@ type VM struct {
 	// extCallCache caches resolved external function info for fast dispatch.
 	// Uses sync.Map for safe concurrent access from goroutines.
 	extCallCache sync.Map // map[int]*extCallCacheEntry
+
+	// fpool recycles Frame objects to reduce heap allocations.
+	fpool framePool
 }
 
 // extCallCacheEntry caches resolved external function info for fast dispatch.
@@ -133,8 +136,13 @@ func (vm *VM) Execute(funcName string, ctx context.Context, args ...value.Value)
 	valArgs := make([]value.Value, len(args))
 	copy(valArgs, args)
 
-	// Create initial frame
-	frame := newFrame(fn, 0, valArgs, nil)
+	// Create initial frame using pool
+	frame := vm.fpool.get(fn, 0, nil)
+	for i, arg := range valArgs {
+		if i < fn.NumLocals {
+			frame.locals[i] = arg
+		}
+	}
 	vm.frames[0] = frame
 	vm.fp = 1
 
@@ -154,8 +162,13 @@ func (vm *VM) ExecuteWithValues(funcName string, ctx context.Context, args []val
 		return value.MakeNil(), fmt.Errorf("function %q not found", funcName)
 	}
 
-	// Create initial frame
-	frame := newFrame(fn, 0, args, nil)
+	// Create initial frame using pool
+	frame := vm.fpool.get(fn, 0, nil)
+	for i, arg := range args {
+		if i < fn.NumLocals {
+			frame.locals[i] = arg
+		}
+	}
 	vm.frames[0] = frame
 	vm.fp = 1
 

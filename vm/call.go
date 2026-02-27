@@ -10,27 +10,29 @@ import (
 // callCompiledFunction calls a compiled function by its index.
 // It creates a new call frame with the function's local variables.
 func (vm *VM) callCompiledFunction(funcIdx, numArgs int) {
-	// Get function
-	var fn *bytecode.CompiledFunction
-	for _, f := range vm.program.Functions {
-		if vm.program.FuncIndex[f.Source] == funcIdx {
-			fn = f
-			break
-		}
+	// O(1) function lookup via direct index table
+	if funcIdx < 0 || funcIdx >= len(vm.program.FuncByIndex) {
+		vm.push(value.MakeNil())
+		return
 	}
+	fn := vm.program.FuncByIndex[funcIdx]
 	if fn == nil {
 		vm.push(value.MakeNil())
 		return
 	}
 
-	// Pop arguments
-	args := make([]value.Value, numArgs)
+	// Get a pooled frame (avoids Frame + locals allocation)
+	frame := vm.fpool.get(fn, vm.sp, nil)
+
+	// Pop arguments directly into the frame's locals (avoids temporary args slice)
 	for i := numArgs - 1; i >= 0; i-- {
-		args[i] = vm.pop()
+		if i < fn.NumLocals {
+			frame.locals[i] = vm.pop()
+		} else {
+			vm.pop()
+		}
 	}
 
-	// Create new frame
-	frame := newFrame(fn, vm.sp, args, nil)
 	vm.frames[vm.fp] = frame
 	vm.fp++
 }
@@ -38,7 +40,13 @@ func (vm *VM) callCompiledFunction(funcIdx, numArgs int) {
 // callFunction calls a function with the given arguments and free variables.
 // Used for calling closures.
 func (vm *VM) callFunction(fn *bytecode.CompiledFunction, args []value.Value, freeVars []*value.Value) {
-	frame := newFrame(fn, vm.sp, args, freeVars)
+	frame := vm.fpool.get(fn, vm.sp, freeVars)
+	// Copy arguments into locals
+	for i, arg := range args {
+		if i < fn.NumLocals {
+			frame.locals[i] = arg
+		}
+	}
 	vm.frames[vm.fp] = frame
 	vm.fp++
 }

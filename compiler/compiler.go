@@ -11,6 +11,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 
 	"gig/bytecode"
+	"gig/value"
 )
 
 // Compiler compiles SSA programs into bytecode.
@@ -159,9 +160,22 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 		c.program.Functions[fn.Name()] = compiled
 	}
 
+	// Build direct-index lookup table for O(1) function calls
+	c.program.FuncByIndex = make([]*bytecode.CompiledFunction, len(allFuncs))
+	for _, fn := range allFuncs {
+		idx := c.funcIndex[fn]
+		c.program.FuncByIndex[idx] = c.funcs[fn.Name()]
+	}
+
 	c.program.Constants = c.constants
 	c.program.Types = c.types
 	c.program.Globals = c.globals
+
+	// Pre-bake constants for O(1) OpConst (avoids FromInterface per instruction)
+	c.program.PrebakedConstants = make([]value.Value, len(c.constants))
+	for i, k := range c.constants {
+		c.program.PrebakedConstants[i] = value.FromInterface(k)
+	}
 
 	return c.program, nil
 }

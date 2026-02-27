@@ -65,8 +65,16 @@ type Program struct {
 	// Functions maps function names to their compiled bytecode.
 	Functions map[string]*CompiledFunction
 
+	// FuncByIndex provides O(1) function lookup by index.
+	// Populated at compile time so the VM can skip the FuncIndex map scan.
+	FuncByIndex []*CompiledFunction
+
 	// Constants is the constant pool for literal values and external references.
 	Constants []any
+
+	// PrebakedConstants is the pre-converted constant pool.
+	// Built once at startup to avoid per-OpConst value.FromInterface() calls.
+	PrebakedConstants []value.Value
 
 	// Globals maps global variable names to their indices.
 	Globals map[string]int

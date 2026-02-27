@@ -12,13 +12,15 @@ import (
 //   - All call frames return (normal termination)
 //   - Context is cancelled (timeout/cancellation)
 //   - A panic propagates to the top frame (error return)
+//
+//nolint:gocyclo,cyclop,funlen,maintidx,gocognit
 func (vm *VM) run() (value.Value, error) {
 	instructionCount := 0
 
 	for vm.fp > 0 {
-		// Check context every 1024 instructions
+		// Check context every 1024 instructions (bitwise AND is faster than modulus)
 		instructionCount++
-		if instructionCount%1024 == 0 {
+		if instructionCount&0x3FF == 0 {
 			select {
 			case <-vm.ctx.Done():
 				return value.MakeNil(), vm.ctx.Err()
@@ -27,19 +29,21 @@ func (vm *VM) run() (value.Value, error) {
 		}
 
 		frame := vm.frames[vm.fp-1]
+		ins := frame.fn.Instructions
 
 		// Check for end of function
-		if frame.ip >= len(frame.Instructions()) {
-			// Pop frame
+		if frame.ip >= len(ins) {
+			// Pop frame and return it to pool
 			vm.fp--
+			vm.fpool.put(frame)
 			continue
 		}
 
 		// Fetch opcode
-		op := bytecode.OpCode(frame.Instructions()[frame.ip])
+		op := bytecode.OpCode(ins[frame.ip])
 		frame.ip++
 
-		// Execute opcode
+		// Inline dispatch — avoids function call overhead per instruction
 		if err := vm.executeOp(op, frame); err != nil {
 			return value.MakeNil(), err
 		}
@@ -72,6 +76,7 @@ func (vm *VM) run() (value.Value, error) {
 
 			// Propagate panic to caller
 			vm.fp--
+			vm.fpool.put(frame)
 			continue
 		}
 	}

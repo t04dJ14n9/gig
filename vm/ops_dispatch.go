@@ -28,7 +28,9 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	// Constants and locals
 	case bytecode.OpConst:
 		idx := frame.readUint16()
-		if int(idx) < len(vm.program.Constants) {
+		if int(idx) < len(vm.program.PrebakedConstants) {
+			vm.push(vm.program.PrebakedConstants[idx])
+		} else if int(idx) < len(vm.program.Constants) {
 			vm.push(value.FromInterface(vm.program.Constants[idx]))
 		}
 
@@ -99,17 +101,30 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	case bytecode.OpAdd:
 		b := vm.pop()
 		a := vm.pop()
-		vm.push(a.Add(b))
+		// Fast path for int+int (most common case in loops)
+		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			vm.push(value.MakeInt(a.RawInt() + b.RawInt()))
+		} else {
+			vm.push(a.Add(b))
+		}
 
 	case bytecode.OpSub:
 		b := vm.pop()
 		a := vm.pop()
-		vm.push(a.Sub(b))
+		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			vm.push(value.MakeInt(a.RawInt() - b.RawInt()))
+		} else {
+			vm.push(a.Sub(b))
+		}
 
 	case bytecode.OpMul:
 		b := vm.pop()
 		a := vm.pop()
-		vm.push(a.Mul(b))
+		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			vm.push(value.MakeInt(a.RawInt() * b.RawInt()))
+		} else {
+			vm.push(a.Mul(b))
+		}
 
 	case bytecode.OpDiv:
 		b := vm.pop()
@@ -160,32 +175,56 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	case bytecode.OpEqual:
 		b := vm.pop()
 		a := vm.pop()
-		vm.push(value.MakeBool(a.Equal(b)))
+		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			vm.push(value.MakeBool(a.RawInt() == b.RawInt()))
+		} else {
+			vm.push(value.MakeBool(a.Equal(b)))
+		}
 
 	case bytecode.OpNotEqual:
 		b := vm.pop()
 		a := vm.pop()
-		vm.push(value.MakeBool(!a.Equal(b)))
+		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			vm.push(value.MakeBool(a.RawInt() != b.RawInt()))
+		} else {
+			vm.push(value.MakeBool(!a.Equal(b)))
+		}
 
 	case bytecode.OpLess:
 		b := vm.pop()
 		a := vm.pop()
-		vm.push(value.MakeBool(a.Cmp(b) < 0))
+		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			vm.push(value.MakeBool(a.RawInt() < b.RawInt()))
+		} else {
+			vm.push(value.MakeBool(a.Cmp(b) < 0))
+		}
 
 	case bytecode.OpLessEq:
 		b := vm.pop()
 		a := vm.pop()
-		vm.push(value.MakeBool(a.Cmp(b) <= 0))
+		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			vm.push(value.MakeBool(a.RawInt() <= b.RawInt()))
+		} else {
+			vm.push(value.MakeBool(a.Cmp(b) <= 0))
+		}
 
 	case bytecode.OpGreater:
 		b := vm.pop()
 		a := vm.pop()
-		vm.push(value.MakeBool(a.Cmp(b) > 0))
+		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			vm.push(value.MakeBool(a.RawInt() > b.RawInt()))
+		} else {
+			vm.push(value.MakeBool(a.Cmp(b) > 0))
+		}
 
 	case bytecode.OpGreaterEq:
 		b := vm.pop()
 		a := vm.pop()
-		vm.push(value.MakeBool(a.Cmp(b) >= 0))
+		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			vm.push(value.MakeBool(a.RawInt() >= b.RawInt()))
+		} else {
+			vm.push(value.MakeBool(a.Cmp(b) >= 0))
+		}
 
 	// Logical
 	case bytecode.OpNot:
@@ -217,7 +256,8 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		vm.callCompiledFunction(int(funcIdx), int(numArgs))
 
 	case bytecode.OpReturn:
-		// Pop frame
+		// Pop frame and return it to pool
+		vm.fpool.put(frame)
 		vm.fp--
 		if vm.fp > 0 {
 			// Restore stack pointer
@@ -230,7 +270,8 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	case bytecode.OpReturnVal:
 		// Save return value
 		retVal := vm.pop()
-		// Pop frame
+		// Pop frame and return it to pool
+		vm.fpool.put(frame)
 		vm.fp--
 		if vm.fp > 0 {
 			// Restore stack pointer
@@ -490,6 +531,8 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		// Get address of a local variable (for taking pointer)
 		localIdx := frame.readUint16()
 		if int(localIdx) < len(frame.locals) {
+			// Mark frame as having its address taken — cannot be pooled
+			frame.addrTaken = true
 			// Create a pointer to the local
 			ptr := &frame.locals[localIdx]
 			vm.push(value.FromInterface(ptr))
@@ -737,13 +780,10 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			// This is the old behavior for non-reference captures
 			freeVars[i] = &v
 		}
-		// Look up the function by index
+		// Look up the function by index (O(1))
 		var fn *bytecode.CompiledFunction
-		for _, f := range vm.program.Functions {
-			if vm.program.FuncIndex[f.Source] == int(funcIdx) {
-				fn = f
-				break
-			}
+		if int(funcIdx) < len(vm.program.FuncByIndex) {
+			fn = vm.program.FuncByIndex[funcIdx]
 		}
 		if fn != nil {
 			closure := &Closure{Fn: fn, FreeVars: freeVars}
@@ -766,13 +806,10 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			args[i] = vm.pop()
 		}
 
-		// Get the function to call
+		// Get the function to call (O(1))
 		var goFn *bytecode.CompiledFunction
-		for _, f := range vm.program.Functions {
-			if vm.program.FuncIndex[f.Source] == int(funcIdx) {
-				goFn = f
-				break
-			}
+		if int(funcIdx) < len(vm.program.FuncByIndex) {
+			goFn = vm.program.FuncByIndex[funcIdx]
 		}
 
 		if goFn != nil {
