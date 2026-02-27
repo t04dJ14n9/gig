@@ -40,13 +40,13 @@ type nativeIntAdder struct{ val int }
 
 func (a *nativeIntAdder) Add(x int) { a.val = a.val + x }
 
+// anyInterface is used for type assertion benchmarks
+type anyInterface = interface{}
+
 // BenchmarkHelpers is a marker type for benchmark helpers
 type BenchmarkHelpers struct{}
 
 var _ = BenchmarkHelpers{}
-
-// anyInterface is used for type assertion benchmarks
-type anyInterface interface{}
 
 // ============================================================================
 // Benchmark Helpers
