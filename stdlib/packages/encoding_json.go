@@ -16,11 +16,11 @@ func init() {
 	pkg.AddFunction("Compact", encoding_json.Compact, "", nil)
 	pkg.AddFunction("HTMLEscape", encoding_json.HTMLEscape, "", nil)
 	pkg.AddFunction("Indent", encoding_json.Indent, "", nil)
-	pkg.AddFunction("Marshal", encoding_json.Marshal, "", direct_encoding_json_Marshal)
-	pkg.AddFunction("MarshalIndent", encoding_json.MarshalIndent, "", direct_encoding_json_MarshalIndent)
+	pkg.AddFunction("Marshal", encoding_json.Marshal, "", nil)
+	pkg.AddFunction("MarshalIndent", encoding_json.MarshalIndent, "", nil)
 	pkg.AddFunction("NewDecoder", encoding_json.NewDecoder, "", nil)
 	pkg.AddFunction("NewEncoder", encoding_json.NewEncoder, "", nil)
-	pkg.AddFunction("Unmarshal", encoding_json.Unmarshal, "", direct_encoding_json_Unmarshal)
+	pkg.AddFunction("Unmarshal", encoding_json.Unmarshal, "", nil)
 	pkg.AddFunction("Valid", encoding_json.Valid, "", direct_encoding_json_Valid)
 
 	// Types
@@ -41,26 +41,6 @@ func init() {
 	pkg.AddType("UnsupportedTypeError", reflect.TypeOf(encoding_json.UnsupportedTypeError{}), "")
 	pkg.AddType("UnsupportedValueError", reflect.TypeOf(encoding_json.UnsupportedValueError{}), "")
 
-}
-
-func direct_encoding_json_Marshal(args []value.Value) value.Value {
-	a0 := args[0].Interface()
-	r0, r1 := encoding_json.Marshal(a0)
-	return value.FromInterface([]interface{}{r0, r1})
-}
-
-func direct_encoding_json_MarshalIndent(args []value.Value) value.Value {
-	a0 := args[0].Interface()
-	a1 := args[1].String()
-	a2 := args[2].String()
-	r0, r1 := encoding_json.MarshalIndent(a0, a1, a2)
-	return value.FromInterface([]interface{}{r0, r1})
-}
-
-func direct_encoding_json_Unmarshal(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface()
-	return value.FromInterface(encoding_json.Unmarshal(a0, a1))
 }
 
 func direct_encoding_json_Valid(args []value.Value) value.Value {

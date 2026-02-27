@@ -14,10 +14,11 @@ func init() {
 
 	// Functions
 	pkg.AddFunction("Chdir", os.Chdir, "", direct_os_Chdir)
-	pkg.AddFunction("Chmod", os.Chmod, "", nil)
+	pkg.AddFunction("Chmod", os.Chmod, "", direct_os_Chmod)
 	pkg.AddFunction("Chown", os.Chown, "", direct_os_Chown)
 	pkg.AddFunction("Chtimes", os.Chtimes, "", nil)
 	pkg.AddFunction("Clearenv", os.Clearenv, "", direct_os_Clearenv)
+	pkg.AddFunction("CopyFS", os.CopyFS, "", nil)
 	pkg.AddFunction("Create", os.Create, "", direct_os_Create)
 	pkg.AddFunction("CreateTemp", os.CreateTemp, "", direct_os_CreateTemp)
 	pkg.AddFunction("DirFS", os.DirFS, "", direct_os_DirFS)
@@ -47,13 +48,13 @@ func init() {
 	pkg.AddFunction("Link", os.Link, "", direct_os_Link)
 	pkg.AddFunction("LookupEnv", os.LookupEnv, "", direct_os_LookupEnv)
 	pkg.AddFunction("Lstat", os.Lstat, "", direct_os_Lstat)
-	pkg.AddFunction("Mkdir", os.Mkdir, "", nil)
-	pkg.AddFunction("MkdirAll", os.MkdirAll, "", nil)
+	pkg.AddFunction("Mkdir", os.Mkdir, "", direct_os_Mkdir)
+	pkg.AddFunction("MkdirAll", os.MkdirAll, "", direct_os_MkdirAll)
 	pkg.AddFunction("MkdirTemp", os.MkdirTemp, "", direct_os_MkdirTemp)
 	pkg.AddFunction("NewFile", os.NewFile, "", direct_os_NewFile)
 	pkg.AddFunction("NewSyscallError", os.NewSyscallError, "", direct_os_NewSyscallError)
 	pkg.AddFunction("Open", os.Open, "", direct_os_Open)
-	pkg.AddFunction("OpenFile", os.OpenFile, "", nil)
+	pkg.AddFunction("OpenFile", os.OpenFile, "", direct_os_OpenFile)
 	pkg.AddFunction("Pipe", os.Pipe, "", direct_os_Pipe)
 	pkg.AddFunction("ReadDir", os.ReadDir, "", direct_os_ReadDir)
 	pkg.AddFunction("ReadFile", os.ReadFile, "", direct_os_ReadFile)
@@ -72,7 +73,7 @@ func init() {
 	pkg.AddFunction("UserCacheDir", os.UserCacheDir, "", direct_os_UserCacheDir)
 	pkg.AddFunction("UserConfigDir", os.UserConfigDir, "", direct_os_UserConfigDir)
 	pkg.AddFunction("UserHomeDir", os.UserHomeDir, "", direct_os_UserHomeDir)
-	pkg.AddFunction("WriteFile", os.WriteFile, "", nil)
+	pkg.AddFunction("WriteFile", os.WriteFile, "", direct_os_WriteFile)
 
 	// Constants
 	pkg.AddConstant("DevNull", os.DevNull, "")
@@ -135,6 +136,12 @@ func init() {
 func direct_os_Chdir(args []value.Value) value.Value {
 	a0 := args[0].String()
 	return value.FromInterface(os.Chdir(a0))
+}
+
+func direct_os_Chmod(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := os.FileMode(uint32(args[1].Uint()))
+	return value.FromInterface(os.Chmod(a0, a1))
 }
 
 func direct_os_Chown(args []value.Value) value.Value {
@@ -291,6 +298,18 @@ func direct_os_Lstat(args []value.Value) value.Value {
 	return value.FromInterface([]interface{}{r0, r1})
 }
 
+func direct_os_Mkdir(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := os.FileMode(uint32(args[1].Uint()))
+	return value.FromInterface(os.Mkdir(a0, a1))
+}
+
+func direct_os_MkdirAll(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := os.FileMode(uint32(args[1].Uint()))
+	return value.FromInterface(os.MkdirAll(a0, a1))
+}
+
 func direct_os_MkdirTemp(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
@@ -313,6 +332,14 @@ func direct_os_NewSyscallError(args []value.Value) value.Value {
 func direct_os_Open(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := os.Open(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_os_OpenFile(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := int(args[1].Int())
+	a2 := os.FileMode(uint32(args[2].Uint()))
+	r0, r1 := os.OpenFile(a0, a1, a2)
 	return value.FromInterface([]interface{}{r0, r1})
 }
 
@@ -401,4 +428,11 @@ func direct_os_UserConfigDir(args []value.Value) value.Value {
 func direct_os_UserHomeDir(args []value.Value) value.Value {
 	r0, r1 := os.UserHomeDir()
 	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_os_WriteFile(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].Interface().([]byte)
+	a2 := os.FileMode(uint32(args[2].Uint()))
+	return value.FromInterface(os.WriteFile(a0, a1, a2))
 }

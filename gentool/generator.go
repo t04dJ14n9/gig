@@ -18,6 +18,8 @@ import (
 // currentPkgPath is set per-package during generation to resolve same-package named types.
 var currentPkgPath string
 
+const errorTypeName = "error"
+
 // ParsePkgsFile parses a Go source file and extracts all import paths.
 func ParsePkgsFile(filePath string) ([]string, error) {
 	fset := token.NewFileSet()
@@ -369,7 +371,23 @@ func canWrapParam(t types.Type, pkgRef string) bool {
 		pkg := obj.Pkg()
 
 		if pkg == nil {
-			return obj.Name() == "error"
+			return obj.Name() == errorTypeName
+		}
+
+		if pkg.Path() != currentPkgPath {
+			return false
+		}
+
+		return canWrapUnderlying(t.Underlying())
+	}
+
+	// Handle type aliases (Go 1.23+)
+	if alias, ok := t.(*types.Alias); ok {
+		obj := alias.Obj()
+		pkg := obj.Pkg()
+
+		if pkg == nil {
+			return obj.Name() == errorTypeName
 		}
 
 		if pkg.Path() != currentPkgPath {
@@ -401,7 +419,15 @@ func canWrapUnderlying(t types.Type) bool {
 func extractArg(t types.Type, valExpr string, pkgRef string) string {
 	if named, ok := t.(*types.Named); ok {
 		obj := named.Obj()
-		if obj.Pkg() == nil && obj.Name() == "error" {
+		if obj.Pkg() == nil && obj.Name() == errorTypeName {
+			return fmt.Sprintf("%s.Interface().(error)", valExpr)
+		}
+	}
+
+	// Handle type aliases (Go 1.23+)
+	if alias, ok := t.(*types.Alias); ok {
+		obj := alias.Obj()
+		if obj.Pkg() == nil && obj.Name() == errorTypeName {
 			return fmt.Sprintf("%s.Interface().(error)", valExpr)
 		}
 	}
@@ -415,9 +441,28 @@ func extractArg(t types.Type, valExpr string, pkgRef string) string {
 			}
 			namedName := resolveTypeName(named, pkgRef)
 			if namedName == "" {
-				return ""
+				// Named type from external package - convert via interface
+				return fmt.Sprintf("%s.Interface().(%s)", valExpr, named.Obj().Pkg().Path()+"."+named.Obj().Name())
 			}
 			return fmt.Sprintf("%s(%s)", namedName, basicExpr)
+		}
+		return extractUnderlying(underlying, valExpr)
+	}
+
+	// Handle type aliases (Go 1.23+)
+	if alias, ok := t.(*types.Alias); ok {
+		underlying := t.Underlying()
+		if bt, ok := underlying.(*types.Basic); ok {
+			basicExpr := extractBasic(bt, valExpr)
+			if basicExpr == "" {
+				return ""
+			}
+			aliasName := resolveTypeName(alias, pkgRef)
+			if aliasName == "" {
+				// Alias type from external package - convert via interface
+				return fmt.Sprintf("%s.Interface().(%s)", valExpr, alias.Obj().Pkg().Path()+"."+alias.Obj().Name())
+			}
+			return fmt.Sprintf("%s(%s)", aliasName, basicExpr)
 		}
 		return extractUnderlying(underlying, valExpr)
 	}
@@ -564,6 +609,17 @@ func wrapBasicReturn(bt *types.Basic, goExpr string) string {
 func resolveTypeName(t types.Type, pkgRef string) string {
 	switch tt := t.(type) {
 	case *types.Named:
+		obj := tt.Obj()
+		pkg := obj.Pkg()
+		if pkg == nil {
+			return obj.Name()
+		}
+		if pkg.Path() == currentPkgPath {
+			return fmt.Sprintf("%s.%s", pkgRef, obj.Name())
+		}
+		return ""
+	case *types.Alias:
+		// Handle type aliases (Go 1.23+)
 		obj := tt.Obj()
 		pkg := obj.Pkg()
 		if pkg == nil {

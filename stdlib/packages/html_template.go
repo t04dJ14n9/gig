@@ -16,7 +16,7 @@ func init() {
 	pkg.AddFunction("HTMLEscape", html_template.HTMLEscape, "", nil)
 	pkg.AddFunction("HTMLEscapeString", html_template.HTMLEscapeString, "", direct_html_template_HTMLEscapeString)
 	pkg.AddFunction("HTMLEscaper", html_template.HTMLEscaper, "", direct_html_template_HTMLEscaper)
-	pkg.AddFunction("IsTrue", html_template.IsTrue, "", direct_html_template_IsTrue)
+	pkg.AddFunction("IsTrue", html_template.IsTrue, "", nil)
 	pkg.AddFunction("JSEscape", html_template.JSEscape, "", nil)
 	pkg.AddFunction("JSEscapeString", html_template.JSEscapeString, "", direct_html_template_JSEscapeString)
 	pkg.AddFunction("JSEscaper", html_template.JSEscaper, "", direct_html_template_JSEscaper)
@@ -67,12 +67,6 @@ func direct_html_template_HTMLEscaper(args []value.Value) value.Value {
 		varArgs[i-0] = args[i].Interface()
 	}
 	return value.MakeString(string(html_template.HTMLEscaper(varArgs...)))
-}
-
-func direct_html_template_IsTrue(args []value.Value) value.Value {
-	a0 := args[0].Interface()
-	r0, r1 := html_template.IsTrue(a0)
-	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_html_template_JSEscapeString(args []value.Value) value.Value {

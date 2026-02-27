@@ -29,6 +29,7 @@ func init() {
 	pkg.AddFunction("NormFloat64", math_rand_v2.NormFloat64, "", direct_math_rand_v2_NormFloat64)
 	pkg.AddFunction("Perm", math_rand_v2.Perm, "", direct_math_rand_v2_Perm)
 	pkg.AddFunction("Shuffle", math_rand_v2.Shuffle, "", nil)
+	pkg.AddFunction("Uint", math_rand_v2.Uint, "", direct_math_rand_v2_Uint)
 	pkg.AddFunction("Uint32", math_rand_v2.Uint32, "", direct_math_rand_v2_Uint32)
 	pkg.AddFunction("Uint32N", math_rand_v2.Uint32N, "", direct_math_rand_v2_Uint32N)
 	pkg.AddFunction("Uint64", math_rand_v2.Uint64, "", direct_math_rand_v2_Uint64)
@@ -96,6 +97,10 @@ func direct_math_rand_v2_NormFloat64(args []value.Value) value.Value {
 func direct_math_rand_v2_Perm(args []value.Value) value.Value {
 	a0 := int(args[0].Int())
 	return value.FromInterface(math_rand_v2.Perm(a0))
+}
+
+func direct_math_rand_v2_Uint(args []value.Value) value.Value {
+	return value.MakeUint(uint64(math_rand_v2.Uint()))
 }
 
 func direct_math_rand_v2_Uint32(args []value.Value) value.Value {

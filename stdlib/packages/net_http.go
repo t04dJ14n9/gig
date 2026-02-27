@@ -36,7 +36,9 @@ func init() {
 	pkg.AddFunction("NewServeMux", net_http.NewServeMux, "", direct_net_http_NewServeMux)
 	pkg.AddFunction("NotFound", net_http.NotFound, "", nil)
 	pkg.AddFunction("NotFoundHandler", net_http.NotFoundHandler, "", direct_net_http_NotFoundHandler)
+	pkg.AddFunction("ParseCookie", net_http.ParseCookie, "", direct_net_http_ParseCookie)
 	pkg.AddFunction("ParseHTTPVersion", net_http.ParseHTTPVersion, "", direct_net_http_ParseHTTPVersion)
+	pkg.AddFunction("ParseSetCookie", net_http.ParseSetCookie, "", direct_net_http_ParseSetCookie)
 	pkg.AddFunction("ParseTime", net_http.ParseTime, "", direct_net_http_ParseTime)
 	pkg.AddFunction("Post", net_http.Post, "", nil)
 	pkg.AddFunction("PostForm", net_http.PostForm, "", nil)
@@ -232,10 +234,22 @@ func direct_net_http_NotFoundHandler(args []value.Value) value.Value {
 	return value.FromInterface(net_http.NotFoundHandler())
 }
 
+func direct_net_http_ParseCookie(args []value.Value) value.Value {
+	a0 := args[0].String()
+	r0, r1 := net_http.ParseCookie(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
 func direct_net_http_ParseHTTPVersion(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1, r2 := net_http.ParseHTTPVersion(a0)
 	return value.FromInterface([]interface{}{r0, r1, r2})
+}
+
+func direct_net_http_ParseSetCookie(args []value.Value) value.Value {
+	a0 := args[0].String()
+	r0, r1 := net_http.ParseSetCookie(a0)
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_net_http_ParseTime(args []value.Value) value.Value {

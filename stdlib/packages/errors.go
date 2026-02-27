@@ -12,7 +12,7 @@ func init() {
 	pkg := importer.RegisterPackage("errors", "errors")
 
 	// Functions
-	pkg.AddFunction("As", errors.As, "", direct_errors_As)
+	pkg.AddFunction("As", errors.As, "", nil)
 	pkg.AddFunction("Is", errors.Is, "", direct_errors_Is)
 	pkg.AddFunction("Join", errors.Join, "", direct_errors_Join)
 	pkg.AddFunction("New", errors.New, "", direct_errors_New)
@@ -21,12 +21,6 @@ func init() {
 	// Variables
 	pkg.AddVariable("ErrUnsupported", &errors.ErrUnsupported, "")
 
-}
-
-func direct_errors_As(args []value.Value) value.Value {
-	a0 := args[0].Interface().(error)
-	a1 := args[1].Interface()
-	return value.MakeBool(errors.As(a0, a1))
 }
 
 func direct_errors_Is(args []value.Value) value.Value {

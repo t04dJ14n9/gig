@@ -16,12 +16,12 @@ func init() {
 	pkg.AddFunction("CopyToken", encoding_xml.CopyToken, "", direct_encoding_xml_CopyToken)
 	pkg.AddFunction("Escape", encoding_xml.Escape, "", nil)
 	pkg.AddFunction("EscapeText", encoding_xml.EscapeText, "", nil)
-	pkg.AddFunction("Marshal", encoding_xml.Marshal, "", direct_encoding_xml_Marshal)
-	pkg.AddFunction("MarshalIndent", encoding_xml.MarshalIndent, "", direct_encoding_xml_MarshalIndent)
+	pkg.AddFunction("Marshal", encoding_xml.Marshal, "", nil)
+	pkg.AddFunction("MarshalIndent", encoding_xml.MarshalIndent, "", nil)
 	pkg.AddFunction("NewDecoder", encoding_xml.NewDecoder, "", nil)
 	pkg.AddFunction("NewEncoder", encoding_xml.NewEncoder, "", nil)
 	pkg.AddFunction("NewTokenDecoder", encoding_xml.NewTokenDecoder, "", nil)
-	pkg.AddFunction("Unmarshal", encoding_xml.Unmarshal, "", direct_encoding_xml_Unmarshal)
+	pkg.AddFunction("Unmarshal", encoding_xml.Unmarshal, "", nil)
 
 	// Constants
 	pkg.AddConstant("Header", encoding_xml.Header, "")
@@ -57,24 +57,4 @@ func init() {
 func direct_encoding_xml_CopyToken(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	return value.FromInterface(encoding_xml.CopyToken(a0))
-}
-
-func direct_encoding_xml_Marshal(args []value.Value) value.Value {
-	a0 := args[0].Interface()
-	r0, r1 := encoding_xml.Marshal(a0)
-	return value.FromInterface([]interface{}{r0, r1})
-}
-
-func direct_encoding_xml_MarshalIndent(args []value.Value) value.Value {
-	a0 := args[0].Interface()
-	a1 := args[1].String()
-	a2 := args[2].String()
-	r0, r1 := encoding_xml.MarshalIndent(a0, a1, a2)
-	return value.FromInterface([]interface{}{r0, r1})
-}
-
-func direct_encoding_xml_Unmarshal(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface()
-	return value.FromInterface(encoding_xml.Unmarshal(a0, a1))
 }

@@ -1,6 +1,6 @@
 module myapp
 
-go 1.22.0
+go 1.23.1
 
 require (
 	gig v0.0.0
