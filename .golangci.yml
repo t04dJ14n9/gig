@@ -394,7 +394,7 @@ linters:
           - unused
           - fatcontext
       # Exclude exhaustive for intentional incomplete switches
-      - path: (gentool|importer|value|vm|compiler)/.*\.go
+      - path: (bytecode|gentool|importer|value|vm|compiler)/.*\.go
         linters:
           - exhaustive
       # Exclude err113 for existing error definitions
@@ -465,12 +465,16 @@ linters:
       - path: (.+)\.go$
         linters:
           - noinlineerr
+      # Exclude iface for DDD interfaces consumed by other packages
+      - path: (bytecode|compiler|vm)/.*\.go
+        linters:
+          - iface
       # Exclude fatcontext for VM context
       - path: vm/.*\.go$
         linters:
           - fatcontext
       # Exclude gochecknoglobals for CLI and interpreter
-      - path: (cmd/.*\.go|gig\.go|vm/.*\.go|importer/.*\.go|stdlib/.*\.go|compiler/opcode\.go|gentool/generator\.go)
+      - path: (cmd/.*\.go|gig\.go|vm/.*\.go|importer/.*\.go|stdlib/.*\.go|bytecode/.*\.go|compiler/.*\.go|gentool/.*\.go)
         linters:
           - gochecknoglobals
       # Exclude gochecknoinits for importer

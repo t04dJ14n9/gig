@@ -63,6 +63,7 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
+	"gig/bytecode"
 	"gig/compiler"
 	"gig/importer"
 	"gig/value"
@@ -78,7 +79,7 @@ var ErrTimeout = context.DeadlineExceeded
 // Program represents a compiled Go program ready for execution.
 // It contains the compiled bytecode, constant pool, type information, and SSA package reference.
 type Program struct {
-	program *compiler.Program // compiled bytecode and metadata
+	program *bytecode.Program // compiled bytecode and metadata
 	ssaPkg  *ssa.Package      // SSA package for debugging/inspection
 }
 
@@ -176,7 +177,8 @@ func Build(sourceCode string, packages ...string) (*Program, error) {
 	externalValueWrap(ssaPkg, imp)
 
 	// Compile to bytecode
-	compiled, err := compiler.Compile(ssaPkg)
+	lookup := newPackageLookupAdapter()
+	compiled, err := compiler.Compile(lookup, ssaPkg)
 	if err != nil {
 		return nil, fmt.Errorf("compile error: %w", err)
 	}
@@ -355,4 +357,26 @@ func GetPackageByName(name string) *importer.ExternalPackage {
 // The returned map is keyed by import path.
 func GetAllPackages() map[string]*importer.ExternalPackage {
 	return importer.GetAllPackages()
+}
+
+// packageLookupAdapter implements bytecode.PackageLookup using the importer registry.
+// It serves as the DI bridge between the compiler and the importer.
+type packageLookupAdapter struct{}
+
+// newPackageLookupAdapter creates a new PackageLookup adapter.
+func newPackageLookupAdapter() bytecode.PackageLookup {
+	return &packageLookupAdapter{}
+}
+
+// LookupExternalFunc resolves an external function by package path and function name.
+func (a *packageLookupAdapter) LookupExternalFunc(pkgPath, funcName string) (fn any, directCall func([]value.Value) value.Value, ok bool) {
+	pkg := importer.GetPackageByPath(pkgPath)
+	if pkg == nil {
+		return nil, nil, false
+	}
+	obj, exists := pkg.Objects[funcName]
+	if !exists || obj.Kind != importer.ObjectKindFunction {
+		return nil, nil, false
+	}
+	return obj.Value, obj.DirectCall, true
 }

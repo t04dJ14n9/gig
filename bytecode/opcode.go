@@ -1,9 +1,14 @@
-// Package compiler provides SSA-to-bytecode compilation for the Gig interpreter.
+// Package bytecode defines the shared kernel types for the Gig interpreter.
+//
+// This package contains the bytecode instruction set, compiled program data
+// structures, and dependency injection interfaces shared between the compiler
+// and VM packages. It serves as the Shared Kernel in the DDD architecture,
+// enabling the compiler and VM to be fully decoupled from each other.
+//
+// # Compilation Process
 //
 // The compiler translates Go SSA (Static Single Assignment) intermediate representation
 // into a custom bytecode format that can be executed by the VM.
-//
-// # Compilation Process
 //
 //  1. SSA Package Input - The compiler receives an SSA package from golang.org/x/tools/go/ssa
 //  2. Function Collection - All functions (including nested/anonymous) are collected
@@ -38,7 +43,7 @@
 //	LOCAL 1      ; push local 1 (b)
 //	ADD          ; pop a, pop b, push a+b
 //	RETURNVAL    ; return top of stack
-package compiler
+package bytecode
 
 // OpCode represents a single bytecode instruction.
 // Each opcode may have 0-3 bytes of operands following it.
@@ -359,16 +364,11 @@ const (
 	// OpGoCall starts a new goroutine with a function call.
 	// Operands: [func_idx:2, num_args:1]
 	// Stack: [... args] -> [...]
-	// Spawns a new goroutine that calls the function with the given arguments.
-	// Arguments are evaluated in the current goroutine, but the function
-	// executes in a new goroutine with its own VM instance.
 	OpGoCall
 
 	// OpGoCallIndirect starts a new goroutine with a closure call.
 	// Operands: [num_args:1]
 	// Stack: [... closure args...] -> [...]
-	// Spawns a new goroutine that calls the closure with the given arguments.
-	// The closure and its captured free variables are copied to the new goroutine.
 	OpGoCallIndirect
 
 	// OpSend sends a value on a channel.
@@ -381,7 +381,6 @@ const (
 
 	// OpRecvOk receives a value from a channel with comma-ok.
 	// Stack: [... ch] -> [... (value, ok) tuple]
-	// Returns a tuple (value, ok) where ok is true if the channel is open.
 	OpRecvOk
 
 	// OpTrySend sends non-blocking.
@@ -712,6 +711,8 @@ var OperandWidths = map[OpCode]int{
 	OpPack:           2, // count(2)
 	OpNew:            2,
 	OpMake:           4, // type_idx(2) + size_idx(2)
+	OpPrint:          1, // count(1)
+	OpPrintln:        1, // count(1)
 }
 
 // ReadUint16 reads a 2-byte operand from the bytecode.

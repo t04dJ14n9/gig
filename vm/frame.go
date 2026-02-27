@@ -2,7 +2,7 @@
 package vm
 
 import (
-	"gig/compiler"
+	"gig/bytecode"
 	"gig/value"
 )
 
@@ -11,7 +11,7 @@ import (
 // and instruction pointer.
 type Frame struct {
 	// fn is the compiled function being executed.
-	fn *compiler.CompiledFunction
+	fn *bytecode.CompiledFunction
 
 	// ip is the instruction pointer (current bytecode offset).
 	ip int
@@ -35,7 +35,7 @@ type Frame struct {
 // Deferred calls are executed in LIFO order when the function returns.
 type DeferInfo struct {
 	// fn is the compiled function to call.
-	fn *compiler.CompiledFunction
+	fn *bytecode.CompiledFunction
 
 	// args are the arguments to pass.
 	args []value.Value
@@ -46,7 +46,7 @@ type DeferInfo struct {
 
 // newFrame creates a new call frame for a function.
 // It initializes the local variable array and copies arguments into the first slots.
-func newFrame(fn *compiler.CompiledFunction, basePtr int, args []value.Value, freeVars []*value.Value) *Frame {
+func newFrame(fn *bytecode.CompiledFunction, basePtr int, args []value.Value, freeVars []*value.Value) *Frame {
 	locals := make([]value.Value, fn.NumLocals)
 
 	// Copy arguments to local slots
