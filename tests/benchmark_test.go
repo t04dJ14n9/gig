@@ -40,14 +40,6 @@ type nativeIntAdder struct{ val int }
 
 func (a *nativeIntAdder) Add(x int) { a.val = a.val + x }
 
-// anyInterface is used for type assertion benchmarks
-type anyInterface = interface{}
-
-// BenchmarkHelpers is a marker type for benchmark helpers
-type BenchmarkHelpers struct{}
-
-var _ = BenchmarkHelpers{}
-
 // ============================================================================
 // Benchmark Helpers
 // ============================================================================
@@ -727,7 +719,7 @@ func Compute() int {
 
 func BenchmarkNative_TypeAssertion(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		var x anyInterface
+		var x any
 		x = 42
 		sum := 0
 		for j := 0; j < 100; j++ {
@@ -766,8 +758,7 @@ func Compute() int {
 }
 
 func BenchmarkNative_TypeSwitch(b *testing.B) {
-	type Any interface{}
-	typeSwitch := func(x Any) int {
+	typeSwitch := func(x any) int {
 		switch v := x.(type) {
 		case int:
 			return v * 2
@@ -778,7 +769,7 @@ func BenchmarkNative_TypeSwitch(b *testing.B) {
 		}
 	}
 	for i := 0; i < b.N; i++ {
-		values := []Any{1, "hello", 2.5, 3, "world", 4.0}
+		values := []any{1, "hello", 2.5, 3, "world", 4.0}
 		sum := 0
 		for j := 0; j < 100; j++ {
 			for _, v := range values {
