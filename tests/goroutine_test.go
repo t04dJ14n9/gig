@@ -5,9 +5,8 @@ import (
 	"testing"
 
 	"gig"
-	"gig/tests/testdata/goroutine"
-
 	_ "gig/stdlib/packages"
+	"gig/tests/testdata/goroutine"
 )
 
 //go:embed testdata/goroutine/main.go

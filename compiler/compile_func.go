@@ -76,6 +76,9 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 	// Patch jump targets
 	c.patchJumps(blockOffsets)
 
+	// Peephole optimization: fuse common instruction sequences into superinstructions
+	c.currentFunc.Instructions = optimizeBytecode(c.currentFunc.Instructions)
+
 	return c.currentFunc, nil
 }
 

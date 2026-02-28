@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"gig"
-
 	_ "myapp/mydep/packages"
+
+	"gig"
 )
 
 // TestGjsonBasic tests basic gjson functionality
@@ -210,9 +210,9 @@ func ToBoolSlice(i interface{}) []bool {
 		{"interface int64", "ToInt64", []any{float64(200.5)}, int64(200)},
 		{"interface float64", "ToFloat64", []any{"3.14"}, 3.14},
 		{"interface bool", "ToBool", []any{1}, true},
-		{"string slice", "ToStringSlice", []any{[]interface{}{"a", "b"}}, []string{"a", "b"}},
-		{"int slice", "ToIntSlice", []any{[]interface{}{1, 2, 3}}, []int{1, 2, 3}},
-		{"bool slice", "ToBoolSlice", []any{[]interface{}{true, false, true}}, []bool{true, false, true}},
+		{"string slice", "ToStringSlice", []any{[]any{"a", "b"}}, []string{"a", "b"}},
+		{"int slice", "ToIntSlice", []any{[]any{1, 2, 3}}, []int{1, 2, 3}},
+		{"bool slice", "ToBoolSlice", []any{[]any{true, false, true}}, []bool{true, false, true}},
 	}
 
 	for _, tc := range tests {
@@ -323,7 +323,7 @@ func SliceConversion(vals interface{}) string {
 		{"convert int", "ConvertAndFormat", []any{42}, "int:42,float:42.00,bool:true"},
 		{"convert float", "ConvertAndFormat", []any{3.14}, "int:3,float:3.14,bool:true"},
 		{"convert string", "ConvertAndFormat", []any{"10"}, "int:10,float:10.00,bool:false"},
-		{"slice conversion", "SliceConversion", []any{[]interface{}{"a", "b", "c"}}, "[a b c]"},
+		{"slice conversion", "SliceConversion", []any{[]any{"a", "b", "c"}}, "[a b c]"},
 	}
 
 	for _, tc := range tests2 {

@@ -489,6 +489,74 @@ const (
 
 	// OpHalt stops execution (for debugging).
 	OpHalt
+
+	// ========================================
+	// Superinstructions (fused ops for hot loops)
+	// ========================================
+
+	// OpAddLocalLocal pops nothing; loads locals[A] and locals[B], pushes a+b (int fast path).
+	// Operands: [local_a:2] [local_b:2]
+	OpAddLocalLocal
+
+	// OpSubLocalLocal loads locals[A] and locals[B], pushes a-b (int fast path).
+	// Operands: [local_a:2] [local_b:2]
+	OpSubLocalLocal
+
+	// OpMulLocalLocal loads locals[A] and locals[B], pushes a*b (int fast path).
+	// Operands: [local_a:2] [local_b:2]
+	OpMulLocalLocal
+
+	// OpAddLocalConst loads local[A] and const[B], pushes a+b (int fast path).
+	// Operands: [local_a:2] [const_b:2]
+	OpAddLocalConst
+
+	// OpSubLocalConst loads local[A] and const[B], pushes a-b (int fast path).
+	// Operands: [local_a:2] [const_b:2]
+	OpSubLocalConst
+
+	// OpLessLocalLocal loads locals[A] and locals[B], pushes a<b (int) then JumpTrue.
+	// Operands: [local_a:2] [local_b:2] [offset:2]
+	OpLessLocalLocalJumpTrue
+
+	// OpLessLocalConstJumpTrue loads local[A] and const[B], jumps if a<b.
+	// Operands: [local_a:2] [const_b:2] [offset:2]
+	OpLessLocalConstJumpTrue
+
+	// OpLessEqLocalConstJumpTrue loads local[A] and const[B], jumps if a<=b.
+	// Operands: [local_a:2] [const_b:2] [offset:2]
+	OpLessEqLocalConstJumpTrue
+
+	// OpGreaterLocalLocalJumpTrue loads locals[A] and locals[B], jumps if a>b.
+	// Operands: [local_a:2] [local_b:2] [offset:2]
+	OpGreaterLocalLocalJumpTrue
+
+	// OpLessLocalLocalJumpFalse loads locals[A] and locals[B], jumps if NOT a<b.
+	// Operands: [local_a:2] [local_b:2] [offset:2]
+	OpLessLocalLocalJumpFalse
+
+	// OpLessLocalConstJumpFalse loads local[A] and const[B], jumps if NOT a<b.
+	// Operands: [local_a:2] [const_b:2] [offset:2]
+	OpLessLocalConstJumpFalse
+
+	// OpAddSetLocal pops two values, adds, stores to local[A].
+	// Operands: [local_a:2]
+	OpAddSetLocal
+
+	// OpSubSetLocal pops two values, subs, stores to local[A].
+	// Operands: [local_a:2]
+	OpSubSetLocal
+
+	// OpLocalLocalAddSetLocal loads locals[A]+locals[B], stores to local[C].
+	// Operands: [local_a:2] [local_b:2] [local_c:2]
+	OpLocalLocalAddSetLocal
+
+	// OpLocalConstAddSetLocal loads local[A]+const[B], stores to local[C].
+	// Operands: [local_a:2] [const_b:2] [local_c:2]
+	OpLocalConstAddSetLocal
+
+	// OpLocalConstSubSetLocal loads local[A]-const[B], stores to local[C].
+	// Operands: [local_a:2] [const_b:2] [local_c:2]
+	OpLocalConstSubSetLocal
 )
 
 // String returns the name of the opcode as a human-readable string.
@@ -672,6 +740,38 @@ func (op OpCode) String() string {
 		return "UNPACK"
 	case OpHalt:
 		return "HALT"
+	case OpAddLocalLocal:
+		return "ADDLOCALLOCAL"
+	case OpSubLocalLocal:
+		return "SUBLOCALLOCAL"
+	case OpMulLocalLocal:
+		return "MULLOCALLOCAL"
+	case OpAddLocalConst:
+		return "ADDLOCALCONST"
+	case OpSubLocalConst:
+		return "SUBLOCALCONST"
+	case OpLessLocalLocalJumpTrue:
+		return "LESSLOCALLOCALJUMPTRUE"
+	case OpLessLocalConstJumpTrue:
+		return "LESSLOCALCONSTJUMPTRUE"
+	case OpLessEqLocalConstJumpTrue:
+		return "LESSEQLOCALCONSTJUMPTRUE"
+	case OpGreaterLocalLocalJumpTrue:
+		return "GREATERLOCALLOCALJUMPTRUE"
+	case OpLessLocalLocalJumpFalse:
+		return "LESSLOCALLOCALJUMPFALSE"
+	case OpLessLocalConstJumpFalse:
+		return "LESSLOCALCONSTJUMPFALSE"
+	case OpAddSetLocal:
+		return "ADDSETLOCAL"
+	case OpSubSetLocal:
+		return "SUBSETLOCAL"
+	case OpLocalLocalAddSetLocal:
+		return "LOCALLOCALADDSETLOCAL"
+	case OpLocalConstAddSetLocal:
+		return "LOCALCONSTADDSETLOCAL"
+	case OpLocalConstSubSetLocal:
+		return "LOCALCONSTSUBSETLOCAL"
 	default:
 		return "UNKNOWN"
 	}
@@ -713,6 +813,24 @@ var OperandWidths = map[OpCode]int{
 	OpMake:           4, // type_idx(2) + size_idx(2)
 	OpPrint:          1, // count(1)
 	OpPrintln:        1, // count(1)
+
+	// Superinstruction operand widths
+	OpAddLocalLocal:             4, // local_a(2) + local_b(2)
+	OpSubLocalLocal:             4, // local_a(2) + local_b(2)
+	OpMulLocalLocal:             4, // local_a(2) + local_b(2)
+	OpAddLocalConst:             4, // local_a(2) + const_b(2)
+	OpSubLocalConst:             4, // local_a(2) + const_b(2)
+	OpLessLocalLocalJumpTrue:    6, // local_a(2) + local_b(2) + offset(2)
+	OpLessLocalConstJumpTrue:    6, // local_a(2) + const_b(2) + offset(2)
+	OpLessEqLocalConstJumpTrue:  6, // local_a(2) + const_b(2) + offset(2)
+	OpGreaterLocalLocalJumpTrue: 6, // local_a(2) + local_b(2) + offset(2)
+	OpLessLocalLocalJumpFalse:   6, // local_a(2) + local_b(2) + offset(2)
+	OpLessLocalConstJumpFalse:   6, // local_a(2) + const_b(2) + offset(2)
+	OpAddSetLocal:               2, // local_a(2)
+	OpSubSetLocal:               2, // local_a(2)
+	OpLocalLocalAddSetLocal:     6, // local_a(2) + local_b(2) + local_c(2)
+	OpLocalConstAddSetLocal:     6, // local_a(2) + const_b(2) + local_c(2)
+	OpLocalConstSubSetLocal:     6, // local_a(2) + const_b(2) + local_c(2)
 }
 
 // ReadUint16 reads a 2-byte operand from the bytecode.

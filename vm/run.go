@@ -21,10 +21,19 @@ import (
 func (vm *VM) run() (value.Value, error) {
 	instructionCount := 0
 
+	// Hoist hot fields into local variables for better register allocation.
+	// The Go compiler can keep these in CPU registers across iterations,
+	// avoiding repeated loads from vm.* on each instruction.
+	stack := vm.stack
+	sp := vm.sp
+	prebaked := vm.program.PrebakedConstants
+
 	for vm.fp > 0 {
 		// Check context every 1024 instructions (bitwise AND is faster than modulus)
 		instructionCount++
 		if instructionCount&0x3FF == 0 {
+			// Sync back before potential return
+			vm.sp = sp
 			select {
 			case <-vm.ctx.Done():
 				return value.MakeNil(), vm.ctx.Err()
@@ -34,6 +43,7 @@ func (vm *VM) run() (value.Value, error) {
 
 		frame := vm.frames[vm.fp-1]
 		ins := frame.fn.Instructions
+		locals := frame.locals
 
 		// Check for end of function
 		if frame.ip >= len(ins) {
@@ -53,111 +63,141 @@ func (vm *VM) run() (value.Value, error) {
 		switch op { //nolint:exhaustive
 		case bytecode.OpLocal:
 			idx := frame.readUint16()
-			vm.push(frame.locals[idx])
+			stack[sp] = locals[idx]
+			sp++
 			continue
 
 		case bytecode.OpSetLocal:
 			idx := frame.readUint16()
-			frame.locals[idx] = vm.pop()
+			sp--
+			locals[idx] = stack[sp]
 			continue
 
 		case bytecode.OpConst:
 			idx := frame.readUint16()
-			if int(idx) < len(vm.program.PrebakedConstants) {
-				vm.push(vm.program.PrebakedConstants[idx])
+			if int(idx) < len(prebaked) {
+				stack[sp] = prebaked[idx]
 			} else if int(idx) < len(vm.program.Constants) {
-				vm.push(value.FromInterface(vm.program.Constants[idx]))
+				stack[sp] = value.FromInterface(vm.program.Constants[idx])
 			}
+			sp++
 			continue
 
 		case bytecode.OpAdd:
-			b := vm.pop()
-			a := vm.pop()
+			sp--
+			b := stack[sp]
+			sp--
+			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				vm.push(value.MakeInt(a.RawInt() + b.RawInt()))
+				stack[sp] = value.MakeInt(a.RawInt() + b.RawInt())
 			} else {
-				vm.push(a.Add(b))
+				stack[sp] = a.Add(b)
 			}
+			sp++
 			continue
 
 		case bytecode.OpSub:
-			b := vm.pop()
-			a := vm.pop()
+			sp--
+			b := stack[sp]
+			sp--
+			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				vm.push(value.MakeInt(a.RawInt() - b.RawInt()))
+				stack[sp] = value.MakeInt(a.RawInt() - b.RawInt())
 			} else {
-				vm.push(a.Sub(b))
+				stack[sp] = a.Sub(b)
 			}
+			sp++
 			continue
 
 		case bytecode.OpMul:
-			b := vm.pop()
-			a := vm.pop()
+			sp--
+			b := stack[sp]
+			sp--
+			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				vm.push(value.MakeInt(a.RawInt() * b.RawInt()))
+				stack[sp] = value.MakeInt(a.RawInt() * b.RawInt())
 			} else {
-				vm.push(a.Mul(b))
+				stack[sp] = a.Mul(b)
 			}
+			sp++
 			continue
 
 		case bytecode.OpLess:
-			b := vm.pop()
-			a := vm.pop()
+			sp--
+			b := stack[sp]
+			sp--
+			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				vm.push(value.MakeBool(a.RawInt() < b.RawInt()))
+				stack[sp] = value.MakeBool(a.RawInt() < b.RawInt())
 			} else {
-				vm.push(value.MakeBool(a.Cmp(b) < 0))
+				stack[sp] = value.MakeBool(a.Cmp(b) < 0)
 			}
+			sp++
 			continue
 
 		case bytecode.OpLessEq:
-			b := vm.pop()
-			a := vm.pop()
+			sp--
+			b := stack[sp]
+			sp--
+			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				vm.push(value.MakeBool(a.RawInt() <= b.RawInt()))
+				stack[sp] = value.MakeBool(a.RawInt() <= b.RawInt())
 			} else {
-				vm.push(value.MakeBool(a.Cmp(b) <= 0))
+				stack[sp] = value.MakeBool(a.Cmp(b) <= 0)
 			}
+			sp++
 			continue
 
 		case bytecode.OpGreater:
-			b := vm.pop()
-			a := vm.pop()
+			sp--
+			b := stack[sp]
+			sp--
+			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				vm.push(value.MakeBool(a.RawInt() > b.RawInt()))
+				stack[sp] = value.MakeBool(a.RawInt() > b.RawInt())
 			} else {
-				vm.push(value.MakeBool(a.Cmp(b) > 0))
+				stack[sp] = value.MakeBool(a.Cmp(b) > 0)
 			}
+			sp++
 			continue
 
 		case bytecode.OpGreaterEq:
-			b := vm.pop()
-			a := vm.pop()
+			sp--
+			b := stack[sp]
+			sp--
+			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				vm.push(value.MakeBool(a.RawInt() >= b.RawInt()))
+				stack[sp] = value.MakeBool(a.RawInt() >= b.RawInt())
 			} else {
-				vm.push(value.MakeBool(a.Cmp(b) >= 0))
+				stack[sp] = value.MakeBool(a.Cmp(b) >= 0)
 			}
+			sp++
 			continue
 
 		case bytecode.OpEqual:
-			b := vm.pop()
-			a := vm.pop()
+			sp--
+			b := stack[sp]
+			sp--
+			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				vm.push(value.MakeBool(a.RawInt() == b.RawInt()))
+				stack[sp] = value.MakeBool(a.RawInt() == b.RawInt())
 			} else {
-				vm.push(value.MakeBool(a.Equal(b)))
+				stack[sp] = value.MakeBool(a.Equal(b))
 			}
+			sp++
 			continue
 
 		case bytecode.OpNotEqual:
-			b := vm.pop()
-			a := vm.pop()
+			sp--
+			b := stack[sp]
+			sp--
+			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				vm.push(value.MakeBool(a.RawInt() != b.RawInt()))
+				stack[sp] = value.MakeBool(a.RawInt() != b.RawInt())
 			} else {
-				vm.push(value.MakeBool(!a.Equal(b)))
+				stack[sp] = value.MakeBool(!a.Equal(b))
 			}
+			sp++
 			continue
 
 		case bytecode.OpJump:
@@ -167,49 +207,57 @@ func (vm *VM) run() (value.Value, error) {
 
 		case bytecode.OpJumpTrue:
 			offset := frame.readUint16()
-			cond := vm.pop()
-			if cond.RawBool() {
+			sp--
+			if stack[sp].RawBool() {
 				frame.ip = int(offset)
 			}
 			continue
 
 		case bytecode.OpJumpFalse:
 			offset := frame.readUint16()
-			cond := vm.pop()
-			if !cond.RawBool() {
+			sp--
+			if !stack[sp].RawBool() {
 				frame.ip = int(offset)
 			}
 			continue
 
 		case bytecode.OpNot:
-			a := vm.pop()
-			vm.push(value.MakeBool(!a.RawBool()))
+			sp--
+			stack[sp] = value.MakeBool(!stack[sp].RawBool())
+			sp++
 			continue
 
 		case bytecode.OpNil:
-			vm.push(value.MakeNil())
+			stack[sp] = value.MakeNil()
+			sp++
 			continue
 
 		case bytecode.OpTrue:
-			vm.push(value.MakeBool(true))
+			stack[sp] = value.MakeBool(true)
+			sp++
 			continue
 
 		case bytecode.OpFalse:
-			vm.push(value.MakeBool(false))
+			stack[sp] = value.MakeBool(false)
+			sp++
 			continue
 
 		case bytecode.OpPop:
-			vm.pop()
+			sp--
 			continue
 
 		case bytecode.OpDup:
-			vm.push(vm.peek())
+			stack[sp] = stack[sp-1]
+			sp++
 			continue
 
 		case bytecode.OpCall:
 			funcIdx := frame.readUint16()
 			numArgs := frame.readByte()
+			vm.sp = sp
 			vm.callCompiledFunction(int(funcIdx), int(numArgs))
+			sp = vm.sp
+			stack = vm.stack
 			continue
 
 		case bytecode.OpReturn:
@@ -217,36 +265,281 @@ func (vm *VM) run() (value.Value, error) {
 			vm.fp--
 			if vm.fp > 0 {
 				prevFrame := vm.frames[vm.fp-1]
-				vm.sp = prevFrame.basePtr
+				sp = prevFrame.basePtr
 			}
-			vm.push(value.MakeNil())
+			stack[sp] = value.MakeNil()
+			sp++
 			continue
 
 		case bytecode.OpReturnVal:
-			retVal := vm.pop()
+			sp--
+			retVal := stack[sp]
 			vm.fpool.put(frame)
 			vm.fp--
 			if vm.fp > 0 {
 				prevFrame := vm.frames[vm.fp-1]
-				vm.sp = prevFrame.basePtr
+				sp = prevFrame.basePtr
 			}
-			vm.push(retVal)
+			stack[sp] = retVal
+			sp++
 			continue
 
 		case bytecode.OpSetDeref:
-			val := vm.pop()
-			ptr := vm.pop()
+			sp--
+			val := stack[sp]
+			sp--
+			ptr := stack[sp]
 			ptr.SetElem(val)
+			continue
+
+		// ========================================
+		// Superinstructions: fused ops for hot loops
+		// ========================================
+
+		case bytecode.OpAddLocalLocal:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			a := locals[idxA]
+			b := locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				stack[sp] = value.MakeInt(a.RawInt() + b.RawInt())
+			} else {
+				stack[sp] = a.Add(b)
+			}
+			sp++
+			continue
+
+		case bytecode.OpSubLocalLocal:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			a := locals[idxA]
+			b := locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				stack[sp] = value.MakeInt(a.RawInt() - b.RawInt())
+			} else {
+				stack[sp] = a.Sub(b)
+			}
+			sp++
+			continue
+
+		case bytecode.OpMulLocalLocal:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			a := locals[idxA]
+			b := locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				stack[sp] = value.MakeInt(a.RawInt() * b.RawInt())
+			} else {
+				stack[sp] = a.Mul(b)
+			}
+			sp++
+			continue
+
+		case bytecode.OpAddLocalConst:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			a := locals[idxA]
+			b := prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				stack[sp] = value.MakeInt(a.RawInt() + b.RawInt())
+			} else {
+				stack[sp] = a.Add(b)
+			}
+			sp++
+			continue
+
+		case bytecode.OpSubLocalConst:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			a := locals[idxA]
+			b := prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				stack[sp] = value.MakeInt(a.RawInt() - b.RawInt())
+			} else {
+				stack[sp] = a.Sub(b)
+			}
+			sp++
+			continue
+
+		case bytecode.OpLessLocalLocalJumpTrue:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			offset := frame.readUint16()
+			a := locals[idxA]
+			b := locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				if a.RawInt() < b.RawInt() {
+					frame.ip = int(offset)
+				}
+			} else {
+				if a.Cmp(b) < 0 {
+					frame.ip = int(offset)
+				}
+			}
+			continue
+
+		case bytecode.OpLessLocalConstJumpTrue:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			offset := frame.readUint16()
+			a := locals[idxA]
+			b := prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				if a.RawInt() < b.RawInt() {
+					frame.ip = int(offset)
+				}
+			} else {
+				if a.Cmp(b) < 0 {
+					frame.ip = int(offset)
+				}
+			}
+			continue
+
+		case bytecode.OpLessEqLocalConstJumpTrue:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			offset := frame.readUint16()
+			a := locals[idxA]
+			b := prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				if a.RawInt() <= b.RawInt() {
+					frame.ip = int(offset)
+				}
+			} else {
+				if a.Cmp(b) <= 0 {
+					frame.ip = int(offset)
+				}
+			}
+			continue
+
+		case bytecode.OpGreaterLocalLocalJumpTrue:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			offset := frame.readUint16()
+			a := locals[idxA]
+			b := locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				if a.RawInt() > b.RawInt() {
+					frame.ip = int(offset)
+				}
+			} else {
+				if a.Cmp(b) > 0 {
+					frame.ip = int(offset)
+				}
+			}
+			continue
+
+		case bytecode.OpLessLocalLocalJumpFalse:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			offset := frame.readUint16()
+			a := locals[idxA]
+			b := locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				if a.RawInt() >= b.RawInt() {
+					frame.ip = int(offset)
+				}
+			} else {
+				if a.Cmp(b) >= 0 {
+					frame.ip = int(offset)
+				}
+			}
+			continue
+
+		case bytecode.OpLessLocalConstJumpFalse:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			offset := frame.readUint16()
+			a := locals[idxA]
+			b := prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				if a.RawInt() >= b.RawInt() {
+					frame.ip = int(offset)
+				}
+			} else {
+				if a.Cmp(b) >= 0 {
+					frame.ip = int(offset)
+				}
+			}
+			continue
+
+		case bytecode.OpAddSetLocal:
+			idx := frame.readUint16()
+			sp--
+			b := stack[sp]
+			sp--
+			a := stack[sp]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idx] = value.MakeInt(a.RawInt() + b.RawInt())
+			} else {
+				locals[idx] = a.Add(b)
+			}
+			continue
+
+		case bytecode.OpSubSetLocal:
+			idx := frame.readUint16()
+			sp--
+			b := stack[sp]
+			sp--
+			a := stack[sp]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idx] = value.MakeInt(a.RawInt() - b.RawInt())
+			} else {
+				locals[idx] = a.Sub(b)
+			}
+			continue
+
+		case bytecode.OpLocalLocalAddSetLocal:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			idxC := frame.readUint16()
+			a := locals[idxA]
+			b := locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idxC] = value.MakeInt(a.RawInt() + b.RawInt())
+			} else {
+				locals[idxC] = a.Add(b)
+			}
+			continue
+
+		case bytecode.OpLocalConstAddSetLocal:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			idxC := frame.readUint16()
+			a := locals[idxA]
+			b := prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idxC] = value.MakeInt(a.RawInt() + b.RawInt())
+			} else {
+				locals[idxC] = a.Add(b)
+			}
+			continue
+
+		case bytecode.OpLocalConstSubSetLocal:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			idxC := frame.readUint16()
+			a := locals[idxA]
+			b := prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idxC] = value.MakeInt(a.RawInt() - b.RawInt())
+			} else {
+				locals[idxC] = a.Sub(b)
+			}
 			continue
 
 		default:
 			// Fall through to executeOp for all other opcodes
 		}
 
-		// Non-hot-path: dispatch to the full handler
+		// Non-hot-path: dispatch to the full handler.
+		// Sync sp back before calling executeOp (it uses vm.push/vm.pop).
+		vm.sp = sp
 		if err := vm.executeOp(op, frame); err != nil {
 			return value.MakeNil(), err
 		}
+		sp = vm.sp
+		stack = vm.stack
 
 		// Handle panic
 		if vm.panicking {
@@ -259,8 +552,10 @@ func (vm *VM) run() (value.Value, error) {
 						// External defer - not supported for now
 					} else if d.fn != nil {
 						// Internal defer
+						vm.sp = sp
 						vm.callFunction(d.fn, d.args, nil)
 						_, _ = vm.run() // Run the deferred function
+						sp = vm.sp
 					}
 				}
 				frame.defers = nil
@@ -282,8 +577,11 @@ func (vm *VM) run() (value.Value, error) {
 	}
 
 	// Return top of stack (or nil if empty)
-	if vm.sp > 0 {
-		return vm.pop(), nil
+	vm.sp = sp
+	if sp > 0 {
+		sp--
+		vm.sp = sp
+		return stack[sp], nil
 	}
 	return value.MakeNil(), nil
 }
