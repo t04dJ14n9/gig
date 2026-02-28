@@ -42,6 +42,13 @@ type CompiledFunction struct {
 	// and needs intLocals []int64 allocated in its Frame.
 	HasIntLocals bool
 
+	// ZeroFrom is the index from which locals must be zeroed on frame entry.
+	// Locals [0, ZeroFrom) are guaranteed to be written before read
+	// (parameters, SSA def-before-use temporaries) and can skip zeroing.
+	// A value of 0 means all locals need zeroing (backward compatible default).
+	// A value > 0 means only locals[ZeroFrom:] need zeroing.
+	ZeroFrom int
+
 	// Source is the original SSA function for debugging.
 	Source *ssa.Function
 }

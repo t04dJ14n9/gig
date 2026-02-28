@@ -630,10 +630,11 @@ func writeU16(code []byte, offset int, val uint16) {
 // Pass 2: Upgrade the superinstructions to OpInt* variants AND convert
 // OpSetLocal/OpLocal for intUsed locals to OpIntSetLocal/OpIntLocal bridges.
 //
-// Returns the modified code and whether any OpInt* opcodes were emitted.
+// Returns the modified code, whether any OpInt* opcodes were emitted, and the
+// intUsed bitmap (which locals participate in int-specialized ops).
 //
 //nolint:gocyclo,cyclop,funlen,maintidx,gocognit
-func intSpecialize(code []byte, localIsInt, constIsInt []bool) ([]byte, bool) {
+func intSpecialize(code []byte, localIsInt, constIsInt []bool) ([]byte, bool, []bool) {
 	// Pass 1: identify which local indices will participate in int ops.
 	intUsed := make([]bool, len(localIsInt))
 	hasInt := false
@@ -730,7 +731,7 @@ func intSpecialize(code []byte, localIsInt, constIsInt []bool) ([]byte, bool) {
 	}
 
 	if !hasInt {
-		return code, false
+		return code, false, nil
 	}
 
 	// Pass 2: upgrade superinstructions and bridge OpSetLocal/OpLocal.
@@ -844,7 +845,7 @@ func intSpecialize(code []byte, localIsInt, constIsInt []bool) ([]byte, bool) {
 		i = instrEnd
 	}
 
-	return code, hasInt
+	return code, hasInt, intUsed
 }
 
 // safeIdx returns true if idx is within bounds and the flag is true.
@@ -1007,4 +1008,375 @@ func fuseIntMoves(code []byte) []byte {
 		return code
 	}
 	return applyRewrites(code, rewrites)
+}
+
+// buildIntOnlyLocals scans the post-specialization bytecode and returns a bitmap
+// marking locals that are ONLY accessed by OpInt* instructions (never by generic
+// ops like OpLocal, OpSetLocal, OpAddSetLocal, etc.).
+//
+// For these locals, OpInt* handlers can safely skip the redundant
+// locals[idx] = value.MakeInt(r) dual-write, saving a 32-byte Value construction
+// + store per operation.
+//
+// Returns nil if no int-only locals exist (backward compatible: nil means "dual-write all").
+func buildIntOnlyLocals(code []byte, numLocals int, intUsed []bool) []bool {
+	if len(intUsed) == 0 {
+		return nil
+	}
+
+	// Start with all intUsed locals as candidates for int-only.
+	intOnly := make([]bool, numLocals)
+	hasAny := false
+	for i, used := range intUsed {
+		if used && i < numLocals {
+			intOnly[i] = true
+			hasAny = true
+		}
+	}
+	if !hasAny {
+		return nil
+	}
+
+	// Scan all instructions. If any generic opcode references an intUsed local,
+	// revoke its int-only status (it needs the dual-write for correctness).
+	i := 0
+	for i < len(code) {
+		op := bytecode.OpCode(code[i])
+		width := opcodeWidth(op)
+		instrEnd := i + 1 + width
+		if instrEnd > len(code) {
+			break
+		}
+
+		switch op {
+		// Generic reads that access locals[idx]:
+		case bytecode.OpLocal:
+			idx := int(readU16(code, i+1))
+			if idx < numLocals {
+				intOnly[idx] = false
+			}
+
+		// Generic writes that access locals[idx]:
+		case bytecode.OpSetLocal:
+			idx := int(readU16(code, i+1))
+			if idx < numLocals {
+				intOnly[idx] = false
+			}
+
+		// Fused generic ops that write locals[idx] (destination is the first operand):
+		case bytecode.OpAddSetLocal, bytecode.OpSubSetLocal:
+			idx := int(readU16(code, i+1))
+			if idx < numLocals {
+				intOnly[idx] = false
+			}
+
+		// Fused generic ops: OpLocal*Local*SetLocal — read A, B and write C:
+		case bytecode.OpLocalLocalAddSetLocal, bytecode.OpLocalLocalSubSetLocal,
+			bytecode.OpLocalLocalMulSetLocal:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			c := int(readU16(code, i+5))
+			if a < numLocals {
+				intOnly[a] = false
+			}
+			if b < numLocals {
+				intOnly[b] = false
+			}
+			if c < numLocals {
+				intOnly[c] = false
+			}
+
+		// Fused generic ops: OpLocalConstSetLocal — read A and write C:
+		case bytecode.OpLocalConstAddSetLocal, bytecode.OpLocalConstSubSetLocal,
+			bytecode.OpLocalConstMulSetLocal:
+			a := int(readU16(code, i+1))
+			c := int(readU16(code, i+5))
+			if a < numLocals {
+				intOnly[a] = false
+			}
+			if c < numLocals {
+				intOnly[c] = false
+			}
+
+		// Generic comparison+jump — read locals[A]:
+		case bytecode.OpLessLocalConstJumpFalse, bytecode.OpLessLocalConstJumpTrue,
+			bytecode.OpLessEqLocalConstJumpTrue, bytecode.OpLessEqLocalConstJumpFalse:
+			a := int(readU16(code, i+1))
+			if a < numLocals {
+				intOnly[a] = false
+			}
+
+		case bytecode.OpLessLocalLocalJumpFalse, bytecode.OpLessLocalLocalJumpTrue,
+			bytecode.OpGreaterLocalLocalJumpTrue:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			if a < numLocals {
+				intOnly[a] = false
+			}
+			if b < numLocals {
+				intOnly[b] = false
+			}
+
+		// Bridge instructions always dual-write — they exist because the local
+		// crosses the int/generic boundary. Revoke int-only status.
+		case bytecode.OpIntSetLocal:
+			idx := int(readU16(code, i+1))
+			if idx < numLocals {
+				intOnly[idx] = false
+			}
+
+		// OpIntMoveLocal: dst gets data from src via locals[dst] = locals[src].
+		// If src is not int-only, dst can't be either (it would read stale locals[]).
+		// Conservatively revoke both.
+		case bytecode.OpIntMoveLocal:
+			src := int(readU16(code, i+1))
+			dst := int(readU16(code, i+3))
+			if src < numLocals {
+				intOnly[src] = false
+			}
+			if dst < numLocals {
+				intOnly[dst] = false
+			}
+		}
+
+		i = instrEnd
+	}
+
+	// Check if any locals remain int-only.
+	hasAny = false
+	for _, v := range intOnly {
+		if v {
+			hasAny = true
+			break
+		}
+	}
+	if !hasAny {
+		return nil
+	}
+	return intOnly
+}
+
+// computeZeroFrom analyzes the bytecode and returns the lowest local index
+// from which zeroing is needed on frame entry. Locals [0, zeroFrom) are
+// guaranteed to be written before read (parameters, SSA def-before-use temporaries).
+//
+// Returns 0 if all locals need zeroing (backward compatible default).
+//
+//nolint:gocyclo,cyclop
+func computeZeroFrom(code []byte, numLocals, numParams int) int {
+	if numLocals <= numParams {
+		return 0
+	}
+
+	// Track which locals are "definitely written" and "possibly read" in straightline code.
+	written := make([]bool, numLocals)
+	needsZero := make([]bool, numLocals)
+
+	// Parameters are always written by the caller — they never need zeroing.
+	for i := 0; i < numParams && i < numLocals; i++ {
+		written[i] = true
+	}
+
+	// Scan instructions in order. For each local access:
+	// - If it's a READ and not yet written → mark needs-zero
+	// - If it's a WRITE → mark written
+	// Stop at the first backward jump (we can't track across loop iterations).
+	// After a forward jump, conservatively mark all unresolved locals as needs-zero
+	// (the jump target might read them).
+	i := 0
+	for i < len(code) {
+		op := bytecode.OpCode(code[i])
+		width := opcodeWidth(op)
+		instrEnd := i + 1 + width
+		if instrEnd > len(code) {
+			break
+		}
+
+		switch op {
+		// Pure reads:
+		case bytecode.OpLocal, bytecode.OpIntLocal:
+			idx := int(readU16(code, i+1))
+			if idx < numLocals && !written[idx] {
+				needsZero[idx] = true
+			}
+
+		// Pure writes:
+		case bytecode.OpSetLocal, bytecode.OpIntSetLocal:
+			idx := int(readU16(code, i+1))
+			if idx < numLocals {
+				written[idx] = true
+			}
+
+		// Read + Write fused ops: read A (and maybe B), write dest.
+		case bytecode.OpAddSetLocal, bytecode.OpSubSetLocal:
+			idx := int(readU16(code, i+1))
+			if idx < numLocals {
+				written[idx] = true
+			}
+
+		case bytecode.OpLocalLocalAddSetLocal, bytecode.OpLocalLocalSubSetLocal,
+			bytecode.OpLocalLocalMulSetLocal:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			c := int(readU16(code, i+5))
+			if a < numLocals && !written[a] {
+				needsZero[a] = true
+			}
+			if b < numLocals && !written[b] {
+				needsZero[b] = true
+			}
+			if c < numLocals {
+				written[c] = true
+			}
+
+		case bytecode.OpLocalConstAddSetLocal, bytecode.OpLocalConstSubSetLocal,
+			bytecode.OpLocalConstMulSetLocal:
+			a := int(readU16(code, i+1))
+			c := int(readU16(code, i+5))
+			if a < numLocals && !written[a] {
+				needsZero[a] = true
+			}
+			if c < numLocals {
+				written[c] = true
+			}
+
+		// Int-specialized read+write:
+		case bytecode.OpIntLocalConstAddSetLocal, bytecode.OpIntLocalConstSubSetLocal,
+			bytecode.OpIntLocalConstMulSetLocal:
+			a := int(readU16(code, i+1))
+			c := int(readU16(code, i+5))
+			if a < numLocals && !written[a] {
+				needsZero[a] = true
+			}
+			if c < numLocals {
+				written[c] = true
+			}
+
+		case bytecode.OpIntLocalLocalAddSetLocal, bytecode.OpIntLocalLocalSubSetLocal,
+			bytecode.OpIntLocalLocalMulSetLocal:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			c := int(readU16(code, i+5))
+			if a < numLocals && !written[a] {
+				needsZero[a] = true
+			}
+			if b < numLocals && !written[b] {
+				needsZero[b] = true
+			}
+			if c < numLocals {
+				written[c] = true
+			}
+
+		// Comparisons read locals:
+		case bytecode.OpLessLocalConstJumpFalse, bytecode.OpLessLocalConstJumpTrue,
+			bytecode.OpLessEqLocalConstJumpTrue, bytecode.OpLessEqLocalConstJumpFalse,
+			bytecode.OpIntLessLocalConstJumpFalse, bytecode.OpIntLessLocalConstJumpTrue,
+			bytecode.OpIntLessEqLocalConstJumpTrue, bytecode.OpIntLessEqLocalConstJumpFalse:
+			a := int(readU16(code, i+1))
+			if a < numLocals && !written[a] {
+				needsZero[a] = true
+			}
+
+		case bytecode.OpLessLocalLocalJumpFalse, bytecode.OpLessLocalLocalJumpTrue,
+			bytecode.OpGreaterLocalLocalJumpTrue,
+			bytecode.OpIntLessLocalLocalJumpFalse, bytecode.OpIntLessLocalLocalJumpTrue,
+			bytecode.OpIntGreaterLocalLocalJumpTrue:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			if a < numLocals && !written[a] {
+				needsZero[a] = true
+			}
+			if b < numLocals && !written[b] {
+				needsZero[b] = true
+			}
+
+		// Move: read src, write dst.
+		case bytecode.OpIntMoveLocal:
+			src := int(readU16(code, i+1))
+			dst := int(readU16(code, i+3))
+			if src < numLocals && !written[src] {
+				needsZero[src] = true
+			}
+			if dst < numLocals {
+				written[dst] = true
+			}
+
+		// Slice ops: read various locals.
+		case bytecode.OpIntSliceGet:
+			s := int(readU16(code, i+1))
+			j := int(readU16(code, i+3))
+			v := int(readU16(code, i+5))
+			if s < numLocals && !written[s] {
+				needsZero[s] = true
+			}
+			if j < numLocals && !written[j] {
+				needsZero[j] = true
+			}
+			if v < numLocals {
+				written[v] = true
+			}
+
+		case bytecode.OpIntSliceSet:
+			s := int(readU16(code, i+1))
+			j := int(readU16(code, i+3))
+			val := int(readU16(code, i+5))
+			if s < numLocals && !written[s] {
+				needsZero[s] = true
+			}
+			if j < numLocals && !written[j] {
+				needsZero[j] = true
+			}
+			if val < numLocals && !written[val] {
+				needsZero[val] = true
+			}
+
+		case bytecode.OpIntSliceSetConst:
+			s := int(readU16(code, i+1))
+			j := int(readU16(code, i+3))
+			if s < numLocals && !written[s] {
+				needsZero[s] = true
+			}
+			if j < numLocals && !written[j] {
+				needsZero[j] = true
+			}
+
+		// Jumps: after a jump, we lose track of control flow.
+		// Conservatively: any unwritten local that we haven't proven safe → needs zero.
+		case bytecode.OpJump, bytecode.OpJumpTrue, bytecode.OpJumpFalse:
+			// After any branch, conservatively mark all unwritten locals.
+			for idx := 0; idx < numLocals; idx++ {
+				if !written[idx] {
+					needsZero[idx] = true
+				}
+			}
+			// After marking, all unknowns are resolved — we can stop scanning.
+			goto done
+		}
+
+		i = instrEnd
+	}
+
+	// Fell through without hitting a jump — mark remaining unwritten locals.
+	for idx := 0; idx < numLocals; idx++ {
+		if !written[idx] {
+			needsZero[idx] = true
+		}
+	}
+
+done:
+	// Find the lowest index that needs zeroing. Everything from that index
+	// onward will be zeroed as a contiguous block (preserving memclr optimization).
+	zeroFrom := numLocals
+	for idx := 0; idx < numLocals; idx++ {
+		if needsZero[idx] {
+			zeroFrom = idx
+			break
+		}
+	}
+
+	// Only return non-zero if we actually save something beyond default (zero all).
+	if zeroFrom <= numParams {
+		return 0
+	}
+	return zeroFrom
 }

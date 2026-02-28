@@ -145,12 +145,25 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 	c.currentFunc.Instructions = fuseSliceOps(c.currentFunc.Instructions, localIsInt, localIsIntSlice)
 
 	// Int-specialization pass: upgrade Value superinstructions to OpInt* variants
-	c.currentFunc.Instructions, c.currentFunc.HasIntLocals = intSpecialize(c.currentFunc.Instructions, localIsInt, constIsInt)
+	var intUsed []bool
+	c.currentFunc.Instructions, c.currentFunc.HasIntLocals, intUsed = intSpecialize(c.currentFunc.Instructions, localIsInt, constIsInt)
 
 	// Int move-fusion pass: OpIntLocal(A) OpIntSetLocal(B) → OpIntMoveLocal(A, B)
 	if c.currentFunc.HasIntLocals {
 		c.currentFunc.Instructions = fuseIntMoves(c.currentFunc.Instructions)
 	}
+
+	// Build IntOnlyLocals analysis: identify int locals never accessed by generic ops.
+	// Result is available for future use by opcode-level dual-write elimination.
+	if c.currentFunc.HasIntLocals {
+		_ = buildIntOnlyLocals(
+			c.currentFunc.Instructions, c.currentFunc.NumLocals, intUsed)
+	}
+
+	// Compute ZeroFrom: find the lowest local index that must be zeroed on frame entry.
+	// Parameters and straightline-written locals can skip zeroing.
+	c.currentFunc.ZeroFrom = computeZeroFrom(
+		c.currentFunc.Instructions, c.currentFunc.NumLocals, c.currentFunc.NumParams)
 
 	return c.currentFunc, nil
 }

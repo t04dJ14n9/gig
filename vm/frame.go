@@ -104,9 +104,13 @@ func (p *framePool) get(fn *bytecode.CompiledFunction, basePtr int, freeVars []*
 		// Reuse the locals slice if it has enough capacity
 		if cap(f.locals) >= fn.NumLocals {
 			f.locals = f.locals[:fn.NumLocals]
-			// Zero out the locals (important for correctness)
-			for i := range f.locals {
-				f.locals[i] = value.Value{}
+			// Zero locals that may be read before written.
+			// clear() maps directly to memclr for maximum throughput.
+			// ZeroFrom skips params + straightline-written locals (typically > NumParams).
+			if zf := fn.ZeroFrom; zf > 0 {
+				clear(f.locals[zf:])
+			} else {
+				clear(f.locals)
 			}
 		} else {
 			f.locals = make([]value.Value, fn.NumLocals)
@@ -115,8 +119,10 @@ func (p *framePool) get(fn *bytecode.CompiledFunction, basePtr int, freeVars []*
 		if fn.HasIntLocals {
 			if cap(f.intLocals) >= fn.NumLocals {
 				f.intLocals = f.intLocals[:fn.NumLocals]
-				for i := range f.intLocals {
-					f.intLocals[i] = 0
+				if zf := fn.ZeroFrom; zf > 0 {
+					clear(f.intLocals[zf:])
+				} else {
+					clear(f.intLocals)
 				}
 			} else {
 				f.intLocals = make([]int64, fn.NumLocals)
