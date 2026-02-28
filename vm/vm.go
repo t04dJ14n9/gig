@@ -120,6 +120,48 @@ func New(program *bytecode.Program) *VM {
 	}
 }
 
+// Reset prepares the VM for reuse by clearing execution state.
+// The stack, frames, and globals slices are retained (zero-alloc reuse).
+func (vm *VM) Reset() {
+	vm.sp = 0
+	vm.fp = 0
+	vm.panicking = false
+	vm.panicVal = value.MakeNil()
+	vm.ctx = nil
+	vm.globalsPtr = nil
+	// Clear globals to zero values (prevent stale state between runs)
+	for i := range vm.globals {
+		vm.globals[i] = value.Value{}
+	}
+}
+
+// VMPool is a pool of VMs for a given program, eliminating per-call allocation overhead.
+type VMPool struct {
+	pool sync.Pool
+}
+
+// NewVMPool creates a VM pool for the given program.
+func NewVMPool(program *bytecode.Program) *VMPool {
+	return &VMPool{
+		pool: sync.Pool{
+			New: func() any {
+				return New(program)
+			},
+		},
+	}
+}
+
+// Get returns a VM from the pool (or creates a new one).
+func (p *VMPool) Get() *VM {
+	return p.pool.Get().(*VM)
+}
+
+// Put returns a VM to the pool for reuse.
+func (p *VMPool) Put(v *VM) {
+	v.Reset()
+	p.pool.Put(v)
+}
+
 // Execute runs the specified function with the given arguments.
 // It creates an initial call frame and starts the execution loop.
 // Returns the result value or an error if execution fails.

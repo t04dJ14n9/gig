@@ -250,6 +250,16 @@ func (v Value) IntSlice() ([]int64, bool) {
 	return nil, false
 }
 
+// IntPtr returns the underlying *int64 if this is a native int pointer (from IndexAddr on []int64).
+// Returns nil, false if not a *int64.
+func (v Value) IntPtr() (*int64, bool) {
+	if v.kind == KindPointer {
+		p, ok := v.obj.(*int64)
+		return p, ok
+	}
+	return nil, false
+}
+
 // MakeFromReflect creates a Value from reflect.Value.
 func MakeFromReflect(rv reflect.Value) Value {
 	if !rv.IsValid() {

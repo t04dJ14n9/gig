@@ -81,6 +81,7 @@ var ErrTimeout = context.DeadlineExceeded
 type Program struct {
 	program *bytecode.Program // compiled bytecode and metadata
 	ssaPkg  *ssa.Package      // SSA package for debugging/inspection
+	vmPool  *vm.VMPool        // reusable VM pool (eliminates 32KB alloc per Run)
 }
 
 // Build compiles Go source code into a Program.
@@ -186,6 +187,7 @@ func Build(sourceCode string, packages ...string) (*Program, error) {
 	return &Program{
 		program: compiled,
 		ssaPkg:  ssaPkg,
+		vmPool:  vm.NewVMPool(compiled),
 	}, nil
 }
 
@@ -218,9 +220,10 @@ func (p *Program) RunWithContext(ctx context.Context, funcName string, params ..
 		args[i] = value.FromInterface(param)
 	}
 
-	// Create VM and execute
-	virtualMachine := vm.New(p.program)
+	// Get VM from pool, execute, and return to pool
+	virtualMachine := p.vmPool.Get()
 	result, err := virtualMachine.ExecuteWithValues(funcName, ctx, args)
+	p.vmPool.Put(virtualMachine)
 	if err != nil {
 		return nil, err
 	}
@@ -233,8 +236,10 @@ func (p *Program) RunWithContext(ctx context.Context, funcName string, params ..
 // multiple times with the same parameter types, as it avoids repeated type conversion.
 // Context is the first parameter following Go idioms.
 func (p *Program) RunWithValues(ctx context.Context, funcName string, args []value.Value) (value.Value, error) {
-	virtualMachine := vm.New(p.program)
-	return virtualMachine.ExecuteWithValues(funcName, ctx, args)
+	virtualMachine := p.vmPool.Get()
+	result, err := virtualMachine.ExecuteWithValues(funcName, ctx, args)
+	p.vmPool.Put(virtualMachine)
+	return result, err
 }
 
 // checkBannedImports checks for banned imports (unsafe, reflect).
