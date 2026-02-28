@@ -224,14 +224,28 @@ func (vm *VM) callExternalReflect(entry *extCallCacheEntry, args []value.Value) 
 	}
 }
 
-// callExternalMethod dispatches a method call on an external type using reflection.
+// callExternalMethod dispatches a method call on an external type.
 // args[0] is the receiver, args[1:] are the method arguments.
+// Uses DirectCall fast path if available, otherwise falls back to reflection.
 func (vm *VM) callExternalMethod(methodInfo *bytecode.ExternalMethodInfo, args []value.Value) {
 	if len(args) == 0 {
 		vm.push(value.MakeNil())
 		return
 	}
 
+	// Fast path: DirectCall wrapper resolved at compile time
+	if methodInfo.DirectCall != nil {
+		result := methodInfo.DirectCall(args)
+		vm.push(result)
+		return
+	}
+
+	// Slow path: use reflect.MethodByName + reflect.Call
+	vm.callExternalMethodReflect(methodInfo, args)
+}
+
+// callExternalMethodReflect dispatches a method call using reflection.
+func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo, args []value.Value) {
 	// Get the receiver as a reflect.Value
 	receiver := args[0]
 	var rv reflect.Value

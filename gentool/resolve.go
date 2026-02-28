@@ -25,7 +25,8 @@ func resolveTypeName(t types.Type, pkgRef string) string {
 		if pkg.Path() == currentPkgPath {
 			return fmt.Sprintf("%s.%s", pkgRef, obj.Name())
 		}
-		return ""
+		// Cross-package: use the sanitized import alias
+		return fmt.Sprintf("%s.%s", sanitizePkgName(pkg.Path()), obj.Name())
 	case *types.Alias:
 		// Handle type aliases (Go 1.23+)
 		obj := tt.Obj()
@@ -36,7 +37,7 @@ func resolveTypeName(t types.Type, pkgRef string) string {
 		if pkg.Path() == currentPkgPath {
 			return fmt.Sprintf("%s.%s", pkgRef, obj.Name())
 		}
-		return ""
+		return fmt.Sprintf("%s.%s", sanitizePkgName(pkg.Path()), obj.Name())
 	case *types.Basic:
 		return tt.Name()
 	case *types.Pointer:
@@ -91,4 +92,57 @@ func sanitizePkgName(path string) string {
 		"-", "_",
 		".", "_",
 	).Replace(path)
+}
+
+// collectCrossPkgImports scans a function's parameters for cross-package types
+// and adds their import paths to the imports map.
+// Only parameters are scanned since return values use value.FromInterface() and don't need imports.
+func collectCrossPkgImports(sig *types.Signature, selfPkgPath string, imports map[string]string) {
+	params := sig.Params()
+
+	for i := 0; i < params.Len(); i++ {
+		collectTypeImports(params.At(i).Type(), selfPkgPath, imports)
+	}
+}
+
+// collectMethodImports collects cross-package imports for a method's parameters.
+func collectMethodImports(named *types.Named, methodName string, selfPkgPath string, imports map[string]string) {
+	methodSets := []*types.MethodSet{
+		types.NewMethodSet(named),
+		types.NewMethodSet(types.NewPointer(named)),
+	}
+	for _, mset := range methodSets {
+		for i := 0; i < mset.Len(); i++ {
+			sel := mset.At(i)
+			fn := sel.Obj().(*types.Func)
+			if fn.Name() != methodName {
+				continue
+			}
+			sig := fn.Type().(*types.Signature)
+			params := sig.Params()
+			for j := 0; j < params.Len(); j++ {
+				collectTypeImports(params.At(j).Type(), selfPkgPath, imports)
+			}
+			return
+		}
+	}
+}
+
+func collectTypeImports(t types.Type, selfPkgPath string, imports map[string]string) {
+	switch tt := t.(type) {
+	case *types.Named:
+		obj := tt.Obj()
+		pkg := obj.Pkg()
+		if pkg != nil && pkg.Path() != selfPkgPath {
+			alias := sanitizePkgName(pkg.Path())
+			imports[pkg.Path()] = alias
+		}
+	case *types.Pointer:
+		collectTypeImports(tt.Elem(), selfPkgPath, imports)
+	case *types.Slice:
+		collectTypeImports(tt.Elem(), selfPkgPath, imports)
+	case *types.Map:
+		collectTypeImports(tt.Key(), selfPkgPath, imports)
+		collectTypeImports(tt.Elem(), selfPkgPath, imports)
+	}
 }

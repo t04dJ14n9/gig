@@ -4,6 +4,7 @@ package packages
 import (
 	"context"
 	"reflect"
+	time "time"
 
 	"gig/importer"
 	"gig/value"
@@ -15,16 +16,16 @@ func init() {
 	// Functions
 	pkg.AddFunction("AfterFunc", context.AfterFunc, "", nil)
 	pkg.AddFunction("Background", context.Background, "", direct_context_Background)
-	pkg.AddFunction("Cause", context.Cause, "", nil)
+	pkg.AddFunction("Cause", context.Cause, "", direct_context_Cause)
 	pkg.AddFunction("TODO", context.TODO, "", direct_context_TODO)
-	pkg.AddFunction("WithCancel", context.WithCancel, "", nil)
-	pkg.AddFunction("WithCancelCause", context.WithCancelCause, "", nil)
-	pkg.AddFunction("WithDeadline", context.WithDeadline, "", nil)
-	pkg.AddFunction("WithDeadlineCause", context.WithDeadlineCause, "", nil)
-	pkg.AddFunction("WithTimeout", context.WithTimeout, "", nil)
-	pkg.AddFunction("WithTimeoutCause", context.WithTimeoutCause, "", nil)
+	pkg.AddFunction("WithCancel", context.WithCancel, "", direct_context_WithCancel)
+	pkg.AddFunction("WithCancelCause", context.WithCancelCause, "", direct_context_WithCancelCause)
+	pkg.AddFunction("WithDeadline", context.WithDeadline, "", direct_context_WithDeadline)
+	pkg.AddFunction("WithDeadlineCause", context.WithDeadlineCause, "", direct_context_WithDeadlineCause)
+	pkg.AddFunction("WithTimeout", context.WithTimeout, "", direct_context_WithTimeout)
+	pkg.AddFunction("WithTimeoutCause", context.WithTimeoutCause, "", direct_context_WithTimeoutCause)
 	pkg.AddFunction("WithValue", context.WithValue, "", nil)
-	pkg.AddFunction("WithoutCancel", context.WithoutCancel, "", nil)
+	pkg.AddFunction("WithoutCancel", context.WithoutCancel, "", direct_context_WithoutCancel)
 
 	// Variables
 	pkg.AddVariable("Canceled", &context.Canceled, "")
@@ -41,6 +42,58 @@ func direct_context_Background(args []value.Value) value.Value {
 	return value.FromInterface(context.Background())
 }
 
+func direct_context_Cause(args []value.Value) value.Value {
+	a0 := args[0].Interface().(context.Context)
+	return value.FromInterface(context.Cause(a0))
+}
+
 func direct_context_TODO(args []value.Value) value.Value {
 	return value.FromInterface(context.TODO())
+}
+
+func direct_context_WithCancel(args []value.Value) value.Value {
+	a0 := args[0].Interface().(context.Context)
+	r0, r1 := context.WithCancel(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_context_WithCancelCause(args []value.Value) value.Value {
+	a0 := args[0].Interface().(context.Context)
+	r0, r1 := context.WithCancelCause(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_context_WithDeadline(args []value.Value) value.Value {
+	a0 := args[0].Interface().(context.Context)
+	a1 := args[1].Interface().(time.Time)
+	r0, r1 := context.WithDeadline(a0, a1)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_context_WithDeadlineCause(args []value.Value) value.Value {
+	a0 := args[0].Interface().(context.Context)
+	a1 := args[1].Interface().(time.Time)
+	a2 := args[2].Interface().(error)
+	r0, r1 := context.WithDeadlineCause(a0, a1, a2)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_context_WithTimeout(args []value.Value) value.Value {
+	a0 := args[0].Interface().(context.Context)
+	a1 := args[1].Interface().(time.Duration)
+	r0, r1 := context.WithTimeout(a0, a1)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_context_WithTimeoutCause(args []value.Value) value.Value {
+	a0 := args[0].Interface().(context.Context)
+	a1 := args[1].Interface().(time.Duration)
+	a2 := args[2].Interface().(error)
+	r0, r1 := context.WithTimeoutCause(a0, a1, a2)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_context_WithoutCancel(args []value.Value) value.Value {
+	a0 := args[0].Interface().(context.Context)
+	return value.FromInterface(context.WithoutCancel(a0))
 }

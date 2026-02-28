@@ -58,6 +58,10 @@ func init() {
 	// Types
 	pkg.AddType("NumError", reflect.TypeOf(strconv.NumError{}), "")
 
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("NumError", "Error", direct_method_strconv_NumError_Error)
+	pkg.AddMethodDirectCall("NumError", "Unwrap", direct_method_strconv_NumError_Unwrap)
+
 }
 
 func direct_strconv_AppendBool(args []value.Value) value.Value {
@@ -260,4 +264,14 @@ func direct_strconv_Unquote(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := strconv.Unquote(a0)
 	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_strconv_NumError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strconv.NumError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_strconv_NumError_Unwrap(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strconv.NumError)
+	return value.FromInterface(recv.Unwrap())
 }

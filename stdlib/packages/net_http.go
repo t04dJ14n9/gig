@@ -2,8 +2,15 @@
 package packages
 
 import (
+	bufio "bufio"
+	context "context"
+	io "io"
+	io_fs "io/fs"
+	net "net"
 	net_http "net/http"
+	net_url "net/url"
 	"reflect"
+	time "time"
 
 	"gig/importer"
 	"gig/value"
@@ -13,50 +20,50 @@ func init() {
 	pkg := importer.RegisterPackage("net/http", "http")
 
 	// Functions
-	pkg.AddFunction("AllowQuerySemicolons", net_http.AllowQuerySemicolons, "", nil)
+	pkg.AddFunction("AllowQuerySemicolons", net_http.AllowQuerySemicolons, "", direct_net_http_AllowQuerySemicolons)
 	pkg.AddFunction("CanonicalHeaderKey", net_http.CanonicalHeaderKey, "", direct_net_http_CanonicalHeaderKey)
 	pkg.AddFunction("DetectContentType", net_http.DetectContentType, "", direct_net_http_DetectContentType)
-	pkg.AddFunction("Error", net_http.Error, "", nil)
-	pkg.AddFunction("FS", net_http.FS, "", nil)
-	pkg.AddFunction("FileServer", net_http.FileServer, "", nil)
-	pkg.AddFunction("FileServerFS", net_http.FileServerFS, "", nil)
+	pkg.AddFunction("Error", net_http.Error, "", direct_net_http_Error)
+	pkg.AddFunction("FS", net_http.FS, "", direct_net_http_FS)
+	pkg.AddFunction("FileServer", net_http.FileServer, "", direct_net_http_FileServer)
+	pkg.AddFunction("FileServerFS", net_http.FileServerFS, "", direct_net_http_FileServerFS)
 	pkg.AddFunction("Get", net_http.Get, "", direct_net_http_Get)
-	pkg.AddFunction("Handle", net_http.Handle, "", nil)
+	pkg.AddFunction("Handle", net_http.Handle, "", direct_net_http_Handle)
 	pkg.AddFunction("HandleFunc", net_http.HandleFunc, "", nil)
 	pkg.AddFunction("Head", net_http.Head, "", direct_net_http_Head)
-	pkg.AddFunction("ListenAndServe", net_http.ListenAndServe, "", nil)
-	pkg.AddFunction("ListenAndServeTLS", net_http.ListenAndServeTLS, "", nil)
-	pkg.AddFunction("MaxBytesHandler", net_http.MaxBytesHandler, "", nil)
-	pkg.AddFunction("MaxBytesReader", net_http.MaxBytesReader, "", nil)
-	pkg.AddFunction("NewFileTransport", net_http.NewFileTransport, "", nil)
-	pkg.AddFunction("NewFileTransportFS", net_http.NewFileTransportFS, "", nil)
-	pkg.AddFunction("NewRequest", net_http.NewRequest, "", nil)
-	pkg.AddFunction("NewRequestWithContext", net_http.NewRequestWithContext, "", nil)
-	pkg.AddFunction("NewResponseController", net_http.NewResponseController, "", nil)
+	pkg.AddFunction("ListenAndServe", net_http.ListenAndServe, "", direct_net_http_ListenAndServe)
+	pkg.AddFunction("ListenAndServeTLS", net_http.ListenAndServeTLS, "", direct_net_http_ListenAndServeTLS)
+	pkg.AddFunction("MaxBytesHandler", net_http.MaxBytesHandler, "", direct_net_http_MaxBytesHandler)
+	pkg.AddFunction("MaxBytesReader", net_http.MaxBytesReader, "", direct_net_http_MaxBytesReader)
+	pkg.AddFunction("NewFileTransport", net_http.NewFileTransport, "", direct_net_http_NewFileTransport)
+	pkg.AddFunction("NewFileTransportFS", net_http.NewFileTransportFS, "", direct_net_http_NewFileTransportFS)
+	pkg.AddFunction("NewRequest", net_http.NewRequest, "", direct_net_http_NewRequest)
+	pkg.AddFunction("NewRequestWithContext", net_http.NewRequestWithContext, "", direct_net_http_NewRequestWithContext)
+	pkg.AddFunction("NewResponseController", net_http.NewResponseController, "", direct_net_http_NewResponseController)
 	pkg.AddFunction("NewServeMux", net_http.NewServeMux, "", direct_net_http_NewServeMux)
-	pkg.AddFunction("NotFound", net_http.NotFound, "", nil)
+	pkg.AddFunction("NotFound", net_http.NotFound, "", direct_net_http_NotFound)
 	pkg.AddFunction("NotFoundHandler", net_http.NotFoundHandler, "", direct_net_http_NotFoundHandler)
 	pkg.AddFunction("ParseCookie", net_http.ParseCookie, "", direct_net_http_ParseCookie)
 	pkg.AddFunction("ParseHTTPVersion", net_http.ParseHTTPVersion, "", direct_net_http_ParseHTTPVersion)
 	pkg.AddFunction("ParseSetCookie", net_http.ParseSetCookie, "", direct_net_http_ParseSetCookie)
 	pkg.AddFunction("ParseTime", net_http.ParseTime, "", direct_net_http_ParseTime)
-	pkg.AddFunction("Post", net_http.Post, "", nil)
-	pkg.AddFunction("PostForm", net_http.PostForm, "", nil)
-	pkg.AddFunction("ProxyFromEnvironment", net_http.ProxyFromEnvironment, "", nil)
-	pkg.AddFunction("ProxyURL", net_http.ProxyURL, "", nil)
-	pkg.AddFunction("ReadRequest", net_http.ReadRequest, "", nil)
-	pkg.AddFunction("ReadResponse", net_http.ReadResponse, "", nil)
-	pkg.AddFunction("Redirect", net_http.Redirect, "", nil)
+	pkg.AddFunction("Post", net_http.Post, "", direct_net_http_Post)
+	pkg.AddFunction("PostForm", net_http.PostForm, "", direct_net_http_PostForm)
+	pkg.AddFunction("ProxyFromEnvironment", net_http.ProxyFromEnvironment, "", direct_net_http_ProxyFromEnvironment)
+	pkg.AddFunction("ProxyURL", net_http.ProxyURL, "", direct_net_http_ProxyURL)
+	pkg.AddFunction("ReadRequest", net_http.ReadRequest, "", direct_net_http_ReadRequest)
+	pkg.AddFunction("ReadResponse", net_http.ReadResponse, "", direct_net_http_ReadResponse)
+	pkg.AddFunction("Redirect", net_http.Redirect, "", direct_net_http_Redirect)
 	pkg.AddFunction("RedirectHandler", net_http.RedirectHandler, "", direct_net_http_RedirectHandler)
-	pkg.AddFunction("Serve", net_http.Serve, "", nil)
-	pkg.AddFunction("ServeContent", net_http.ServeContent, "", nil)
-	pkg.AddFunction("ServeFile", net_http.ServeFile, "", nil)
-	pkg.AddFunction("ServeFileFS", net_http.ServeFileFS, "", nil)
-	pkg.AddFunction("ServeTLS", net_http.ServeTLS, "", nil)
-	pkg.AddFunction("SetCookie", net_http.SetCookie, "", nil)
+	pkg.AddFunction("Serve", net_http.Serve, "", direct_net_http_Serve)
+	pkg.AddFunction("ServeContent", net_http.ServeContent, "", direct_net_http_ServeContent)
+	pkg.AddFunction("ServeFile", net_http.ServeFile, "", direct_net_http_ServeFile)
+	pkg.AddFunction("ServeFileFS", net_http.ServeFileFS, "", direct_net_http_ServeFileFS)
+	pkg.AddFunction("ServeTLS", net_http.ServeTLS, "", direct_net_http_ServeTLS)
+	pkg.AddFunction("SetCookie", net_http.SetCookie, "", direct_net_http_SetCookie)
 	pkg.AddFunction("StatusText", net_http.StatusText, "", direct_net_http_StatusText)
-	pkg.AddFunction("StripPrefix", net_http.StripPrefix, "", nil)
-	pkg.AddFunction("TimeoutHandler", net_http.TimeoutHandler, "", nil)
+	pkg.AddFunction("StripPrefix", net_http.StripPrefix, "", direct_net_http_StripPrefix)
+	pkg.AddFunction("TimeoutHandler", net_http.TimeoutHandler, "", direct_net_http_TimeoutHandler)
 
 	// Constants
 	pkg.AddConstant("DefaultMaxHeaderBytes", net_http.DefaultMaxHeaderBytes, "")
@@ -202,6 +209,81 @@ func init() {
 	pkg.AddType("Server", reflect.TypeOf(net_http.Server{}), "")
 	pkg.AddType("Transport", reflect.TypeOf(net_http.Transport{}), "")
 
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("Client", "CloseIdleConnections", direct_method_net_http_Client_CloseIdleConnections)
+	pkg.AddMethodDirectCall("Client", "Do", direct_method_net_http_Client_Do)
+	pkg.AddMethodDirectCall("Client", "Get", direct_method_net_http_Client_Get)
+	pkg.AddMethodDirectCall("Client", "Head", direct_method_net_http_Client_Head)
+	pkg.AddMethodDirectCall("Client", "Post", direct_method_net_http_Client_Post)
+	pkg.AddMethodDirectCall("Client", "PostForm", direct_method_net_http_Client_PostForm)
+	pkg.AddMethodDirectCall("ConnState", "String", direct_method_net_http_ConnState_String)
+	pkg.AddMethodDirectCall("Cookie", "String", direct_method_net_http_Cookie_String)
+	pkg.AddMethodDirectCall("Cookie", "Valid", direct_method_net_http_Cookie_Valid)
+	pkg.AddMethodDirectCall("Dir", "Open", direct_method_net_http_Dir_Open)
+	pkg.AddMethodDirectCall("HandlerFunc", "ServeHTTP", direct_method_net_http_HandlerFunc_ServeHTTP)
+	pkg.AddMethodDirectCall("Header", "Add", direct_method_net_http_Header_Add)
+	pkg.AddMethodDirectCall("Header", "Clone", direct_method_net_http_Header_Clone)
+	pkg.AddMethodDirectCall("Header", "Del", direct_method_net_http_Header_Del)
+	pkg.AddMethodDirectCall("Header", "Get", direct_method_net_http_Header_Get)
+	pkg.AddMethodDirectCall("Header", "Set", direct_method_net_http_Header_Set)
+	pkg.AddMethodDirectCall("Header", "Values", direct_method_net_http_Header_Values)
+	pkg.AddMethodDirectCall("Header", "Write", direct_method_net_http_Header_Write)
+	pkg.AddMethodDirectCall("Header", "WriteSubset", direct_method_net_http_Header_WriteSubset)
+	pkg.AddMethodDirectCall("MaxBytesError", "Error", direct_method_net_http_MaxBytesError_Error)
+	pkg.AddMethodDirectCall("ProtocolError", "Error", direct_method_net_http_ProtocolError_Error)
+	pkg.AddMethodDirectCall("ProtocolError", "Is", direct_method_net_http_ProtocolError_Is)
+	pkg.AddMethodDirectCall("Request", "AddCookie", direct_method_net_http_Request_AddCookie)
+	pkg.AddMethodDirectCall("Request", "BasicAuth", direct_method_net_http_Request_BasicAuth)
+	pkg.AddMethodDirectCall("Request", "Clone", direct_method_net_http_Request_Clone)
+	pkg.AddMethodDirectCall("Request", "Context", direct_method_net_http_Request_Context)
+	pkg.AddMethodDirectCall("Request", "Cookie", direct_method_net_http_Request_Cookie)
+	pkg.AddMethodDirectCall("Request", "Cookies", direct_method_net_http_Request_Cookies)
+	pkg.AddMethodDirectCall("Request", "CookiesNamed", direct_method_net_http_Request_CookiesNamed)
+	pkg.AddMethodDirectCall("Request", "FormFile", direct_method_net_http_Request_FormFile)
+	pkg.AddMethodDirectCall("Request", "FormValue", direct_method_net_http_Request_FormValue)
+	pkg.AddMethodDirectCall("Request", "MultipartReader", direct_method_net_http_Request_MultipartReader)
+	pkg.AddMethodDirectCall("Request", "ParseForm", direct_method_net_http_Request_ParseForm)
+	pkg.AddMethodDirectCall("Request", "ParseMultipartForm", direct_method_net_http_Request_ParseMultipartForm)
+	pkg.AddMethodDirectCall("Request", "PathValue", direct_method_net_http_Request_PathValue)
+	pkg.AddMethodDirectCall("Request", "PostFormValue", direct_method_net_http_Request_PostFormValue)
+	pkg.AddMethodDirectCall("Request", "ProtoAtLeast", direct_method_net_http_Request_ProtoAtLeast)
+	pkg.AddMethodDirectCall("Request", "Referer", direct_method_net_http_Request_Referer)
+	pkg.AddMethodDirectCall("Request", "SetBasicAuth", direct_method_net_http_Request_SetBasicAuth)
+	pkg.AddMethodDirectCall("Request", "SetPathValue", direct_method_net_http_Request_SetPathValue)
+	pkg.AddMethodDirectCall("Request", "UserAgent", direct_method_net_http_Request_UserAgent)
+	pkg.AddMethodDirectCall("Request", "WithContext", direct_method_net_http_Request_WithContext)
+	pkg.AddMethodDirectCall("Request", "Write", direct_method_net_http_Request_Write)
+	pkg.AddMethodDirectCall("Request", "WriteProxy", direct_method_net_http_Request_WriteProxy)
+	pkg.AddMethodDirectCall("Response", "Cookies", direct_method_net_http_Response_Cookies)
+	pkg.AddMethodDirectCall("Response", "Location", direct_method_net_http_Response_Location)
+	pkg.AddMethodDirectCall("Response", "ProtoAtLeast", direct_method_net_http_Response_ProtoAtLeast)
+	pkg.AddMethodDirectCall("Response", "Write", direct_method_net_http_Response_Write)
+	pkg.AddMethodDirectCall("ResponseController", "EnableFullDuplex", direct_method_net_http_ResponseController_EnableFullDuplex)
+	pkg.AddMethodDirectCall("ResponseController", "Flush", direct_method_net_http_ResponseController_Flush)
+	pkg.AddMethodDirectCall("ResponseController", "Hijack", direct_method_net_http_ResponseController_Hijack)
+	pkg.AddMethodDirectCall("ResponseController", "SetReadDeadline", direct_method_net_http_ResponseController_SetReadDeadline)
+	pkg.AddMethodDirectCall("ResponseController", "SetWriteDeadline", direct_method_net_http_ResponseController_SetWriteDeadline)
+	pkg.AddMethodDirectCall("ServeMux", "Handle", direct_method_net_http_ServeMux_Handle)
+	pkg.AddMethodDirectCall("ServeMux", "Handler", direct_method_net_http_ServeMux_Handler)
+	pkg.AddMethodDirectCall("ServeMux", "ServeHTTP", direct_method_net_http_ServeMux_ServeHTTP)
+	pkg.AddMethodDirectCall("Server", "Close", direct_method_net_http_Server_Close)
+	pkg.AddMethodDirectCall("Server", "ListenAndServe", direct_method_net_http_Server_ListenAndServe)
+	pkg.AddMethodDirectCall("Server", "ListenAndServeTLS", direct_method_net_http_Server_ListenAndServeTLS)
+	pkg.AddMethodDirectCall("Server", "Serve", direct_method_net_http_Server_Serve)
+	pkg.AddMethodDirectCall("Server", "ServeTLS", direct_method_net_http_Server_ServeTLS)
+	pkg.AddMethodDirectCall("Server", "SetKeepAlivesEnabled", direct_method_net_http_Server_SetKeepAlivesEnabled)
+	pkg.AddMethodDirectCall("Server", "Shutdown", direct_method_net_http_Server_Shutdown)
+	pkg.AddMethodDirectCall("Transport", "CancelRequest", direct_method_net_http_Transport_CancelRequest)
+	pkg.AddMethodDirectCall("Transport", "Clone", direct_method_net_http_Transport_Clone)
+	pkg.AddMethodDirectCall("Transport", "CloseIdleConnections", direct_method_net_http_Transport_CloseIdleConnections)
+	pkg.AddMethodDirectCall("Transport", "RegisterProtocol", direct_method_net_http_Transport_RegisterProtocol)
+	pkg.AddMethodDirectCall("Transport", "RoundTrip", direct_method_net_http_Transport_RoundTrip)
+
+}
+
+func direct_net_http_AllowQuerySemicolons(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net_http.Handler)
+	return value.FromInterface(net_http.AllowQuerySemicolons(a0))
 }
 
 func direct_net_http_CanonicalHeaderKey(args []value.Value) value.Value {
@@ -214,10 +296,40 @@ func direct_net_http_DetectContentType(args []value.Value) value.Value {
 	return value.MakeString(string(net_http.DetectContentType(a0)))
 }
 
+func direct_net_http_Error(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net_http.ResponseWriter)
+	a1 := args[1].String()
+	a2 := int(args[2].Int())
+	net_http.Error(a0, a1, a2)
+	return value.MakeNil()
+}
+
+func direct_net_http_FS(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io_fs.FS)
+	return value.FromInterface(net_http.FS(a0))
+}
+
+func direct_net_http_FileServer(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net_http.FileSystem)
+	return value.FromInterface(net_http.FileServer(a0))
+}
+
+func direct_net_http_FileServerFS(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io_fs.FS)
+	return value.FromInterface(net_http.FileServerFS(a0))
+}
+
 func direct_net_http_Get(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := net_http.Get(a0)
 	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_net_http_Handle(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].Interface().(net_http.Handler)
+	net_http.Handle(a0, a1)
+	return value.MakeNil()
 }
 
 func direct_net_http_Head(args []value.Value) value.Value {
@@ -226,8 +338,74 @@ func direct_net_http_Head(args []value.Value) value.Value {
 	return value.FromInterface([]interface{}{r0, r1})
 }
 
+func direct_net_http_ListenAndServe(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].Interface().(net_http.Handler)
+	return value.FromInterface(net_http.ListenAndServe(a0, a1))
+}
+
+func direct_net_http_ListenAndServeTLS(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].String()
+	a2 := args[2].String()
+	a3 := args[3].Interface().(net_http.Handler)
+	return value.FromInterface(net_http.ListenAndServeTLS(a0, a1, a2, a3))
+}
+
+func direct_net_http_MaxBytesHandler(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net_http.Handler)
+	a1 := args[1].Int()
+	return value.FromInterface(net_http.MaxBytesHandler(a0, a1))
+}
+
+func direct_net_http_MaxBytesReader(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net_http.ResponseWriter)
+	a1 := args[1].Interface().(io.ReadCloser)
+	a2 := args[2].Int()
+	return value.FromInterface(net_http.MaxBytesReader(a0, a1, a2))
+}
+
+func direct_net_http_NewFileTransport(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net_http.FileSystem)
+	return value.FromInterface(net_http.NewFileTransport(a0))
+}
+
+func direct_net_http_NewFileTransportFS(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io_fs.FS)
+	return value.FromInterface(net_http.NewFileTransportFS(a0))
+}
+
+func direct_net_http_NewRequest(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].String()
+	a2 := args[2].Interface().(io.Reader)
+	r0, r1 := net_http.NewRequest(a0, a1, a2)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_net_http_NewRequestWithContext(args []value.Value) value.Value {
+	a0 := args[0].Interface().(context.Context)
+	a1 := args[1].String()
+	a2 := args[2].String()
+	a3 := args[3].Interface().(io.Reader)
+	r0, r1 := net_http.NewRequestWithContext(a0, a1, a2, a3)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_net_http_NewResponseController(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net_http.ResponseWriter)
+	return value.FromInterface(net_http.NewResponseController(a0))
+}
+
 func direct_net_http_NewServeMux(args []value.Value) value.Value {
 	return value.FromInterface(net_http.NewServeMux())
+}
+
+func direct_net_http_NotFound(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net_http.ResponseWriter)
+	a1 := args[1].Interface().(*net_http.Request)
+	net_http.NotFound(a0, a1)
+	return value.MakeNil()
 }
 
 func direct_net_http_NotFoundHandler(args []value.Value) value.Value {
@@ -258,13 +436,552 @@ func direct_net_http_ParseTime(args []value.Value) value.Value {
 	return value.FromInterface([]interface{}{r0, r1})
 }
 
+func direct_net_http_Post(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].String()
+	a2 := args[2].Interface().(io.Reader)
+	r0, r1 := net_http.Post(a0, a1, a2)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_net_http_PostForm(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].Interface().(net_url.Values)
+	r0, r1 := net_http.PostForm(a0, a1)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_net_http_ProxyFromEnvironment(args []value.Value) value.Value {
+	a0 := args[0].Interface().(*net_http.Request)
+	r0, r1 := net_http.ProxyFromEnvironment(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_net_http_ProxyURL(args []value.Value) value.Value {
+	a0 := args[0].Interface().(*net_url.URL)
+	return value.FromInterface(net_http.ProxyURL(a0))
+}
+
+func direct_net_http_ReadRequest(args []value.Value) value.Value {
+	a0 := args[0].Interface().(*bufio.Reader)
+	r0, r1 := net_http.ReadRequest(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_net_http_ReadResponse(args []value.Value) value.Value {
+	a0 := args[0].Interface().(*bufio.Reader)
+	a1 := args[1].Interface().(*net_http.Request)
+	r0, r1 := net_http.ReadResponse(a0, a1)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_net_http_Redirect(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net_http.ResponseWriter)
+	a1 := args[1].Interface().(*net_http.Request)
+	a2 := args[2].String()
+	a3 := int(args[3].Int())
+	net_http.Redirect(a0, a1, a2, a3)
+	return value.MakeNil()
+}
+
 func direct_net_http_RedirectHandler(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := int(args[1].Int())
 	return value.FromInterface(net_http.RedirectHandler(a0, a1))
 }
 
+func direct_net_http_Serve(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net.Listener)
+	a1 := args[1].Interface().(net_http.Handler)
+	return value.FromInterface(net_http.Serve(a0, a1))
+}
+
+func direct_net_http_ServeContent(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net_http.ResponseWriter)
+	a1 := args[1].Interface().(*net_http.Request)
+	a2 := args[2].String()
+	a3 := args[3].Interface().(time.Time)
+	a4 := args[4].Interface().(io.ReadSeeker)
+	net_http.ServeContent(a0, a1, a2, a3, a4)
+	return value.MakeNil()
+}
+
+func direct_net_http_ServeFile(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net_http.ResponseWriter)
+	a1 := args[1].Interface().(*net_http.Request)
+	a2 := args[2].String()
+	net_http.ServeFile(a0, a1, a2)
+	return value.MakeNil()
+}
+
+func direct_net_http_ServeFileFS(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net_http.ResponseWriter)
+	a1 := args[1].Interface().(*net_http.Request)
+	a2 := args[2].Interface().(io_fs.FS)
+	a3 := args[3].String()
+	net_http.ServeFileFS(a0, a1, a2, a3)
+	return value.MakeNil()
+}
+
+func direct_net_http_ServeTLS(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net.Listener)
+	a1 := args[1].Interface().(net_http.Handler)
+	a2 := args[2].String()
+	a3 := args[3].String()
+	return value.FromInterface(net_http.ServeTLS(a0, a1, a2, a3))
+}
+
+func direct_net_http_SetCookie(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net_http.ResponseWriter)
+	a1 := args[1].Interface().(*net_http.Cookie)
+	net_http.SetCookie(a0, a1)
+	return value.MakeNil()
+}
+
 func direct_net_http_StatusText(args []value.Value) value.Value {
 	a0 := int(args[0].Int())
 	return value.MakeString(string(net_http.StatusText(a0)))
+}
+
+func direct_net_http_StripPrefix(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].Interface().(net_http.Handler)
+	return value.FromInterface(net_http.StripPrefix(a0, a1))
+}
+
+func direct_net_http_TimeoutHandler(args []value.Value) value.Value {
+	a0 := args[0].Interface().(net_http.Handler)
+	a1 := args[1].Interface().(time.Duration)
+	a2 := args[2].String()
+	return value.FromInterface(net_http.TimeoutHandler(a0, a1, a2))
+}
+
+func direct_method_net_http_Client_CloseIdleConnections(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Client)
+	recv.CloseIdleConnections()
+	return value.MakeNil()
+}
+
+func direct_method_net_http_Client_Do(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Client)
+	a0 := args[1].Interface().(*net_http.Request)
+	r0, r1 := recv.Do(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_net_http_Client_Get(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Client)
+	a0 := args[1].String()
+	r0, r1 := recv.Get(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_net_http_Client_Head(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Client)
+	a0 := args[1].String()
+	r0, r1 := recv.Head(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_net_http_Client_Post(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Client)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	a2 := args[3].Interface().(io.Reader)
+	r0, r1 := recv.Post(a0, a1, a2)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_net_http_Client_PostForm(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Client)
+	a0 := args[1].String()
+	a1 := args[2].Interface().(net_url.Values)
+	r0, r1 := recv.PostForm(a0, a1)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_net_http_ConnState_String(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_http.ConnState)
+	return value.MakeString(string(recv.String()))
+}
+
+func direct_method_net_http_Cookie_String(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Cookie)
+	return value.MakeString(string(recv.String()))
+}
+
+func direct_method_net_http_Cookie_Valid(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Cookie)
+	return value.FromInterface(recv.Valid())
+}
+
+func direct_method_net_http_Dir_Open(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_http.Dir)
+	a0 := args[1].String()
+	r0, r1 := recv.Open(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_net_http_HandlerFunc_ServeHTTP(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_http.HandlerFunc)
+	a0 := args[1].Interface().(net_http.ResponseWriter)
+	a1 := args[2].Interface().(*net_http.Request)
+	recv.ServeHTTP(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_net_http_Header_Add(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_http.Header)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	recv.Add(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_net_http_Header_Clone(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_http.Header)
+	return value.FromInterface(recv.Clone())
+}
+
+func direct_method_net_http_Header_Del(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_http.Header)
+	a0 := args[1].String()
+	recv.Del(a0)
+	return value.MakeNil()
+}
+
+func direct_method_net_http_Header_Get(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_http.Header)
+	a0 := args[1].String()
+	return value.MakeString(string(recv.Get(a0)))
+}
+
+func direct_method_net_http_Header_Set(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_http.Header)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	recv.Set(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_net_http_Header_Values(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_http.Header)
+	a0 := args[1].String()
+	return value.FromInterface(recv.Values(a0))
+}
+
+func direct_method_net_http_Header_Write(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_http.Header)
+	a0 := args[1].Interface().(io.Writer)
+	return value.FromInterface(recv.Write(a0))
+}
+
+func direct_method_net_http_Header_WriteSubset(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_http.Header)
+	a0 := args[1].Interface().(io.Writer)
+	a1 := args[2].Interface().(map[string]bool)
+	return value.FromInterface(recv.WriteSubset(a0, a1))
+}
+
+func direct_method_net_http_MaxBytesError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.MaxBytesError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_net_http_ProtocolError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.ProtocolError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_net_http_ProtocolError_Is(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.ProtocolError)
+	a0 := args[1].Interface().(error)
+	return value.MakeBool(recv.Is(a0))
+}
+
+func direct_method_net_http_Request_AddCookie(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := args[1].Interface().(*net_http.Cookie)
+	recv.AddCookie(a0)
+	return value.MakeNil()
+}
+
+func direct_method_net_http_Request_BasicAuth(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	r0, r1, r2 := recv.BasicAuth()
+	return value.FromInterface([]interface{}{r0, r1, r2})
+}
+
+func direct_method_net_http_Request_Clone(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := args[1].Interface().(context.Context)
+	return value.FromInterface(recv.Clone(a0))
+}
+
+func direct_method_net_http_Request_Context(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	return value.FromInterface(recv.Context())
+}
+
+func direct_method_net_http_Request_Cookie(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := args[1].String()
+	r0, r1 := recv.Cookie(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_net_http_Request_Cookies(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	return value.FromInterface(recv.Cookies())
+}
+
+func direct_method_net_http_Request_CookiesNamed(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := args[1].String()
+	return value.FromInterface(recv.CookiesNamed(a0))
+}
+
+func direct_method_net_http_Request_FormFile(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := args[1].String()
+	r0, r1, r2 := recv.FormFile(a0)
+	return value.FromInterface([]interface{}{r0, r1, r2})
+}
+
+func direct_method_net_http_Request_FormValue(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := args[1].String()
+	return value.MakeString(string(recv.FormValue(a0)))
+}
+
+func direct_method_net_http_Request_MultipartReader(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	r0, r1 := recv.MultipartReader()
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_net_http_Request_ParseForm(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	return value.FromInterface(recv.ParseForm())
+}
+
+func direct_method_net_http_Request_ParseMultipartForm(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := args[1].Int()
+	return value.FromInterface(recv.ParseMultipartForm(a0))
+}
+
+func direct_method_net_http_Request_PathValue(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := args[1].String()
+	return value.MakeString(string(recv.PathValue(a0)))
+}
+
+func direct_method_net_http_Request_PostFormValue(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := args[1].String()
+	return value.MakeString(string(recv.PostFormValue(a0)))
+}
+
+func direct_method_net_http_Request_ProtoAtLeast(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := int(args[1].Int())
+	a1 := int(args[2].Int())
+	return value.MakeBool(recv.ProtoAtLeast(a0, a1))
+}
+
+func direct_method_net_http_Request_Referer(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	return value.MakeString(string(recv.Referer()))
+}
+
+func direct_method_net_http_Request_SetBasicAuth(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	recv.SetBasicAuth(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_net_http_Request_SetPathValue(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	recv.SetPathValue(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_net_http_Request_UserAgent(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	return value.MakeString(string(recv.UserAgent()))
+}
+
+func direct_method_net_http_Request_WithContext(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := args[1].Interface().(context.Context)
+	return value.FromInterface(recv.WithContext(a0))
+}
+
+func direct_method_net_http_Request_Write(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := args[1].Interface().(io.Writer)
+	return value.FromInterface(recv.Write(a0))
+}
+
+func direct_method_net_http_Request_WriteProxy(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Request)
+	a0 := args[1].Interface().(io.Writer)
+	return value.FromInterface(recv.WriteProxy(a0))
+}
+
+func direct_method_net_http_Response_Cookies(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Response)
+	return value.FromInterface(recv.Cookies())
+}
+
+func direct_method_net_http_Response_Location(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Response)
+	r0, r1 := recv.Location()
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_net_http_Response_ProtoAtLeast(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Response)
+	a0 := int(args[1].Int())
+	a1 := int(args[2].Int())
+	return value.MakeBool(recv.ProtoAtLeast(a0, a1))
+}
+
+func direct_method_net_http_Response_Write(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Response)
+	a0 := args[1].Interface().(io.Writer)
+	return value.FromInterface(recv.Write(a0))
+}
+
+func direct_method_net_http_ResponseController_EnableFullDuplex(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.ResponseController)
+	return value.FromInterface(recv.EnableFullDuplex())
+}
+
+func direct_method_net_http_ResponseController_Flush(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.ResponseController)
+	return value.FromInterface(recv.Flush())
+}
+
+func direct_method_net_http_ResponseController_Hijack(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.ResponseController)
+	r0, r1, r2 := recv.Hijack()
+	return value.FromInterface([]interface{}{r0, r1, r2})
+}
+
+func direct_method_net_http_ResponseController_SetReadDeadline(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.ResponseController)
+	a0 := args[1].Interface().(time.Time)
+	return value.FromInterface(recv.SetReadDeadline(a0))
+}
+
+func direct_method_net_http_ResponseController_SetWriteDeadline(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.ResponseController)
+	a0 := args[1].Interface().(time.Time)
+	return value.FromInterface(recv.SetWriteDeadline(a0))
+}
+
+func direct_method_net_http_ServeMux_Handle(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.ServeMux)
+	a0 := args[1].String()
+	a1 := args[2].Interface().(net_http.Handler)
+	recv.Handle(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_net_http_ServeMux_Handler(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.ServeMux)
+	a0 := args[1].Interface().(*net_http.Request)
+	r0, r1 := recv.Handler(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_net_http_ServeMux_ServeHTTP(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.ServeMux)
+	a0 := args[1].Interface().(net_http.ResponseWriter)
+	a1 := args[2].Interface().(*net_http.Request)
+	recv.ServeHTTP(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_net_http_Server_Close(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Server)
+	return value.FromInterface(recv.Close())
+}
+
+func direct_method_net_http_Server_ListenAndServe(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Server)
+	return value.FromInterface(recv.ListenAndServe())
+}
+
+func direct_method_net_http_Server_ListenAndServeTLS(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Server)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	return value.FromInterface(recv.ListenAndServeTLS(a0, a1))
+}
+
+func direct_method_net_http_Server_Serve(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Server)
+	a0 := args[1].Interface().(net.Listener)
+	return value.FromInterface(recv.Serve(a0))
+}
+
+func direct_method_net_http_Server_ServeTLS(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Server)
+	a0 := args[1].Interface().(net.Listener)
+	a1 := args[2].String()
+	a2 := args[3].String()
+	return value.FromInterface(recv.ServeTLS(a0, a1, a2))
+}
+
+func direct_method_net_http_Server_SetKeepAlivesEnabled(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Server)
+	a0 := args[1].Bool()
+	recv.SetKeepAlivesEnabled(a0)
+	return value.MakeNil()
+}
+
+func direct_method_net_http_Server_Shutdown(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Server)
+	a0 := args[1].Interface().(context.Context)
+	return value.FromInterface(recv.Shutdown(a0))
+}
+
+func direct_method_net_http_Transport_CancelRequest(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Transport)
+	a0 := args[1].Interface().(*net_http.Request)
+	recv.CancelRequest(a0)
+	return value.MakeNil()
+}
+
+func direct_method_net_http_Transport_Clone(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Transport)
+	return value.FromInterface(recv.Clone())
+}
+
+func direct_method_net_http_Transport_CloseIdleConnections(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Transport)
+	recv.CloseIdleConnections()
+	return value.MakeNil()
+}
+
+func direct_method_net_http_Transport_RegisterProtocol(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Transport)
+	a0 := args[1].String()
+	a1 := args[2].Interface().(net_http.RoundTripper)
+	recv.RegisterProtocol(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_net_http_Transport_RoundTrip(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_http.Transport)
+	a0 := args[1].Interface().(*net_http.Request)
+	r0, r1 := recv.RoundTrip(a0)
+	return value.FromInterface([]interface{}{r0, r1})
 }

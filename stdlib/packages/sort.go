@@ -18,8 +18,8 @@ func init() {
 	pkg.AddFunction("Float64sAreSorted", sort.Float64sAreSorted, "", direct_sort_Float64sAreSorted)
 	pkg.AddFunction("Ints", sort.Ints, "", direct_sort_Ints)
 	pkg.AddFunction("IntsAreSorted", sort.IntsAreSorted, "", direct_sort_IntsAreSorted)
-	pkg.AddFunction("IsSorted", sort.IsSorted, "", nil)
-	pkg.AddFunction("Reverse", sort.Reverse, "", nil)
+	pkg.AddFunction("IsSorted", sort.IsSorted, "", direct_sort_IsSorted)
+	pkg.AddFunction("Reverse", sort.Reverse, "", direct_sort_Reverse)
 	pkg.AddFunction("Search", sort.Search, "", nil)
 	pkg.AddFunction("SearchFloat64s", sort.SearchFloat64s, "", direct_sort_SearchFloat64s)
 	pkg.AddFunction("SearchInts", sort.SearchInts, "", direct_sort_SearchInts)
@@ -27,8 +27,8 @@ func init() {
 	pkg.AddFunction("Slice", sort.Slice, "", nil)
 	pkg.AddFunction("SliceIsSorted", sort.SliceIsSorted, "", nil)
 	pkg.AddFunction("SliceStable", sort.SliceStable, "", nil)
-	pkg.AddFunction("Sort", sort.Sort, "", nil)
-	pkg.AddFunction("Stable", sort.Stable, "", nil)
+	pkg.AddFunction("Sort", sort.Sort, "", direct_sort_Sort)
+	pkg.AddFunction("Stable", sort.Stable, "", direct_sort_Stable)
 	pkg.AddFunction("Strings", sort.Strings, "", direct_sort_Strings)
 	pkg.AddFunction("StringsAreSorted", sort.StringsAreSorted, "", direct_sort_StringsAreSorted)
 
@@ -37,6 +37,23 @@ func init() {
 	pkg.AddType("IntSlice", reflect.TypeOf((*sort.IntSlice)(nil)).Elem(), "")
 	pkg.AddType("Interface", reflect.TypeOf((*sort.Interface)(nil)).Elem(), "")
 	pkg.AddType("StringSlice", reflect.TypeOf((*sort.StringSlice)(nil)).Elem(), "")
+
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("Float64Slice", "Len", direct_method_sort_Float64Slice_Len)
+	pkg.AddMethodDirectCall("Float64Slice", "Less", direct_method_sort_Float64Slice_Less)
+	pkg.AddMethodDirectCall("Float64Slice", "Search", direct_method_sort_Float64Slice_Search)
+	pkg.AddMethodDirectCall("Float64Slice", "Sort", direct_method_sort_Float64Slice_Sort)
+	pkg.AddMethodDirectCall("Float64Slice", "Swap", direct_method_sort_Float64Slice_Swap)
+	pkg.AddMethodDirectCall("IntSlice", "Len", direct_method_sort_IntSlice_Len)
+	pkg.AddMethodDirectCall("IntSlice", "Less", direct_method_sort_IntSlice_Less)
+	pkg.AddMethodDirectCall("IntSlice", "Search", direct_method_sort_IntSlice_Search)
+	pkg.AddMethodDirectCall("IntSlice", "Sort", direct_method_sort_IntSlice_Sort)
+	pkg.AddMethodDirectCall("IntSlice", "Swap", direct_method_sort_IntSlice_Swap)
+	pkg.AddMethodDirectCall("StringSlice", "Len", direct_method_sort_StringSlice_Len)
+	pkg.AddMethodDirectCall("StringSlice", "Less", direct_method_sort_StringSlice_Less)
+	pkg.AddMethodDirectCall("StringSlice", "Search", direct_method_sort_StringSlice_Search)
+	pkg.AddMethodDirectCall("StringSlice", "Sort", direct_method_sort_StringSlice_Sort)
+	pkg.AddMethodDirectCall("StringSlice", "Swap", direct_method_sort_StringSlice_Swap)
 
 }
 
@@ -62,6 +79,16 @@ func direct_sort_IntsAreSorted(args []value.Value) value.Value {
 	return value.MakeBool(sort.IntsAreSorted(a0))
 }
 
+func direct_sort_IsSorted(args []value.Value) value.Value {
+	a0 := args[0].Interface().(sort.Interface)
+	return value.MakeBool(sort.IsSorted(a0))
+}
+
+func direct_sort_Reverse(args []value.Value) value.Value {
+	a0 := args[0].Interface().(sort.Interface)
+	return value.FromInterface(sort.Reverse(a0))
+}
+
 func direct_sort_SearchFloat64s(args []value.Value) value.Value {
 	a0 := args[0].Interface().([]float64)
 	a1 := args[1].Float()
@@ -80,6 +107,18 @@ func direct_sort_SearchStrings(args []value.Value) value.Value {
 	return value.MakeInt(int64(sort.SearchStrings(a0, a1)))
 }
 
+func direct_sort_Sort(args []value.Value) value.Value {
+	a0 := args[0].Interface().(sort.Interface)
+	sort.Sort(a0)
+	return value.MakeNil()
+}
+
+func direct_sort_Stable(args []value.Value) value.Value {
+	a0 := args[0].Interface().(sort.Interface)
+	sort.Stable(a0)
+	return value.MakeNil()
+}
+
 func direct_sort_Strings(args []value.Value) value.Value {
 	a0 := args[0].Interface().([]string)
 	sort.Strings(a0)
@@ -89,4 +128,100 @@ func direct_sort_Strings(args []value.Value) value.Value {
 func direct_sort_StringsAreSorted(args []value.Value) value.Value {
 	a0 := args[0].Interface().([]string)
 	return value.MakeBool(sort.StringsAreSorted(a0))
+}
+
+func direct_method_sort_Float64Slice_Len(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.Float64Slice)
+	return value.MakeInt(int64(recv.Len()))
+}
+
+func direct_method_sort_Float64Slice_Less(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.Float64Slice)
+	a0 := int(args[1].Int())
+	a1 := int(args[2].Int())
+	return value.MakeBool(recv.Less(a0, a1))
+}
+
+func direct_method_sort_Float64Slice_Search(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.Float64Slice)
+	a0 := args[1].Float()
+	return value.MakeInt(int64(recv.Search(a0)))
+}
+
+func direct_method_sort_Float64Slice_Sort(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.Float64Slice)
+	recv.Sort()
+	return value.MakeNil()
+}
+
+func direct_method_sort_Float64Slice_Swap(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.Float64Slice)
+	a0 := int(args[1].Int())
+	a1 := int(args[2].Int())
+	recv.Swap(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_sort_IntSlice_Len(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.IntSlice)
+	return value.MakeInt(int64(recv.Len()))
+}
+
+func direct_method_sort_IntSlice_Less(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.IntSlice)
+	a0 := int(args[1].Int())
+	a1 := int(args[2].Int())
+	return value.MakeBool(recv.Less(a0, a1))
+}
+
+func direct_method_sort_IntSlice_Search(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.IntSlice)
+	a0 := int(args[1].Int())
+	return value.MakeInt(int64(recv.Search(a0)))
+}
+
+func direct_method_sort_IntSlice_Sort(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.IntSlice)
+	recv.Sort()
+	return value.MakeNil()
+}
+
+func direct_method_sort_IntSlice_Swap(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.IntSlice)
+	a0 := int(args[1].Int())
+	a1 := int(args[2].Int())
+	recv.Swap(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_sort_StringSlice_Len(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.StringSlice)
+	return value.MakeInt(int64(recv.Len()))
+}
+
+func direct_method_sort_StringSlice_Less(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.StringSlice)
+	a0 := int(args[1].Int())
+	a1 := int(args[2].Int())
+	return value.MakeBool(recv.Less(a0, a1))
+}
+
+func direct_method_sort_StringSlice_Search(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.StringSlice)
+	a0 := args[1].String()
+	return value.MakeInt(int64(recv.Search(a0)))
+}
+
+func direct_method_sort_StringSlice_Sort(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.StringSlice)
+	recv.Sort()
+	return value.MakeNil()
+}
+
+func direct_method_sort_StringSlice_Swap(args []value.Value) value.Value {
+	recv := args[0].Interface().(sort.StringSlice)
+	a0 := int(args[1].Int())
+	a1 := int(args[2].Int())
+	recv.Swap(a0, a1)
+	return value.MakeNil()
 }

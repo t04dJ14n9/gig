@@ -385,3 +385,8 @@ func (a *packageLookupAdapter) LookupExternalFunc(pkgPath, funcName string) (fn 
 	}
 	return obj.Value, obj.DirectCall, true
 }
+
+// LookupMethodDirectCall resolves a method DirectCall wrapper by type name and method name.
+func (a *packageLookupAdapter) LookupMethodDirectCall(typeName, methodName string) (directCall func([]value.Value) value.Value, ok bool) {
+	return importer.LookupMethodDirectCall(typeName, methodName)
+}

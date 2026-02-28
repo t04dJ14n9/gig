@@ -107,6 +107,9 @@ var (
 	packagesByAlias = make(map[string]*ExternalPackage) // keyed by package name (for auto-import)
 	typesMutex      sync.RWMutex
 	externalTypes   = make(map[types.Type]reflect.Type) // types.Type -> reflect.Type
+
+	methodDirectCallsMutex sync.RWMutex
+	methodDirectCalls      = make(map[string]func([]value.Value) value.Value) // "pkgPath.TypeName.MethodName" -> DirectCall
 )
 
 // RegisterPackage registers a new external package with the given import path and name.
@@ -212,6 +215,23 @@ func (p *ExternalPackage) AddType(name string, typ reflect.Type, doc string) {
 		Type:  typeOf(typ),
 		Doc:   doc,
 	}
+}
+
+// AddMethodDirectCall registers a DirectCall wrapper for a method on a type in this package.
+func (p *ExternalPackage) AddMethodDirectCall(typeName, methodName string, dc func([]value.Value) value.Value) {
+	methodDirectCallsMutex.Lock()
+	defer methodDirectCallsMutex.Unlock()
+	key := typeName + "." + methodName
+	methodDirectCalls[key] = dc
+}
+
+// LookupMethodDirectCall looks up a method DirectCall wrapper by type name and method name.
+func LookupMethodDirectCall(typeName, methodName string) (func([]value.Value) value.Value, bool) {
+	methodDirectCallsMutex.RLock()
+	defer methodDirectCallsMutex.RUnlock()
+	key := typeName + "." + methodName
+	dc, ok := methodDirectCalls[key]
+	return dc, ok
 }
 
 // SetExternalType associates a types.Type with a reflect.Type.

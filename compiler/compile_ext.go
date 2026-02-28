@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"go/types"
 	"strings"
 
 	"golang.org/x/tools/go/ssa"
@@ -48,6 +49,17 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 		methodInfo := &bytecode.ExternalMethodInfo{
 			MethodName: methodName,
 		}
+
+		// Try to resolve method DirectCall at compile time
+		if c.lookup != nil {
+			typeName := extractReceiverTypeName(sig.Recv().Type())
+			if typeName != "" {
+				if dc, ok := c.lookup.LookupMethodDirectCall(typeName, methodName); ok {
+					methodInfo.DirectCall = dc
+				}
+			}
+		}
+
 		funcIdx := c.addConstant(methodInfo)
 		numArgs := len(i.Call.Args)
 		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
@@ -99,6 +111,19 @@ func (c *compiler) compileIndirectCall(i *ssa.Call) {
 	numArgs := len(i.Call.Args)
 	c.emit(bytecode.OpCallIndirect, uint16(numArgs))
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+}
+
+// extractReceiverTypeName extracts the type name from a receiver type.
+// For pointer receivers like *Reader, it unwraps the pointer.
+func extractReceiverTypeName(recvType types.Type) string {
+	if ptr, ok := recvType.(*types.Pointer); ok {
+		recvType = ptr.Elem()
+	}
+	named, ok := recvType.(*types.Named)
+	if !ok {
+		return ""
+	}
+	return named.Obj().Name()
 }
 
 // compileReturn compiles a Return instruction.

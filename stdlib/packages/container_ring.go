@@ -18,9 +18,50 @@ func init() {
 	// Types
 	pkg.AddType("Ring", reflect.TypeOf(container_ring.Ring{}), "")
 
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("Ring", "Len", direct_method_container_ring_Ring_Len)
+	pkg.AddMethodDirectCall("Ring", "Link", direct_method_container_ring_Ring_Link)
+	pkg.AddMethodDirectCall("Ring", "Move", direct_method_container_ring_Ring_Move)
+	pkg.AddMethodDirectCall("Ring", "Next", direct_method_container_ring_Ring_Next)
+	pkg.AddMethodDirectCall("Ring", "Prev", direct_method_container_ring_Ring_Prev)
+	pkg.AddMethodDirectCall("Ring", "Unlink", direct_method_container_ring_Ring_Unlink)
+
 }
 
 func direct_container_ring_New(args []value.Value) value.Value {
 	a0 := int(args[0].Int())
 	return value.FromInterface(container_ring.New(a0))
+}
+
+func direct_method_container_ring_Ring_Len(args []value.Value) value.Value {
+	recv := args[0].Interface().(*container_ring.Ring)
+	return value.MakeInt(int64(recv.Len()))
+}
+
+func direct_method_container_ring_Ring_Link(args []value.Value) value.Value {
+	recv := args[0].Interface().(*container_ring.Ring)
+	a0 := args[1].Interface().(*container_ring.Ring)
+	return value.FromInterface(recv.Link(a0))
+}
+
+func direct_method_container_ring_Ring_Move(args []value.Value) value.Value {
+	recv := args[0].Interface().(*container_ring.Ring)
+	a0 := int(args[1].Int())
+	return value.FromInterface(recv.Move(a0))
+}
+
+func direct_method_container_ring_Ring_Next(args []value.Value) value.Value {
+	recv := args[0].Interface().(*container_ring.Ring)
+	return value.FromInterface(recv.Next())
+}
+
+func direct_method_container_ring_Ring_Prev(args []value.Value) value.Value {
+	recv := args[0].Interface().(*container_ring.Ring)
+	return value.FromInterface(recv.Prev())
+}
+
+func direct_method_container_ring_Ring_Unlink(args []value.Value) value.Value {
+	recv := args[0].Interface().(*container_ring.Ring)
+	a0 := int(args[1].Int())
+	return value.FromInterface(recv.Unlink(a0))
 }

@@ -3,6 +3,7 @@ package packages
 
 import (
 	encoding_hex "encoding/hex"
+	io "io"
 	"reflect"
 
 	"gig/importer"
@@ -19,18 +20,21 @@ func init() {
 	pkg.AddFunction("DecodeString", encoding_hex.DecodeString, "", direct_encoding_hex_DecodeString)
 	pkg.AddFunction("DecodedLen", encoding_hex.DecodedLen, "", direct_encoding_hex_DecodedLen)
 	pkg.AddFunction("Dump", encoding_hex.Dump, "", direct_encoding_hex_Dump)
-	pkg.AddFunction("Dumper", encoding_hex.Dumper, "", nil)
+	pkg.AddFunction("Dumper", encoding_hex.Dumper, "", direct_encoding_hex_Dumper)
 	pkg.AddFunction("Encode", encoding_hex.Encode, "", direct_encoding_hex_Encode)
 	pkg.AddFunction("EncodeToString", encoding_hex.EncodeToString, "", direct_encoding_hex_EncodeToString)
 	pkg.AddFunction("EncodedLen", encoding_hex.EncodedLen, "", direct_encoding_hex_EncodedLen)
-	pkg.AddFunction("NewDecoder", encoding_hex.NewDecoder, "", nil)
-	pkg.AddFunction("NewEncoder", encoding_hex.NewEncoder, "", nil)
+	pkg.AddFunction("NewDecoder", encoding_hex.NewDecoder, "", direct_encoding_hex_NewDecoder)
+	pkg.AddFunction("NewEncoder", encoding_hex.NewEncoder, "", direct_encoding_hex_NewEncoder)
 
 	// Variables
 	pkg.AddVariable("ErrLength", &encoding_hex.ErrLength, "")
 
 	// Types
 	pkg.AddType("InvalidByteError", reflect.TypeOf((*encoding_hex.InvalidByteError)(nil)).Elem(), "")
+
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("InvalidByteError", "Error", direct_method_encoding_hex_InvalidByteError_Error)
 
 }
 
@@ -70,6 +74,11 @@ func direct_encoding_hex_Dump(args []value.Value) value.Value {
 	return value.MakeString(string(encoding_hex.Dump(a0)))
 }
 
+func direct_encoding_hex_Dumper(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Writer)
+	return value.FromInterface(encoding_hex.Dumper(a0))
+}
+
 func direct_encoding_hex_Encode(args []value.Value) value.Value {
 	a0 := args[0].Interface().([]byte)
 	a1 := args[1].Interface().([]byte)
@@ -84,4 +93,19 @@ func direct_encoding_hex_EncodeToString(args []value.Value) value.Value {
 func direct_encoding_hex_EncodedLen(args []value.Value) value.Value {
 	a0 := int(args[0].Int())
 	return value.MakeInt(int64(encoding_hex.EncodedLen(a0)))
+}
+
+func direct_encoding_hex_NewDecoder(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Reader)
+	return value.FromInterface(encoding_hex.NewDecoder(a0))
+}
+
+func direct_encoding_hex_NewEncoder(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Writer)
+	return value.FromInterface(encoding_hex.NewEncoder(a0))
+}
+
+func direct_method_encoding_hex_InvalidByteError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(encoding_hex.InvalidByteError)
+	return value.MakeString(string(recv.Error()))
 }

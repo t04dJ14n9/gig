@@ -6,13 +6,14 @@ import (
 	"sync"
 
 	"gig/importer"
+	"gig/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("sync", "sync")
 
 	// Functions
-	pkg.AddFunction("NewCond", sync.NewCond, "", nil)
+	pkg.AddFunction("NewCond", sync.NewCond, "", direct_sync_NewCond)
 	pkg.AddFunction("OnceFunc", sync.OnceFunc, "", nil)
 
 	// Types
@@ -25,4 +26,133 @@ func init() {
 	pkg.AddType("RWMutex", reflect.TypeOf(sync.RWMutex{}), "")
 	pkg.AddType("WaitGroup", reflect.TypeOf(sync.WaitGroup{}), "")
 
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("Cond", "Broadcast", direct_method_sync_Cond_Broadcast)
+	pkg.AddMethodDirectCall("Cond", "Signal", direct_method_sync_Cond_Signal)
+	pkg.AddMethodDirectCall("Cond", "Wait", direct_method_sync_Cond_Wait)
+	pkg.AddMethodDirectCall("Map", "Clear", direct_method_sync_Map_Clear)
+	pkg.AddMethodDirectCall("Mutex", "Lock", direct_method_sync_Mutex_Lock)
+	pkg.AddMethodDirectCall("Mutex", "TryLock", direct_method_sync_Mutex_TryLock)
+	pkg.AddMethodDirectCall("Mutex", "Unlock", direct_method_sync_Mutex_Unlock)
+	pkg.AddMethodDirectCall("Pool", "Get", direct_method_sync_Pool_Get)
+	pkg.AddMethodDirectCall("RWMutex", "Lock", direct_method_sync_RWMutex_Lock)
+	pkg.AddMethodDirectCall("RWMutex", "RLock", direct_method_sync_RWMutex_RLock)
+	pkg.AddMethodDirectCall("RWMutex", "RLocker", direct_method_sync_RWMutex_RLocker)
+	pkg.AddMethodDirectCall("RWMutex", "RUnlock", direct_method_sync_RWMutex_RUnlock)
+	pkg.AddMethodDirectCall("RWMutex", "TryLock", direct_method_sync_RWMutex_TryLock)
+	pkg.AddMethodDirectCall("RWMutex", "TryRLock", direct_method_sync_RWMutex_TryRLock)
+	pkg.AddMethodDirectCall("RWMutex", "Unlock", direct_method_sync_RWMutex_Unlock)
+	pkg.AddMethodDirectCall("WaitGroup", "Add", direct_method_sync_WaitGroup_Add)
+	pkg.AddMethodDirectCall("WaitGroup", "Done", direct_method_sync_WaitGroup_Done)
+	pkg.AddMethodDirectCall("WaitGroup", "Wait", direct_method_sync_WaitGroup_Wait)
+
+}
+
+func direct_sync_NewCond(args []value.Value) value.Value {
+	a0 := args[0].Interface().(sync.Locker)
+	return value.FromInterface(sync.NewCond(a0))
+}
+
+func direct_method_sync_Cond_Broadcast(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Cond)
+	recv.Broadcast()
+	return value.MakeNil()
+}
+
+func direct_method_sync_Cond_Signal(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Cond)
+	recv.Signal()
+	return value.MakeNil()
+}
+
+func direct_method_sync_Cond_Wait(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Cond)
+	recv.Wait()
+	return value.MakeNil()
+}
+
+func direct_method_sync_Map_Clear(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Map)
+	recv.Clear()
+	return value.MakeNil()
+}
+
+func direct_method_sync_Mutex_Lock(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Mutex)
+	recv.Lock()
+	return value.MakeNil()
+}
+
+func direct_method_sync_Mutex_TryLock(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Mutex)
+	return value.MakeBool(recv.TryLock())
+}
+
+func direct_method_sync_Mutex_Unlock(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Mutex)
+	recv.Unlock()
+	return value.MakeNil()
+}
+
+func direct_method_sync_Pool_Get(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Pool)
+	return value.FromInterface(recv.Get())
+}
+
+func direct_method_sync_RWMutex_Lock(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.RWMutex)
+	recv.Lock()
+	return value.MakeNil()
+}
+
+func direct_method_sync_RWMutex_RLock(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.RWMutex)
+	recv.RLock()
+	return value.MakeNil()
+}
+
+func direct_method_sync_RWMutex_RLocker(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.RWMutex)
+	return value.FromInterface(recv.RLocker())
+}
+
+func direct_method_sync_RWMutex_RUnlock(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.RWMutex)
+	recv.RUnlock()
+	return value.MakeNil()
+}
+
+func direct_method_sync_RWMutex_TryLock(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.RWMutex)
+	return value.MakeBool(recv.TryLock())
+}
+
+func direct_method_sync_RWMutex_TryRLock(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.RWMutex)
+	return value.MakeBool(recv.TryRLock())
+}
+
+func direct_method_sync_RWMutex_Unlock(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.RWMutex)
+	recv.Unlock()
+	return value.MakeNil()
+}
+
+func direct_method_sync_WaitGroup_Add(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.WaitGroup)
+	a0 := int(args[1].Int())
+	recv.Add(a0)
+	return value.MakeNil()
+}
+
+func direct_method_sync_WaitGroup_Done(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.WaitGroup)
+	recv.Done()
+	return value.MakeNil()
+}
+
+func direct_method_sync_WaitGroup_Wait(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.WaitGroup)
+	recv.Wait()
+	return value.MakeNil()
 }

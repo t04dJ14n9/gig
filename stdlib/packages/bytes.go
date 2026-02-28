@@ -3,7 +3,9 @@ package packages
 
 import (
 	"bytes"
+	io "io"
 	"reflect"
+	unicode "unicode"
 
 	"gig/importer"
 	"gig/value"
@@ -53,11 +55,11 @@ func init() {
 	pkg.AddFunction("SplitN", bytes.SplitN, "", direct_bytes_SplitN)
 	pkg.AddFunction("Title", bytes.Title, "", direct_bytes_Title)
 	pkg.AddFunction("ToLower", bytes.ToLower, "", direct_bytes_ToLower)
-	pkg.AddFunction("ToLowerSpecial", bytes.ToLowerSpecial, "", nil)
+	pkg.AddFunction("ToLowerSpecial", bytes.ToLowerSpecial, "", direct_bytes_ToLowerSpecial)
 	pkg.AddFunction("ToTitle", bytes.ToTitle, "", direct_bytes_ToTitle)
-	pkg.AddFunction("ToTitleSpecial", bytes.ToTitleSpecial, "", nil)
+	pkg.AddFunction("ToTitleSpecial", bytes.ToTitleSpecial, "", direct_bytes_ToTitleSpecial)
 	pkg.AddFunction("ToUpper", bytes.ToUpper, "", direct_bytes_ToUpper)
-	pkg.AddFunction("ToUpperSpecial", bytes.ToUpperSpecial, "", nil)
+	pkg.AddFunction("ToUpperSpecial", bytes.ToUpperSpecial, "", direct_bytes_ToUpperSpecial)
 	pkg.AddFunction("ToValidUTF8", bytes.ToValidUTF8, "", direct_bytes_ToValidUTF8)
 	pkg.AddFunction("Trim", bytes.Trim, "", direct_bytes_Trim)
 	pkg.AddFunction("TrimFunc", bytes.TrimFunc, "", nil)
@@ -78,6 +80,42 @@ func init() {
 	// Types
 	pkg.AddType("Buffer", reflect.TypeOf(bytes.Buffer{}), "")
 	pkg.AddType("Reader", reflect.TypeOf(bytes.Reader{}), "")
+
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("Buffer", "Available", direct_method_bytes_Buffer_Available)
+	pkg.AddMethodDirectCall("Buffer", "AvailableBuffer", direct_method_bytes_Buffer_AvailableBuffer)
+	pkg.AddMethodDirectCall("Buffer", "Bytes", direct_method_bytes_Buffer_Bytes)
+	pkg.AddMethodDirectCall("Buffer", "Cap", direct_method_bytes_Buffer_Cap)
+	pkg.AddMethodDirectCall("Buffer", "Grow", direct_method_bytes_Buffer_Grow)
+	pkg.AddMethodDirectCall("Buffer", "Len", direct_method_bytes_Buffer_Len)
+	pkg.AddMethodDirectCall("Buffer", "Next", direct_method_bytes_Buffer_Next)
+	pkg.AddMethodDirectCall("Buffer", "Read", direct_method_bytes_Buffer_Read)
+	pkg.AddMethodDirectCall("Buffer", "ReadByte", direct_method_bytes_Buffer_ReadByte)
+	pkg.AddMethodDirectCall("Buffer", "ReadBytes", direct_method_bytes_Buffer_ReadBytes)
+	pkg.AddMethodDirectCall("Buffer", "ReadFrom", direct_method_bytes_Buffer_ReadFrom)
+	pkg.AddMethodDirectCall("Buffer", "ReadRune", direct_method_bytes_Buffer_ReadRune)
+	pkg.AddMethodDirectCall("Buffer", "ReadString", direct_method_bytes_Buffer_ReadString)
+	pkg.AddMethodDirectCall("Buffer", "Reset", direct_method_bytes_Buffer_Reset)
+	pkg.AddMethodDirectCall("Buffer", "String", direct_method_bytes_Buffer_String)
+	pkg.AddMethodDirectCall("Buffer", "Truncate", direct_method_bytes_Buffer_Truncate)
+	pkg.AddMethodDirectCall("Buffer", "UnreadByte", direct_method_bytes_Buffer_UnreadByte)
+	pkg.AddMethodDirectCall("Buffer", "UnreadRune", direct_method_bytes_Buffer_UnreadRune)
+	pkg.AddMethodDirectCall("Buffer", "Write", direct_method_bytes_Buffer_Write)
+	pkg.AddMethodDirectCall("Buffer", "WriteByte", direct_method_bytes_Buffer_WriteByte)
+	pkg.AddMethodDirectCall("Buffer", "WriteRune", direct_method_bytes_Buffer_WriteRune)
+	pkg.AddMethodDirectCall("Buffer", "WriteString", direct_method_bytes_Buffer_WriteString)
+	pkg.AddMethodDirectCall("Buffer", "WriteTo", direct_method_bytes_Buffer_WriteTo)
+	pkg.AddMethodDirectCall("Reader", "Len", direct_method_bytes_Reader_Len)
+	pkg.AddMethodDirectCall("Reader", "Read", direct_method_bytes_Reader_Read)
+	pkg.AddMethodDirectCall("Reader", "ReadAt", direct_method_bytes_Reader_ReadAt)
+	pkg.AddMethodDirectCall("Reader", "ReadByte", direct_method_bytes_Reader_ReadByte)
+	pkg.AddMethodDirectCall("Reader", "ReadRune", direct_method_bytes_Reader_ReadRune)
+	pkg.AddMethodDirectCall("Reader", "Reset", direct_method_bytes_Reader_Reset)
+	pkg.AddMethodDirectCall("Reader", "Seek", direct_method_bytes_Reader_Seek)
+	pkg.AddMethodDirectCall("Reader", "Size", direct_method_bytes_Reader_Size)
+	pkg.AddMethodDirectCall("Reader", "UnreadByte", direct_method_bytes_Reader_UnreadByte)
+	pkg.AddMethodDirectCall("Reader", "UnreadRune", direct_method_bytes_Reader_UnreadRune)
+	pkg.AddMethodDirectCall("Reader", "WriteTo", direct_method_bytes_Reader_WriteTo)
 
 }
 
@@ -285,14 +323,32 @@ func direct_bytes_ToLower(args []value.Value) value.Value {
 	return value.FromInterface(bytes.ToLower(a0))
 }
 
+func direct_bytes_ToLowerSpecial(args []value.Value) value.Value {
+	a0 := args[0].Interface().(unicode.SpecialCase)
+	a1 := args[1].Interface().([]byte)
+	return value.FromInterface(bytes.ToLowerSpecial(a0, a1))
+}
+
 func direct_bytes_ToTitle(args []value.Value) value.Value {
 	a0 := args[0].Interface().([]byte)
 	return value.FromInterface(bytes.ToTitle(a0))
 }
 
+func direct_bytes_ToTitleSpecial(args []value.Value) value.Value {
+	a0 := args[0].Interface().(unicode.SpecialCase)
+	a1 := args[1].Interface().([]byte)
+	return value.FromInterface(bytes.ToTitleSpecial(a0, a1))
+}
+
 func direct_bytes_ToUpper(args []value.Value) value.Value {
 	a0 := args[0].Interface().([]byte)
 	return value.FromInterface(bytes.ToUpper(a0))
+}
+
+func direct_bytes_ToUpperSpecial(args []value.Value) value.Value {
+	a0 := args[0].Interface().(unicode.SpecialCase)
+	a1 := args[1].Interface().([]byte)
+	return value.FromInterface(bytes.ToUpperSpecial(a0, a1))
 }
 
 func direct_bytes_ToValidUTF8(args []value.Value) value.Value {
@@ -334,4 +390,213 @@ func direct_bytes_TrimSuffix(args []value.Value) value.Value {
 	a0 := args[0].Interface().([]byte)
 	a1 := args[1].Interface().([]byte)
 	return value.FromInterface(bytes.TrimSuffix(a0, a1))
+}
+
+func direct_method_bytes_Buffer_Available(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.MakeInt(int64(recv.Available()))
+}
+
+func direct_method_bytes_Buffer_AvailableBuffer(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.FromInterface(recv.AvailableBuffer())
+}
+
+func direct_method_bytes_Buffer_Bytes(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.FromInterface(recv.Bytes())
+}
+
+func direct_method_bytes_Buffer_Cap(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.MakeInt(int64(recv.Cap()))
+}
+
+func direct_method_bytes_Buffer_Grow(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := int(args[1].Int())
+	recv.Grow(a0)
+	return value.MakeNil()
+}
+
+func direct_method_bytes_Buffer_Len(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.MakeInt(int64(recv.Len()))
+}
+
+func direct_method_bytes_Buffer_Next(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := int(args[1].Int())
+	return value.FromInterface(recv.Next(a0))
+}
+
+func direct_method_bytes_Buffer_Read(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := args[1].Interface().([]byte)
+	r0, r1 := recv.Read(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_bytes_Buffer_ReadByte(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	r0, r1 := recv.ReadByte()
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_bytes_Buffer_ReadBytes(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := byte(args[1].Uint())
+	r0, r1 := recv.ReadBytes(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_bytes_Buffer_ReadFrom(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := args[1].Interface().(io.Reader)
+	r0, r1 := recv.ReadFrom(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_bytes_Buffer_ReadRune(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	r0, r1, r2 := recv.ReadRune()
+	return value.FromInterface([]interface{}{r0, r1, r2})
+}
+
+func direct_method_bytes_Buffer_ReadString(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := byte(args[1].Uint())
+	r0, r1 := recv.ReadString(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_bytes_Buffer_Reset(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	recv.Reset()
+	return value.MakeNil()
+}
+
+func direct_method_bytes_Buffer_String(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.MakeString(string(recv.String()))
+}
+
+func direct_method_bytes_Buffer_Truncate(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := int(args[1].Int())
+	recv.Truncate(a0)
+	return value.MakeNil()
+}
+
+func direct_method_bytes_Buffer_UnreadByte(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.FromInterface(recv.UnreadByte())
+}
+
+func direct_method_bytes_Buffer_UnreadRune(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.FromInterface(recv.UnreadRune())
+}
+
+func direct_method_bytes_Buffer_Write(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := args[1].Interface().([]byte)
+	r0, r1 := recv.Write(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_bytes_Buffer_WriteByte(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := byte(args[1].Uint())
+	return value.FromInterface(recv.WriteByte(a0))
+}
+
+func direct_method_bytes_Buffer_WriteRune(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := int32(args[1].Int())
+	r0, r1 := recv.WriteRune(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_bytes_Buffer_WriteString(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := args[1].String()
+	r0, r1 := recv.WriteString(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_bytes_Buffer_WriteTo(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := args[1].Interface().(io.Writer)
+	r0, r1 := recv.WriteTo(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_bytes_Reader_Len(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	return value.MakeInt(int64(recv.Len()))
+}
+
+func direct_method_bytes_Reader_Read(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	a0 := args[1].Interface().([]byte)
+	r0, r1 := recv.Read(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_bytes_Reader_ReadAt(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	a0 := args[1].Interface().([]byte)
+	a1 := args[2].Int()
+	r0, r1 := recv.ReadAt(a0, a1)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_bytes_Reader_ReadByte(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	r0, r1 := recv.ReadByte()
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_bytes_Reader_ReadRune(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	r0, r1, r2 := recv.ReadRune()
+	return value.FromInterface([]interface{}{r0, r1, r2})
+}
+
+func direct_method_bytes_Reader_Reset(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	a0 := args[1].Interface().([]byte)
+	recv.Reset(a0)
+	return value.MakeNil()
+}
+
+func direct_method_bytes_Reader_Seek(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	a0 := args[1].Int()
+	a1 := int(args[2].Int())
+	r0, r1 := recv.Seek(a0, a1)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_bytes_Reader_Size(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	return value.MakeInt(int64(recv.Size()))
+}
+
+func direct_method_bytes_Reader_UnreadByte(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	return value.FromInterface(recv.UnreadByte())
+}
+
+func direct_method_bytes_Reader_UnreadRune(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	return value.FromInterface(recv.UnreadRune())
+}
+
+func direct_method_bytes_Reader_WriteTo(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	a0 := args[1].Interface().(io.Writer)
+	r0, r1 := recv.WriteTo(a0)
+	return value.FromInterface([]interface{}{r0, r1})
 }

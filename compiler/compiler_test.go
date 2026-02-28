@@ -96,5 +96,9 @@ func (m *mockLookup) LookupExternalFunc(pkgPath, funcName string) (fn any, direc
 	return nil, nil, false
 }
 
+func (m *mockLookup) LookupMethodDirectCall(typeName, methodName string) (directCall func([]value.Value) value.Value, ok bool) {
+	return nil, false
+}
+
 // Verify mockLookup satisfies the interface.
 var _ bytecode.PackageLookup = (*mockLookup)(nil)

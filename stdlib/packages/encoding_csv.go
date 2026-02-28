@@ -3,17 +3,19 @@ package packages
 
 import (
 	encoding_csv "encoding/csv"
+	io "io"
 	"reflect"
 
 	"gig/importer"
+	"gig/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("encoding/csv", "csv")
 
 	// Functions
-	pkg.AddFunction("NewReader", encoding_csv.NewReader, "", nil)
-	pkg.AddFunction("NewWriter", encoding_csv.NewWriter, "", nil)
+	pkg.AddFunction("NewReader", encoding_csv.NewReader, "", direct_encoding_csv_NewReader)
+	pkg.AddFunction("NewWriter", encoding_csv.NewWriter, "", direct_encoding_csv_NewWriter)
 
 	// Variables
 	pkg.AddVariable("ErrBareQuote", &encoding_csv.ErrBareQuote, "")
@@ -26,4 +28,76 @@ func init() {
 	pkg.AddType("Reader", reflect.TypeOf(encoding_csv.Reader{}), "")
 	pkg.AddType("Writer", reflect.TypeOf(encoding_csv.Writer{}), "")
 
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("ParseError", "Error", direct_method_encoding_csv_ParseError_Error)
+	pkg.AddMethodDirectCall("ParseError", "Unwrap", direct_method_encoding_csv_ParseError_Unwrap)
+	pkg.AddMethodDirectCall("Reader", "FieldPos", direct_method_encoding_csv_Reader_FieldPos)
+	pkg.AddMethodDirectCall("Reader", "InputOffset", direct_method_encoding_csv_Reader_InputOffset)
+	pkg.AddMethodDirectCall("Reader", "Read", direct_method_encoding_csv_Reader_Read)
+	pkg.AddMethodDirectCall("Reader", "ReadAll", direct_method_encoding_csv_Reader_ReadAll)
+	pkg.AddMethodDirectCall("Writer", "Error", direct_method_encoding_csv_Writer_Error)
+	pkg.AddMethodDirectCall("Writer", "Flush", direct_method_encoding_csv_Writer_Flush)
+	pkg.AddMethodDirectCall("Writer", "Write", direct_method_encoding_csv_Writer_Write)
+
+}
+
+func direct_encoding_csv_NewReader(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Reader)
+	return value.FromInterface(encoding_csv.NewReader(a0))
+}
+
+func direct_encoding_csv_NewWriter(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Writer)
+	return value.FromInterface(encoding_csv.NewWriter(a0))
+}
+
+func direct_method_encoding_csv_ParseError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_csv.ParseError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_encoding_csv_ParseError_Unwrap(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_csv.ParseError)
+	return value.FromInterface(recv.Unwrap())
+}
+
+func direct_method_encoding_csv_Reader_FieldPos(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_csv.Reader)
+	a0 := int(args[1].Int())
+	r0, r1 := recv.FieldPos(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_encoding_csv_Reader_InputOffset(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_csv.Reader)
+	return value.MakeInt(int64(recv.InputOffset()))
+}
+
+func direct_method_encoding_csv_Reader_Read(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_csv.Reader)
+	r0, r1 := recv.Read()
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_encoding_csv_Reader_ReadAll(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_csv.Reader)
+	r0, r1 := recv.ReadAll()
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_encoding_csv_Writer_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_csv.Writer)
+	return value.FromInterface(recv.Error())
+}
+
+func direct_method_encoding_csv_Writer_Flush(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_csv.Writer)
+	recv.Flush()
+	return value.MakeNil()
+}
+
+func direct_method_encoding_csv_Writer_Write(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_csv.Writer)
+	a0 := args[1].Interface().([]string)
+	return value.FromInterface(recv.Write(a0))
 }

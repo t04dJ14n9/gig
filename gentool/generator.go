@@ -187,10 +187,34 @@ func PackageImport(path string, outDir string, pkgName string) error {
 		}
 	}
 	hasDirectCalls := false
+	// Collect cross-package imports needed by DirectCall wrappers
+	crossPkgImports := make(map[string]string) // path -> alias
 	for _, fi := range funcs {
 		if fi.DirectCall != "" {
 			hasDirectCalls = true
-			break
+			collectCrossPkgImports(fi.Sig, path, crossPkgImports)
+		}
+	}
+
+	// Generate method DirectCall wrappers for each type
+	var allMethodDCs []*methodDirectCallInfo
+	for _, ti := range typeNames {
+		named, ok := ti.Obj.Type().(*types.Named)
+		if !ok {
+			continue
+		}
+		// Skip interfaces — methods are dispatched via the implementing type
+		if _, isIface := named.Underlying().(*types.Interface); isIface {
+			continue
+		}
+		methodDCs := generateMethodDirectCalls(named, pkgRef, ti.Name)
+		if len(methodDCs) > 0 {
+			hasDirectCalls = true
+			allMethodDCs = append(allMethodDCs, methodDCs...)
+			// Collect cross-package imports from method signatures
+			for _, mdc := range methodDCs {
+				collectMethodImports(named, mdc.MethodName, path, crossPkgImports)
+			}
 		}
 	}
 
@@ -206,6 +230,14 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	}
 	if needReflect {
 		b.WriteString("\t\"reflect\"\n")
+	}
+	// Add cross-package imports needed by DirectCall wrappers
+	for impPath, impAlias := range crossPkgImports {
+		if impAlias != "" {
+			b.WriteString(fmt.Sprintf("\t%s %q\n", impAlias, impPath))
+		} else {
+			b.WriteString(fmt.Sprintf("\t%q\n", impPath))
+		}
 	}
 	b.WriteString("\n")
 	b.WriteString("\t\"gig/importer\"\n")
@@ -261,6 +293,16 @@ func PackageImport(path string, outDir string, pkgName string) error {
 		b.WriteString("\n")
 	}
 
+	// Method DirectCall registrations
+	if len(allMethodDCs) > 0 {
+		b.WriteString("\t// Method DirectCalls\n")
+		for _, mdc := range allMethodDCs {
+			b.WriteString(fmt.Sprintf("\tpkg.AddMethodDirectCall(%q, %q, %s)\n",
+				mdc.TypeName, mdc.MethodName, mdc.FuncName))
+		}
+		b.WriteString("\n")
+	}
+
 	b.WriteString("}\n\n")
 
 	for _, fi := range funcs {
@@ -268,6 +310,12 @@ func PackageImport(path string, outDir string, pkgName string) error {
 			b.WriteString(fi.DirectCall)
 			b.WriteString("\n")
 		}
+	}
+
+	// Method DirectCall wrapper functions
+	for _, mdc := range allMethodDCs {
+		b.WriteString(mdc.Code)
+		b.WriteString("\n")
 	}
 
 	src := b.String()

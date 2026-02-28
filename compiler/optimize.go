@@ -779,7 +779,7 @@ func fuseSliceOps(code []byte, localIsInt, localIsIntSlice []bool) []byte {
 			break
 		}
 
-		// Both patterns start with LOCAL LOCAL INDEXADDR SETLOCAL LOCAL = 13 bytes
+		// Both patterns start with LOCAL INDEXADDR SETLOCAL LOCAL = 13 bytes
 		// Pattern 1 continues with DEREF SETLOCAL = +4 bytes = 17 total
 		// Pattern 2 continues with LOCAL SETDEREF = +4 bytes = 17 total
 		if op == bytecode.OpLocal && i+17 <= len(code) {

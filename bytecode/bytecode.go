@@ -13,6 +13,7 @@ import (
 // abstraction rather than importing the importer package directly.
 type PackageLookup interface {
 	LookupExternalFunc(pkgPath, funcName string) (fn any, directCall func([]value.Value) value.Value, ok bool)
+	LookupMethodDirectCall(typeName, methodName string) (directCall func([]value.Value) value.Value, ok bool)
 }
 
 // CompiledFunction represents a function compiled to bytecode.
@@ -61,6 +62,11 @@ type ExternalFuncInfo struct {
 type ExternalMethodInfo struct {
 	// MethodName is the name of the method to call.
 	MethodName string
+
+	// DirectCall is an optional typed wrapper that avoids reflect.Call for this method.
+	// args[0] is the receiver, args[1:] are method arguments.
+	// If nil, the VM will use reflection for the call.
+	DirectCall func([]value.Value) value.Value
 }
 
 // Program represents a compiled program ready for execution.

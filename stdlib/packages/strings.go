@@ -2,8 +2,10 @@
 package packages
 
 import (
+	io "io"
 	"reflect"
 	"strings"
+	unicode "unicode"
 
 	"gig/importer"
 	"gig/value"
@@ -50,11 +52,11 @@ func init() {
 	pkg.AddFunction("SplitN", strings.SplitN, "", direct_strings_SplitN)
 	pkg.AddFunction("Title", strings.Title, "", direct_strings_Title)
 	pkg.AddFunction("ToLower", strings.ToLower, "", direct_strings_ToLower)
-	pkg.AddFunction("ToLowerSpecial", strings.ToLowerSpecial, "", nil)
+	pkg.AddFunction("ToLowerSpecial", strings.ToLowerSpecial, "", direct_strings_ToLowerSpecial)
 	pkg.AddFunction("ToTitle", strings.ToTitle, "", direct_strings_ToTitle)
-	pkg.AddFunction("ToTitleSpecial", strings.ToTitleSpecial, "", nil)
+	pkg.AddFunction("ToTitleSpecial", strings.ToTitleSpecial, "", direct_strings_ToTitleSpecial)
 	pkg.AddFunction("ToUpper", strings.ToUpper, "", direct_strings_ToUpper)
-	pkg.AddFunction("ToUpperSpecial", strings.ToUpperSpecial, "", nil)
+	pkg.AddFunction("ToUpperSpecial", strings.ToUpperSpecial, "", direct_strings_ToUpperSpecial)
 	pkg.AddFunction("ToValidUTF8", strings.ToValidUTF8, "", direct_strings_ToValidUTF8)
 	pkg.AddFunction("Trim", strings.Trim, "", direct_strings_Trim)
 	pkg.AddFunction("TrimFunc", strings.TrimFunc, "", nil)
@@ -70,6 +72,30 @@ func init() {
 	pkg.AddType("Builder", reflect.TypeOf(strings.Builder{}), "")
 	pkg.AddType("Reader", reflect.TypeOf(strings.Reader{}), "")
 	pkg.AddType("Replacer", reflect.TypeOf(strings.Replacer{}), "")
+
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("Builder", "Cap", direct_method_strings_Builder_Cap)
+	pkg.AddMethodDirectCall("Builder", "Grow", direct_method_strings_Builder_Grow)
+	pkg.AddMethodDirectCall("Builder", "Len", direct_method_strings_Builder_Len)
+	pkg.AddMethodDirectCall("Builder", "Reset", direct_method_strings_Builder_Reset)
+	pkg.AddMethodDirectCall("Builder", "String", direct_method_strings_Builder_String)
+	pkg.AddMethodDirectCall("Builder", "Write", direct_method_strings_Builder_Write)
+	pkg.AddMethodDirectCall("Builder", "WriteByte", direct_method_strings_Builder_WriteByte)
+	pkg.AddMethodDirectCall("Builder", "WriteRune", direct_method_strings_Builder_WriteRune)
+	pkg.AddMethodDirectCall("Builder", "WriteString", direct_method_strings_Builder_WriteString)
+	pkg.AddMethodDirectCall("Reader", "Len", direct_method_strings_Reader_Len)
+	pkg.AddMethodDirectCall("Reader", "Read", direct_method_strings_Reader_Read)
+	pkg.AddMethodDirectCall("Reader", "ReadAt", direct_method_strings_Reader_ReadAt)
+	pkg.AddMethodDirectCall("Reader", "ReadByte", direct_method_strings_Reader_ReadByte)
+	pkg.AddMethodDirectCall("Reader", "ReadRune", direct_method_strings_Reader_ReadRune)
+	pkg.AddMethodDirectCall("Reader", "Reset", direct_method_strings_Reader_Reset)
+	pkg.AddMethodDirectCall("Reader", "Seek", direct_method_strings_Reader_Seek)
+	pkg.AddMethodDirectCall("Reader", "Size", direct_method_strings_Reader_Size)
+	pkg.AddMethodDirectCall("Reader", "UnreadByte", direct_method_strings_Reader_UnreadByte)
+	pkg.AddMethodDirectCall("Reader", "UnreadRune", direct_method_strings_Reader_UnreadRune)
+	pkg.AddMethodDirectCall("Reader", "WriteTo", direct_method_strings_Reader_WriteTo)
+	pkg.AddMethodDirectCall("Replacer", "Replace", direct_method_strings_Replacer_Replace)
+	pkg.AddMethodDirectCall("Replacer", "WriteString", direct_method_strings_Replacer_WriteString)
 
 }
 
@@ -270,14 +296,32 @@ func direct_strings_ToLower(args []value.Value) value.Value {
 	return value.MakeString(string(strings.ToLower(a0)))
 }
 
+func direct_strings_ToLowerSpecial(args []value.Value) value.Value {
+	a0 := args[0].Interface().(unicode.SpecialCase)
+	a1 := args[1].String()
+	return value.MakeString(string(strings.ToLowerSpecial(a0, a1)))
+}
+
 func direct_strings_ToTitle(args []value.Value) value.Value {
 	a0 := args[0].String()
 	return value.MakeString(string(strings.ToTitle(a0)))
 }
 
+func direct_strings_ToTitleSpecial(args []value.Value) value.Value {
+	a0 := args[0].Interface().(unicode.SpecialCase)
+	a1 := args[1].String()
+	return value.MakeString(string(strings.ToTitleSpecial(a0, a1)))
+}
+
 func direct_strings_ToUpper(args []value.Value) value.Value {
 	a0 := args[0].String()
 	return value.MakeString(string(strings.ToUpper(a0)))
+}
+
+func direct_strings_ToUpperSpecial(args []value.Value) value.Value {
+	a0 := args[0].Interface().(unicode.SpecialCase)
+	a1 := args[1].String()
+	return value.MakeString(string(strings.ToUpperSpecial(a0, a1)))
 }
 
 func direct_strings_ToValidUTF8(args []value.Value) value.Value {
@@ -319,4 +363,142 @@ func direct_strings_TrimSuffix(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
 	return value.MakeString(string(strings.TrimSuffix(a0, a1)))
+}
+
+func direct_method_strings_Builder_Cap(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Builder)
+	return value.MakeInt(int64(recv.Cap()))
+}
+
+func direct_method_strings_Builder_Grow(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Builder)
+	a0 := int(args[1].Int())
+	recv.Grow(a0)
+	return value.MakeNil()
+}
+
+func direct_method_strings_Builder_Len(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Builder)
+	return value.MakeInt(int64(recv.Len()))
+}
+
+func direct_method_strings_Builder_Reset(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Builder)
+	recv.Reset()
+	return value.MakeNil()
+}
+
+func direct_method_strings_Builder_String(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Builder)
+	return value.MakeString(string(recv.String()))
+}
+
+func direct_method_strings_Builder_Write(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Builder)
+	a0 := args[1].Interface().([]byte)
+	r0, r1 := recv.Write(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_strings_Builder_WriteByte(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Builder)
+	a0 := byte(args[1].Uint())
+	return value.FromInterface(recv.WriteByte(a0))
+}
+
+func direct_method_strings_Builder_WriteRune(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Builder)
+	a0 := int32(args[1].Int())
+	r0, r1 := recv.WriteRune(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_strings_Builder_WriteString(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Builder)
+	a0 := args[1].String()
+	r0, r1 := recv.WriteString(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_strings_Reader_Len(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Reader)
+	return value.MakeInt(int64(recv.Len()))
+}
+
+func direct_method_strings_Reader_Read(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Reader)
+	a0 := args[1].Interface().([]byte)
+	r0, r1 := recv.Read(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_strings_Reader_ReadAt(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Reader)
+	a0 := args[1].Interface().([]byte)
+	a1 := args[2].Int()
+	r0, r1 := recv.ReadAt(a0, a1)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_strings_Reader_ReadByte(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Reader)
+	r0, r1 := recv.ReadByte()
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_strings_Reader_ReadRune(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Reader)
+	r0, r1, r2 := recv.ReadRune()
+	return value.FromInterface([]interface{}{r0, r1, r2})
+}
+
+func direct_method_strings_Reader_Reset(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Reader)
+	a0 := args[1].String()
+	recv.Reset(a0)
+	return value.MakeNil()
+}
+
+func direct_method_strings_Reader_Seek(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Reader)
+	a0 := args[1].Int()
+	a1 := int(args[2].Int())
+	r0, r1 := recv.Seek(a0, a1)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_strings_Reader_Size(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Reader)
+	return value.MakeInt(int64(recv.Size()))
+}
+
+func direct_method_strings_Reader_UnreadByte(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Reader)
+	return value.FromInterface(recv.UnreadByte())
+}
+
+func direct_method_strings_Reader_UnreadRune(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Reader)
+	return value.FromInterface(recv.UnreadRune())
+}
+
+func direct_method_strings_Reader_WriteTo(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Reader)
+	a0 := args[1].Interface().(io.Writer)
+	r0, r1 := recv.WriteTo(a0)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_strings_Replacer_Replace(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Replacer)
+	a0 := args[1].String()
+	return value.MakeString(string(recv.Replace(a0)))
+}
+
+func direct_method_strings_Replacer_WriteString(args []value.Value) value.Value {
+	recv := args[0].Interface().(*strings.Replacer)
+	a0 := args[1].Interface().(io.Writer)
+	a1 := args[2].String()
+	r0, r1 := recv.WriteString(a0, a1)
+	return value.FromInterface([]interface{}{r0, r1})
 }

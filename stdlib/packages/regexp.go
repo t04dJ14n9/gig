@@ -2,6 +2,7 @@
 package packages
 
 import (
+	io "io"
 	"reflect"
 	"regexp"
 
@@ -16,7 +17,7 @@ func init() {
 	pkg.AddFunction("Compile", regexp.Compile, "", direct_regexp_Compile)
 	pkg.AddFunction("CompilePOSIX", regexp.CompilePOSIX, "", direct_regexp_CompilePOSIX)
 	pkg.AddFunction("Match", regexp.Match, "", direct_regexp_Match)
-	pkg.AddFunction("MatchReader", regexp.MatchReader, "", nil)
+	pkg.AddFunction("MatchReader", regexp.MatchReader, "", direct_regexp_MatchReader)
 	pkg.AddFunction("MatchString", regexp.MatchString, "", direct_regexp_MatchString)
 	pkg.AddFunction("MustCompile", regexp.MustCompile, "", direct_regexp_MustCompile)
 	pkg.AddFunction("MustCompilePOSIX", regexp.MustCompilePOSIX, "", direct_regexp_MustCompilePOSIX)
@@ -24,6 +25,45 @@ func init() {
 
 	// Types
 	pkg.AddType("Regexp", reflect.TypeOf(regexp.Regexp{}), "")
+
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("Regexp", "Copy", direct_method_regexp_Regexp_Copy)
+	pkg.AddMethodDirectCall("Regexp", "Expand", direct_method_regexp_Regexp_Expand)
+	pkg.AddMethodDirectCall("Regexp", "ExpandString", direct_method_regexp_Regexp_ExpandString)
+	pkg.AddMethodDirectCall("Regexp", "Find", direct_method_regexp_Regexp_Find)
+	pkg.AddMethodDirectCall("Regexp", "FindAll", direct_method_regexp_Regexp_FindAll)
+	pkg.AddMethodDirectCall("Regexp", "FindAllIndex", direct_method_regexp_Regexp_FindAllIndex)
+	pkg.AddMethodDirectCall("Regexp", "FindAllString", direct_method_regexp_Regexp_FindAllString)
+	pkg.AddMethodDirectCall("Regexp", "FindAllStringIndex", direct_method_regexp_Regexp_FindAllStringIndex)
+	pkg.AddMethodDirectCall("Regexp", "FindAllStringSubmatch", direct_method_regexp_Regexp_FindAllStringSubmatch)
+	pkg.AddMethodDirectCall("Regexp", "FindAllStringSubmatchIndex", direct_method_regexp_Regexp_FindAllStringSubmatchIndex)
+	pkg.AddMethodDirectCall("Regexp", "FindAllSubmatch", direct_method_regexp_Regexp_FindAllSubmatch)
+	pkg.AddMethodDirectCall("Regexp", "FindAllSubmatchIndex", direct_method_regexp_Regexp_FindAllSubmatchIndex)
+	pkg.AddMethodDirectCall("Regexp", "FindIndex", direct_method_regexp_Regexp_FindIndex)
+	pkg.AddMethodDirectCall("Regexp", "FindReaderIndex", direct_method_regexp_Regexp_FindReaderIndex)
+	pkg.AddMethodDirectCall("Regexp", "FindReaderSubmatchIndex", direct_method_regexp_Regexp_FindReaderSubmatchIndex)
+	pkg.AddMethodDirectCall("Regexp", "FindString", direct_method_regexp_Regexp_FindString)
+	pkg.AddMethodDirectCall("Regexp", "FindStringIndex", direct_method_regexp_Regexp_FindStringIndex)
+	pkg.AddMethodDirectCall("Regexp", "FindStringSubmatch", direct_method_regexp_Regexp_FindStringSubmatch)
+	pkg.AddMethodDirectCall("Regexp", "FindStringSubmatchIndex", direct_method_regexp_Regexp_FindStringSubmatchIndex)
+	pkg.AddMethodDirectCall("Regexp", "FindSubmatch", direct_method_regexp_Regexp_FindSubmatch)
+	pkg.AddMethodDirectCall("Regexp", "FindSubmatchIndex", direct_method_regexp_Regexp_FindSubmatchIndex)
+	pkg.AddMethodDirectCall("Regexp", "LiteralPrefix", direct_method_regexp_Regexp_LiteralPrefix)
+	pkg.AddMethodDirectCall("Regexp", "Longest", direct_method_regexp_Regexp_Longest)
+	pkg.AddMethodDirectCall("Regexp", "MarshalText", direct_method_regexp_Regexp_MarshalText)
+	pkg.AddMethodDirectCall("Regexp", "Match", direct_method_regexp_Regexp_Match)
+	pkg.AddMethodDirectCall("Regexp", "MatchReader", direct_method_regexp_Regexp_MatchReader)
+	pkg.AddMethodDirectCall("Regexp", "MatchString", direct_method_regexp_Regexp_MatchString)
+	pkg.AddMethodDirectCall("Regexp", "NumSubexp", direct_method_regexp_Regexp_NumSubexp)
+	pkg.AddMethodDirectCall("Regexp", "ReplaceAll", direct_method_regexp_Regexp_ReplaceAll)
+	pkg.AddMethodDirectCall("Regexp", "ReplaceAllLiteral", direct_method_regexp_Regexp_ReplaceAllLiteral)
+	pkg.AddMethodDirectCall("Regexp", "ReplaceAllLiteralString", direct_method_regexp_Regexp_ReplaceAllLiteralString)
+	pkg.AddMethodDirectCall("Regexp", "ReplaceAllString", direct_method_regexp_Regexp_ReplaceAllString)
+	pkg.AddMethodDirectCall("Regexp", "Split", direct_method_regexp_Regexp_Split)
+	pkg.AddMethodDirectCall("Regexp", "String", direct_method_regexp_Regexp_String)
+	pkg.AddMethodDirectCall("Regexp", "SubexpIndex", direct_method_regexp_Regexp_SubexpIndex)
+	pkg.AddMethodDirectCall("Regexp", "SubexpNames", direct_method_regexp_Regexp_SubexpNames)
+	pkg.AddMethodDirectCall("Regexp", "UnmarshalText", direct_method_regexp_Regexp_UnmarshalText)
 
 }
 
@@ -43,6 +83,13 @@ func direct_regexp_Match(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].Interface().([]byte)
 	r0, r1 := regexp.Match(a0, a1)
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_regexp_MatchReader(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].Interface().(io.RuneReader)
+	r0, r1 := regexp.MatchReader(a0, a1)
 	return value.FromInterface([]interface{}{r0, r1})
 }
 
@@ -66,4 +113,241 @@ func direct_regexp_MustCompilePOSIX(args []value.Value) value.Value {
 func direct_regexp_QuoteMeta(args []value.Value) value.Value {
 	a0 := args[0].String()
 	return value.MakeString(string(regexp.QuoteMeta(a0)))
+}
+
+func direct_method_regexp_Regexp_Copy(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	return value.FromInterface(recv.Copy())
+}
+
+func direct_method_regexp_Regexp_Expand(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().([]byte)
+	a1 := args[2].Interface().([]byte)
+	a2 := args[3].Interface().([]byte)
+	a3 := args[4].Interface().([]int)
+	return value.FromInterface(recv.Expand(a0, a1, a2, a3))
+}
+
+func direct_method_regexp_Regexp_ExpandString(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().([]byte)
+	a1 := args[2].String()
+	a2 := args[3].String()
+	a3 := args[4].Interface().([]int)
+	return value.FromInterface(recv.ExpandString(a0, a1, a2, a3))
+}
+
+func direct_method_regexp_Regexp_Find(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().([]byte)
+	return value.FromInterface(recv.Find(a0))
+}
+
+func direct_method_regexp_Regexp_FindAll(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().([]byte)
+	a1 := int(args[2].Int())
+	return value.FromInterface(recv.FindAll(a0, a1))
+}
+
+func direct_method_regexp_Regexp_FindAllIndex(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().([]byte)
+	a1 := int(args[2].Int())
+	return value.FromInterface(recv.FindAllIndex(a0, a1))
+}
+
+func direct_method_regexp_Regexp_FindAllString(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].String()
+	a1 := int(args[2].Int())
+	return value.FromInterface(recv.FindAllString(a0, a1))
+}
+
+func direct_method_regexp_Regexp_FindAllStringIndex(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].String()
+	a1 := int(args[2].Int())
+	return value.FromInterface(recv.FindAllStringIndex(a0, a1))
+}
+
+func direct_method_regexp_Regexp_FindAllStringSubmatch(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].String()
+	a1 := int(args[2].Int())
+	return value.FromInterface(recv.FindAllStringSubmatch(a0, a1))
+}
+
+func direct_method_regexp_Regexp_FindAllStringSubmatchIndex(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].String()
+	a1 := int(args[2].Int())
+	return value.FromInterface(recv.FindAllStringSubmatchIndex(a0, a1))
+}
+
+func direct_method_regexp_Regexp_FindAllSubmatch(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().([]byte)
+	a1 := int(args[2].Int())
+	return value.FromInterface(recv.FindAllSubmatch(a0, a1))
+}
+
+func direct_method_regexp_Regexp_FindAllSubmatchIndex(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().([]byte)
+	a1 := int(args[2].Int())
+	return value.FromInterface(recv.FindAllSubmatchIndex(a0, a1))
+}
+
+func direct_method_regexp_Regexp_FindIndex(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().([]byte)
+	return value.FromInterface(recv.FindIndex(a0))
+}
+
+func direct_method_regexp_Regexp_FindReaderIndex(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().(io.RuneReader)
+	return value.FromInterface(recv.FindReaderIndex(a0))
+}
+
+func direct_method_regexp_Regexp_FindReaderSubmatchIndex(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().(io.RuneReader)
+	return value.FromInterface(recv.FindReaderSubmatchIndex(a0))
+}
+
+func direct_method_regexp_Regexp_FindString(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].String()
+	return value.MakeString(string(recv.FindString(a0)))
+}
+
+func direct_method_regexp_Regexp_FindStringIndex(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].String()
+	return value.FromInterface(recv.FindStringIndex(a0))
+}
+
+func direct_method_regexp_Regexp_FindStringSubmatch(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].String()
+	return value.FromInterface(recv.FindStringSubmatch(a0))
+}
+
+func direct_method_regexp_Regexp_FindStringSubmatchIndex(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].String()
+	return value.FromInterface(recv.FindStringSubmatchIndex(a0))
+}
+
+func direct_method_regexp_Regexp_FindSubmatch(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().([]byte)
+	return value.FromInterface(recv.FindSubmatch(a0))
+}
+
+func direct_method_regexp_Regexp_FindSubmatchIndex(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().([]byte)
+	return value.FromInterface(recv.FindSubmatchIndex(a0))
+}
+
+func direct_method_regexp_Regexp_LiteralPrefix(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	r0, r1 := recv.LiteralPrefix()
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_regexp_Regexp_Longest(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	recv.Longest()
+	return value.MakeNil()
+}
+
+func direct_method_regexp_Regexp_MarshalText(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	r0, r1 := recv.MarshalText()
+	return value.FromInterface([]interface{}{r0, r1})
+}
+
+func direct_method_regexp_Regexp_Match(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().([]byte)
+	return value.MakeBool(recv.Match(a0))
+}
+
+func direct_method_regexp_Regexp_MatchReader(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().(io.RuneReader)
+	return value.MakeBool(recv.MatchReader(a0))
+}
+
+func direct_method_regexp_Regexp_MatchString(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].String()
+	return value.MakeBool(recv.MatchString(a0))
+}
+
+func direct_method_regexp_Regexp_NumSubexp(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	return value.MakeInt(int64(recv.NumSubexp()))
+}
+
+func direct_method_regexp_Regexp_ReplaceAll(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().([]byte)
+	a1 := args[2].Interface().([]byte)
+	return value.FromInterface(recv.ReplaceAll(a0, a1))
+}
+
+func direct_method_regexp_Regexp_ReplaceAllLiteral(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().([]byte)
+	a1 := args[2].Interface().([]byte)
+	return value.FromInterface(recv.ReplaceAllLiteral(a0, a1))
+}
+
+func direct_method_regexp_Regexp_ReplaceAllLiteralString(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	return value.MakeString(string(recv.ReplaceAllLiteralString(a0, a1)))
+}
+
+func direct_method_regexp_Regexp_ReplaceAllString(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	return value.MakeString(string(recv.ReplaceAllString(a0, a1)))
+}
+
+func direct_method_regexp_Regexp_Split(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].String()
+	a1 := int(args[2].Int())
+	return value.FromInterface(recv.Split(a0, a1))
+}
+
+func direct_method_regexp_Regexp_String(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	return value.MakeString(string(recv.String()))
+}
+
+func direct_method_regexp_Regexp_SubexpIndex(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].String()
+	return value.MakeInt(int64(recv.SubexpIndex(a0)))
+}
+
+func direct_method_regexp_Regexp_SubexpNames(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	return value.FromInterface(recv.SubexpNames())
+}
+
+func direct_method_regexp_Regexp_UnmarshalText(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].Interface().([]byte)
+	return value.FromInterface(recv.UnmarshalText(a0))
 }

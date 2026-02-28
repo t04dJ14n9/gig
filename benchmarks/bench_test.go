@@ -4,8 +4,10 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"math"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -55,6 +57,20 @@ var luaSieveSrc string
 
 //go:embed testdata/lua_closure.lua
 var luaClosureSrc string
+
+// External call benchmark sources
+//
+//go:embed testdata/extcall_directcall.go
+var goExtCallDirectCallSrc string
+
+//go:embed testdata/extcall_reflect.go
+var goExtCallReflectSrc string
+
+//go:embed testdata/extcall_method.go
+var goExtCallMethodSrc string
+
+//go:embed testdata/extcall_mixed.go
+var goExtCallMixedSrc string
 
 // Keep embed import used (for go:embed directives above)
 var _ embed.FS
@@ -129,6 +145,57 @@ func nativeClosureCalls() int {
 }
 
 // ============================================================================
+// Native Go: External Call Benchmarks
+// ============================================================================
+
+func nativeExtCallDirectCall() int {
+	count := 0
+	for i := 0; i < 1000; i++ {
+		s := strconv.Itoa(i)
+		if strings.Contains(s, "5") {
+			count++
+		}
+		_ = strings.ToUpper(s)
+		_ = math.Sqrt(float64(i))
+	}
+	return count
+}
+
+func nativeExtCallReflect() int {
+	r := strings.NewReplacer("a", "b", "c", "d")
+	sum := 0
+	for i := 0; i < 1000; i++ {
+		s := strconv.Itoa(i)
+		result := r.Replace(s)
+		sum += len(result)
+	}
+	return sum
+}
+
+func nativeExtCallMethod() int {
+	sum := 0
+	for i := 0; i < 1000; i++ {
+		s := strconv.Itoa(i)
+		r := strings.NewReader(s)
+		sum += r.Len()
+	}
+	return sum
+}
+
+func nativeExtCallMixed() int {
+	sum := 0
+	for i := 0; i < 500; i++ {
+		s := strconv.Itoa(i)
+		if strings.Contains(s, "3") {
+			sum += len(strings.ToUpper(s))
+		}
+		r := strings.NewReader(s)
+		sum += r.Len()
+	}
+	return sum
+}
+
+// ============================================================================
 // Gig Benchmarks
 // ============================================================================
 
@@ -152,6 +219,12 @@ func BenchmarkGig_ArithSum(b *testing.B)     { benchGig(b, goArithSrc, "Arithmet
 func BenchmarkGig_BubbleSort(b *testing.B)   { benchGig(b, goBubbleSortSrc, "BubbleSort") }
 func BenchmarkGig_Sieve(b *testing.B)        { benchGig(b, goSieveSrc, "Sieve") }
 func BenchmarkGig_ClosureCalls(b *testing.B) { benchGig(b, goClosureSrc, "ClosureCalls") }
+
+// Gig: External call benchmarks
+func BenchmarkGig_ExtCallDirectCall(b *testing.B) { benchGig(b, goExtCallDirectCallSrc, "ExtCallDirectCall") }
+func BenchmarkGig_ExtCallReflect(b *testing.B)    { benchGig(b, goExtCallReflectSrc, "ExtCallReflect") }
+func BenchmarkGig_ExtCallMethod(b *testing.B)     { benchGig(b, goExtCallMethodSrc, "ExtCallMethod") }
+func BenchmarkGig_ExtCallMixed(b *testing.B)      { benchGig(b, goExtCallMixedSrc, "ExtCallMixed") }
 
 // ============================================================================
 // Yaegi Benchmarks
@@ -181,6 +254,12 @@ func BenchmarkYaegi_ArithSum(b *testing.B)     { benchYaegi(b, goArithSrc, "Arit
 func BenchmarkYaegi_BubbleSort(b *testing.B)   { benchYaegi(b, goBubbleSortSrc, "BubbleSort") }
 func BenchmarkYaegi_Sieve(b *testing.B)        { benchYaegi(b, goSieveSrc, "Sieve") }
 func BenchmarkYaegi_ClosureCalls(b *testing.B) { benchYaegi(b, goClosureSrc, "ClosureCalls") }
+
+// Yaegi: External call benchmarks
+func BenchmarkYaegi_ExtCallDirectCall(b *testing.B) { benchYaegi(b, goExtCallDirectCallSrc, "ExtCallDirectCall") }
+func BenchmarkYaegi_ExtCallReflect(b *testing.B)    { benchYaegi(b, goExtCallReflectSrc, "ExtCallReflect") }
+func BenchmarkYaegi_ExtCallMethod(b *testing.B)     { benchYaegi(b, goExtCallMethodSrc, "ExtCallMethod") }
+func BenchmarkYaegi_ExtCallMixed(b *testing.B)      { benchYaegi(b, goExtCallMixedSrc, "ExtCallMixed") }
 
 // ============================================================================
 // GopherLua Benchmarks
@@ -292,6 +371,31 @@ func BenchmarkNative_Sieve(b *testing.B) {
 func BenchmarkNative_ClosureCalls(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = nativeClosureCalls()
+	}
+}
+
+// Native: External call benchmarks
+func BenchmarkNative_ExtCallDirectCall(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = nativeExtCallDirectCall()
+	}
+}
+
+func BenchmarkNative_ExtCallReflect(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = nativeExtCallReflect()
+	}
+}
+
+func BenchmarkNative_ExtCallMethod(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = nativeExtCallMethod()
+	}
+}
+
+func BenchmarkNative_ExtCallMixed(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = nativeExtCallMixed()
 	}
 }
 

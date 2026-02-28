@@ -13,8 +13,8 @@ func init() {
 	pkg := importer.RegisterPackage("unicode", "unicode")
 
 	// Functions
-	pkg.AddFunction("In", unicode.In, "", nil)
-	pkg.AddFunction("Is", unicode.Is, "", nil)
+	pkg.AddFunction("In", unicode.In, "", direct_unicode_In)
+	pkg.AddFunction("Is", unicode.Is, "", direct_unicode_Is)
 	pkg.AddFunction("IsControl", unicode.IsControl, "", direct_unicode_IsControl)
 	pkg.AddFunction("IsDigit", unicode.IsDigit, "", direct_unicode_IsDigit)
 	pkg.AddFunction("IsGraphic", unicode.IsGraphic, "", direct_unicode_IsGraphic)
@@ -311,6 +311,26 @@ func init() {
 	pkg.AddType("RangeTable", reflect.TypeOf(unicode.RangeTable{}), "")
 	pkg.AddType("SpecialCase", reflect.TypeOf((*unicode.SpecialCase)(nil)).Elem(), "")
 
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("SpecialCase", "ToLower", direct_method_unicode_SpecialCase_ToLower)
+	pkg.AddMethodDirectCall("SpecialCase", "ToTitle", direct_method_unicode_SpecialCase_ToTitle)
+	pkg.AddMethodDirectCall("SpecialCase", "ToUpper", direct_method_unicode_SpecialCase_ToUpper)
+
+}
+
+func direct_unicode_In(args []value.Value) value.Value {
+	a0 := int32(args[0].Int())
+	varArgs := make([]*unicode.RangeTable, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].Interface().(*unicode.RangeTable)
+	}
+	return value.MakeBool(unicode.In(a0, varArgs...))
+}
+
+func direct_unicode_Is(args []value.Value) value.Value {
+	a0 := args[0].Interface().(*unicode.RangeTable)
+	a1 := int32(args[1].Int())
+	return value.MakeBool(unicode.Is(a0, a1))
 }
 
 func direct_unicode_IsControl(args []value.Value) value.Value {
@@ -402,4 +422,22 @@ func direct_unicode_ToTitle(args []value.Value) value.Value {
 func direct_unicode_ToUpper(args []value.Value) value.Value {
 	a0 := int32(args[0].Int())
 	return value.MakeInt(int64(unicode.ToUpper(a0)))
+}
+
+func direct_method_unicode_SpecialCase_ToLower(args []value.Value) value.Value {
+	recv := args[0].Interface().(unicode.SpecialCase)
+	a0 := int32(args[1].Int())
+	return value.MakeInt(int64(recv.ToLower(a0)))
+}
+
+func direct_method_unicode_SpecialCase_ToTitle(args []value.Value) value.Value {
+	recv := args[0].Interface().(unicode.SpecialCase)
+	a0 := int32(args[1].Int())
+	return value.MakeInt(int64(recv.ToTitle(a0)))
+}
+
+func direct_method_unicode_SpecialCase_ToUpper(args []value.Value) value.Value {
+	recv := args[0].Interface().(unicode.SpecialCase)
+	a0 := int32(args[1].Int())
+	return value.MakeInt(int64(recv.ToUpper(a0)))
 }
