@@ -538,6 +538,10 @@ const (
 	// Operands: [local_a:2] [const_b:2] [offset:2]
 	OpLessLocalConstJumpFalse
 
+	// OpLessEqLocalConstJumpFalse loads local[A] and const[B], jumps if NOT a<=b.
+	// Operands: [local_a:2] [const_b:2] [offset:2]
+	OpLessEqLocalConstJumpFalse
+
 	// OpAddSetLocal pops two values, adds, stores to local[A].
 	// Operands: [local_a:2]
 	OpAddSetLocal
@@ -557,6 +561,65 @@ const (
 	// OpLocalConstSubSetLocal loads local[A]-const[B], stores to local[C].
 	// Operands: [local_a:2] [const_b:2] [local_c:2]
 	OpLocalConstSubSetLocal
+
+	// ========================================
+	// Integer-specialized superinstructions
+	// These operate on intLocals []int64 directly (8 bytes per op instead of 32).
+	// Emitted by the peephole optimizer when compile-time type analysis confirms int types.
+	// ========================================
+
+	// OpIntLocalConstAddSetLocal: intLocals[C] = intLocals[A] + intConsts[B]
+	// Operands: [local_a:2] [const_b:2] [local_c:2]
+	OpIntLocalConstAddSetLocal
+
+	// OpIntLocalConstSubSetLocal: intLocals[C] = intLocals[A] - intConsts[B]
+	// Operands: [local_a:2] [const_b:2] [local_c:2]
+	OpIntLocalConstSubSetLocal
+
+	// OpIntLocalLocalAddSetLocal: intLocals[C] = intLocals[A] + intLocals[B]
+	// Operands: [local_a:2] [local_b:2] [local_c:2]
+	OpIntLocalLocalAddSetLocal
+
+	// OpIntLessLocalConstJumpFalse: if intLocals[A] >= intConsts[B] { goto offset }
+	// Operands: [local_a:2] [const_b:2] [offset:2]
+	OpIntLessLocalConstJumpFalse
+
+	// OpIntLessEqLocalConstJumpTrue: if intLocals[A] <= intConsts[B] { goto offset }
+	// Operands: [local_a:2] [const_b:2] [offset:2]
+	OpIntLessEqLocalConstJumpTrue
+
+	// OpIntLessEqLocalConstJumpFalse: if intLocals[A] > intConsts[B] { goto offset }
+	// Operands: [local_a:2] [const_b:2] [offset:2]
+	OpIntLessEqLocalConstJumpFalse
+
+	// OpIntLessLocalLocalJumpFalse: if intLocals[A] >= intLocals[B] { goto offset }
+	// Operands: [local_a:2] [local_b:2] [offset:2]
+	OpIntLessLocalLocalJumpFalse
+
+	// OpIntGreaterLocalLocalJumpTrue: if intLocals[A] > intLocals[B] { goto offset }
+	// Operands: [local_a:2] [local_b:2] [offset:2]
+	OpIntGreaterLocalLocalJumpTrue
+
+	// OpIntSetLocal: intLocals[idx] = pop().RawInt()
+	// Operands: [local_idx:2]
+	OpIntSetLocal
+
+	// OpIntLocal: push(MakeInt(intLocals[idx]))
+	// Operands: [local_idx:2]
+	OpIntLocal
+
+	// OpIntLessLocalConstJumpTrue: if intLocals[A] < intConsts[B] { goto offset }
+	// Operands: [local_a:2] [const_b:2] [offset:2]
+	OpIntLessLocalConstJumpTrue
+
+	// OpIntLessLocalLocalJumpTrue: if intLocals[A] < intLocals[B] { goto offset }
+	// Operands: [local_a:2] [local_b:2] [offset:2]
+	OpIntLessLocalLocalJumpTrue
+
+	// OpIntMoveLocal: intLocals[dst] = intLocals[src]; locals[dst] = locals[src]
+	// Eliminates push+pop phi-move pattern: INTLOCAL(src) INTSETLOCAL(dst)
+	// Operands: [src:2] [dst:2]
+	OpIntMoveLocal
 )
 
 // String returns the name of the opcode as a human-readable string.
@@ -762,6 +825,8 @@ func (op OpCode) String() string {
 		return "LESSLOCALLOCALJUMPFALSE"
 	case OpLessLocalConstJumpFalse:
 		return "LESSLOCALCONSTJUMPFALSE"
+	case OpLessEqLocalConstJumpFalse:
+		return "LESSEQLOCALCONSTJUMPFALSE"
 	case OpAddSetLocal:
 		return "ADDSETLOCAL"
 	case OpSubSetLocal:
@@ -772,6 +837,32 @@ func (op OpCode) String() string {
 		return "LOCALCONSTADDSETLOCAL"
 	case OpLocalConstSubSetLocal:
 		return "LOCALCONSTSUBSETLOCAL"
+	case OpIntLocalConstAddSetLocal:
+		return "INTLOCALCONSTADDSETLOCAL"
+	case OpIntLocalConstSubSetLocal:
+		return "INTLOCALCONSTSUBSETLOCAL"
+	case OpIntLocalLocalAddSetLocal:
+		return "INTLOCALLOCALADDSETLOCAL"
+	case OpIntLessLocalConstJumpFalse:
+		return "INTLESSLOCALCONSTJUMPFALSE"
+	case OpIntLessEqLocalConstJumpTrue:
+		return "INTLESSEQLOCALCONSTJUMPTRUE"
+	case OpIntLessEqLocalConstJumpFalse:
+		return "INTLESSEQLOCALCONSTJUMPFALSE"
+	case OpIntLessLocalLocalJumpFalse:
+		return "INTLESSLOCALLOCALJUMPFALSE"
+	case OpIntGreaterLocalLocalJumpTrue:
+		return "INTGREATERLOCALLOCALJUMPTRUE"
+	case OpIntSetLocal:
+		return "INTSETLOCAL"
+	case OpIntLocal:
+		return "INTLOCAL"
+	case OpIntLessLocalConstJumpTrue:
+		return "INTLESSLOCALCONSTJUMPTRUE"
+	case OpIntLessLocalLocalJumpTrue:
+		return "INTLESSLOCALLOCALJUMPTRUE"
+	case OpIntMoveLocal:
+		return "INTMOVELOCAL"
 	default:
 		return "UNKNOWN"
 	}
@@ -826,11 +917,27 @@ var OperandWidths = map[OpCode]int{
 	OpGreaterLocalLocalJumpTrue: 6, // local_a(2) + local_b(2) + offset(2)
 	OpLessLocalLocalJumpFalse:   6, // local_a(2) + local_b(2) + offset(2)
 	OpLessLocalConstJumpFalse:   6, // local_a(2) + const_b(2) + offset(2)
+	OpLessEqLocalConstJumpFalse: 6, // local_a(2) + const_b(2) + offset(2)
 	OpAddSetLocal:               2, // local_a(2)
 	OpSubSetLocal:               2, // local_a(2)
 	OpLocalLocalAddSetLocal:     6, // local_a(2) + local_b(2) + local_c(2)
 	OpLocalConstAddSetLocal:     6, // local_a(2) + const_b(2) + local_c(2)
 	OpLocalConstSubSetLocal:     6, // local_a(2) + const_b(2) + local_c(2)
+
+	// Integer-specialized operand widths
+	OpIntLocalConstAddSetLocal:     6, // local_a(2) + const_b(2) + local_c(2)
+	OpIntLocalConstSubSetLocal:     6, // local_a(2) + const_b(2) + local_c(2)
+	OpIntLocalLocalAddSetLocal:     6, // local_a(2) + local_b(2) + local_c(2)
+	OpIntLessLocalConstJumpFalse:   6, // local_a(2) + const_b(2) + offset(2)
+	OpIntLessEqLocalConstJumpTrue:  6, // local_a(2) + const_b(2) + offset(2)
+	OpIntLessEqLocalConstJumpFalse: 6, // local_a(2) + const_b(2) + offset(2)
+	OpIntLessLocalLocalJumpFalse:   6, // local_a(2) + local_b(2) + offset(2)
+	OpIntGreaterLocalLocalJumpTrue: 6, // local_a(2) + local_b(2) + offset(2)
+	OpIntSetLocal:                  2, // local_idx(2)
+	OpIntLocal:                     2, // local_idx(2)
+	OpIntLessLocalConstJumpTrue:    6, // local_a(2) + const_b(2) + offset(2)
+	OpIntLessLocalLocalJumpTrue:    6, // local_a(2) + local_b(2) + offset(2)
+	OpIntMoveLocal:                 4, // src(2) + dst(2)
 }
 
 // ReadUint16 reads a 2-byte operand from the bytecode.

@@ -37,6 +37,10 @@ type CompiledFunction struct {
 	// MaxStack is the maximum stack depth (for future optimization).
 	MaxStack int
 
+	// HasIntLocals indicates that this function uses OpInt* superinstructions
+	// and needs intLocals []int64 allocated in its Frame.
+	HasIntLocals bool
+
 	// Source is the original SSA function for debugging.
 	Source *ssa.Function
 }
@@ -75,6 +79,11 @@ type Program struct {
 	// PrebakedConstants is the pre-converted constant pool.
 	// Built once at startup to avoid per-OpConst value.FromInterface() calls.
 	PrebakedConstants []value.Value
+
+	// IntConstants is an int-specialized constant pool.
+	// For each constant that is an int64, IntConstants[i] holds the value.
+	// Used by OpInt* superinstructions for zero-overhead constant access.
+	IntConstants []int64
 
 	// Globals maps global variable names to their indices.
 	Globals map[string]int

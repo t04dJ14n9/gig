@@ -73,7 +73,7 @@ func (v Value) ToBool() Value {
 	case KindFloat:
 		return MakeBool(v.Float() != 0)
 	case KindString:
-		return MakeBool(v.str != "")
+		return MakeBool(v.obj.(string) != "")
 	default:
 		return MakeBool(!v.IsNil())
 	}

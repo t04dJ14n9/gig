@@ -25,9 +25,15 @@ func (vm *VM) callCompiledFunction(funcIdx, numArgs int) {
 	frame := vm.fpool.get(fn, vm.sp, nil)
 
 	// Pop arguments directly into the frame's locals (avoids temporary args slice)
+	intL := frame.intLocals
 	for i := numArgs - 1; i >= 0; i-- {
 		if i < fn.NumLocals {
-			frame.locals[i] = vm.pop()
+			v := vm.pop()
+			frame.locals[i] = v
+			// Mirror int parameters into intLocals for OpInt* opcodes
+			if intL != nil {
+				intL[i] = v.RawInt()
+			}
 		} else {
 			vm.pop()
 		}
@@ -45,6 +51,10 @@ func (vm *VM) callFunction(fn *bytecode.CompiledFunction, args []value.Value, fr
 	for i, arg := range args {
 		if i < fn.NumLocals {
 			frame.locals[i] = arg
+			// Mirror int parameters into intLocals for OpInt* opcodes
+			if frame.intLocals != nil {
+				frame.intLocals[i] = arg.RawInt()
+			}
 		}
 	}
 	vm.frames[vm.fp] = frame

@@ -23,6 +23,11 @@ type Frame struct {
 	// Parameters are stored in the first slots.
 	locals []value.Value
 
+	// intLocals is an integer-specialized local variable array.
+	// Used by OpInt* superinstructions for 8-byte operations (vs 32 bytes for Value).
+	// Allocated alongside locals when the function uses int-specialized opcodes.
+	intLocals []int64
+
 	// freeVars are free variables for closures.
 	// These are pointers to allow shared state with the enclosing scope.
 	freeVars []*value.Value
@@ -61,7 +66,7 @@ func newFrame(fn *bytecode.CompiledFunction, basePtr int, args []value.Value, fr
 		}
 	}
 
-	return &Frame{
+	f := &Frame{
 		fn:       fn,
 		ip:       0,
 		basePtr:  basePtr,
@@ -69,6 +74,18 @@ func newFrame(fn *bytecode.CompiledFunction, basePtr int, args []value.Value, fr
 		freeVars: freeVars,
 		defers:   nil,
 	}
+
+	// Allocate intLocals and mirror int parameters for OpInt* opcodes
+	if fn.HasIntLocals {
+		f.intLocals = make([]int64, fn.NumLocals)
+		for i, arg := range args {
+			if i < fn.NumLocals {
+				f.intLocals[i] = arg.RawInt()
+			}
+		}
+	}
+
+	return f
 }
 
 // framePool is a VM-local pool for reusing Frame objects and their locals slices.
@@ -94,9 +111,25 @@ func (p *framePool) get(fn *bytecode.CompiledFunction, basePtr int, freeVars []*
 		} else {
 			f.locals = make([]value.Value, fn.NumLocals)
 		}
+		// Reuse or allocate intLocals
+		if fn.HasIntLocals {
+			if cap(f.intLocals) >= fn.NumLocals {
+				f.intLocals = f.intLocals[:fn.NumLocals]
+				for i := range f.intLocals {
+					f.intLocals[i] = 0
+				}
+			} else {
+				f.intLocals = make([]int64, fn.NumLocals)
+			}
+		} else {
+			f.intLocals = nil
+		}
 	} else {
 		f = &Frame{
 			locals: make([]value.Value, fn.NumLocals),
+		}
+		if fn.HasIntLocals {
+			f.intLocals = make([]int64, fn.NumLocals)
 		}
 	}
 	f.fn = fn

@@ -1,8 +1,8 @@
 // Package value implements a tagged-union Value system for high-performance interpretation.
 //
 // The Value type is the fundamental data unit in the Gig interpreter. It uses a tagged-union
-// design that stores primitive types (bool, int, uint, float, string, complex) directly in
-// the struct fields, avoiding allocation and reflection overhead for common operations.
+// design that stores primitive types (bool, int, uint, float) directly in the num field,
+// avoiding allocation and reflection overhead for common operations.
 //
 // # Design Philosophy
 //
@@ -14,12 +14,13 @@
 //
 // # Memory Layout
 //
-// The Value struct is 48 bytes on 64-bit systems:
-//   - kind: 1 byte (type tag)
-//   - num: 8 bytes (stores bool, int, uint bits, float bits, complex real)
-//   - num2: 8 bytes (stores complex imaginary)
-//   - str: 16 bytes (string pointer + length)
-//   - obj: 16 bytes (interface for reflect.Value or composite types)
+// The Value struct is 32 bytes on 64-bit systems:
+//   - kind: 1 byte (type tag) + 7 bytes padding
+//   - num: 8 bytes (stores bool, int, uint bits, float bits)
+//   - obj: 16 bytes (interface for string, complex, reflect.Value, composite types)
+//
+// Primitives (int, float, bool, uint, nil) are stored entirely in kind+num with obj=nil,
+// so they never cause GC pressure.
 //
 // # Kind Types
 //
@@ -28,8 +29,8 @@
 //   - KindInt: signed integers (stored in num)
 //   - KindUint: unsigned integers (stored in num as bits)
 //   - KindFloat: floating point (stored in num as float64 bits)
-//   - KindString: string (stored in str)
-//   - KindComplex: complex number (real in num, imag in num2)
+//   - KindString: string (stored in obj)
+//   - KindComplex: complex number (stored in obj as complex128)
 //   - KindPointer, KindSlice, KindArray, KindMap, KindChan, KindFunc, KindStruct, KindInterface:
 //     stored in obj as reflect.Value or native Go value
 //   - KindReflect: fallback for types not directly supported
@@ -127,14 +128,15 @@ func (k Kind) String() string {
 }
 
 // Value is a tagged-union that stores Go values with minimal overhead.
-// For primitives, operations are done directly on the fields without reflection.
-// For complex types, obj stores reflect.Value or native Go values.
+// For primitives (int, float, bool, uint, nil), operations are done directly
+// on the num field without touching obj. For complex types (string, complex,
+// reflect.Value, slices, maps, etc.), obj stores the value.
+//
+// Layout: 32 bytes (kind:1 + pad:7 + num:8 + obj:16)
 type Value struct {
 	kind Kind
-	num  int64 // Stores: bool (0/1), int, uint bits, float64 bits, complex real part
-	num2 int64 // Stores: complex imag part (for KindComplex only)
-	str  string
-	obj  any // reflect.Value or native Go composite (fallback)
+	num  int64 // Stores: bool (0/1), int, uint bits, float64 bits
+	obj  any   // string, complex128, reflect.Value, native Go composites, or nil for primitives
 }
 
 // Kind returns the kind of the value.
@@ -207,15 +209,14 @@ func MakeFloat(f float64) Value {
 
 // MakeString creates a string value.
 func MakeString(s string) Value {
-	return Value{kind: KindString, str: s}
+	return Value{kind: KindString, obj: s}
 }
 
 // MakeComplex creates a complex value.
 func MakeComplex(real, imag float64) Value {
 	return Value{
 		kind: KindComplex,
-		num:  int64(math.Float64bits(real)),
-		num2: int64(math.Float64bits(imag)),
+		obj:  complex(real, imag),
 	}
 }
 
@@ -293,5 +294,5 @@ func FromInterface(v any) Value {
 
 // GoString returns a Go-syntax representation of the value.
 func (v Value) GoString() string {
-	return fmt.Sprintf("value.Value{kind:%v, num:%d, str:%q, obj:%v}", v.kind, v.num, v.str, v.obj)
+	return fmt.Sprintf("value.Value{kind:%v, num:%d, obj:%v}", v.kind, v.num, v.obj)
 }

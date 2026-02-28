@@ -43,7 +43,7 @@ func (v Value) String() string {
 	if v.kind != KindString {
 		panic(fmt.Sprintf("not a string: %v", v.kind))
 	}
-	return v.str
+	return v.obj.(string)
 }
 
 // Complex returns the complex value. Panics if not KindComplex.
@@ -51,7 +51,7 @@ func (v Value) Complex() complex128 {
 	if v.kind != KindComplex {
 		panic(fmt.Sprintf("not a complex: %v", v.kind))
 	}
-	return complex(math.Float64frombits(uint64(v.num)), math.Float64frombits(uint64(v.num2)))
+	return v.obj.(complex128)
 }
 
 // Interface returns the value as an interface{}.
@@ -68,9 +68,9 @@ func (v Value) Interface() any {
 	case KindFloat:
 		return v.Float()
 	case KindString:
-		return v.str
+		return v.obj.(string)
 	case KindComplex:
-		return v.Complex()
+		return v.obj.(complex128)
 	case KindReflect:
 		if rv, ok := v.obj.(reflect.Value); ok {
 			return rv.Interface()
@@ -98,9 +98,9 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 	case KindFloat:
 		return reflect.ValueOf(v.Float()).Convert(typ)
 	case KindString:
-		return reflect.ValueOf(v.str)
+		return reflect.ValueOf(v.obj.(string))
 	case KindComplex:
-		return reflect.ValueOf(v.Complex())
+		return reflect.ValueOf(v.obj.(complex128))
 	case KindSlice:
 		// Native int slice → target type conversion
 		if s, ok := v.obj.([]int64); ok && typ.Kind() == reflect.Slice {

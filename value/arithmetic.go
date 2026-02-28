@@ -18,11 +18,11 @@ func (v Value) Add(other Value) Value {
 	case KindFloat:
 		return MakeFloat(v.Float() + other.Float())
 	case KindString:
-		return MakeString(v.str + other.String())
+		return MakeString(v.obj.(string) + other.obj.(string))
 	case KindComplex:
-		r1, i1 := v.realImag()
-		r2, i2 := other.realImag()
-		return MakeComplex(r1+r2, i1+i2)
+		a := v.obj.(complex128)
+		b := other.obj.(complex128)
+		return MakeComplex(real(a)+real(b), imag(a)+imag(b))
 	default:
 		panic(fmt.Sprintf("cannot add %v", v.kind))
 	}
@@ -38,9 +38,9 @@ func (v Value) Sub(other Value) Value {
 	case KindFloat:
 		return MakeFloat(v.Float() - other.Float())
 	case KindComplex:
-		r1, i1 := v.realImag()
-		r2, i2 := other.realImag()
-		return MakeComplex(r1-r2, i1-i2)
+		a := v.obj.(complex128)
+		b := other.obj.(complex128)
+		return MakeComplex(real(a)-real(b), imag(a)-imag(b))
 	default:
 		panic(fmt.Sprintf("cannot sub %v", v.kind))
 	}
@@ -56,9 +56,9 @@ func (v Value) Mul(other Value) Value {
 	case KindFloat:
 		return MakeFloat(v.Float() * other.Float())
 	case KindComplex:
-		r1, i1 := v.realImag()
-		r2, i2 := other.realImag()
-		return MakeComplex(r1*r2-i1*i2, r1*i2+r2*i1)
+		a := v.obj.(complex128)
+		b := other.obj.(complex128)
+		return MakeComplex(real(a)*real(b)-imag(a)*imag(b), real(a)*imag(b)+real(b)*imag(a))
 	default:
 		panic(fmt.Sprintf("cannot mul %v", v.kind))
 	}
@@ -74,10 +74,10 @@ func (v Value) Div(other Value) Value {
 	case KindFloat:
 		return MakeFloat(v.Float() / other.Float())
 	case KindComplex:
-		r1, i1 := v.realImag()
-		r2, i2 := other.realImag()
-		denom := r2*r2 + i2*i2
-		return MakeComplex((r1*r2+i1*i2)/denom, (i1*r2-r1*i2)/denom)
+		a := v.obj.(complex128)
+		b := other.obj.(complex128)
+		denom := real(b)*real(b) + imag(b)*imag(b)
+		return MakeComplex((real(a)*real(b)+imag(a)*imag(b))/denom, (imag(a)*real(b)-real(a)*imag(b))/denom)
 	default:
 		panic(fmt.Sprintf("cannot div %v", v.kind))
 	}
@@ -105,8 +105,8 @@ func (v Value) Neg() Value {
 	case KindFloat:
 		return MakeFloat(-v.Float())
 	case KindComplex:
-		r, i := v.realImag()
-		return MakeComplex(-r, -i)
+		c := v.obj.(complex128)
+		return MakeComplex(-real(c), -imag(c))
 	default:
 		panic(fmt.Sprintf("cannot neg %v", v.kind))
 	}
@@ -154,7 +154,8 @@ func (v Value) Cmp(other Value) int {
 		}
 		return 0
 	case KindString:
-		a, b := v.str, other.String()
+		a := v.obj.(string)
+		b := other.obj.(string)
 		if a < b {
 			return -1
 		}
@@ -188,9 +189,9 @@ func (v Value) Equal(other Value) bool {
 	case KindFloat:
 		return v.Float() == other.Float()
 	case KindString:
-		return v.str == other.str
+		return v.obj.(string) == other.obj.(string)
 	case KindComplex:
-		return v.num == other.num && v.num2 == other.num2
+		return v.obj.(complex128) == other.obj.(complex128)
 	default:
 		// For complex types, use reflect.DeepEqual
 		return reflect.DeepEqual(v.Interface(), other.Interface())
@@ -269,9 +270,4 @@ func (v Value) Rsh(n uint) Value {
 	default:
 		panic(fmt.Sprintf("cannot rsh %v", v.kind))
 	}
-}
-
-// realImag extracts the real and imaginary parts of a complex value.
-func (v Value) realImag() (float64, float64) {
-	return math.Float64frombits(uint64(v.num)), math.Float64frombits(uint64(v.num2))
 }

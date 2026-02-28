@@ -9,7 +9,7 @@ import (
 func (v Value) Len() int {
 	switch v.kind {
 	case KindString:
-		return len(v.str)
+		return len(v.obj.(string))
 	case KindSlice:
 		// Native int slice fast path
 		if s, ok := v.obj.([]int64); ok {
@@ -55,7 +55,7 @@ func (v Value) Index(i int) Value {
 	switch v.kind {
 	case KindString:
 		// s[i] returns a byte (uint8), not a string
-		return MakeUint(uint64(v.str[i]))
+		return MakeUint(uint64(v.obj.(string)[i]))
 	case KindSlice:
 		// Native int slice fast path
 		if s, ok := v.obj.([]int64); ok {

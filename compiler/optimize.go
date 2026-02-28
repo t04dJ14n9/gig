@@ -31,6 +31,126 @@ func optimizeBytecode(code []byte) []byte {
 			break
 		}
 
+		// ============================================================
+		// Extended compare patterns: Local(A) Const/Local(B) CmpOp SetLocal(X) Local(X) Jump*
+		// SSA generates `t = a cmp b; if t goto ...` which compiles to
+		// LOCAL(A) CONST/LOCAL(B) CMP SETLOCAL(X) LOCAL(X) JUMP*(off)
+		// We fuse these 6-instruction sequences into a single compare+jump.
+		// ============================================================
+
+		// Pattern: OpLocal(A) OpConst(B) OpLessEq OpSetLocal(X) OpLocal(X) OpJumpFalse(off)
+		// -> OpLessEqLocalConstJumpFalse (which acts as "if a > b, jump")
+		// Since we don't have OpLessEqJumpFalse, we note that "NOT(a<=b)" == "a>b"
+		// We reuse the LessEq+JumpFalse semantics but need a dedicated approach.
+		// Simplest: fuse into OpLessEqLocalConstJumpTrue by flipping the jump target.
+		// Actually, OpJumpFalse means "if condition false, jump". So if (a<=b) is false, jump.
+		// The simplest approach: add a new combined opcode, or reuse existing infrastructure.
+		//
+		// For now, fuse the entire 6 instructions to eliminate SetLocal+Local overhead.
+		// The 6-byte pattern is:
+		//   LOCAL(A) [3] + CONST(B) [3] + LESSEQ [1] + SETLOCAL(X) [3] + LOCAL(X) [3] + JUMPFALSE(off) [3] = 16 bytes
+		// Fused: OpLessEqLocalConstJumpFalse(A, B, off) = 7 bytes
+
+		if op == bytecode.OpLocal && i+16 <= len(code) {
+			op2 := bytecode.OpCode(code[i+3])
+			op3 := bytecode.OpCode(code[i+6])
+			op4 := bytecode.OpCode(code[i+7])
+			op5 := bytecode.OpCode(code[i+10])
+			op6 := bytecode.OpCode(code[i+13])
+			if op4 == bytecode.OpSetLocal && op5 == bytecode.OpLocal {
+				setIdx := readU16(code, i+8)
+				getIdx := readU16(code, i+11)
+				if setIdx == getIdx {
+					a := readU16(code, i+1)
+					b := readU16(code, i+4)
+					// Local(A) Const(B) LessEq SetLocal(X) Local(X) JumpFalse(off)
+					if op2 == bytecode.OpConst && op3 == bytecode.OpLessEq && op6 == bytecode.OpJumpFalse {
+						offset := readU16(code, i+14)
+						newInstr := make([]byte, 7)
+						newInstr[0] = byte(bytecode.OpLessEqLocalConstJumpFalse)
+						writeU16(newInstr, 1, a)
+						writeU16(newInstr, 3, b)
+						writeU16(newInstr, 5, offset)
+						rewrites = append(rewrites, rewrite{i, i + 16, newInstr})
+						i += 16
+						continue
+					}
+					// Local(A) Const(B) LessEq SetLocal(X) Local(X) JumpTrue(off)
+					if op2 == bytecode.OpConst && op3 == bytecode.OpLessEq && op6 == bytecode.OpJumpTrue {
+						offset := readU16(code, i+14)
+						newInstr := make([]byte, 7)
+						newInstr[0] = byte(bytecode.OpLessEqLocalConstJumpTrue)
+						writeU16(newInstr, 1, a)
+						writeU16(newInstr, 3, b)
+						writeU16(newInstr, 5, offset)
+						rewrites = append(rewrites, rewrite{i, i + 16, newInstr})
+						i += 16
+						continue
+					}
+					// Local(A) Const(B) Less SetLocal(X) Local(X) JumpFalse(off)
+					if op2 == bytecode.OpConst && op3 == bytecode.OpLess && op6 == bytecode.OpJumpFalse {
+						offset := readU16(code, i+14)
+						newInstr := make([]byte, 7)
+						newInstr[0] = byte(bytecode.OpLessLocalConstJumpFalse)
+						writeU16(newInstr, 1, a)
+						writeU16(newInstr, 3, b)
+						writeU16(newInstr, 5, offset)
+						rewrites = append(rewrites, rewrite{i, i + 16, newInstr})
+						i += 16
+						continue
+					}
+					// Local(A) Const(B) Less SetLocal(X) Local(X) JumpTrue(off)
+					if op2 == bytecode.OpConst && op3 == bytecode.OpLess && op6 == bytecode.OpJumpTrue {
+						offset := readU16(code, i+14)
+						newInstr := make([]byte, 7)
+						newInstr[0] = byte(bytecode.OpLessLocalConstJumpTrue)
+						writeU16(newInstr, 1, a)
+						writeU16(newInstr, 3, b)
+						writeU16(newInstr, 5, offset)
+						rewrites = append(rewrites, rewrite{i, i + 16, newInstr})
+						i += 16
+						continue
+					}
+					// Local(A) Local(B) Less SetLocal(X) Local(X) JumpFalse(off)
+					if op2 == bytecode.OpLocal && op3 == bytecode.OpLess && op6 == bytecode.OpJumpFalse {
+						offset := readU16(code, i+14)
+						newInstr := make([]byte, 7)
+						newInstr[0] = byte(bytecode.OpLessLocalLocalJumpFalse)
+						writeU16(newInstr, 1, a)
+						writeU16(newInstr, 3, b)
+						writeU16(newInstr, 5, offset)
+						rewrites = append(rewrites, rewrite{i, i + 16, newInstr})
+						i += 16
+						continue
+					}
+					// Local(A) Local(B) Less SetLocal(X) Local(X) JumpTrue(off)
+					if op2 == bytecode.OpLocal && op3 == bytecode.OpLess && op6 == bytecode.OpJumpTrue {
+						offset := readU16(code, i+14)
+						newInstr := make([]byte, 7)
+						newInstr[0] = byte(bytecode.OpLessLocalLocalJumpTrue)
+						writeU16(newInstr, 1, a)
+						writeU16(newInstr, 3, b)
+						writeU16(newInstr, 5, offset)
+						rewrites = append(rewrites, rewrite{i, i + 16, newInstr})
+						i += 16
+						continue
+					}
+					// Local(A) Local(B) Greater SetLocal(X) Local(X) JumpTrue(off)
+					if op2 == bytecode.OpLocal && op3 == bytecode.OpGreater && op6 == bytecode.OpJumpTrue {
+						offset := readU16(code, i+14)
+						newInstr := make([]byte, 7)
+						newInstr[0] = byte(bytecode.OpGreaterLocalLocalJumpTrue)
+						writeU16(newInstr, 1, a)
+						writeU16(newInstr, 3, b)
+						writeU16(newInstr, 5, offset)
+						rewrites = append(rewrites, rewrite{i, i + 16, newInstr})
+						i += 16
+						continue
+					}
+				}
+			}
+		}
+
 		// Pattern: OpLocal(A) OpLocal(B) OpAdd OpSetLocal(C) -> OpLocalLocalAddSetLocal(A,B,C)
 		if op == bytecode.OpLocal && i+12 <= len(code) {
 			op2 := bytecode.OpCode(code[i+3])
@@ -324,6 +444,16 @@ func optimizeBytecode(code []byte) []byte {
 			}
 		}
 
+		// Pattern: OpJump that jumps to the very next instruction → remove
+		if op == bytecode.OpJump {
+			target := readU16(code, i+1)
+			if int(target) == instrEnd {
+				rewrites = append(rewrites, rewrite{i, instrEnd, nil})
+				i = instrEnd
+				continue
+			}
+		}
+
 		i = instrEnd
 	}
 
@@ -398,8 +528,13 @@ func fixJumpTargets(code []byte, offsetMap []int, oldLen int) {
 			}
 
 		case bytecode.OpLessLocalLocalJumpTrue, bytecode.OpLessLocalConstJumpTrue,
-			bytecode.OpLessEqLocalConstJumpTrue, bytecode.OpGreaterLocalLocalJumpTrue,
-			bytecode.OpLessLocalLocalJumpFalse, bytecode.OpLessLocalConstJumpFalse:
+			bytecode.OpLessEqLocalConstJumpTrue, bytecode.OpLessEqLocalConstJumpFalse,
+			bytecode.OpGreaterLocalLocalJumpTrue,
+			bytecode.OpLessLocalLocalJumpFalse, bytecode.OpLessLocalConstJumpFalse,
+			bytecode.OpIntLessLocalConstJumpFalse, bytecode.OpIntLessEqLocalConstJumpTrue,
+			bytecode.OpIntLessEqLocalConstJumpFalse,
+			bytecode.OpIntLessLocalLocalJumpFalse, bytecode.OpIntGreaterLocalLocalJumpTrue,
+			bytecode.OpIntLessLocalConstJumpTrue, bytecode.OpIntLessLocalLocalJumpTrue:
 			oldTarget := int(readU16(code, i+5))
 			if oldTarget < oldLen {
 				newTarget := offsetMap[oldTarget]
@@ -426,4 +561,212 @@ func readU16(code []byte, offset int) uint16 {
 func writeU16(code []byte, offset int, val uint16) {
 	code[offset] = byte(val >> 8)
 	code[offset+1] = byte(val)
+}
+
+// intSpecialize performs a two-pass upgrade of Value-based superinstructions
+// to OpInt* variants when all involved locals and constants are int-typed.
+//
+// Pass 1: Scan for superinstructions that CAN be upgraded. Collect which local
+// indices participate in int-specialized ops ("intUsed" set).
+//
+// Pass 2: Upgrade the superinstructions to OpInt* variants AND convert
+// OpSetLocal/OpLocal for intUsed locals to OpIntSetLocal/OpIntLocal bridges.
+//
+// Returns the modified code and whether any OpInt* opcodes were emitted.
+//
+//nolint:gocyclo,cyclop,funlen,maintidx,gocognit
+func intSpecialize(code []byte, localIsInt, constIsInt []bool) ([]byte, bool) {
+	// Pass 1: identify which local indices will participate in int ops.
+	intUsed := make([]bool, len(localIsInt))
+	hasInt := false
+
+	i := 0
+	for i < len(code) {
+		op := bytecode.OpCode(code[i])
+		width := opcodeWidth(op)
+		instrEnd := i + 1 + width
+		if instrEnd > len(code) {
+			break
+		}
+
+		switch op {
+		case bytecode.OpLocalConstAddSetLocal, bytecode.OpLocalConstSubSetLocal:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			c := int(readU16(code, i+5))
+			if safeIdx(a, localIsInt) && safeIdx(b, constIsInt) && safeIdx(c, localIsInt) {
+				intUsed[a] = true
+				intUsed[c] = true
+				hasInt = true
+			}
+		case bytecode.OpLocalLocalAddSetLocal:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			c := int(readU16(code, i+5))
+			if safeIdx(a, localIsInt) && safeIdx(b, localIsInt) && safeIdx(c, localIsInt) {
+				intUsed[a] = true
+				intUsed[b] = true
+				intUsed[c] = true
+				hasInt = true
+			}
+		case bytecode.OpLessLocalConstJumpFalse, bytecode.OpLessLocalConstJumpTrue,
+			bytecode.OpLessEqLocalConstJumpTrue, bytecode.OpLessEqLocalConstJumpFalse:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			if safeIdx(a, localIsInt) && safeIdx(b, constIsInt) {
+				intUsed[a] = true
+				hasInt = true
+			}
+		case bytecode.OpLessLocalLocalJumpFalse, bytecode.OpLessLocalLocalJumpTrue,
+			bytecode.OpGreaterLocalLocalJumpTrue:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			if safeIdx(a, localIsInt) && safeIdx(b, localIsInt) {
+				intUsed[a] = true
+				intUsed[b] = true
+				hasInt = true
+			}
+		}
+		i = instrEnd
+	}
+
+	if !hasInt {
+		return code, false
+	}
+
+	// Pass 2: upgrade superinstructions and bridge OpSetLocal/OpLocal.
+	i = 0
+	for i < len(code) {
+		op := bytecode.OpCode(code[i])
+		width := opcodeWidth(op)
+		instrEnd := i + 1 + width
+		if instrEnd > len(code) {
+			break
+		}
+
+		switch op {
+		case bytecode.OpLocalConstAddSetLocal:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			c := int(readU16(code, i+5))
+			if safeIdx(a, localIsInt) && safeIdx(b, constIsInt) && safeIdx(c, localIsInt) {
+				code[i] = byte(bytecode.OpIntLocalConstAddSetLocal)
+			}
+		case bytecode.OpLocalConstSubSetLocal:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			c := int(readU16(code, i+5))
+			if safeIdx(a, localIsInt) && safeIdx(b, constIsInt) && safeIdx(c, localIsInt) {
+				code[i] = byte(bytecode.OpIntLocalConstSubSetLocal)
+			}
+		case bytecode.OpLocalLocalAddSetLocal:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			c := int(readU16(code, i+5))
+			if safeIdx(a, localIsInt) && safeIdx(b, localIsInt) && safeIdx(c, localIsInt) {
+				code[i] = byte(bytecode.OpIntLocalLocalAddSetLocal)
+			}
+		case bytecode.OpLessLocalConstJumpFalse:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			if safeIdx(a, localIsInt) && safeIdx(b, constIsInt) {
+				code[i] = byte(bytecode.OpIntLessLocalConstJumpFalse)
+			}
+		case bytecode.OpLessLocalConstJumpTrue:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			if safeIdx(a, localIsInt) && safeIdx(b, constIsInt) {
+				code[i] = byte(bytecode.OpIntLessLocalConstJumpTrue)
+			}
+		case bytecode.OpLessEqLocalConstJumpTrue:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			if safeIdx(a, localIsInt) && safeIdx(b, constIsInt) {
+				code[i] = byte(bytecode.OpIntLessEqLocalConstJumpTrue)
+			}
+		case bytecode.OpLessEqLocalConstJumpFalse:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			if safeIdx(a, localIsInt) && safeIdx(b, constIsInt) {
+				code[i] = byte(bytecode.OpIntLessEqLocalConstJumpFalse)
+			}
+		case bytecode.OpLessLocalLocalJumpFalse:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			if safeIdx(a, localIsInt) && safeIdx(b, localIsInt) {
+				code[i] = byte(bytecode.OpIntLessLocalLocalJumpFalse)
+			}
+		case bytecode.OpLessLocalLocalJumpTrue:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			if safeIdx(a, localIsInt) && safeIdx(b, localIsInt) {
+				code[i] = byte(bytecode.OpIntLessLocalLocalJumpTrue)
+			}
+		case bytecode.OpGreaterLocalLocalJumpTrue:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			if safeIdx(a, localIsInt) && safeIdx(b, localIsInt) {
+				code[i] = byte(bytecode.OpIntGreaterLocalLocalJumpTrue)
+			}
+		// Bridge: upgrade OpSetLocal/OpLocal for int-participating locals
+		case bytecode.OpSetLocal:
+			a := int(readU16(code, i+1))
+			if a < len(intUsed) && intUsed[a] {
+				code[i] = byte(bytecode.OpIntSetLocal)
+			}
+		case bytecode.OpLocal:
+			a := int(readU16(code, i+1))
+			if a < len(intUsed) && intUsed[a] {
+				code[i] = byte(bytecode.OpIntLocal)
+			}
+		}
+
+		i = instrEnd
+	}
+
+	return code, hasInt
+}
+
+// safeIdx returns true if idx is within bounds and the flag is true.
+func safeIdx(idx int, flags []bool) bool {
+	return idx < len(flags) && flags[idx]
+}
+
+// fuseIntMoves replaces OpIntLocal(A) OpIntSetLocal(B) pairs with OpIntMoveLocal(A, B).
+// This eliminates unnecessary push+pop for phi-move patterns in int-specialized code.
+func fuseIntMoves(code []byte) []byte {
+	var rewrites []rewrite
+
+	i := 0
+	for i < len(code) {
+		op := bytecode.OpCode(code[i])
+		width := opcodeWidth(op)
+		instrEnd := i + 1 + width
+		if instrEnd > len(code) {
+			break
+		}
+
+		// Pattern: OpIntLocal(A) OpIntSetLocal(B) → OpIntMoveLocal(A, B)
+		if op == bytecode.OpIntLocal && i+6 <= len(code) {
+			op2 := bytecode.OpCode(code[i+3])
+			if op2 == bytecode.OpIntSetLocal {
+				src := readU16(code, i+1)
+				dst := readU16(code, i+4)
+				newInstr := make([]byte, 5)
+				newInstr[0] = byte(bytecode.OpIntMoveLocal)
+				writeU16(newInstr, 1, src)
+				writeU16(newInstr, 3, dst)
+				rewrites = append(rewrites, rewrite{i, i + 6, newInstr})
+				i += 6
+				continue
+			}
+		}
+
+		i = instrEnd
+	}
+
+	if len(rewrites) == 0 {
+		return code
+	}
+	return applyRewrites(code, rewrites)
 }

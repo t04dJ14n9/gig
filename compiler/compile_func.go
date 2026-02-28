@@ -1,10 +1,28 @@
 package compiler
 
 import (
+	"go/types"
+
 	"golang.org/x/tools/go/ssa"
 
 	"gig/bytecode"
 )
+
+// isIntType returns true if the type is a signed integer (int, int8..int64).
+func isIntType(t types.Type) bool {
+	if t == nil {
+		return false
+	}
+	basic, ok := t.Underlying().(*types.Basic)
+	if !ok {
+		return false
+	}
+	switch basic.Kind() {
+	case types.Int, types.Int8, types.Int16, types.Int32, types.Int64:
+		return true
+	}
+	return false
+}
 
 // compileFunction compiles a single SSA function to bytecode.
 func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction, error) {
@@ -64,6 +82,14 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 	c.currentFunc.NumLocals = c.symbolTable.NumLocals()
 	c.currentFunc.NumFreeVars = len(fn.FreeVars)
 
+	// Build local-is-int map for int-specialization
+	localIsInt := make([]bool, c.symbolTable.NumLocals())
+	for v, idx := range c.symbolTable.locals {
+		if isIntType(v.Type()) {
+			localIsInt[idx] = true
+		}
+	}
+
 	// Compile basic blocks in reverse postorder
 	blocks := reversePostorder(fn)
 	blockOffsets := make(map[*ssa.BasicBlock]int)
@@ -76,8 +102,24 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 	// Patch jump targets
 	c.patchJumps(blockOffsets)
 
+	// Build const-is-int map
+	constIsInt := make([]bool, len(c.constants))
+	for i, k := range c.constants {
+		if _, ok := k.(int64); ok {
+			constIsInt[i] = true
+		}
+	}
+
 	// Peephole optimization: fuse common instruction sequences into superinstructions
 	c.currentFunc.Instructions = optimizeBytecode(c.currentFunc.Instructions)
+
+	// Int-specialization pass: upgrade Value superinstructions to OpInt* variants
+	c.currentFunc.Instructions, c.currentFunc.HasIntLocals = intSpecialize(c.currentFunc.Instructions, localIsInt, constIsInt)
+
+	// Int move-fusion pass: OpIntLocal(A) OpIntSetLocal(B) → OpIntMoveLocal(A, B)
+	if c.currentFunc.HasIntLocals {
+		c.currentFunc.Instructions = fuseIntMoves(c.currentFunc.Instructions)
+	}
 
 	return c.currentFunc, nil
 }

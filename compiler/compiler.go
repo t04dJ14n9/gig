@@ -177,6 +177,14 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 		c.program.PrebakedConstants[i] = value.FromInterface(k)
 	}
 
+	// Build int-specialized constant pool for OpInt* superinstructions
+	c.program.IntConstants = make([]int64, len(c.constants))
+	for i, k := range c.constants {
+		if v, ok := k.(int64); ok {
+			c.program.IntConstants[i] = v
+		}
+	}
+
 	return c.program, nil
 }
 

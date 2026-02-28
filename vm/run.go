@@ -28,6 +28,26 @@ func (vm *VM) run() (value.Value, error) {
 	sp := vm.sp
 	prebaked := vm.program.PrebakedConstants
 
+	// Cache current frame state to avoid re-reading from vm.frames[] each iteration.
+	// These are only invalidated on call/return/executeOp.
+	var frame *Frame
+	var ins []byte
+	var locals []value.Value
+	var intLocals []int64
+	intConsts := vm.program.IntConstants
+
+	// loadFrame caches the current frame's hot fields into local variables.
+	loadFrame := func() {
+		frame = vm.frames[vm.fp-1]
+		ins = frame.fn.Instructions
+		locals = frame.locals
+		intLocals = frame.intLocals
+	}
+
+	if vm.fp > 0 {
+		loadFrame()
+	}
+
 	for vm.fp > 0 {
 		// Check context every 1024 instructions (bitwise AND is faster than modulus)
 		instructionCount++
@@ -41,15 +61,14 @@ func (vm *VM) run() (value.Value, error) {
 			}
 		}
 
-		frame := vm.frames[vm.fp-1]
-		ins := frame.fn.Instructions
-		locals := frame.locals
-
 		// Check for end of function
 		if frame.ip >= len(ins) {
 			// Pop frame and return it to pool
 			vm.fp--
 			vm.fpool.put(frame)
+			if vm.fp > 0 {
+				loadFrame()
+			}
 			continue
 		}
 
@@ -258,14 +277,15 @@ func (vm *VM) run() (value.Value, error) {
 			vm.callCompiledFunction(int(funcIdx), int(numArgs))
 			sp = vm.sp
 			stack = vm.stack
+			loadFrame()
 			continue
 
 		case bytecode.OpReturn:
 			vm.fpool.put(frame)
 			vm.fp--
 			if vm.fp > 0 {
-				prevFrame := vm.frames[vm.fp-1]
-				sp = prevFrame.basePtr
+				loadFrame()
+				sp = frame.basePtr
 			}
 			stack[sp] = value.MakeNil()
 			sp++
@@ -277,8 +297,8 @@ func (vm *VM) run() (value.Value, error) {
 			vm.fpool.put(frame)
 			vm.fp--
 			if vm.fp > 0 {
-				prevFrame := vm.frames[vm.fp-1]
-				sp = prevFrame.basePtr
+				loadFrame()
+				sp = frame.basePtr
 			}
 			stack[sp] = retVal
 			sp++
@@ -463,6 +483,23 @@ func (vm *VM) run() (value.Value, error) {
 			}
 			continue
 
+		case bytecode.OpLessEqLocalConstJumpFalse:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			offset := frame.readUint16()
+			a := locals[idxA]
+			b := prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				if a.RawInt() > b.RawInt() {
+					frame.ip = int(offset)
+				}
+			} else {
+				if a.Cmp(b) > 0 {
+					frame.ip = int(offset)
+				}
+			}
+			continue
+
 		case bytecode.OpAddSetLocal:
 			idx := frame.readUint16()
 			sp--
@@ -470,7 +507,11 @@ func (vm *VM) run() (value.Value, error) {
 			sp--
 			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idx] = value.MakeInt(a.RawInt() + b.RawInt())
+				r := a.RawInt() + b.RawInt()
+				locals[idx] = value.MakeInt(r)
+				if intLocals != nil {
+					intLocals[idx] = r
+				}
 			} else {
 				locals[idx] = a.Add(b)
 			}
@@ -483,7 +524,11 @@ func (vm *VM) run() (value.Value, error) {
 			sp--
 			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idx] = value.MakeInt(a.RawInt() - b.RawInt())
+				r := a.RawInt() - b.RawInt()
+				locals[idx] = value.MakeInt(r)
+				if intLocals != nil {
+					intLocals[idx] = r
+				}
 			} else {
 				locals[idx] = a.Sub(b)
 			}
@@ -528,6 +573,122 @@ func (vm *VM) run() (value.Value, error) {
 			}
 			continue
 
+		// ========================================
+		// Integer-specialized superinstructions
+		// Operate on intLocals []int64 directly (8 bytes vs 32 bytes per op)
+		// ========================================
+
+		case bytecode.OpIntLocalConstAddSetLocal:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			idxC := frame.readUint16()
+			r := intLocals[idxA] + intConsts[idxB]
+			intLocals[idxC] = r
+			locals[idxC] = value.MakeInt(r)
+			continue
+
+		case bytecode.OpIntLocalConstSubSetLocal:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			idxC := frame.readUint16()
+			r := intLocals[idxA] - intConsts[idxB]
+			intLocals[idxC] = r
+			locals[idxC] = value.MakeInt(r)
+			continue
+
+		case bytecode.OpIntLocalLocalAddSetLocal:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			idxC := frame.readUint16()
+			r := intLocals[idxA] + intLocals[idxB]
+			intLocals[idxC] = r
+			locals[idxC] = value.MakeInt(r)
+			continue
+
+		case bytecode.OpIntLessLocalConstJumpFalse:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			offset := frame.readUint16()
+			if intLocals[idxA] >= intConsts[idxB] {
+				frame.ip = int(offset)
+			}
+			continue
+
+		case bytecode.OpIntLessEqLocalConstJumpTrue:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			offset := frame.readUint16()
+			if intLocals[idxA] <= intConsts[idxB] {
+				frame.ip = int(offset)
+			}
+			continue
+
+		case bytecode.OpIntLessEqLocalConstJumpFalse:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			offset := frame.readUint16()
+			if intLocals[idxA] > intConsts[idxB] {
+				frame.ip = int(offset)
+			}
+			continue
+
+		case bytecode.OpIntLessLocalLocalJumpFalse:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			offset := frame.readUint16()
+			if intLocals[idxA] >= intLocals[idxB] {
+				frame.ip = int(offset)
+			}
+			continue
+
+		case bytecode.OpIntGreaterLocalLocalJumpTrue:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			offset := frame.readUint16()
+			if intLocals[idxA] > intLocals[idxB] {
+				frame.ip = int(offset)
+			}
+			continue
+
+		case bytecode.OpIntSetLocal:
+			idx := frame.readUint16()
+			sp--
+			v := stack[sp]
+			intLocals[idx] = v.RawInt()
+			locals[idx] = v
+			continue
+
+		case bytecode.OpIntLocal:
+			idx := frame.readUint16()
+			stack[sp] = value.MakeInt(intLocals[idx])
+			sp++
+			continue
+
+		case bytecode.OpIntLessLocalConstJumpTrue:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			offset := frame.readUint16()
+			if intLocals[idxA] < intConsts[idxB] {
+				frame.ip = int(offset)
+			}
+			continue
+
+		case bytecode.OpIntLessLocalLocalJumpTrue:
+			idxA := frame.readUint16()
+			idxB := frame.readUint16()
+			offset := frame.readUint16()
+			if intLocals[idxA] < intLocals[idxB] {
+				frame.ip = int(offset)
+			}
+			continue
+
+		case bytecode.OpIntMoveLocal:
+			src := frame.readUint16()
+			dst := frame.readUint16()
+			intLocals[dst] = intLocals[src]
+			locals[dst] = locals[src]
+			continue
+
 		default:
 			// Fall through to executeOp for all other opcodes
 		}
@@ -540,6 +701,10 @@ func (vm *VM) run() (value.Value, error) {
 		}
 		sp = vm.sp
 		stack = vm.stack
+		// Reload frame state in case executeOp changed it (call/return within executeOp)
+		if vm.fp > 0 {
+			loadFrame()
+		}
 
 		// Handle panic
 		if vm.panicking {
@@ -572,6 +737,9 @@ func (vm *VM) run() (value.Value, error) {
 			// Propagate panic to caller
 			vm.fp--
 			vm.fpool.put(frame)
+			if vm.fp > 0 {
+				loadFrame()
+			}
 			continue
 		}
 	}
