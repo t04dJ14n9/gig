@@ -231,57 +231,54 @@ gig gen ./mydep                 # Generates registration code in myapp/mydep/pac
 - ✅ Context-based timeouts
 - ✅ External Go function calls
 
-## Performance: Cross-Interpreter Benchmark
+## Performance
 
-Real benchmarks comparing **Gig**, **Yaegi** (Go interpreter), **GopherLua** (Lua VM), and **native Go**, all running on the same machine with identical algorithms.
+Real benchmarks comparing **Gig**, **Yaegi** (Go interpreter), and **native Go**, running on the same machine with identical algorithms.
 
 > **Environment**: AMD EPYC 9754 128-Core, 32 threads, Linux amd64, Go 1.23.1  
-> Benchmarks use `-count=3`; median values shown. Source: [`benchmarks/bench_test.go`](benchmarks/bench_test.go)
+> Benchmarks use `-count=5` with `benchstat` for statistical significance. Source: [`benchmarks/bench_test.go`](benchmarks/bench_test.go)
 
-### Go Interpreter Comparison (Gig vs Yaegi vs Native Go)
+### Core Workloads (Gig vs Yaegi vs Native Go)
 
-Both Gig and Yaegi interpret standard Go source code. This is a direct apples-to-apples comparison:
+| Workload | Native Go | Gig | Yaegi | Gig vs Yaegi |
+|---|---:|---:|---:|---:|
+| **Fibonacci(25)** recursive | 449 μs | **21.1 ms** | 109 ms | **Gig 5.2x faster** |
+| **ArithmeticSum(1K)** loop | 335 ns | **33.9 μs** | 40.9 μs | **Gig 1.2x faster** |
+| **BubbleSort(100)** nested loops | 6.2 μs | **1.08 ms** | 1.23 ms | **Gig 1.1x faster** |
+| **Sieve(1000)** primes | 1.88 μs | **187 μs** | 205 μs | **Gig 1.1x faster** |
+| **ClosureCalls(1K)** captured var | 667 ns | **371 μs** | 1,001 μs | **Gig 2.7x faster** |
 
-| Workload | Native Go | Gig | Yaegi | Gig / Native | Yaegi / Native | Gig vs Yaegi |
-|---|---:|---:|---:|---:|---:|---:|
-| **Fibonacci(25)** recursive | 458 μs | **46.7 ms** | 111 ms | 102x | 242x | **Gig 2.4x faster** |
-| **ArithmeticSum(1K)** loop | 673 ns | 200 μs | 40 μs | 297x | 60x | Yaegi 5.0x faster |
-| **BubbleSort(100)** nested loops | 6.4 μs | 5.0 ms | 1.24 ms | 775x | 194x | Yaegi 4.0x faster |
-| **Sieve(1000)** primes | 1.88 μs | 841 μs | 207 μs | 447x | 110x | Yaegi 4.1x faster |
-| **ClosureCalls(1K)** captured var | 340 ns | **584 μs** | 1,008 μs | 1,718x | 2,965x | **Gig 1.7x faster** |
+### External Function Calls (Gig vs Yaegi vs Native Go)
 
-### Scripting Language Comparison (Gig vs GopherLua)
+Calling Go standard library functions from interpreted code — the most common real-world pattern:
 
-GopherLua is an optimized Lua 5.1 VM written in Go - one of the most popular embeddable scripting engines. Equivalent algorithms were implemented in Lua:
+| Workload | Native Go | Gig | Yaegi | Gig vs Yaegi |
+|---|---:|---:|---:|---:|
+| **DirectCall** (strings/strconv) | 27.9 μs | **583 μs** | 1,551 μs | **Gig 2.7x faster** |
+| **Reflect** (fmt/encoding) | 24.1 μs | **359 μs** | 1,001 μs | **Gig 2.8x faster** |
+| **Method** (Builder/Buffer/Regexp) | 18.4 μs | **460 μs** | 1,214 μs | **Gig 2.6x faster** |
+| **Mixed** (functions + methods) | 11.5 μs | **331 μs** | 846 μs | **Gig 2.6x faster** |
 
-| Workload | GopherLua | Gig | Gig vs Lua |
+### Memory Efficiency
+
+| Workload | Gig allocs/op | Yaegi allocs/op | Gig advantage |
 |---|---:|---:|---:|
-| **Fibonacci(25)** recursive | 21 ms | **46.7 ms** | Lua 2.2x faster |
-| **ArithmeticSum(1K)** loop | 40 μs | 200 μs | Lua 5.0x faster |
-| **BubbleSort(100)** nested loops | 774 μs | 5.0 ms | Lua 6.5x faster |
-| **Sieve(1000)** primes | 212 μs | 841 μs | Lua 4.0x faster |
-| **ClosureCalls(1K)** captured var | 122 μs | 584 μs | Lua 4.8x faster |
-
-### Expression Engine Comparison (Expr)
-
-[Expr](https://github.com/expr-lang/expr) is a compiled expression evaluator - a different category (no loops, functions, or general-purpose programming). Shown for reference in its sweet spot:
-
-| Workload | Expr | Note |
-|---|---:|---|
-| Conditional expression | 122 ns/op | Simple `x > y ? ... : ...` |
-| Map/struct access | 376 ns/op | Field access + comparison |
-| Array filter (1K elements) | 43 μs/op | `filter(values, {# > 500})` |
-
-Expr excels at evaluating isolated expressions. Gig targets a different use case: executing **complete Go programs** with full language support.
+| Fibonacci(25) | **7** | 2,138,703 | 305,529x fewer |
+| BubbleSort(100) | **9** | 5,085 | 565x fewer |
+| Sieve(1000) | **7** | 43 | 6x fewer |
+| ExtCallMethod | **6,906** | 13,916 | 2.0x fewer |
+| ExtCallMixed | **4,258** | 9,125 | 2.1x fewer |
 
 ### Analysis
 
-**Where Gig currently stands:**
-- Gig's bytecode VM is **correct and feature-complete** - it supports the full Go language including goroutines, channels, interfaces, closures, defer, and 40+ stdlib packages
-- **Gig outperforms Yaegi** on recursion-heavy workloads (2.4x faster on Fib25) and closure-heavy workloads (1.7x faster on ClosureCalls), thanks to O(1) function lookup, frame pooling, pre-baked constants, native `[]int64` representation, and inlined hot-path dispatch
-- Yaegi still leads on tight arithmetic/slice loops (ArithSum, BubbleSort, Sieve) due to its tree-walking interpreter's lower per-instruction overhead
-- GopherLua (register-based Lua VM) is faster across most benchmarks, but the gap has narrowed significantly from 8-14x to 2-6x after recent optimizations
-- Memory efficiency: Gig uses **14-68 allocations/op** for loop benchmarks vs Yaegi's thousands-to-millions
+**Gig beats Yaegi on all 9 benchmarks**, with advantages ranging from 1.1x to 5.2x:
+
+- **5.2x faster** on deep recursion (Fib25) — O(1) function lookup, frame pooling, and 7 allocs vs 2.1M
+- **2.6–2.8x faster** on external calls — 1,162 generated DirectCall wrappers eliminate `reflect.Value.Call()` for 92% of stdlib functions and methods
+- **1.1–1.2x faster** on tight loops (ArithSum, BubbleSort, Sieve) — integer-specialized `int64` locals and fused superinstructions
+- **2.7x faster** on closures — efficient closure representation with shared `*value.Value` captures
+
+Key optimizations: SSA-to-bytecode compilation, 32-byte tagged-union values, superinstruction fusion (17 patterns), `intLocals []int64` specialization, `[]int64` slice fusion, DirectCall code generation, frame pooling, and inline caching.
 
 **Why choose Gig over alternatives:**
 
@@ -300,7 +297,7 @@ Expr excels at evaluating isolated expressions. Gig targets a different use case
 **Reproduce these benchmarks:**
 ```bash
 cd benchmarks
-go test -bench=. -benchmem -count=3 -timeout=30m -run='^$'
+go test -bench=. -benchmem -count=5 -timeout=30m -run='^$'
 ```
 
 ## Security

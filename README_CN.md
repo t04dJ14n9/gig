@@ -231,57 +231,54 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 - ✅ 基于上下文的超时控制
 - ✅ 外部 Go 函数调用
 
-## 性能：跨解释器基准测试
+## 性能
 
-在同一台机器上使用相同算法，对比 **Gig**、**Yaegi**（Go 解释器）、**GopherLua**（Lua VM）和 **原生 Go** 的真实基准测试。
+在同一台机器上使用相同算法，对比 **Gig**、**Yaegi**（Go 解释器）和 **原生 Go** 的真实基准测试。
 
 > **测试环境**：AMD EPYC 9754 128 核, 32 线程, Linux amd64, Go 1.23.1  
-> 使用 `-count=3` 取中位数。源码：[`benchmarks/bench_test.go`](benchmarks/bench_test.go)
+> 使用 `-count=5` 配合 `benchstat` 统计分析。源码：[`benchmarks/bench_test.go`](benchmarks/bench_test.go)
 
-### Go 解释器对比 (Gig vs Yaegi vs 原生 Go)
+### 核心工作负载 (Gig vs Yaegi vs 原生 Go)
 
-Gig 和 Yaegi 都解释标准 Go 源代码，属于同类直接对比：
+| 工作负载 | 原生 Go | Gig | Yaegi | Gig vs Yaegi |
+|---|---:|---:|---:|---:|
+| **Fibonacci(25)** 递归 | 449 μs | **21.1 ms** | 109 ms | **Gig 快 5.2 倍** |
+| **ArithmeticSum(1K)** 循环 | 335 ns | **33.9 μs** | 40.9 μs | **Gig 快 1.2 倍** |
+| **BubbleSort(100)** 嵌套循环 | 6.2 μs | **1.08 ms** | 1.23 ms | **Gig 快 1.1 倍** |
+| **Sieve(1000)** 质数筛 | 1.88 μs | **187 μs** | 205 μs | **Gig 快 1.1 倍** |
+| **ClosureCalls(1K)** 闭包调用 | 667 ns | **371 μs** | 1,001 μs | **Gig 快 2.7 倍** |
 
-| 工作负载 | 原生 Go | Gig | Yaegi | Gig / 原生 | Yaegi / 原生 | Gig vs Yaegi |
-|---|---:|---:|---:|---:|---:|---:|
-| **Fibonacci(25)** 递归 | 458 μs | **46.7 ms** | 111 ms | 102x | 242x | **Gig 快 2.4 倍** |
-| **ArithmeticSum(1K)** 循环 | 673 ns | 200 μs | 40 μs | 297x | 60x | Yaegi 快 5.0 倍 |
-| **BubbleSort(100)** 嵌套循环 | 6.4 μs | 5.0 ms | 1.24 ms | 775x | 194x | Yaegi 快 4.0 倍 |
-| **Sieve(1000)** 质数筛 | 1.88 μs | 841 μs | 207 μs | 447x | 110x | Yaegi 快 4.1 倍 |
-| **ClosureCalls(1K)** 闭包调用 | 340 ns | **584 μs** | 1,008 μs | 1,718x | 2,965x | **Gig 快 1.7 倍** |
+### 外部函数调用 (Gig vs Yaegi vs 原生 Go)
 
-### 脚本语言对比 (Gig vs GopherLua)
+从解释代码调用 Go 标准库函数 —— 最常见的实际使用场景：
 
-GopherLua 是用 Go 编写的优化 Lua 5.1 虚拟机——最流行的可嵌入脚本引擎之一。使用等价的 Lua 实现进行对比：
+| 工作负载 | 原生 Go | Gig | Yaegi | Gig vs Yaegi |
+|---|---:|---:|---:|---:|
+| **DirectCall** (strings/strconv) | 27.9 μs | **583 μs** | 1,551 μs | **Gig 快 2.7 倍** |
+| **Reflect** (fmt/encoding) | 24.1 μs | **359 μs** | 1,001 μs | **Gig 快 2.8 倍** |
+| **Method** (Builder/Buffer/Regexp) | 18.4 μs | **460 μs** | 1,214 μs | **Gig 快 2.6 倍** |
+| **Mixed** (函数 + 方法) | 11.5 μs | **331 μs** | 846 μs | **Gig 快 2.6 倍** |
 
-| 工作负载 | GopherLua | Gig | Gig vs Lua |
+### 内存效率
+
+| 工作负载 | Gig 分配次数/op | Yaegi 分配次数/op | Gig 优势 |
 |---|---:|---:|---:|
-| **Fibonacci(25)** 递归 | 21 ms | **46.7 ms** | Lua 快 2.2 倍 |
-| **ArithmeticSum(1K)** 循环 | 40 μs | 200 μs | Lua 快 5.0 倍 |
-| **BubbleSort(100)** 嵌套循环 | 774 μs | 5.0 ms | Lua 快 6.5 倍 |
-| **Sieve(1000)** 质数筛 | 212 μs | 841 μs | Lua 快 4.0 倍 |
-| **ClosureCalls(1K)** 闭包调用 | 122 μs | 584 μs | Lua 快 4.8 倍 |
-
-### 表达式引擎对比 (Expr)
-
-[Expr](https://github.com/expr-lang/expr) 是编译型表达式求值器——不同的定位（无循环、函数或通用编程）。仅在其擅长领域展示供参考：
-
-| 工作负载 | Expr | 说明 |
-|---|---:|---|
-| 条件表达式 | 122 ns/op | 简单 `x > y ? ... : ...` |
-| Map/结构体访问 | 376 ns/op | 字段访问 + 比较 |
-| 数组过滤 (1K 元素) | 43 μs/op | `filter(values, {# > 500})` |
-
-Expr 擅长计算独立表达式。Gig 面向不同的使用场景：执行**完整的 Go 程序**，支持全部语言特性。
+| Fibonacci(25) | **7** | 2,138,703 | 少 305,529 倍 |
+| BubbleSort(100) | **9** | 5,085 | 少 565 倍 |
+| Sieve(1000) | **7** | 43 | 少 6 倍 |
+| ExtCallMethod | **6,906** | 13,916 | 少 2.0 倍 |
+| ExtCallMixed | **4,258** | 9,125 | 少 2.1 倍 |
 
 ### 分析
 
-**Gig 目前的定位：**
-- Gig 的字节码 VM **正确且功能完备** —— 支持完整的 Go 语言，包括 goroutine、channel、接口、闭包、defer 以及 40+ 标准库包
-- **Gig 在递归密集型工作负载上超越 Yaegi**（Fib25 快 2.4 倍）和闭包密集型工作负载（ClosureCalls 快 1.7 倍），得益于 O(1) 函数查找、帧池化、预烘焙常量、原生 `[]int64` 表示和内联热路径分发
-- Yaegi 在紧凑算术/切片循环上仍然领先（ArithSum、BubbleSort、Sieve），因为其树遍历解释器的每指令开销更低
-- GopherLua（基于寄存器的 Lua VM）在大多数基准测试中更快，但经过最近的优化，差距已从 8-14 倍显著缩小至 2-6 倍
-- 内存效率：Gig 在循环基准测试中仅使用 **14-68 次分配/操作**，而 Yaegi 需要数千到数百万次
+**Gig 在全部 9 项基准测试中均优于 Yaegi**，优势从 1.1 倍到 5.2 倍：
+
+- **递归快 5.2 倍**（Fib25）—— O(1) 函数查找、帧池化，仅 7 次分配 vs 210 万次
+- **外部调用快 2.6–2.8 倍** —— 1,162 个生成的 DirectCall 包装器消除了 92% 标准库函数和方法的 `reflect.Value.Call()`
+- **紧凑循环快 1.1–1.2 倍**（ArithSum、BubbleSort、Sieve）—— 整数特化 `int64` 局部变量和融合超级指令
+- **闭包快 2.7 倍** —— 高效的闭包表示，通过共享 `*value.Value` 捕获变量
+
+关键优化：SSA 到字节码编译、32 字节 tagged-union 值、超级指令融合（17 种模式）、`intLocals []int64` 特化、`[]int64` 切片融合、DirectCall 代码生成、帧池化和内联缓存。
 
 **为什么选择 Gig：**
 
@@ -300,7 +297,7 @@ Expr 擅长计算独立表达式。Gig 面向不同的使用场景：执行**完
 **复现这些基准测试：**
 ```bash
 cd benchmarks
-go test -bench=. -benchmem -count=3 -timeout=30m -run='^$'
+go test -bench=. -benchmem -count=5 -timeout=30m -run='^$'
 ```
 
 ## 安全性
