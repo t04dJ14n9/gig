@@ -11,16 +11,15 @@ import (
 // The child VM shares the globals pointer with the parent for communication.
 func (vm *VM) newChildVM() *VM {
 	child := &VM{
-		program:    vm.program,
-		stack:      make([]value.Value, 1024),
-		sp:         0,
-		frames:     make([]*Frame, 64),
-		fp:         0,
-		globals:    nil, // Not used when globalsPtr is set
-		globalsPtr: vm.globalsPtr,
-		ctx:        vm.ctx,
-		// extCallCache is intentionally not copied; sync.Map must not be copied.
-		// The child VM will lazily populate its own cache.
+		program:      vm.program,
+		stack:        make([]value.Value, 1024),
+		sp:           0,
+		frames:       make([]*Frame, 64),
+		fp:           0,
+		globals:      nil, // Not used when globalsPtr is set
+		globalsPtr:   vm.globalsPtr,
+		ctx:          vm.ctx,
+		extCallCache: vm.extCallCache, // Share cache (read-mostly, safe for goroutines)
 	}
 	// If parent doesn't have a globalsPtr yet, create one for sharing
 	if child.globalsPtr == nil {

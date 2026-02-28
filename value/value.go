@@ -302,6 +302,16 @@ func FromInterface(v any) Value {
 	return MakeFromReflect(reflect.ValueOf(v))
 }
 
+// RawObj returns the raw obj field for direct type assertions in the hot path.
+// This avoids the overhead of Interface() which goes through a full kind-switch.
+func (v Value) RawObj() any { return v.obj }
+
+// MakeFunc creates a Value storing a function/closure pointer directly in obj.
+// This avoids the reflect.ValueOf overhead of FromInterface for callable objects.
+func MakeFunc(fn any) Value {
+	return Value{kind: KindFunc, obj: fn}
+}
+
 // GoString returns a Go-syntax representation of the value.
 func (v Value) GoString() string {
 	return fmt.Sprintf("value.Value{kind:%v, num:%d, obj:%v}", v.kind, v.num, v.obj)

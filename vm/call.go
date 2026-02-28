@@ -79,15 +79,18 @@ func (vm *VM) callExternal(funcIdx, numArgs int) {
 		}
 	}
 
-	// Check inline cache
-	cachedEntry, cached := vm.extCallCache.Load(funcIdx)
-	if !cached {
-		// Resolve and cache
-		cacheEntry := vm.resolveExternalFunc(funcIdx)
-		vm.extCallCache.Store(funcIdx, cacheEntry)
-		cachedEntry = cacheEntry
+	// Check inline cache (O(1) slice access, no sync.Map overhead)
+	var cacheEntry *extCallCacheEntry
+	if funcIdx < len(vm.extCallCache) {
+		cacheEntry = vm.extCallCache[funcIdx]
 	}
-	cacheEntry := cachedEntry.(*extCallCacheEntry)
+	if cacheEntry == nil {
+		// Resolve and cache
+		cacheEntry = vm.resolveExternalFunc(funcIdx)
+		if funcIdx < len(vm.extCallCache) {
+			vm.extCallCache[funcIdx] = cacheEntry
+		}
+	}
 
 	// Fast path: DirectCall available
 	if cacheEntry.directCall != nil {

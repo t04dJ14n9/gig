@@ -71,6 +71,8 @@ func (v Value) Interface() any {
 		return v.obj.(string)
 	case KindComplex:
 		return v.obj.(complex128)
+	case KindFunc:
+		return v.obj
 	case KindReflect:
 		if rv, ok := v.obj.(reflect.Value); ok {
 			return rv.Interface()
@@ -101,6 +103,8 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 		return reflect.ValueOf(v.obj.(string))
 	case KindComplex:
 		return reflect.ValueOf(v.obj.(complex128))
+	case KindFunc:
+		return reflect.ValueOf(v.obj)
 	case KindSlice:
 		// Native int slice → target type conversion
 		if s, ok := v.obj.([]int64); ok && typ.Kind() == reflect.Slice {

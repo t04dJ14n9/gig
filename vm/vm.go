@@ -80,8 +80,8 @@ type VM struct {
 	panicVal value.Value
 
 	// extCallCache caches resolved external function info for fast dispatch.
-	// Uses sync.Map for safe concurrent access from goroutines.
-	extCallCache sync.Map // map[int]*extCallCacheEntry
+	// Uses a plain slice indexed by funcIdx for O(1) lock-free access.
+	extCallCache []*extCallCacheEntry
 
 	// fpool recycles Frame objects to reduce heap allocations.
 	fpool framePool
@@ -110,13 +110,13 @@ type extCallCacheEntry struct {
 // The VM is created with an empty stack and call frame array.
 func New(program *bytecode.Program) *VM {
 	return &VM{
-		program: program,
-		stack:   make([]value.Value, 1024), // initial stack size
-		sp:      0,
-		frames:  make([]*Frame, 64), // max call depth
-		fp:      0,
-		globals: make([]value.Value, len(program.Globals)),
-		// extCallCache is a sync.Map, zero value is ready to use
+		program:      program,
+		stack:        make([]value.Value, 1024), // initial stack size
+		sp:           0,
+		frames:       make([]*Frame, 64), // max call depth
+		fp:           0,
+		globals:      make([]value.Value, len(program.Globals)),
+		extCallCache: make([]*extCallCacheEntry, len(program.Constants)),
 	}
 }
 

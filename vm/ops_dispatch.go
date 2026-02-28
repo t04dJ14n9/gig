@@ -79,12 +79,18 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		if int(idx) < len(frame.freeVars) && frame.freeVars[idx] != nil {
 			val := *frame.freeVars[idx]
 			// If the value is a Value containing a Closure, return it directly for indirect calls
-			// Check if this is a wrapped closure
+			if val.Kind() == value.KindFunc {
+				vm.push(val)
+				return nil
+			}
+			// Legacy: check KindReflect for backward compatibility
 			if val.Kind() == value.KindReflect {
-				iface := val.Interface()
-				if closure, ok := iface.(*Closure); ok {
-					vm.push(value.FromInterface(closure))
-					return nil
+				if _, ok := val.RawObj().(reflect.Value); ok {
+					iface := val.Interface()
+					if closure, ok := iface.(*Closure); ok {
+						vm.push(value.MakeFunc(closure))
+						return nil
+					}
 				}
 			}
 			vm.push(val)
@@ -828,34 +834,37 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	case bytecode.OpClosure:
 		funcIdx := frame.readUint16()
 		numFree := frame.readByte()
-		// Get free variables (popped in reverse order)
-		freeVars := make([]*value.Value, numFree)
-		for i := int(numFree) - 1; i >= 0; i-- {
-			v := vm.pop()
-			// Check if this is a slot reference (pointer to a Value)
-			// This happens when OpAddr is used for closure capture
-			if v.Kind() == value.KindReflect {
-				// The obj field contains the actual pointer
-				iface := v.Interface()
-				// OpAddr creates a *value.Value pointing to a local slot
-				if ptr, ok := iface.(*value.Value); ok && ptr != nil {
-					freeVars[i] = ptr
-					continue
-				}
-			}
-			// Otherwise, take address of the value (copy)
-			// This is the old behavior for non-reference captures
-			freeVars[i] = &v
-		}
 		// Look up the function by index (O(1))
 		var fn *bytecode.CompiledFunction
 		if int(funcIdx) < len(vm.program.FuncByIndex) {
 			fn = vm.program.FuncByIndex[funcIdx]
 		}
 		if fn != nil {
-			closure := &Closure{Fn: fn, FreeVars: freeVars}
-			vm.push(value.FromInterface(closure))
+			closure := getClosure(fn, int(numFree))
+			// Get free variables (popped in reverse order)
+			for i := int(numFree) - 1; i >= 0; i-- {
+				v := vm.pop()
+				// Check if this is a slot reference (pointer to a Value)
+				// This happens when OpAddr is used for closure capture
+				if v.Kind() == value.KindReflect {
+					// The obj field contains the actual pointer
+					iface := v.Interface()
+					// OpAddr creates a *value.Value pointing to a local slot
+					if ptr, ok := iface.(*value.Value); ok && ptr != nil {
+						closure.FreeVars[i] = ptr
+						continue
+					}
+				}
+				// Otherwise, take address of the value (copy)
+				// This is the old behavior for non-reference captures
+				closure.FreeVars[i] = &v
+			}
+			vm.push(value.MakeFunc(closure))
 		} else {
+			// Still need to pop free vars to keep stack balanced
+			for i := 0; i < int(numFree); i++ {
+				vm.pop()
+			}
 			vm.push(value.MakeNil())
 		}
 
@@ -913,10 +922,8 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 
 		// Pop the closure
 		callee := vm.pop()
-		calleeIface := callee.Interface()
 
-		switch closure := calleeIface.(type) {
-		case *Closure:
+		if closure, ok := callee.RawObj().(*Closure); ok {
 			// Create a child VM with shared globals
 			childVM := vm.newChildVM()
 
@@ -1301,19 +1308,23 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	// Indirect call (closures, function values)
 	case bytecode.OpCallIndirect:
 		numArgs := frame.readByte()
-		// Pop arguments
-		args := make([]value.Value, numArgs)
+		// Pop arguments using stack-allocated buffer
+		var argsBuf [8]value.Value
+		var args []value.Value
+		if int(numArgs) <= len(argsBuf) {
+			args = argsBuf[:numArgs]
+		} else {
+			args = make([]value.Value, numArgs)
+		}
 		for i := int(numArgs) - 1; i >= 0; i-- {
 			args[i] = vm.pop()
 		}
 		// Pop the callee
 		callee := vm.pop()
-		calleeIface := callee.Interface()
-		switch fn := calleeIface.(type) {
-		case *Closure:
+		if fn, ok := callee.RawObj().(*Closure); ok {
 			// Call closure: create new frame with free vars
 			vm.callFunction(fn.Fn, args, fn.FreeVars)
-		default:
+		} else {
 			// Not a known callable — push nil
 			vm.push(value.MakeNil())
 		}

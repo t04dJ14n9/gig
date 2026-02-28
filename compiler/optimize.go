@@ -211,6 +211,66 @@ func optimizeBytecode(code []byte) []byte {
 			}
 		}
 
+		// Pattern: OpLocal(A) OpLocal(B) OpSub OpSetLocal(C) -> OpLocalLocalSubSetLocal(A,B,C)
+		if op == bytecode.OpLocal && i+12 <= len(code) {
+			op2 := bytecode.OpCode(code[i+3])
+			op3 := bytecode.OpCode(code[i+6])
+			op4 := bytecode.OpCode(code[i+7])
+			if op2 == bytecode.OpLocal && op3 == bytecode.OpSub && op4 == bytecode.OpSetLocal {
+				a := readU16(code, i+1)
+				b := readU16(code, i+4)
+				c := readU16(code, i+8)
+				newInstr := make([]byte, 7)
+				newInstr[0] = byte(bytecode.OpLocalLocalSubSetLocal)
+				writeU16(newInstr, 1, a)
+				writeU16(newInstr, 3, b)
+				writeU16(newInstr, 5, c)
+				rewrites = append(rewrites, rewrite{i, i + 10, newInstr})
+				i += 10
+				continue
+			}
+		}
+
+		// Pattern: OpLocal(A) OpLocal(B) OpMul OpSetLocal(C) -> OpLocalLocalMulSetLocal(A,B,C)
+		if op == bytecode.OpLocal && i+12 <= len(code) {
+			op2 := bytecode.OpCode(code[i+3])
+			op3 := bytecode.OpCode(code[i+6])
+			op4 := bytecode.OpCode(code[i+7])
+			if op2 == bytecode.OpLocal && op3 == bytecode.OpMul && op4 == bytecode.OpSetLocal {
+				a := readU16(code, i+1)
+				b := readU16(code, i+4)
+				c := readU16(code, i+8)
+				newInstr := make([]byte, 7)
+				newInstr[0] = byte(bytecode.OpLocalLocalMulSetLocal)
+				writeU16(newInstr, 1, a)
+				writeU16(newInstr, 3, b)
+				writeU16(newInstr, 5, c)
+				rewrites = append(rewrites, rewrite{i, i + 10, newInstr})
+				i += 10
+				continue
+			}
+		}
+
+		// Pattern: OpLocal(A) OpConst(B) OpMul OpSetLocal(C) -> OpLocalConstMulSetLocal(A,B,C)
+		if op == bytecode.OpLocal && i+12 <= len(code) {
+			op2 := bytecode.OpCode(code[i+3])
+			op3 := bytecode.OpCode(code[i+6])
+			op4 := bytecode.OpCode(code[i+7])
+			if op2 == bytecode.OpConst && op3 == bytecode.OpMul && op4 == bytecode.OpSetLocal {
+				a := readU16(code, i+1)
+				b := readU16(code, i+4)
+				c := readU16(code, i+8)
+				newInstr := make([]byte, 7)
+				newInstr[0] = byte(bytecode.OpLocalConstMulSetLocal)
+				writeU16(newInstr, 1, a)
+				writeU16(newInstr, 3, b)
+				writeU16(newInstr, 5, c)
+				rewrites = append(rewrites, rewrite{i, i + 10, newInstr})
+				i += 10
+				continue
+			}
+		}
+
 		// Pattern: OpLocal(A) OpLocal(B) OpLess OpJumpTrue(offset) -> OpLessLocalLocalJumpTrue(A,B,offset)
 		if op == bytecode.OpLocal && i+10 <= len(code) {
 			op2 := bytecode.OpCode(code[i+3])
@@ -547,11 +607,9 @@ func fixJumpTargets(code []byte, offsetMap []int, oldLen int) {
 }
 
 // opcodeWidth returns the total operand byte width for an opcode.
+// Uses O(1) array lookup instead of map lookup.
 func opcodeWidth(op bytecode.OpCode) int {
-	if w, ok := bytecode.OperandWidths[op]; ok {
-		return w
-	}
-	return 0
+	return bytecode.OperandWidth(op)
 }
 
 func readU16(code []byte, offset int) uint16 {
@@ -599,13 +657,32 @@ func intSpecialize(code []byte, localIsInt, constIsInt []bool) ([]byte, bool) {
 				intUsed[c] = true
 				hasInt = true
 			}
-		case bytecode.OpLocalLocalAddSetLocal:
+		case bytecode.OpLocalLocalAddSetLocal, bytecode.OpLocalLocalSubSetLocal:
 			a := int(readU16(code, i+1))
 			b := int(readU16(code, i+3))
 			c := int(readU16(code, i+5))
 			if safeIdx(a, localIsInt) && safeIdx(b, localIsInt) && safeIdx(c, localIsInt) {
 				intUsed[a] = true
 				intUsed[b] = true
+				intUsed[c] = true
+				hasInt = true
+			}
+		case bytecode.OpLocalLocalMulSetLocal:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			c := int(readU16(code, i+5))
+			if safeIdx(a, localIsInt) && safeIdx(b, localIsInt) && safeIdx(c, localIsInt) {
+				intUsed[a] = true
+				intUsed[b] = true
+				intUsed[c] = true
+				hasInt = true
+			}
+		case bytecode.OpLocalConstMulSetLocal:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			c := int(readU16(code, i+5))
+			if safeIdx(a, localIsInt) && safeIdx(b, constIsInt) && safeIdx(c, localIsInt) {
+				intUsed[a] = true
 				intUsed[c] = true
 				hasInt = true
 			}
@@ -687,6 +764,27 @@ func intSpecialize(code []byte, localIsInt, constIsInt []bool) ([]byte, bool) {
 			c := int(readU16(code, i+5))
 			if safeIdx(a, localIsInt) && safeIdx(b, localIsInt) && safeIdx(c, localIsInt) {
 				code[i] = byte(bytecode.OpIntLocalLocalAddSetLocal)
+			}
+		case bytecode.OpLocalLocalSubSetLocal:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			c := int(readU16(code, i+5))
+			if safeIdx(a, localIsInt) && safeIdx(b, localIsInt) && safeIdx(c, localIsInt) {
+				code[i] = byte(bytecode.OpIntLocalLocalSubSetLocal)
+			}
+		case bytecode.OpLocalLocalMulSetLocal:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			c := int(readU16(code, i+5))
+			if safeIdx(a, localIsInt) && safeIdx(b, localIsInt) && safeIdx(c, localIsInt) {
+				code[i] = byte(bytecode.OpIntLocalLocalMulSetLocal)
+			}
+		case bytecode.OpLocalConstMulSetLocal:
+			a := int(readU16(code, i+1))
+			b := int(readU16(code, i+3))
+			c := int(readU16(code, i+5))
+			if safeIdx(a, localIsInt) && safeIdx(b, constIsInt) && safeIdx(c, localIsInt) {
+				code[i] = byte(bytecode.OpIntLocalConstMulSetLocal)
 			}
 		case bytecode.OpLessLocalConstJumpFalse:
 			a := int(readU16(code, i+1))

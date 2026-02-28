@@ -638,7 +638,121 @@ const (
 	// into a single dispatch that writes intConsts[val] into the []int64 in locals[slice].
 	// Operands: [slice_local:2] [index_local:2] [const_val:2]
 	OpIntSliceSetConst
+
+	// OpLocalLocalSubSetLocal: locals[C] = locals[A] - locals[B]
+	// Operands: [local_a:2] [local_b:2] [local_c:2]
+	OpLocalLocalSubSetLocal
+
+	// OpLocalLocalMulSetLocal: locals[C] = locals[A] * locals[B]
+	// Operands: [local_a:2] [local_b:2] [local_c:2]
+	OpLocalLocalMulSetLocal
+
+	// OpLocalConstMulSetLocal: locals[C] = locals[A] * consts[B]
+	// Operands: [local_a:2] [const_b:2] [local_c:2]
+	OpLocalConstMulSetLocal
+
+	// OpIntLocalLocalSubSetLocal: intLocals[C] = intLocals[A] - intLocals[B]
+	// Operands: [local_a:2] [local_b:2] [local_c:2]
+	OpIntLocalLocalSubSetLocal
+
+	// OpIntLocalLocalMulSetLocal: intLocals[C] = intLocals[A] * intLocals[B]
+	// Operands: [local_a:2] [local_b:2] [local_c:2]
+	OpIntLocalLocalMulSetLocal
+
+	// OpIntLocalConstMulSetLocal: intLocals[C] = intLocals[A] * intConsts[B]
+	// Operands: [local_a:2] [const_b:2] [local_c:2]
+	OpIntLocalConstMulSetLocal
 )
+
+// operandWidthTable is a lookup table for opcode operand widths.
+// Using a fixed-size array gives O(1) access with no hash overhead, unlike a map.
+// Index is the opcode byte value; value is the total operand byte width.
+var operandWidthTable = buildOperandWidthTable()
+
+func buildOperandWidthTable() [256]int {
+	var t [256]int
+
+	t[OpConst] = 2
+	t[OpLocal] = 2
+	t[OpSetLocal] = 2
+	t[OpGlobal] = 2
+	t[OpSetGlobal] = 2
+	t[OpFree] = 1
+	t[OpSetFree] = 1
+	t[OpJump] = 2
+	t[OpJumpTrue] = 2
+	t[OpJumpFalse] = 2
+	t[OpCall] = 3 // func_idx(2) + num_args(1)
+	t[OpMakeArray] = 2
+	t[OpMakeStruct] = 2
+	t[OpField] = 2
+	t[OpSetField] = 2
+	t[OpAddr] = 2
+	t[OpFieldAddr] = 2
+	t[OpAssert] = 2
+	t[OpConvert] = 2
+	t[OpClosure] = 3 // func_idx(2) + num_free(1)
+	t[OpMethod] = 2
+	t[OpMethodCall] = 3 // method_idx(2) + num_args(1)
+	t[OpDefer] = 2
+	t[OpCallExternal] = 3   // func_idx(2) + num_args(1)
+	t[OpCallIndirect] = 1   // num_args(1)
+	t[OpGoCall] = 3         // func_idx(2) + num_args(1)
+	t[OpGoCallIndirect] = 1 // num_args(1)
+	t[OpSelect] = 2         // meta_idx(2)
+	t[OpPack] = 2           // count(2)
+	t[OpNew] = 2
+	t[OpMake] = 4    // type_idx(2) + size_idx(2)
+	t[OpPrint] = 1   // count(1)
+	t[OpPrintln] = 1 // count(1)
+
+	// Superinstruction operand widths
+	t[OpAddLocalLocal] = 4             // local_a(2) + local_b(2)
+	t[OpSubLocalLocal] = 4             // local_a(2) + local_b(2)
+	t[OpMulLocalLocal] = 4             // local_a(2) + local_b(2)
+	t[OpAddLocalConst] = 4             // local_a(2) + const_b(2)
+	t[OpSubLocalConst] = 4             // local_a(2) + const_b(2)
+	t[OpLessLocalLocalJumpTrue] = 6    // local_a(2) + local_b(2) + offset(2)
+	t[OpLessLocalConstJumpTrue] = 6    // local_a(2) + const_b(2) + offset(2)
+	t[OpLessEqLocalConstJumpTrue] = 6  // local_a(2) + const_b(2) + offset(2)
+	t[OpGreaterLocalLocalJumpTrue] = 6 // local_a(2) + local_b(2) + offset(2)
+	t[OpLessLocalLocalJumpFalse] = 6   // local_a(2) + local_b(2) + offset(2)
+	t[OpLessLocalConstJumpFalse] = 6   // local_a(2) + const_b(2) + offset(2)
+	t[OpLessEqLocalConstJumpFalse] = 6 // local_a(2) + const_b(2) + offset(2)
+	t[OpAddSetLocal] = 2               // local_a(2)
+	t[OpSubSetLocal] = 2               // local_a(2)
+	t[OpLocalLocalAddSetLocal] = 6     // local_a(2) + local_b(2) + local_c(2)
+	t[OpLocalConstAddSetLocal] = 6     // local_a(2) + const_b(2) + local_c(2)
+	t[OpLocalConstSubSetLocal] = 6     // local_a(2) + const_b(2) + local_c(2)
+
+	// Integer-specialized operand widths
+	t[OpIntLocalConstAddSetLocal] = 6     // local_a(2) + const_b(2) + local_c(2)
+	t[OpIntLocalConstSubSetLocal] = 6     // local_a(2) + const_b(2) + local_c(2)
+	t[OpIntLocalLocalAddSetLocal] = 6     // local_a(2) + local_b(2) + local_c(2)
+	t[OpIntLessLocalConstJumpFalse] = 6   // local_a(2) + const_b(2) + offset(2)
+	t[OpIntLessEqLocalConstJumpTrue] = 6  // local_a(2) + const_b(2) + offset(2)
+	t[OpIntLessEqLocalConstJumpFalse] = 6 // local_a(2) + const_b(2) + offset(2)
+	t[OpIntLessLocalLocalJumpFalse] = 6   // local_a(2) + local_b(2) + offset(2)
+	t[OpIntGreaterLocalLocalJumpTrue] = 6 // local_a(2) + local_b(2) + offset(2)
+	t[OpIntSetLocal] = 2                  // local_idx(2)
+	t[OpIntLocal] = 2                     // local_idx(2)
+	t[OpIntLessLocalConstJumpTrue] = 6    // local_a(2) + const_b(2) + offset(2)
+	t[OpIntLessLocalLocalJumpTrue] = 6    // local_a(2) + local_b(2) + offset(2)
+	t[OpIntMoveLocal] = 4                 // src(2) + dst(2)
+	t[OpIntSliceGet] = 6                  // slice_local(2) + index_local(2) + dest_local(2)
+	t[OpIntSliceSet] = 6                  // slice_local(2) + index_local(2) + val_local(2)
+	t[OpIntSliceSetConst] = 6             // slice_local(2) + index_local(2) + const_val(2)
+
+	// New superinstruction operand widths
+	t[OpLocalLocalSubSetLocal] = 6    // local_a(2) + local_b(2) + local_c(2)
+	t[OpLocalLocalMulSetLocal] = 6    // local_a(2) + local_b(2) + local_c(2)
+	t[OpLocalConstMulSetLocal] = 6    // local_a(2) + const_b(2) + local_c(2)
+	t[OpIntLocalLocalSubSetLocal] = 6 // local_a(2) + local_b(2) + local_c(2)
+	t[OpIntLocalLocalMulSetLocal] = 6 // local_a(2) + local_b(2) + local_c(2)
+	t[OpIntLocalConstMulSetLocal] = 6 // local_a(2) + const_b(2) + local_c(2)
+
+	return t
+}
 
 // String returns the name of the opcode as a human-readable string.
 func (op OpCode) String() string {
@@ -887,84 +1001,54 @@ func (op OpCode) String() string {
 		return "INTSLICESET"
 	case OpIntSliceSetConst:
 		return "INTSLICESETCONST"
+	case OpLocalLocalSubSetLocal:
+		return "LOCALLOCALSUBSETLOCAL"
+	case OpLocalLocalMulSetLocal:
+		return "LOCALLOCALMULSETLOCAL"
+	case OpLocalConstMulSetLocal:
+		return "LOCALCONSTMULSETLOCAL"
+	case OpIntLocalLocalSubSetLocal:
+		return "INTLOCALLOCALSUBSETLOCAL"
+	case OpIntLocalLocalMulSetLocal:
+		return "INTLOCALLOCALMULSETLOCAL"
+	case OpIntLocalConstMulSetLocal:
+		return "INTLOCALCONSTMULSETLOCAL"
 	default:
 		return "UNKNOWN"
 	}
 }
 
-// OperandWidths maps opcodes to their operand widths.
-// 0 means no operands, 1 means 1-byte operand, 2 means 2-byte operand.
+// OperandWidths maps opcodes to their operand widths (kept for backward compatibility).
+// Prefer using OperandWidth(op) for new code.
 var OperandWidths = map[OpCode]int{
-	OpConst:          2,
-	OpLocal:          2,
-	OpSetLocal:       2,
-	OpGlobal:         2,
-	OpSetGlobal:      2,
-	OpFree:           1,
-	OpSetFree:        1,
-	OpJump:           2,
-	OpJumpTrue:       2,
-	OpJumpFalse:      2,
-	OpCall:           3, // func_idx(2) + num_args(1)
-	OpMakeArray:      2,
-	OpMakeStruct:     2,
-	OpField:          2,
-	OpSetField:       2,
-	OpAddr:           2,
-	OpFieldAddr:      2,
-	OpAssert:         2,
-	OpConvert:        2,
-	OpClosure:        3, // func_idx(2) + num_free(1)
-	OpMethod:         2,
-	OpMethodCall:     3, // method_idx(2) + num_args(1)
-	OpDefer:          2,
-	OpCallExternal:   3, // func_idx(2) + num_args(1)
-	OpCallIndirect:   1, // num_args(1)
-	OpGoCall:         3, // func_idx(2) + num_args(1)
-	OpGoCallIndirect: 1, // num_args(1)
-	OpSelect:         2, // meta_idx(2)
-	OpPack:           2, // count(2)
-	OpNew:            2,
-	OpMake:           4, // type_idx(2) + size_idx(2)
-	OpPrint:          1, // count(1)
-	OpPrintln:        1, // count(1)
+	OpConst: 2, OpLocal: 2, OpSetLocal: 2, OpGlobal: 2, OpSetGlobal: 2,
+	OpFree: 1, OpSetFree: 1, OpJump: 2, OpJumpTrue: 2, OpJumpFalse: 2,
+	OpCall: 3, OpMakeArray: 2, OpMakeStruct: 2, OpField: 2, OpSetField: 2,
+	OpAddr: 2, OpFieldAddr: 2, OpAssert: 2, OpConvert: 2, OpClosure: 3,
+	OpMethod: 2, OpMethodCall: 3, OpDefer: 2, OpCallExternal: 3,
+	OpCallIndirect: 1, OpGoCall: 3, OpGoCallIndirect: 1, OpSelect: 2,
+	OpPack: 2, OpNew: 2, OpMake: 4, OpPrint: 1, OpPrintln: 1,
+	OpAddLocalLocal: 4, OpSubLocalLocal: 4, OpMulLocalLocal: 4,
+	OpAddLocalConst: 4, OpSubLocalConst: 4,
+	OpLessLocalLocalJumpTrue: 6, OpLessLocalConstJumpTrue: 6,
+	OpLessEqLocalConstJumpTrue: 6, OpGreaterLocalLocalJumpTrue: 6,
+	OpLessLocalLocalJumpFalse: 6, OpLessLocalConstJumpFalse: 6,
+	OpLessEqLocalConstJumpFalse: 6, OpAddSetLocal: 2, OpSubSetLocal: 2,
+	OpLocalLocalAddSetLocal: 6, OpLocalConstAddSetLocal: 6, OpLocalConstSubSetLocal: 6,
+	OpIntLocalConstAddSetLocal: 6, OpIntLocalConstSubSetLocal: 6,
+	OpIntLocalLocalAddSetLocal: 6, OpIntLessLocalConstJumpFalse: 6,
+	OpIntLessEqLocalConstJumpTrue: 6, OpIntLessEqLocalConstJumpFalse: 6,
+	OpIntLessLocalLocalJumpFalse: 6, OpIntGreaterLocalLocalJumpTrue: 6,
+	OpIntSetLocal: 2, OpIntLocal: 2, OpIntLessLocalConstJumpTrue: 6,
+	OpIntLessLocalLocalJumpTrue: 6, OpIntMoveLocal: 4,
+	OpIntSliceGet: 6, OpIntSliceSet: 6, OpIntSliceSetConst: 6,
+	OpLocalLocalSubSetLocal: 6, OpLocalLocalMulSetLocal: 6, OpLocalConstMulSetLocal: 6,
+	OpIntLocalLocalSubSetLocal: 6, OpIntLocalLocalMulSetLocal: 6, OpIntLocalConstMulSetLocal: 6,
+}
 
-	// Superinstruction operand widths
-	OpAddLocalLocal:             4, // local_a(2) + local_b(2)
-	OpSubLocalLocal:             4, // local_a(2) + local_b(2)
-	OpMulLocalLocal:             4, // local_a(2) + local_b(2)
-	OpAddLocalConst:             4, // local_a(2) + const_b(2)
-	OpSubLocalConst:             4, // local_a(2) + const_b(2)
-	OpLessLocalLocalJumpTrue:    6, // local_a(2) + local_b(2) + offset(2)
-	OpLessLocalConstJumpTrue:    6, // local_a(2) + const_b(2) + offset(2)
-	OpLessEqLocalConstJumpTrue:  6, // local_a(2) + const_b(2) + offset(2)
-	OpGreaterLocalLocalJumpTrue: 6, // local_a(2) + local_b(2) + offset(2)
-	OpLessLocalLocalJumpFalse:   6, // local_a(2) + local_b(2) + offset(2)
-	OpLessLocalConstJumpFalse:   6, // local_a(2) + const_b(2) + offset(2)
-	OpLessEqLocalConstJumpFalse: 6, // local_a(2) + const_b(2) + offset(2)
-	OpAddSetLocal:               2, // local_a(2)
-	OpSubSetLocal:               2, // local_a(2)
-	OpLocalLocalAddSetLocal:     6, // local_a(2) + local_b(2) + local_c(2)
-	OpLocalConstAddSetLocal:     6, // local_a(2) + const_b(2) + local_c(2)
-	OpLocalConstSubSetLocal:     6, // local_a(2) + const_b(2) + local_c(2)
-
-	// Integer-specialized operand widths
-	OpIntLocalConstAddSetLocal:     6, // local_a(2) + const_b(2) + local_c(2)
-	OpIntLocalConstSubSetLocal:     6, // local_a(2) + const_b(2) + local_c(2)
-	OpIntLocalLocalAddSetLocal:     6, // local_a(2) + local_b(2) + local_c(2)
-	OpIntLessLocalConstJumpFalse:   6, // local_a(2) + const_b(2) + offset(2)
-	OpIntLessEqLocalConstJumpTrue:  6, // local_a(2) + const_b(2) + offset(2)
-	OpIntLessEqLocalConstJumpFalse: 6, // local_a(2) + const_b(2) + offset(2)
-	OpIntLessLocalLocalJumpFalse:   6, // local_a(2) + local_b(2) + offset(2)
-	OpIntGreaterLocalLocalJumpTrue: 6, // local_a(2) + local_b(2) + offset(2)
-	OpIntSetLocal:                  2, // local_idx(2)
-	OpIntLocal:                     2, // local_idx(2)
-	OpIntLessLocalConstJumpTrue:    6, // local_a(2) + const_b(2) + offset(2)
-	OpIntLessLocalLocalJumpTrue:    6, // local_a(2) + local_b(2) + offset(2)
-	OpIntMoveLocal:                 4, // src(2) + dst(2)
-	OpIntSliceGet:                  6, // slice_local(2) + index_local(2) + dest_local(2)
-	OpIntSliceSet:                  6, // slice_local(2) + index_local(2) + val_local(2)
-	OpIntSliceSetConst:             6, // slice_local(2) + index_local(2) + const_val(2)
+// OperandWidth returns the operand byte width for an opcode using O(1) array lookup.
+func OperandWidth(op OpCode) int {
+	return operandWidthTable[op]
 }
 
 // ReadUint16 reads a 2-byte operand from the bytecode.

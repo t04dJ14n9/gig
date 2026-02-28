@@ -12,7 +12,7 @@ import (
 func (c *compiler) emit(op bytecode.OpCode, operands ...uint16) {
 	c.currentFunc.Instructions = append(c.currentFunc.Instructions, byte(op))
 
-	width := bytecode.OperandWidths[op]
+	width := bytecode.OperandWidth(op)
 
 	for _, operand := range operands {
 		switch width {

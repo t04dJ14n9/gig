@@ -19,8 +19,6 @@ import (
 //
 //nolint:gocyclo,cyclop,funlen,maintidx,gocognit
 func (vm *VM) run() (value.Value, error) {
-	instructionCount := 0
-
 	// Hoist hot fields into local variables for better register allocation.
 	// The Go compiler can keep these in CPU registers across iterations,
 	// avoiding repeated loads from vm.* on each instruction.
@@ -52,23 +50,16 @@ func (vm *VM) run() (value.Value, error) {
 		return v
 	}
 
+	// backJumpCount throttles context checks: only check every 128 backward jumps.
+	// This replaces per-instruction counting — cheaper because backward jumps only
+	// occur in loops, and the counter increment is a single bitwise AND.
+	backJumpCount := 0
+
 	if vm.fp > 0 {
 		loadFrame()
 	}
 
 	for vm.fp > 0 {
-		// Check context every 1024 instructions (bitwise AND is faster than modulus)
-		instructionCount++
-		if instructionCount&0x3FF == 0 {
-			// Sync back before potential return
-			vm.sp = sp
-			select {
-			case <-vm.ctx.Done():
-				return value.MakeNil(), vm.ctx.Err()
-			default:
-			}
-		}
-
 		// Check for end of function
 		if frame.ip >= len(ins) {
 			// Pop frame and return it to pool
@@ -229,6 +220,17 @@ func (vm *VM) run() (value.Value, error) {
 
 		case bytecode.OpJump:
 			offset := readU16()
+			if int(offset) < frame.ip {
+				backJumpCount++
+				if backJumpCount&0x7F == 0 {
+					vm.sp = sp
+					select {
+					case <-vm.ctx.Done():
+						return value.MakeNil(), vm.ctx.Err()
+					default:
+					}
+				}
+			}
 			frame.ip = int(offset)
 			continue
 
@@ -659,6 +661,45 @@ func (vm *VM) run() (value.Value, error) {
 			}
 			continue
 
+		case bytecode.OpLocalLocalSubSetLocal:
+			idxA := readU16()
+			idxB := readU16()
+			idxC := readU16()
+			a := locals[idxA]
+			b := locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idxC] = value.MakeInt(a.RawInt() - b.RawInt())
+			} else {
+				locals[idxC] = a.Sub(b)
+			}
+			continue
+
+		case bytecode.OpLocalLocalMulSetLocal:
+			idxA := readU16()
+			idxB := readU16()
+			idxC := readU16()
+			a := locals[idxA]
+			b := locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idxC] = value.MakeInt(a.RawInt() * b.RawInt())
+			} else {
+				locals[idxC] = a.Mul(b)
+			}
+			continue
+
+		case bytecode.OpLocalConstMulSetLocal:
+			idxA := readU16()
+			idxB := readU16()
+			idxC := readU16()
+			a := locals[idxA]
+			b := prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idxC] = value.MakeInt(a.RawInt() * b.RawInt())
+			} else {
+				locals[idxC] = a.Mul(b)
+			}
+			continue
+
 		// ========================================
 		// Integer-specialized superinstructions
 		// Operate on intLocals []int64 directly (8 bytes vs 32 bytes per op)
@@ -687,6 +728,33 @@ func (vm *VM) run() (value.Value, error) {
 			idxB := readU16()
 			idxC := readU16()
 			r := intLocals[idxA] + intLocals[idxB]
+			intLocals[idxC] = r
+			locals[idxC] = value.MakeInt(r)
+			continue
+
+		case bytecode.OpIntLocalLocalSubSetLocal:
+			idxA := readU16()
+			idxB := readU16()
+			idxC := readU16()
+			r := intLocals[idxA] - intLocals[idxB]
+			intLocals[idxC] = r
+			locals[idxC] = value.MakeInt(r)
+			continue
+
+		case bytecode.OpIntLocalLocalMulSetLocal:
+			idxA := readU16()
+			idxB := readU16()
+			idxC := readU16()
+			r := intLocals[idxA] * intLocals[idxB]
+			intLocals[idxC] = r
+			locals[idxC] = value.MakeInt(r)
+			continue
+
+		case bytecode.OpIntLocalConstMulSetLocal:
+			idxA := readU16()
+			idxB := readU16()
+			idxC := readU16()
+			r := intLocals[idxA] * intConsts[idxB]
 			intLocals[idxC] = r
 			locals[idxC] = value.MakeInt(r)
 			continue
@@ -845,6 +913,47 @@ func (vm *VM) run() (value.Value, error) {
 				}
 				sp = vm.sp
 				stack = vm.stack
+			}
+			continue
+
+		case bytecode.OpCallExternal:
+			funcIdx := readU16()
+			numArgs := int(frame.readByte())
+			vm.sp = sp
+			vm.callExternal(int(funcIdx), numArgs)
+			sp = vm.sp
+			stack = vm.stack
+			continue
+
+		case bytecode.OpCallIndirect:
+			numArgs := int(frame.readByte())
+			// Pop arguments using stack-allocated buffer to avoid heap allocation
+			var argsBuf [8]value.Value
+			var args []value.Value
+			if numArgs <= len(argsBuf) {
+				args = argsBuf[:numArgs]
+			} else {
+				args = make([]value.Value, numArgs)
+			}
+			spLocal := sp
+			for i := numArgs - 1; i >= 0; i-- {
+				spLocal--
+				args[i] = stack[spLocal]
+			}
+			// Pop the callee
+			spLocal--
+			callee := stack[spLocal]
+			sp = spLocal
+			// Fast path: direct obj type assertion for *Closure avoids Interface() overhead
+			if closure, ok := callee.RawObj().(*Closure); ok {
+				vm.sp = sp
+				vm.callFunction(closure.Fn, args, closure.FreeVars)
+				sp = vm.sp
+				stack = vm.stack
+				loadFrame()
+			} else {
+				stack[sp] = value.MakeNil()
+				sp++
 			}
 			continue
 
