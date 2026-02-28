@@ -24,6 +24,30 @@ func isIntType(t types.Type) bool {
 	return false
 }
 
+// isIntSliceType returns true if the type is []int or []int64 (matches native int slice fast path).
+func isIntSliceType(t types.Type) bool {
+	if t == nil {
+		return false
+	}
+	sl, ok := t.Underlying().(*types.Slice)
+	if !ok {
+		return false
+	}
+	elem := sl.Elem()
+	if elem == nil {
+		return false
+	}
+	basic, ok := elem.Underlying().(*types.Basic)
+	if !ok {
+		return false
+	}
+	switch basic.Kind() {
+	case types.Int, types.Int64:
+		return true
+	}
+	return false
+}
+
 // compileFunction compiles a single SSA function to bytecode.
 func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction, error) {
 	c.currentFunc = &bytecode.CompiledFunction{
@@ -84,9 +108,13 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 
 	// Build local-is-int map for int-specialization
 	localIsInt := make([]bool, c.symbolTable.NumLocals())
+	localIsIntSlice := make([]bool, c.symbolTable.NumLocals())
 	for v, idx := range c.symbolTable.locals {
 		if isIntType(v.Type()) {
 			localIsInt[idx] = true
+		}
+		if isIntSliceType(v.Type()) {
+			localIsIntSlice[idx] = true
 		}
 	}
 
@@ -112,6 +140,9 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 
 	// Peephole optimization: fuse common instruction sequences into superinstructions
 	c.currentFunc.Instructions = optimizeBytecode(c.currentFunc.Instructions)
+
+	// Fuse slice access patterns: LOCAL(s) LOCAL(j) INDEXADDR ... → OpIntSliceGet/Set
+	c.currentFunc.Instructions = fuseSliceOps(c.currentFunc.Instructions, localIsInt, localIsIntSlice)
 
 	// Int-specialization pass: upgrade Value superinstructions to OpInt* variants
 	c.currentFunc.Instructions, c.currentFunc.HasIntLocals = intSpecialize(c.currentFunc.Instructions, localIsInt, constIsInt)

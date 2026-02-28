@@ -626,6 +626,28 @@ func intSpecialize(code []byte, localIsInt, constIsInt []bool) ([]byte, bool) {
 				intUsed[b] = true
 				hasInt = true
 			}
+		case bytecode.OpIntSliceGet:
+			// Operands: slice(2) index(2) dest(2)
+			// index and dest are int locals that need intLocals sync
+			j := int(readU16(code, i+3))
+			v := int(readU16(code, i+5))
+			intUsed[j] = true
+			intUsed[v] = true
+			hasInt = true
+		case bytecode.OpIntSliceSet:
+			// Operands: slice(2) index(2) val(2)
+			// index and val are int locals that need intLocals sync
+			j := int(readU16(code, i+3))
+			val := int(readU16(code, i+5))
+			intUsed[j] = true
+			intUsed[val] = true
+			hasInt = true
+		case bytecode.OpIntSliceSetConst:
+			// Operands: slice(2) index(2) const(2)
+			// index is an int local that needs intLocals sync
+			j := int(readU16(code, i+3))
+			intUsed[j] = true
+			hasInt = true
 		}
 		i = instrEnd
 	}
@@ -730,6 +752,124 @@ func intSpecialize(code []byte, localIsInt, constIsInt []bool) ([]byte, bool) {
 // safeIdx returns true if idx is within bounds and the flag is true.
 func safeIdx(idx int, flags []bool) bool {
 	return idx < len(flags) && flags[idx]
+}
+
+// fuseSliceOps replaces common slice access patterns with fused superinstructions.
+// This must run after optimizeBytecode (which doesn't consume these patterns) and
+// before intSpecialize (which upgrades LOCAL→INTLOCAL).
+//
+// Pattern 1 (slice read): LOCAL(s) LOCAL(j) INDEXADDR SETLOCAL(ptr) LOCAL(ptr) DEREF SETLOCAL(v)
+//
+//	→ OpIntSliceGet(s, j, v)  when s is []int and j, v are int
+//
+// Pattern 2 (slice write): LOCAL(s) LOCAL(j) INDEXADDR SETLOCAL(ptr) LOCAL(ptr) LOCAL(val) SETDEREF
+//
+//	→ OpIntSliceSet(s, j, val)  when s is []int and j, val are int
+//
+//nolint:gocyclo,cyclop,funlen,gocognit
+func fuseSliceOps(code []byte, localIsInt, localIsIntSlice []bool) []byte {
+	var rewrites []rewrite
+
+	i := 0
+	for i < len(code) {
+		op := bytecode.OpCode(code[i])
+		width := opcodeWidth(op)
+		instrEnd := i + 1 + width
+		if instrEnd > len(code) {
+			break
+		}
+
+		// Both patterns start with LOCAL LOCAL INDEXADDR SETLOCAL LOCAL = 13 bytes
+		// Pattern 1 continues with DEREF SETLOCAL = +4 bytes = 17 total
+		// Pattern 2 continues with LOCAL SETDEREF = +4 bytes = 17 total
+		if op == bytecode.OpLocal && i+17 <= len(code) {
+			op2 := bytecode.OpCode(code[i+3])
+			op3 := bytecode.OpCode(code[i+6])
+			op4 := bytecode.OpCode(code[i+7])
+			op5 := bytecode.OpCode(code[i+10])
+
+			if op2 == bytecode.OpLocal && op3 == bytecode.OpIndexAddr &&
+				op4 == bytecode.OpSetLocal && op5 == bytecode.OpLocal {
+				s := readU16(code, i+1)       // slice local
+				j := readU16(code, i+4)       // index local
+				ptr := readU16(code, i+8)     // ptr temp local
+				ptrGet := readU16(code, i+11) // must match ptr
+
+				if ptr == ptrGet {
+					op6 := bytecode.OpCode(code[i+13])
+
+					// Pattern 1: ... DEREF SETLOCAL(v) → OpIntSliceGet(s, j, v)
+					if op6 == bytecode.OpDeref && i+17 <= len(code) {
+						op7 := bytecode.OpCode(code[i+14])
+						if op7 == bytecode.OpSetLocal {
+							v := readU16(code, i+15)
+							// Check types: s is []int, j is int, v is int
+							if safeIdx(int(s), localIsIntSlice) &&
+								safeIdx(int(j), localIsInt) &&
+								safeIdx(int(v), localIsInt) {
+								newInstr := make([]byte, 7)
+								newInstr[0] = byte(bytecode.OpIntSliceGet)
+								writeU16(newInstr, 1, s)
+								writeU16(newInstr, 3, j)
+								writeU16(newInstr, 5, v)
+								rewrites = append(rewrites, rewrite{i, i + 17, newInstr})
+								i += 17
+								continue
+							}
+						}
+					}
+
+					// Pattern 2: ... LOCAL(val) SETDEREF → OpIntSliceSet(s, j, val)
+					if op6 == bytecode.OpLocal && i+17 <= len(code) {
+						op7 := bytecode.OpCode(code[i+16])
+						if op7 == bytecode.OpSetDeref {
+							val := readU16(code, i+14)
+							// Check types: s is []int, j is int, val is int
+							if safeIdx(int(s), localIsIntSlice) &&
+								safeIdx(int(j), localIsInt) &&
+								safeIdx(int(val), localIsInt) {
+								newInstr := make([]byte, 7)
+								newInstr[0] = byte(bytecode.OpIntSliceSet)
+								writeU16(newInstr, 1, s)
+								writeU16(newInstr, 3, j)
+								writeU16(newInstr, 5, val)
+								rewrites = append(rewrites, rewrite{i, i + 17, newInstr})
+								i += 17
+								continue
+							}
+						}
+					}
+
+					// Pattern 3: ... CONST(val) SETDEREF → OpIntSliceSetConst(s, j, const_idx)
+					if op6 == bytecode.OpConst && i+17 <= len(code) {
+						op7 := bytecode.OpCode(code[i+16])
+						if op7 == bytecode.OpSetDeref {
+							constIdx := readU16(code, i+14)
+							// Check types: s is []int, j is int
+							if safeIdx(int(s), localIsIntSlice) &&
+								safeIdx(int(j), localIsInt) {
+								newInstr := make([]byte, 7)
+								newInstr[0] = byte(bytecode.OpIntSliceSetConst)
+								writeU16(newInstr, 1, s)
+								writeU16(newInstr, 3, j)
+								writeU16(newInstr, 5, constIdx)
+								rewrites = append(rewrites, rewrite{i, i + 17, newInstr})
+								i += 17
+								continue
+							}
+						}
+					}
+				}
+			}
+		}
+
+		i = instrEnd
+	}
+
+	if len(rewrites) == 0 {
+		return code
+	}
+	return applyRewrites(code, rewrites)
 }
 
 // fuseIntMoves replaces OpIntLocal(A) OpIntSetLocal(B) pairs with OpIntMoveLocal(A, B).

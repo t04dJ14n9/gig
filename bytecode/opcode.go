@@ -620,6 +620,24 @@ const (
 	// Eliminates push+pop phi-move pattern: INTLOCAL(src) INTSETLOCAL(dst)
 	// Operands: [src:2] [dst:2]
 	OpIntMoveLocal
+
+	// OpIntSliceGet: dest = intSlice[index]
+	// Fuses: LOCAL(s) LOCAL(j) INDEXADDR SETLOCAL(ptr) LOCAL(ptr) DEREF SETLOCAL(v)
+	// into a single dispatch that reads intLocals[index] from the []int64 in locals[slice].
+	// Operands: [slice_local:2] [index_local:2] [dest_local:2]
+	OpIntSliceGet
+
+	// OpIntSliceSet: intSlice[index] = val
+	// Fuses: LOCAL(s) LOCAL(j) INDEXADDR SETLOCAL(ptr) LOCAL(ptr) LOCAL(val) SETDEREF
+	// into a single dispatch that writes intLocals[val] into the []int64 in locals[slice].
+	// Operands: [slice_local:2] [index_local:2] [val_local:2]
+	OpIntSliceSet
+
+	// OpIntSliceSetConst: intSlice[index] = const
+	// Fuses: LOCAL(s) LOCAL(j) INDEXADDR SETLOCAL(ptr) LOCAL(ptr) CONST(val) SETDEREF
+	// into a single dispatch that writes intConsts[val] into the []int64 in locals[slice].
+	// Operands: [slice_local:2] [index_local:2] [const_val:2]
+	OpIntSliceSetConst
 )
 
 // String returns the name of the opcode as a human-readable string.
@@ -863,6 +881,12 @@ func (op OpCode) String() string {
 		return "INTLESSLOCALLOCALJUMPTRUE"
 	case OpIntMoveLocal:
 		return "INTMOVELOCAL"
+	case OpIntSliceGet:
+		return "INTSLICEGET"
+	case OpIntSliceSet:
+		return "INTSLICESET"
+	case OpIntSliceSetConst:
+		return "INTSLICESETCONST"
 	default:
 		return "UNKNOWN"
 	}
@@ -938,6 +962,9 @@ var OperandWidths = map[OpCode]int{
 	OpIntLessLocalConstJumpTrue:    6, // local_a(2) + const_b(2) + offset(2)
 	OpIntLessLocalLocalJumpTrue:    6, // local_a(2) + local_b(2) + offset(2)
 	OpIntMoveLocal:                 4, // src(2) + dst(2)
+	OpIntSliceGet:                  6, // slice_local(2) + index_local(2) + dest_local(2)
+	OpIntSliceSet:                  6, // slice_local(2) + index_local(2) + val_local(2)
+	OpIntSliceSetConst:             6, // slice_local(2) + index_local(2) + const_val(2)
 }
 
 // ReadUint16 reads a 2-byte operand from the bytecode.

@@ -775,6 +775,79 @@ func (vm *VM) run() (value.Value, error) {
 			locals[dst] = locals[src]
 			continue
 
+		case bytecode.OpIntSliceGet:
+			sIdx := readU16()
+			jIdx := readU16()
+			vIdx := readU16()
+			if s, ok := locals[sIdx].IntSlice(); ok {
+				r := s[intLocals[jIdx]]
+				intLocals[vIdx] = r
+				locals[vIdx] = value.MakeInt(r)
+			} else {
+				// Fallback: execute as IndexAddr + Deref manually
+				vm.sp = sp
+				vm.push(locals[sIdx])
+				vm.push(value.MakeInt(intLocals[jIdx]))
+				if err := vm.executeOp(bytecode.OpIndexAddr, frame); err != nil {
+					return value.MakeNil(), err
+				}
+				if err := vm.executeOp(bytecode.OpDeref, frame); err != nil {
+					return value.MakeNil(), err
+				}
+				v := vm.pop()
+				intLocals[vIdx] = v.RawInt()
+				locals[vIdx] = v
+				sp = vm.sp
+				stack = vm.stack
+			}
+			continue
+
+		case bytecode.OpIntSliceSet:
+			sIdx := readU16()
+			jIdx := readU16()
+			valIdx := readU16()
+			if s, ok := locals[sIdx].IntSlice(); ok {
+				s[intLocals[jIdx]] = intLocals[valIdx]
+			} else {
+				// Fallback: execute as IndexAddr + SetDeref manually
+				vm.sp = sp
+				vm.push(locals[sIdx])
+				vm.push(value.MakeInt(intLocals[jIdx]))
+				if err := vm.executeOp(bytecode.OpIndexAddr, frame); err != nil {
+					return value.MakeNil(), err
+				}
+				vm.push(value.MakeInt(intLocals[valIdx]))
+				if err := vm.executeOp(bytecode.OpSetDeref, frame); err != nil {
+					return value.MakeNil(), err
+				}
+				sp = vm.sp
+				stack = vm.stack
+			}
+			continue
+
+		case bytecode.OpIntSliceSetConst:
+			sIdx := readU16()
+			jIdx := readU16()
+			cIdx := readU16()
+			if s, ok := locals[sIdx].IntSlice(); ok {
+				s[intLocals[jIdx]] = intConsts[cIdx]
+			} else {
+				// Fallback: execute as IndexAddr + SetDeref manually
+				vm.sp = sp
+				vm.push(locals[sIdx])
+				vm.push(value.MakeInt(intLocals[jIdx]))
+				if err := vm.executeOp(bytecode.OpIndexAddr, frame); err != nil {
+					return value.MakeNil(), err
+				}
+				vm.push(prebaked[cIdx])
+				if err := vm.executeOp(bytecode.OpSetDeref, frame); err != nil {
+					return value.MakeNil(), err
+				}
+				sp = vm.sp
+				stack = vm.stack
+			}
+			continue
+
 		default:
 			// Fall through to executeOp for all other opcodes
 		}
