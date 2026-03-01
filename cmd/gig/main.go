@@ -72,11 +72,12 @@ type command struct {
 var commands = []command{
 	{"init", "gig init -package <name>", runInit},
 	{"gen", "gig gen <dir>", runGen},
+	{"repl", "gig repl", runREPL},
 }
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "gig - generate gig dependency packages\n\n")
+		fmt.Fprintf(os.Stderr, "gig - generate gig dependency packages and run REPL\n\n")
 		fmt.Fprintf(os.Stderr, "Usage:\n")
 		fmt.Fprintf(os.Stderr, "  gig <command> [arguments]\n\n")
 		fmt.Fprintf(os.Stderr, "Commands:\n")
@@ -88,6 +89,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  2. Edit mydep/pkgs.go              # Add third-party libraries\n")
 		fmt.Fprintf(os.Stderr, "  3. gig gen ./mydep                 # Generate registration code\n")
 		fmt.Fprintf(os.Stderr, "  4. import _ \"myapp/mydep/packages\"      # Use in your program\n")
+		fmt.Fprintf(os.Stderr, "\nREPL:\n")
+		fmt.Fprintf(os.Stderr, "  gig repl                           # Start interactive Go REPL\n")
 	}
 
 	if len(os.Args) < 2 {
@@ -358,4 +361,25 @@ func parsePkgsGo(path string) ([]string, string, error) {
 	}
 
 	return imports, pkgName, nil
+}
+
+// ========== repl command ==========
+
+func runREPL() {
+	fs := flag.NewFlagSet("repl", flag.ExitOnError)
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: gig repl\n\n")
+		fmt.Fprintf(os.Stderr, "Starts an interactive Go REPL (Read-Eval-Print Loop).\n")
+		fmt.Fprintf(os.Stderr, "\nExample:\n")
+		fmt.Fprintf(os.Stderr, "  >>> 1 + 2\n")
+		fmt.Fprintf(os.Stderr, "  3\n")
+		fmt.Fprintf(os.Stderr, "  >>> fmt.Sprintf(\"Hello, %%s!\", \"World\")\n")
+		fmt.Fprintf(os.Stderr, "  \"Hello, World!\"\n")
+		fmt.Fprintf(os.Stderr, "  >>> :help\n")
+		fmt.Fprintf(os.Stderr, "  (shows available commands)\n")
+	}
+	_ = fs.Parse(os.Args[2:])
+
+	session := NewSession()
+	session.Run()
 }

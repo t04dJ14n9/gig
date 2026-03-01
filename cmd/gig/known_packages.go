@@ -1,0 +1,78 @@
+// Package main provides the gig CLI tool.
+package main
+
+// knownPackages maps package names to their import paths.
+// This is used for auto-import detection when users reference packages
+// without explicit import statements (e.g., fmt.Println).
+var knownPackages = map[string]string{
+	"fmt":          "fmt",
+	"strings":      "strings",
+	"strconv":      "strconv",
+	"math":         "math",
+	"time":         "time",
+	"bytes":        "bytes",
+	"errors":       "errors",
+	"sort":         "sort",
+	"regexp":       "regexp",
+	"json":         "encoding/json",
+	"xml":          "encoding/xml",
+	"base64":       "encoding/base64",
+	"hex":          "encoding/hex",
+	"csv":          "encoding/csv",
+	"url":          "net/url",
+	"http":         "net/http",
+	"rand":         "math/rand",
+	"sync":         "sync",
+	"atomic":       "sync/atomic",
+	"context":      "context",
+	"html":         "html",
+	"template":     "text/template",
+	"htmltemplate": "html/template",
+	"path":         "path",
+	"filepath":     "path/filepath",
+	"io":           "io",
+	"log":          "log",
+	"os":           "os",
+	"unicode":      "unicode",
+	"utf8":         "unicode/utf8",
+	"utf16":        "unicode/utf16",
+	"slices":       "slices",
+	"maps":         "maps",
+	"cmp":          "cmp",
+	"heap":         "container/heap",
+	"list":         "container/list",
+	"ring":         "container/ring",
+	"crypto":       "crypto",
+	"hmac":         "crypto/hmac",
+	"sha256":       "crypto/sha256",
+	"sha512":       "crypto/sha512",
+	"md5":          "crypto/md5",
+	"aes":          "crypto/aes",
+	"cipher":       "crypto/cipher",
+	"des":          "crypto/des",
+	"dsa":          "crypto/dsa",
+	"ecdsa":        "crypto/ecdsa",
+	"ed25519":      "crypto/ed25519",
+	"elliptic":     "crypto/elliptic",
+	"randcrypto":   "crypto/rand",
+	"rsa":          "crypto/rsa",
+	"sha1":         "crypto/sha1",
+	"subtle":       "crypto/subtle",
+	"tls":          "crypto/tls",
+	"x509":         "crypto/x509",
+	"pkix":         "crypto/x509/pkix",
+	"bcrypt":       "golang.org/x/crypto/bcrypt",
+	"blake2b":      "golang.org/x/crypto/blake2b",
+	"blake2s":      "golang.org/x/crypto/blake2s",
+	"scrypt":       "golang.org/x/crypto/scrypt",
+	"argon2":       "golang.org/x/crypto/argon2",
+}
+
+// getPackagePath returns the import path for a given package name.
+// Returns the name itself if not found (for external packages).
+func getPackagePath(name string) string {
+	if path, ok := knownPackages[name]; ok {
+		return path
+	}
+	return name
+}
