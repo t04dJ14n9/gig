@@ -233,20 +233,20 @@ gig gen ./mydep                 # Generates registration code in myapp/mydep/pac
 
 ## Performance
 
-Real benchmarks comparing **Gig**, **Yaegi** (Go interpreter), and **native Go**, running on the same machine with identical algorithms.
+Real benchmarks comparing **Gig**, **Yaegi** (Go interpreter), **GopherLua** (Lua interpreter), and **native Go**, running on the same machine with identical algorithms.
 
 > **Environment**: AMD EPYC 9754 128-Core, 32 threads, Linux amd64, Go 1.23.1  
 > Benchmarks use `-count=5` with `benchstat` for statistical significance. Source: [`benchmarks/bench_test.go`](benchmarks/bench_test.go)
 
-### Core Workloads (Gig vs Yaegi vs Native Go)
+### Core Workloads (Gig vs Yaegi vs GopherLua vs Native Go)
 
-| Workload | Native Go | Gig | Yaegi | Gig vs Yaegi |
-|---|---:|---:|---:|---:|
-| **Fibonacci(25)** recursive | 449 μs | **21.1 ms** | 109 ms | **Gig 5.2x faster** |
-| **ArithmeticSum(1K)** loop | 335 ns | **33.9 μs** | 40.9 μs | **Gig 1.2x faster** |
-| **BubbleSort(100)** nested loops | 6.2 μs | **1.08 ms** | 1.23 ms | **Gig 1.1x faster** |
-| **Sieve(1000)** primes | 1.88 μs | **187 μs** | 205 μs | **Gig 1.1x faster** |
-| **ClosureCalls(1K)** captured var | 667 ns | **371 μs** | 1,001 μs | **Gig 2.7x faster** |
+| Workload | Native Go | Gig | Yaegi | GopherLua | Gig vs Yaegi |
+|---|---:|---:|---:|---:|---:|
+| **Fibonacci(25)** recursive | 449 μs | **19.7 ms** | 109 ms | 6.8 ms | **Gig 5.5x faster** |
+| **ArithmeticSum(1K)** loop | 333 ns | **35 μs** | 40.9 μs | 18 μs | **Gig 1.2x faster** |
+| **BubbleSort(100)** nested loops | 6.2 μs | **992 μs** | 1.23 ms | 278 μs | **Gig 1.2x faster** |
+| **Sieve(1000)** primes | 1.88 μs | **192 μs** | 205 μs | 172 μs | **Gig 1.1x faster** |
+| **ClosureCalls(1K)** captured var | 661 ns | **327 μs** | 1 ms | 156 μs | **Gig 3x faster** |
 
 ### External Function Calls (Gig vs Yaegi vs Native Go)
 
@@ -271,12 +271,19 @@ Calling Go standard library functions from interpreted code — the most common 
 
 ### Analysis
 
-**Gig beats Yaegi on all 9 benchmarks**, with advantages ranging from 1.1x to 5.2x:
+**Gig beats Yaegi on all 9 benchmarks**, with advantages ranging from 1.1x to 5.5x:
 
-- **5.2x faster** on deep recursion (Fib25) — O(1) function lookup, frame pooling, and 7 allocs vs 2.1M
+- **5.5x faster** on deep recursion (Fib25) — O(1) function lookup, frame pooling, and 7 allocs vs 2.1M
 - **2.6–2.8x faster** on external calls — 1,162 generated DirectCall wrappers eliminate `reflect.Value.Call()` for 92% of stdlib functions and methods
 - **1.1–1.2x faster** on tight loops (ArithSum, BubbleSort, Sieve) — integer-specialized `int64` locals and fused superinstructions
-- **2.7x faster** on closures — efficient closure representation with shared `*value.Value` captures
+- **3x faster** on closures — efficient closure representation with shared `*value.Value` captures
+
+**GopherLua vs Gig**: GopherLua is 2-4x faster on core workloads because Lua is a simpler, dynamically-typed language optimized for these patterns. However:
+
+- **GopherLua requires manual function registration** — each Go function must be wrapped and registered individually; no direct package imports
+- **No goroutines/channels** — Lua has coroutines, but they're not Go's CSP concurrency
+- **No structs/interfaces/methods** — Lua uses tables, not Go's type system
+- **Different syntax** — team must learn Lua; Gig uses familiar Go syntax
 
 Key optimizations: SSA-to-bytecode compilation, 32-byte tagged-union values, superinstruction fusion (17 patterns), `intLocals []int64` specialization, `[]int64` slice fusion, DirectCall code generation, frame pooling, and inline caching.
 
@@ -289,8 +296,8 @@ Key optimizations: SSA-to-bytecode compilation, 32-byte tagged-union values, sup
 | **Goroutines/Channels** | ✅ | ✅ | ❌ | ❌ |
 | **Security sandbox** | ✅ (bans unsafe/reflect/panic) | ❌ | ❌ | ✅ |
 | **Struct/Interface/Methods** | ✅ | ✅ | ❌ | Limited |
-| **40+ stdlib packages** | ✅ | ✅ | N/A | N/A |
-| **Custom Go package import** | ✅ (code-gen) | ✅ (symbols) | N/A | N/A |
+| **40+ stdlib packages** | ✅ | ✅ | Manual registration | N/A |
+| **Custom Go package import** | ✅ (code-gen) | ✅ (symbols) | Manual wrappers | N/A |
 | **Context cancellation** | ✅ | ❌ | ❌ | ❌ |
 | **Embeddable** | ✅ | ✅ | ✅ | ✅ |
 
