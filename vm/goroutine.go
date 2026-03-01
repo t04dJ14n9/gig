@@ -8,7 +8,7 @@ import (
 )
 
 // newChildVM creates a child VM for goroutine execution.
-// The child VM shares the globals pointer with the parent for communication.
+// The child VM shares the globals pointer and external call cache with the parent.
 func (vm *VM) newChildVM() *VM {
 	child := &VM{
 		program:      vm.program,
@@ -19,7 +19,7 @@ func (vm *VM) newChildVM() *VM {
 		globals:      nil, // Not used when globalsPtr is set
 		globalsPtr:   vm.globalsPtr,
 		ctx:          vm.ctx,
-		extCallCache: vm.extCallCache, // Share cache (read-mostly, safe for goroutines)
+		extCallCache: vm.extCallCache, // Share cache (thread-safe via shared mutex)
 	}
 	// If parent doesn't have a globalsPtr yet, create one for sharing
 	if child.globalsPtr == nil {
