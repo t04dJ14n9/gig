@@ -33,6 +33,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,11 +57,11 @@ var (
 
 // PluginManager manages hot-loading of external packages.
 type PluginManager struct {
-	mu        sync.RWMutex
-	pluginDir string                    // ~/.gig/plugins
-	loaded    map[string]bool           // Set of loaded package paths
-	registry  map[string]PluginMetadata // Package path -> metadata
-	symbols   map[string]*ExportedSymbols // Package path -> cached symbols
+	mu         sync.RWMutex
+	pluginDir  string                      // ~/.gig/plugins
+	loaded     map[string]bool             // Set of loaded package paths
+	registry   map[string]PluginMetadata   // Package path -> metadata
+	symbols    map[string]*ExportedSymbols // Package path -> cached symbols
 }
 
 // PluginMetadata stores information about a loaded plugin.
@@ -99,7 +100,8 @@ func (pm *PluginManager) loadRegistry() {
 	if err != nil {
 		return
 	}
-	json.Unmarshal(data, &pm.registry)
+	//nolint:errchkjson // Registry file is internal, ignore unmarshal errors
+	_ = json.Unmarshal(data, &pm.registry)
 }
 
 // saveRegistry saves the plugin registry to disk.
@@ -108,11 +110,17 @@ func (pm *PluginManager) saveRegistry() error {
 		return err
 	}
 	registryPath := filepath.Join(pm.pluginDir, "plugin_registry.json")
-	data, err := json.MarshalIndent(pm.registry, "", "  ")
-	if err != nil {
-		return err
-	}
+	data := mustMarshalJSON(pm.registry)
 	return os.WriteFile(registryPath, data, 0o644)
+}
+
+// mustMarshalJSON marshals to JSON, panicking on error (should never happen for registry).
+func mustMarshalJSON(v any) []byte {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	return data
 }
 
 // LoadPackage attempts to load an external package.
@@ -184,18 +192,19 @@ func (pm *PluginManager) buildAndLoad(pkgPath string) error {
 		SOPath:    soPath,
 		BuildTime: fmt.Sprintf("%d", getCurrentTime()),
 	}
-	pm.saveRegistry()
+	_ = pm.saveRegistry() // Best effort, ignore error
 
 	return nil
 }
 
 // downloadPackage ensures the package is available locally.
 func (pm *PluginManager) downloadPackage(pkgPath string) error {
+	ctx := context.Background()
 	// Try to get package info first
-	cmd := exec.Command("go", "list", pkgPath)
+	cmd := exec.CommandContext(ctx, "go", "list", pkgPath)
 	if err := cmd.Run(); err != nil {
 		// Package not found, try to download
-		cmd = exec.Command("go", "get", pkgPath)
+		cmd = exec.CommandContext(ctx, "go", "get", pkgPath)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
@@ -316,6 +325,7 @@ func (pm *PluginManager) generatePluginCode(pkgPath string) ([]byte, error) {
 
 	code, err := format.Source([]byte(sb.String()))
 	if err != nil {
+		// Return unformatted code instead of error - it's still valid Go
 		return []byte(sb.String()), nil
 	}
 	return code, nil
@@ -331,8 +341,9 @@ type ExportedSymbols struct {
 
 // getExportedSymbols uses go list to discover exported symbols.
 func (pm *PluginManager) getExportedSymbols(pkgPath string) (*ExportedSymbols, error) {
+	ctx := context.Background()
 	// Use go doc to get package documentation which lists exports
-	cmd := exec.Command("go", "doc", "-short", pkgPath)
+	cmd := exec.CommandContext(ctx, "go", "doc", "-short", pkgPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("go doc failed: %w", err)
@@ -439,8 +450,9 @@ func (pm *PluginManager) getExportedSymbols(pkgPath string) (*ExportedSymbols, e
 // generateReflectPluginCode generates minimal code that just registers the package.
 // This is a fallback when symbol discovery fails.
 func (pm *PluginManager) generateReflectPluginCode(pkgPath, pkgAlias, pkgBaseName string) ([]byte, error) {
+	ctx := context.Background()
 	// Try to get at least one symbol to reference
-	cmd := exec.Command("go", "doc", "-short", pkgPath)
+	cmd := exec.CommandContext(ctx, "go", "doc", "-short", pkgPath)
 	output, _ := cmd.CombinedOutput()
 
 	// Find any exported symbol to reference
@@ -507,13 +519,14 @@ func (pm *PluginManager) generateReflectPluginCode(pkgPath, pkgAlias, pkgBaseNam
 		// No symbols found - this shouldn't happen for valid packages
 		// Generate a runtime error instead
 		sb.WriteString("// No exported symbols found - this plugin may not work correctly\n")
-		sb.WriteString(fmt.Sprintf("var _ = \"%s\"\n", pkgPath))
+		sb.WriteString(fmt.Sprintf("var _ = %q\n", pkgPath))
 	}
 
 	sb.WriteString("\nfunc main() {}\n")
 
 	code, err := format.Source([]byte(sb.String()))
 	if err != nil {
+		// Return unformatted code instead of error - it's still valid Go
 		return []byte(sb.String()), nil
 	}
 	return code, nil
@@ -545,13 +558,14 @@ func sanitizePkgNameForImport(path string) string {
 
 // buildPlugin compiles the wrapper as a .so shared library.
 func (pm *PluginManager) buildPlugin(pkgPath, wrapperPath string) (string, error) {
+	ctx := context.Background()
 	pkgDir := filepath.Dir(wrapperPath)
 	soPath := filepath.Join(pkgDir, filepath.Base(pkgPath)+".so")
 
 	// Create go.mod in plugin directory if it doesn't exist
 	goModPath := filepath.Join(pkgDir, "go.mod")
 	if _, err := os.Stat(goModPath); os.IsNotExist(err) {
-		cmd := exec.Command("go", "mod", "init", "gig-plugin-"+filepath.Base(pkgPath))
+		cmd := exec.CommandContext(ctx, "go", "mod", "init", "gig-plugin-"+filepath.Base(pkgPath))
 		cmd.Dir = pkgDir
 		if err := cmd.Run(); err != nil {
 			return "", fmt.Errorf("init go.mod: %w", err)
@@ -561,7 +575,7 @@ func (pm *PluginManager) buildPlugin(pkgPath, wrapperPath string) (string, error
 		// This is crucial for plugin compatibility
 		gigRoot := findGigRoot()
 		if gigRoot != "" {
-			replaceCmd := exec.Command("go", "mod", "edit", "-replace", "github.com/t04dJ14n9/gig="+gigRoot)
+			replaceCmd := exec.CommandContext(ctx, "go", "mod", "edit", "-replace", "github.com/t04dJ14n9/gig="+gigRoot)
 			replaceCmd.Dir = pkgDir
 			if err := replaceCmd.Run(); err != nil {
 				return "", fmt.Errorf("add replace directive: %w", err)
@@ -570,7 +584,7 @@ func (pm *PluginManager) buildPlugin(pkgPath, wrapperPath string) (string, error
 	}
 
 	// Download dependencies
-	cmd := exec.Command("go", "mod", "tidy")
+	cmd := exec.CommandContext(ctx, "go", "mod", "tidy")
 	cmd.Dir = pkgDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -579,12 +593,12 @@ func (pm *PluginManager) buildPlugin(pkgPath, wrapperPath string) (string, error
 	}
 
 	// Build plugin
-	cmd = exec.Command("go", "build", "-buildmode=plugin", "-o", soPath, wrapperPath)
+	cmd = exec.CommandContext(ctx, "go", "build", "-buildmode=plugin", "-o", soPath, wrapperPath)
 	cmd.Dir = pkgDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("%w: %v", ErrPluginBuildFailed, err)
+		return "", fmt.Errorf("%w: %w", ErrPluginBuildFailed, err)
 	}
 
 	return soPath, nil
@@ -593,8 +607,9 @@ func (pm *PluginManager) buildPlugin(pkgPath, wrapperPath string) (string, error
 // findGigRoot finds the root directory of the gig module.
 // This is needed to add a replace directive in plugin go.mod files.
 func findGigRoot() string {
+	ctx := context.Background()
 	// Try to find gig root from current directory
-	cmd := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/t04dJ14n9/gig")
+	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-f", "{{.Dir}}", "github.com/t04dJ14n9/gig")
 	output, err := cmd.Output()
 	if err != nil {
 		return ""

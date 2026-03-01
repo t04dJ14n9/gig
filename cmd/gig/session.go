@@ -17,8 +17,18 @@ import (
 	"time"
 
 	"github.com/peterh/liner"
+
 	"github.com/t04dJ14n9/gig"
 	_ "github.com/t04dJ14n9/gig/stdlib/packages" // Import built-in stdlib
+)
+
+// Type name constants to avoid repetition.
+const (
+	typeInt     = "int"
+	typeFloat64 = "float64"
+	typeString  = "string"
+	typeBool    = "bool"
+	typeAny     = "any"
 )
 
 // Session maintains the REPL state.
@@ -54,7 +64,7 @@ func (s *Session) Run() {
 
 	// Create liner for advanced line editing with tab completion
 	line := liner.NewLiner()
-	defer line.Close()
+	defer func() { _ = line.Close() }()
 
 	// Configure liner
 	line.SetCtrlCAborts(true)
@@ -800,7 +810,7 @@ func (s *Session) extractVarNamesFromStatement(stmt string) []string {
 // Normalizes integer types to int for compatibility with for loops.
 func (s *Session) getTypeName(v any) string {
 	if v == nil {
-		return "any"
+		return typeAny
 	}
 
 	// Use fmt type formatting
@@ -809,17 +819,17 @@ func (s *Session) getTypeName(v any) string {
 	// Normalize integer types to int for better compatibility
 	// This allows captured variables to work with for loop counters
 	switch typeStr {
-	case "int", "int8", "int16", "int32", "int64":
-		return "int"
+	case typeInt, "int8", "int16", "int32", "int64":
+		return typeInt
 	case "uint", "uint8", "uint16", "uint32", "uint64":
-		return "int" // use int for unsigned too, for simplicity
-	case "float32", "float64":
-		return "float64"
-	case "string", "bool", "rune", "byte":
+		return typeInt // use int for unsigned too, for simplicity
+	case "float32", typeFloat64:
+		return typeFloat64
+	case typeString, typeBool, "rune", "byte":
 		return typeStr
 	default:
 		// For complex types, use any
-		return "any"
+		return typeAny
 	}
 }
 
