@@ -233,20 +233,20 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 
 ## 性能
 
-在同一台机器上使用相同算法，对比 **Gig**、**Yaegi**（Go 解释器）和 **原生 Go** 的真实基准测试。
+在同一台机器上使用相同算法，对比 **Gig**、**Yaegi**（Go 解释器）、**GopherLua**（Lua 解释器）和 **原生 Go** 的真实基准测试。
 
 > **测试环境**：AMD EPYC 9754 128 核, 32 线程, Linux amd64, Go 1.23.1  
 > 使用 `-count=5` 配合 `benchstat` 统计分析。源码：[`benchmarks/bench_test.go`](benchmarks/bench_test.go)
 
-### 核心工作负载 (Gig vs Yaegi vs 原生 Go)
+### 核心工作负载 (Gig vs Yaegi vs GopherLua vs 原生 Go)
 
-| 工作负载 | 原生 Go | Gig | Yaegi | Gig vs Yaegi |
-|---|---:|---:|---:|---:|
-| **Fibonacci(25)** 递归 | 449 μs | **21.1 ms** | 109 ms | **Gig 快 5.2 倍** |
-| **ArithmeticSum(1K)** 循环 | 335 ns | **33.9 μs** | 40.9 μs | **Gig 快 1.2 倍** |
-| **BubbleSort(100)** 嵌套循环 | 6.2 μs | **1.08 ms** | 1.23 ms | **Gig 快 1.1 倍** |
-| **Sieve(1000)** 质数筛 | 1.88 μs | **187 μs** | 205 μs | **Gig 快 1.1 倍** |
-| **ClosureCalls(1K)** 闭包调用 | 667 ns | **371 μs** | 1,001 μs | **Gig 快 2.7 倍** |
+| 工作负载 | 原生 Go | Gig | Yaegi | GopherLua | Gig vs Yaegi |
+|---|---:|---:|---:|---:|---:|
+| **Fibonacci(25)** 递归 | 449 μs | **19.7 ms** | 109 ms | 6.8 ms | **Gig 快 5.5 倍** |
+| **ArithmeticSum(1K)** 循环 | 333 ns | **35 μs** | 40.9 μs | 18 μs | **Gig 快 1.2 倍** |
+| **BubbleSort(100)** 嵌套循环 | 6.2 μs | **992 μs** | 1.23 ms | 278 μs | **Gig 快 1.2 倍** |
+| **Sieve(1000)** 质数筛 | 1.88 μs | **192 μs** | 205 μs | 172 μs | **Gig 快 1.1 倍** |
+| **ClosureCalls(1K)** 闭包调用 | 661 ns | **327 μs** | 1 ms | 156 μs | **Gig 快 3 倍** |
 
 ### 外部函数调用 (Gig vs Yaegi vs 原生 Go)
 
@@ -271,12 +271,19 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 
 ### 分析
 
-**Gig 在全部 9 项基准测试中均优于 Yaegi**，优势从 1.1 倍到 5.2 倍：
+**Gig 在全部 9 项基准测试中均优于 Yaegi**，优势从 1.1 倍到 5.5 倍：
 
-- **递归快 5.2 倍**（Fib25）—— O(1) 函数查找、帧池化，仅 7 次分配 vs 210 万次
+- **递归快 5.5 倍**（Fib25）—— O(1) 函数查找、帧池化，仅 7 次分配 vs 210 万次
 - **外部调用快 2.6–2.8 倍** —— 1,162 个生成的 DirectCall 包装器消除了 92% 标准库函数和方法的 `reflect.Value.Call()`
 - **紧凑循环快 1.1–1.2 倍**（ArithSum、BubbleSort、Sieve）—— 整数特化 `int64` 局部变量和融合超级指令
-- **闭包快 2.7 倍** —— 高效的闭包表示，通过共享 `*value.Value` 捕获变量
+- **闭包快 3 倍** —— 高效的闭包表示，通过共享 `*value.Value` 捕获变量
+
+**GopherLua vs Gig**：GopherLua 在核心工作负载上快 2-4 倍，因为 Lua 是更简单的动态类型语言，针对这些模式进行了优化。但是：
+
+- **GopherLua 需要手动注册函数** —— 每个 Go 函数都需要单独包装和注册；无法直接导入包
+- **没有 Goroutine/Channel** —— Lua 有协程，但不是 Go 的 CSP 并发模型
+- **没有结构体/接口/方法** —— Lua 使用表（table），不是 Go 的类型系统
+- **不同的语法** —— 团队需要学习 Lua；Gig 使用熟悉的 Go 语法
 
 关键优化：SSA 到字节码编译、32 字节 tagged-union 值、超级指令融合（17 种模式）、`intLocals []int64` 特化、`[]int64` 切片融合、DirectCall 代码生成、帧池化和内联缓存。
 
@@ -289,8 +296,8 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 | **Goroutine/Channel** | ✅ | ✅ | ❌ | ❌ |
 | **安全沙箱** | ✅（禁止 unsafe/reflect/panic） | ❌ | ❌ | ✅ |
 | **结构体/接口/方法** | ✅ | ✅ | ❌ | 有限 |
-| **40+ 标准库包** | ✅ | ✅ | N/A | N/A |
-| **自定义 Go 包导入** | ✅（代码生成） | ✅（符号表） | N/A | N/A |
+| **40+ 标准库包** | ✅ | ✅ | 需手动注册 | N/A |
+| **自定义 Go 包导入** | ✅（代码生成） | ✅（符号表） | 需手动包装 | N/A |
 | **Context 取消** | ✅ | ❌ | ❌ | ❌ |
 | **可嵌入** | ✅ | ✅ | ✅ | ✅ |
 
