@@ -3,8 +3,8 @@ package tests
 import (
 	"testing"
 
-	"gig"
-	_ "gig/stdlib/packages"
+	"github.com/t04dJ14n9/gig"
+	_ "github.com/t04dJ14n9/gig/stdlib/packages"
 )
 
 // runInt builds and runs source, expecting an int64 result.

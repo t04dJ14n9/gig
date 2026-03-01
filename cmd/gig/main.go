@@ -59,7 +59,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gig/gentool"
+	"github.com/t04dJ14n9/gig/gentool"
 )
 
 // Command structure for subcommands

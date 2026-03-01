@@ -10,8 +10,8 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"gig/bytecode"
-	"gig/value"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // Compiler compiles SSA programs into bytecode.

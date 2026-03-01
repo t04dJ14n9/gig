@@ -3,8 +3,8 @@ package vm
 import (
 	"sync"
 
-	"gig/bytecode"
-	"gig/value"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // Closure represents a closure with captured free variables.

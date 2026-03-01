@@ -58,8 +58,8 @@ simple/
 
 ```go
 import (
-    "gig"
-    _ "gig/stdlib/packages" // Import built-in stdlib (40+ packages)
+    "github.com/t04dJ14n9/gig"
+    _ "github.com/t04dJ14n9/gig/stdlib/packages" // Import built-in stdlib (40+ packages)
 )
 
 func main() {
@@ -206,7 +206,7 @@ mydep/
 
 ```go
 import (
-    "gig"
+    "github.com/t04dJ14n9/gig"
     _ "myapp/mydep/packages" // Your custom dependency package
 )
 
@@ -285,7 +285,7 @@ result, err := prog.RunWithContext(ctx context.Context, funcName string, args ..
 ### Package Registration
 
 ```go
-import "gig/register"
+import "github.com/t04dJ14n9/gig/register"
 
 pkg := register.AddPackage("mypkg", "mypkg")
 pkg.NewFunction("MyFunc", MyFunc, "documentation")
@@ -336,7 +336,7 @@ Gig enforces security by banning certain imports in interpreted code:
 **Problem:** You're importing a package that Gig doesn't know about.
 
 **Solution:**
-- For stdlib: Make sure you imported `_ "gig/stdlib/packages"`
+- For stdlib: Make sure you imported `_ "github.com/t04dJ14n9/gig/stdlib/packages"`
 - For third-party: Use the CLI to generate registration code
 
 ### "method not found on external type"

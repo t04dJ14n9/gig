@@ -29,8 +29,8 @@ package main
 
 import (
     "fmt"
-    _ "gig/stdlib/packages" // 导入 gig 的内置标准库
-    "gig"
+    _ "github.com/t04dJ14n9/gig/stdlib/packages" // 导入 gig 的内置标准库
+    "github.com/t04dJ14n9/gig"
 )
 
 func main() {
@@ -133,7 +133,7 @@ package main
 import (
     "fmt"
     _ "myapp/mydep/packages" // 你的自定义依赖包
-    "gig"
+    "github.com/t04dJ14n9/gig"
 )
 
 func main() {
@@ -171,7 +171,7 @@ result, err := prog.RunWithContext(ctx context.Context, funcName string, args ..
 ### 注册包（高级）
 
 ```go
-import "gig/register"
+import "github.com/t04dJ14n9/gig/register"
 
 // 手动注册包（通常通过生成的代码完成）
 pkg := register.RegisterPackage("mypkg", "mypkg")

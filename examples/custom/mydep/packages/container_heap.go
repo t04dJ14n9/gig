@@ -5,7 +5,7 @@ import (
 	container_heap "container/heap"
 	"reflect"
 
-	"gig/importer"
+	"github.com/t04dJ14n9/gig/importer"
 )
 
 func init() {

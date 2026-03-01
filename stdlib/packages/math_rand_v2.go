@@ -5,8 +5,8 @@ import (
 	math_rand_v2 "math/rand/v2"
 	"reflect"
 
-	"gig/importer"
-	"gig/value"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 func init() {

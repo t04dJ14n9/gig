@@ -5,8 +5,8 @@ import (
 	github_com_tidwall_gjson "github.com/tidwall/gjson"
 	"reflect"
 
-	"gig/importer"
-	"gig/value"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 func init() {

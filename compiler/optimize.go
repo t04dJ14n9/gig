@@ -1,6 +1,6 @@
 package compiler
 
-import "gig/bytecode"
+import "github.com/t04dJ14n9/gig/bytecode"
 
 // rewrite represents a bytecode rewrite from an old range to new bytes.
 type rewrite struct {

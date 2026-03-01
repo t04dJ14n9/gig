@@ -1,4 +1,4 @@
-module gig
+module github.com/t04dJ14n9/gig
 
 go 1.23.1
 

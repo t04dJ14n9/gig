@@ -5,8 +5,8 @@ import (
 	encoding_json "encoding/json"
 	"reflect"
 
-	"gig/importer"
-	"gig/value"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 func init() {

@@ -4,8 +4,8 @@ package packages
 import (
 	crypto_sha256 "crypto/sha256"
 
-	"gig/importer"
-	"gig/value"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 func init() {

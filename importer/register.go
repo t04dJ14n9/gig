@@ -34,7 +34,7 @@ import (
 	"reflect"
 	"sync"
 
-	"gig/value"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // ObjectKind represents the kind of external object (function, variable, constant, or type).

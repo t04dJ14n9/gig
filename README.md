@@ -29,8 +29,8 @@ package main
 
 import (
     "fmt"
-    _ "gig/stdlib/packages" // Import gig's built-in stdlib
-    "gig"
+    _ "github.com/t04dJ14n9/gig/stdlib/packages" // Import gig's built-in stdlib
+    "github.com/t04dJ14n9/gig"
 )
 
 func main() {
@@ -133,7 +133,7 @@ package main
 import (
     "fmt"
     _ "myapp/mydep/packages" // Your custom dependency package
-    "gig"
+    "github.com/t04dJ14n9/gig"
 )
 
 func main() {
@@ -171,7 +171,7 @@ result, err := prog.RunWithContext(ctx context.Context, funcName string, args ..
 ### Registering Packages (Advanced)
 
 ```go
-import "gig/register"
+import "github.com/t04dJ14n9/gig/register"
 
 // Register a package manually (usually done via generated code)
 pkg := register.RegisterPackage("mypkg", "mypkg")

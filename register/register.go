@@ -13,8 +13,8 @@
 package register
 
 import (
-	"gig/importer"
-	"gig/value"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // AddPackage registers a new external package with the given import path and name.

@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"gig/bytecode"
+	"github.com/t04dJ14n9/gig/bytecode"
 )
 
 // compileExternalCall compiles an external function call (non-static / unknown callee).

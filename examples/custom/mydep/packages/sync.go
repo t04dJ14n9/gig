@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"sync"
 
-	"gig/importer"
+	"github.com/t04dJ14n9/gig/importer"
 )
 
 func init() {

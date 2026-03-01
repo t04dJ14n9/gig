@@ -16,8 +16,8 @@ import (
 	"github.com/traefik/yaegi/stdlib"
 	lua "github.com/yuin/gopher-lua"
 
-	"gig"
-	_ "gig/stdlib/packages"
+	"github.com/t04dJ14n9/gig"
+	_ "github.com/t04dJ14n9/gig/stdlib/packages"
 )
 
 // ============================================================================

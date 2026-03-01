@@ -3,8 +3,8 @@ package vm
 import (
 	"reflect"
 
-	"gig/bytecode"
-	"gig/value"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // callCompiledFunction calls a compiled function by its index.
