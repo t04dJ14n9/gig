@@ -57,11 +57,11 @@ var (
 
 // PluginManager manages hot-loading of external packages.
 type PluginManager struct {
-	mu         sync.RWMutex
-	pluginDir  string                      // ~/.gig/plugins
-	loaded     map[string]bool             // Set of loaded package paths
-	registry   map[string]PluginMetadata   // Package path -> metadata
-	symbols    map[string]*ExportedSymbols // Package path -> cached symbols
+	mu        sync.RWMutex
+	pluginDir string                      // ~/.gig/plugins
+	loaded    map[string]bool             // Set of loaded package paths
+	registry  map[string]PluginMetadata   // Package path -> metadata
+	symbols   map[string]*ExportedSymbols // Package path -> cached symbols
 }
 
 // PluginMetadata stores information about a loaded plugin.
@@ -326,7 +326,7 @@ func (pm *PluginManager) generatePluginCode(pkgPath string) ([]byte, error) {
 	code, err := format.Source([]byte(sb.String()))
 	if err != nil {
 		// Return unformatted code instead of error - it's still valid Go
-		return []byte(sb.String()), nil
+		return []byte(sb.String()), nil //nolint:nilerr // Intentional fallback to unformatted code
 	}
 	return code, nil
 }
@@ -527,7 +527,7 @@ func (pm *PluginManager) generateReflectPluginCode(pkgPath, pkgAlias, pkgBaseNam
 	code, err := format.Source([]byte(sb.String()))
 	if err != nil {
 		// Return unformatted code instead of error - it's still valid Go
-		return []byte(sb.String()), nil
+		return []byte(sb.String()), nil //nolint:nilerr // Intentional fallback to unformatted code
 	}
 	return code, nil
 }
