@@ -80,11 +80,18 @@ type VM struct {
 	panicVal value.Value
 
 	// extCallCache caches resolved external function info for fast dispatch.
-	// Uses a plain slice indexed by funcIdx for O(1) lock-free access.
-	extCallCache []*extCallCacheEntry
+	// Uses a shared cache pointer for concurrent access from goroutines.
+	extCallCache *externalCallCache
 
 	// fpool recycles Frame objects to reduce heap allocations.
 	fpool framePool
+}
+
+// externalCallCache is a shared cache for external function lookups.
+// It is shared between a parent VM and all its child goroutine VMs.
+type externalCallCache struct {
+	mu    sync.RWMutex
+	cache []*extCallCacheEntry
 }
 
 // extCallCacheEntry caches resolved external function info for fast dispatch.
@@ -110,13 +117,15 @@ type extCallCacheEntry struct {
 // The VM is created with an empty stack and call frame array.
 func New(program *bytecode.Program) *VM {
 	return &VM{
-		program:      program,
-		stack:        make([]value.Value, 1024), // initial stack size
-		sp:           0,
-		frames:       make([]*Frame, 64), // max call depth
-		fp:           0,
-		globals:      make([]value.Value, len(program.Globals)),
-		extCallCache: make([]*extCallCacheEntry, len(program.Constants)),
+		program: program,
+		stack:   make([]value.Value, 1024), // initial stack size
+		sp:      0,
+		frames:  make([]*Frame, 64), // max call depth
+		fp:      0,
+		globals: make([]value.Value, len(program.Globals)),
+		extCallCache: &externalCallCache{
+			cache: make([]*extCallCacheEntry, len(program.Constants)),
+		},
 	}
 }
 
