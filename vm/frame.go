@@ -2,8 +2,8 @@
 package vm
 
 import (
-	"github.com/t04dJ14n9/gig/bytecode"
-	"github.com/t04dJ14n9/gig/value"
+	"git.woa.com/youngjin/gig/bytecode"
+	"git.woa.com/youngjin/gig/value"
 )
 
 // Frame represents a call frame on the VM's call stack.

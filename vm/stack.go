@@ -1,6 +1,6 @@
 package vm
 
-import "github.com/t04dJ14n9/gig/value"
+import "git.woa.com/youngjin/gig/value"
 
 // push pushes a value onto the operand stack.
 // Grows the stack if necessary.

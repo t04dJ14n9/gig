@@ -19,7 +19,7 @@ import (
 
 	_ "myapp/mydep/packages"
 
-	"github.com/t04dJ14n9/gig"
+	"git.woa.com/youngjin/gig"
 )
 
 func main() {

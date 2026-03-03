@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/t04dJ14n9/gig/value"
+	"git.woa.com/youngjin/gig/value"
 )
 
 // newChildVM creates a child VM for goroutine execution.

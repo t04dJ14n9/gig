@@ -268,7 +268,7 @@ func MakeFromReflect(rv reflect.Value) Value {
 
 	// Check if the underlying value is already a Value - unwrap it
 	if rv.Kind() == reflect.Struct {
-		if t := rv.Type(); t.Name() == "Value" && t.PkgPath() == "github.com/t04dJ14n9/gig/value" {
+		if t := rv.Type(); t.Name() == "Value" && t.PkgPath() == "git.woa.com/youngjin/gig/value" {
 			// This is a value.Value, extract it directly
 			return rv.Interface().(Value)
 		}

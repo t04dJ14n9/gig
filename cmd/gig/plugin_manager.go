@@ -45,7 +45,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/t04dJ14n9/gig"
+	"git.woa.com/youngjin/gig"
 )
 
 // Plugin errors
@@ -273,7 +273,7 @@ func (pm *PluginManager) generatePluginCode(pkgPath string) ([]byte, error) {
 		sb.WriteString("\t\"reflect\"\n")
 	}
 	sb.WriteString("\n")
-	sb.WriteString("\t\"github.com/t04dJ14n9/gig/importer\"\n")
+	sb.WriteString("\t\"git.woa.com/youngjin/gig/importer\"\n")
 	sb.WriteString(")\n\n")
 
 	// Generate Register function
@@ -503,7 +503,7 @@ func (pm *PluginManager) generateReflectPluginCode(pkgPath, pkgAlias, pkgBaseNam
 	sb.WriteString("import (\n")
 	sb.WriteString(fmt.Sprintf("\t%s %q\n", pkgAlias, pkgPath))
 	sb.WriteString("\n")
-	sb.WriteString("\t\"github.com/t04dJ14n9/gig/importer\"\n")
+	sb.WriteString("\t\"git.woa.com/youngjin/gig/importer\"\n")
 	sb.WriteString(")\n\n")
 
 	sb.WriteString("// Register is called by the plugin host to register this package.\n")
@@ -575,7 +575,7 @@ func (pm *PluginManager) buildPlugin(pkgPath, wrapperPath string) (string, error
 		// This is crucial for plugin compatibility
 		gigRoot := findGigRoot()
 		if gigRoot != "" {
-			replaceCmd := exec.CommandContext(ctx, "go", "mod", "edit", "-replace", "github.com/t04dJ14n9/gig="+gigRoot)
+			replaceCmd := exec.CommandContext(ctx, "go", "mod", "edit", "-replace", "git.woa.com/youngjin/gig="+gigRoot)
 			replaceCmd.Dir = pkgDir
 			if err := replaceCmd.Run(); err != nil {
 				return "", fmt.Errorf("add replace directive: %w", err)
@@ -609,7 +609,7 @@ func (pm *PluginManager) buildPlugin(pkgPath, wrapperPath string) (string, error
 func findGigRoot() string {
 	ctx := context.Background()
 	// Try to find gig root from current directory
-	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-f", "{{.Dir}}", "github.com/t04dJ14n9/gig")
+	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-f", "{{.Dir}}", "git.woa.com/youngjin/gig")
 	output, err := cmd.Output()
 	if err != nil {
 		return ""

@@ -5,8 +5,8 @@ import (
 	net_url "net/url"
 	"reflect"
 
-	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"git.woa.com/youngjin/gig/importer"
+	"git.woa.com/youngjin/gig/value"
 )
 
 func init() {

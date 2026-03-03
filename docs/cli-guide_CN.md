@@ -6,10 +6,10 @@
 
 ```bash
 # 安装 CLI 工具
-go install github.com/t04dJ14n9/gig/cmd/gig@latest
+go install git.woa.com/youngjin/gig/cmd/gig@latest
 
 # 或者直接运行 (Go 1.21+)
-go run github.com/t04dJ14n9/gig/cmd/gig@latest --help
+go run git.woa.com/youngjin/gig/cmd/gig@latest --help
 ```
 
 ## 命令

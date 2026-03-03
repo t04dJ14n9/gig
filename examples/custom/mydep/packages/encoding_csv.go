@@ -5,7 +5,7 @@ import (
 	encoding_csv "encoding/csv"
 	"reflect"
 
-	"github.com/t04dJ14n9/gig/importer"
+	"git.woa.com/youngjin/gig/importer"
 )
 
 func init() {

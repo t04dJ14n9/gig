@@ -18,8 +18,8 @@ import (
 
 	"github.com/peterh/liner"
 
-	"github.com/t04dJ14n9/gig"
-	_ "github.com/t04dJ14n9/gig/stdlib/packages" // Import built-in stdlib
+	"git.woa.com/youngjin/gig"
+	_ "git.woa.com/youngjin/gig/stdlib/packages" // Import built-in stdlib
 )
 
 // Type name constants to avoid repetition.

@@ -4,8 +4,8 @@ package packages
 import (
 	unicode_utf8 "unicode/utf8"
 
-	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"git.woa.com/youngjin/gig/importer"
+	"git.woa.com/youngjin/gig/value"
 )
 
 func init() {

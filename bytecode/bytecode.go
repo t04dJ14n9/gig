@@ -5,7 +5,7 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"github.com/t04dJ14n9/gig/value"
+	"git.woa.com/youngjin/gig/value"
 )
 
 // PackageLookup resolves external package functions for the compiler.

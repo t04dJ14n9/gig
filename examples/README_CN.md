@@ -58,8 +58,8 @@ simple/
 
 ```go
 import (
-    "github.com/t04dJ14n9/gig"
-    _ "github.com/t04dJ14n9/gig/stdlib/packages" // 导入内置标准库（40+ 包）
+    "git.woa.com/youngjin/gig"
+    _ "git.woa.com/youngjin/gig/stdlib/packages" // 导入内置标准库（40+ 包）
 )
 
 func main() {
@@ -150,7 +150,7 @@ custom/
 #### 步骤 1：安装 CLI
 
 ```bash
-go install github.com/t04dJ14n9/gig/cmd/gig@latest
+go install git.woa.com/youngjin/gig/cmd/gig@latest
 ```
 
 #### 步骤 2：初始化依赖包
@@ -206,7 +206,7 @@ mydep/
 
 ```go
 import (
-    "github.com/t04dJ14n9/gig"
+    "git.woa.com/youngjin/gig"
     _ "myapp/mydep/packages" // 你的自定义依赖包
 )
 
@@ -285,7 +285,7 @@ result, err := prog.RunWithContext(ctx context.Context, funcName string, args ..
 ### 包注册
 
 ```go
-import "github.com/t04dJ14n9/gig/register"
+import "git.woa.com/youngjin/gig/register"
 
 pkg := register.AddPackage("mypkg", "mypkg")
 pkg.NewFunction("MyFunc", MyFunc, "文档说明")
@@ -336,7 +336,7 @@ Gig 通过在解释代码中禁止某些导入来强制安全性：
 **问题：** 你正在导入 Gig 不知道的包。
 
 **解决方案：**
-- 对于标准库：确保你导入了 `_ "github.com/t04dJ14n9/gig/stdlib/packages"`
+- 对于标准库：确保你导入了 `_ "git.woa.com/youngjin/gig/stdlib/packages"`
 - 对于第三方库：使用 CLI 生成注册代码
 
 ### "method not found on external type"（外部类型上找不到方法）

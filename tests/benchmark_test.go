@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/t04dJ14n9/gig"
-	_ "github.com/t04dJ14n9/gig/stdlib/packages"
-	"github.com/t04dJ14n9/gig/tests/testdata/benchmarks"
+	"git.woa.com/youngjin/gig"
+	_ "git.woa.com/youngjin/gig/stdlib/packages"
+	"git.woa.com/youngjin/gig/tests/testdata/benchmarks"
 )
 
 //go:embed testdata/benchmarks/*.go
