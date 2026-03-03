@@ -124,7 +124,7 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 
 	for _, block := range blocks {
 		blockOffsets[block] = len(c.currentFunc.Instructions)
-		c.compileBlock(fn, block)
+		c.compileBlock(block)
 	}
 
 	// Patch jump targets
@@ -156,9 +156,9 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 }
 
 // compileBlock compiles a single basic block to bytecode.
-func (c *compiler) compileBlock(fn *ssa.Function, block *ssa.BasicBlock) {
+func (c *compiler) compileBlock(block *ssa.BasicBlock) {
 	for _, instr := range block.Instrs {
-		c.compileInstruction(fn, instr)
+		c.compileInstruction(instr)
 	}
 
 	// Handle block terminator

@@ -10,7 +10,7 @@ import (
 )
 
 // compileInstruction compiles a single SSA instruction to bytecode.
-func (c *compiler) compileInstruction(fn *ssa.Function, instr ssa.Instruction) {
+func (c *compiler) compileInstruction(instr ssa.Instruction) {
 	switch i := instr.(type) {
 	case *ssa.Alloc:
 		c.compileAlloc(i)

@@ -4,6 +4,8 @@
 
 Gig is a high-performance Go interpreter written in Go, featuring SSA-to-bytecode compilation and a stack-based virtual machine.
 
+> **Note**: This is a personal learning project built through extensive coding practice. Despite being a learning exercise, it includes comprehensive tests (40+ test files) and benchmarks to ensure correctness and performance.
+
 ## Features
 
 - **SSA-based compilation**: Uses `golang.org/x/tools/go/ssa` for intermediate representation

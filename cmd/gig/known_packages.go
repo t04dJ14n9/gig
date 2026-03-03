@@ -67,12 +67,3 @@ var knownPackages = map[string]string{
 	"scrypt":       "golang.org/x/crypto/scrypt",
 	"argon2":       "golang.org/x/crypto/argon2",
 }
-
-// getPackagePath returns the import path for a given package name.
-// Returns the name itself if not found (for external packages).
-func getPackagePath(name string) string {
-	if path, ok := knownPackages[name]; ok {
-		return path
-	}
-	return name
-}
