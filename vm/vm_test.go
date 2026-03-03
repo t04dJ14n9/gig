@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/t04dJ14n9/gig/bytecode"
 	"github.com/t04dJ14n9/gig/value"
@@ -220,6 +221,136 @@ func TestExecuteWithCancellation(t *testing.T) {
 	if err == nil {
 		t.Error("expected context cancellation error")
 	}
+}
+
+// TestExecuteWithTimeout verifies context timeout during execution.
+func TestExecuteWithTimeout(t *testing.T) {
+	// Infinite loop: OpJump back to 0
+	instr := make([]byte, 0, 3)
+	instr = append(instr, byte(bytecode.OpJump))
+	instr = append(instr, 0, 0) // jump to offset 0
+
+	fn := &bytecode.CompiledFunction{
+		Name:         "loop",
+		Instructions: instr,
+		NumLocals:    0,
+		NumParams:    0,
+		MaxStack:     1,
+	}
+	prog := &bytecode.Program{
+		Functions: map[string]*bytecode.CompiledFunction{"loop": fn},
+		Globals:   map[string]int{},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50)
+	defer cancel()
+
+	v := New(prog)
+	_, err := v.Execute("loop", ctx)
+	if err == nil {
+		t.Error("expected context timeout error")
+	}
+	if ctx.Err() == nil {
+		t.Error("expected context to be cancelled")
+	}
+}
+
+// TestChannelSendCancellation verifies that channel send respects context cancellation.
+func TestChannelSendCancellation(t *testing.T) {
+	// This test verifies the SendContext path - actual VM integration test
+	// would require compiled bytecode with channel operations
+	ch := make(chan int)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	// Wrap channel in value
+	v := value.FromInterface(ch)
+
+	// Send should fail with context cancelled
+	err := v.SendContext(ctx, value.MakeInt(42))
+	if err == nil {
+		t.Error("expected context cancellation error for SendContext")
+	}
+}
+
+// TestChannelRecvCancellation verifies that channel receive respects context cancellation.
+func TestChannelRecvCancellation(t *testing.T) {
+	// Empty channel - receive should block then cancel
+	ch := make(chan int)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	// Wrap channel in value
+	v := value.FromInterface(ch)
+
+	// Recv should fail with context cancelled
+	_, _, err := v.RecvContext(ctx)
+	if err == nil {
+		t.Error("expected context cancellation error for RecvContext")
+	}
+}
+
+// TestChannelSendSuccess verifies successful channel send with context.
+func TestChannelSendSuccess(t *testing.T) {
+	ch := make(chan int, 1) // Buffered channel
+
+	ctx := context.Background()
+	v := value.FromInterface(ch)
+
+	err := v.SendContext(ctx, value.MakeInt(42))
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// Verify value was sent
+	val := <-ch
+	if val != 42 {
+		t.Errorf("received %d, want 42", val)
+	}
+}
+
+// TestChannelRecvSuccess verifies successful channel receive with context.
+func TestChannelRecvSuccess(t *testing.T) {
+	ch := make(chan int, 1)
+	ch <- 42
+
+	ctx := context.Background()
+	v := value.FromInterface(ch)
+
+	val, ok, err := v.RecvContext(ctx)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Error("expected ok=true for successful receive")
+	}
+	if val.Int() != 42 {
+		t.Errorf("received %d, want 42", val.Int())
+	}
+}
+
+// TestGoroutineWaitContext verifies that WaitGoroutinesContext respects cancellation.
+func TestGoroutineWaitContext(t *testing.T) {
+	// Reset the global tracker to ensure clean state
+	globalGoroutineTracker = &goroutineTracker{}
+
+	// Start a goroutine that takes a while
+	StartGoroutine(func() {
+		time.Sleep(100 * time.Millisecond)
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	err := WaitGoroutinesContext(ctx)
+	if err == nil {
+		t.Error("expected timeout error")
+	}
+
+	// Wait for the goroutine to actually complete to clean up
+	WaitGoroutines()
 }
 
 // ---------------------------------------------------------------------------

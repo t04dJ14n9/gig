@@ -55,11 +55,25 @@ func (vm *VM) run() (value.Value, error) {
 	// occur in loops, and the counter increment is a single bitwise AND.
 	backJumpCount := 0
 
+	// instructionCount tracks total instructions executed for periodic context checks.
+	instructionCount := uint64(0)
+
 	if vm.fp > 0 {
 		loadFrame()
 	}
 
 	for vm.fp > 0 {
+		// Periodic context check counter
+		instructionCount++
+		if instructionCount&0x3FF == 0 {
+			select {
+			case <-vm.ctx.Done():
+				vm.sp = sp
+				return value.MakeNil(), vm.ctx.Err()
+			default:
+			}
+		}
+
 		// Check for end of function
 		if frame.ip >= len(ins) {
 			// Pop frame and return it to pool
@@ -920,7 +934,9 @@ func (vm *VM) run() (value.Value, error) {
 			funcIdx := readU16()
 			numArgs := int(frame.readByte())
 			vm.sp = sp
-			vm.callExternal(int(funcIdx), numArgs)
+			if err := vm.callExternal(int(funcIdx), numArgs); err != nil {
+				return value.MakeNil(), err
+			}
 			sp = vm.sp
 			stack = vm.stack
 			continue

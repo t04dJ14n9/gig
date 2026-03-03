@@ -11,6 +11,7 @@ Gig is a high-performance Go interpreter written in Go, featuring SSA-to-bytecod
 - **Tagged-union Value system**: Zero reflection overhead for primitive types
 - **Security**: Bans `unsafe`, `reflect`, and `panic` in interpreted code
 - **Extensible**: Support for registering external Go packages (40+ stdlib packages built-in)
+- **Context cancellation**: Full support for `context.Context` timeout and cancellation ([docs](docs/context-cancellation.md))
 
 ## Installation
 
@@ -242,11 +243,11 @@ Real benchmarks comparing **Gig**, **Yaegi** (Go interpreter), **GopherLua** (Lu
 
 | Workload | Native Go | Gig | Yaegi | GopherLua | Gig vs Yaegi |
 |---|---:|---:|---:|---:|---:|
-| **Fibonacci(25)** recursive | 449 μs | **19.7 ms** | 109 ms | 6.8 ms | **Gig 5.5x faster** |
-| **ArithmeticSum(1K)** loop | 333 ns | **35 μs** | 40.9 μs | 18 μs | **Gig 1.2x faster** |
-| **BubbleSort(100)** nested loops | 6.2 μs | **992 μs** | 1.23 ms | 278 μs | **Gig 1.2x faster** |
+| **Fibonacci(25)** recursive | 449 μs | **20.1 ms** | 109 ms | 6.8 ms | **Gig 5.4x faster** |
+| **ArithmeticSum(1K)** loop | 333 ns | **35.4 μs** | 40.9 μs | 18 μs | **Gig 1.2x faster** |
+| **BubbleSort(100)** nested loops | 6.2 μs | **927 μs** | 1.23 ms | 278 μs | **Gig 1.3x faster** |
 | **Sieve(1000)** primes | 1.88 μs | **192 μs** | 205 μs | 172 μs | **Gig 1.1x faster** |
-| **ClosureCalls(1K)** captured var | 661 ns | **327 μs** | 1 ms | 156 μs | **Gig 3x faster** |
+| **ClosureCalls(1K)** captured var | 661 ns | **320 μs** | 1 ms | 156 μs | **Gig 3.1x faster** |
 
 ### External Function Calls (Gig vs Yaegi vs Native Go)
 
@@ -254,10 +255,10 @@ Calling Go standard library functions from interpreted code — the most common 
 
 | Workload | Native Go | Gig | Yaegi | Gig vs Yaegi |
 |---|---:|---:|---:|---:|
-| **DirectCall** (strings/strconv) | 27.9 μs | **583 μs** | 1,551 μs | **Gig 2.7x faster** |
-| **Reflect** (fmt/encoding) | 24.1 μs | **359 μs** | 1,001 μs | **Gig 2.8x faster** |
-| **Method** (Builder/Buffer/Regexp) | 18.4 μs | **460 μs** | 1,214 μs | **Gig 2.6x faster** |
-| **Mixed** (functions + methods) | 11.5 μs | **331 μs** | 846 μs | **Gig 2.6x faster** |
+| **DirectCall** (strings/strconv) | 27.9 μs | **553 μs** | 1,551 μs | **Gig 2.8x faster** |
+| **Reflect** (fmt/encoding) | 24.1 μs | **356 μs** | 1,001 μs | **Gig 2.8x faster** |
+| **Method** (Builder/Buffer/Regexp) | 18.4 μs | **450 μs** | 1,214 μs | **Gig 2.7x faster** |
+| **Mixed** (functions + methods) | 11.5 μs | **321 μs** | 846 μs | **Gig 2.6x faster** |
 
 ### Memory Efficiency
 
@@ -271,12 +272,12 @@ Calling Go standard library functions from interpreted code — the most common 
 
 ### Analysis
 
-**Gig beats Yaegi on all 9 benchmarks**, with advantages ranging from 1.1x to 5.5x:
+**Gig beats Yaegi on all 9 benchmarks**, with advantages ranging from 1.1x to 5.4x:
 
-- **5.5x faster** on deep recursion (Fib25) — O(1) function lookup, frame pooling, and 7 allocs vs 2.1M
+- **5.4x faster** on deep recursion (Fib25) — O(1) function lookup, frame pooling, and 7 allocs vs 2.1M
 - **2.6–2.8x faster** on external calls — 1,162 generated DirectCall wrappers eliminate `reflect.Value.Call()` for 92% of stdlib functions and methods
-- **1.1–1.2x faster** on tight loops (ArithSum, BubbleSort, Sieve) — integer-specialized `int64` locals and fused superinstructions
-- **3x faster** on closures — efficient closure representation with shared `*value.Value` captures
+- **1.1–1.3x faster** on tight loops (ArithSum, BubbleSort, Sieve) — integer-specialized `int64` locals and fused superinstructions
+- **3.1x faster** on closures — efficient closure representation with shared `*value.Value` captures
 
 **GopherLua vs Gig**: GopherLua is 2-4x faster on core workloads because Lua is a simpler, dynamically-typed language optimized for these patterns. However:
 

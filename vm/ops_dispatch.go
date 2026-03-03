@@ -946,19 +946,27 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	case bytecode.OpSend:
 		val := vm.pop()
 		ch := vm.pop()
-		ch.Send(val)
+		if err := ch.SendContext(vm.ctx, val); err != nil {
+			return err
+		}
 
 	case bytecode.OpRecv:
 		ch := vm.pop()
-		val, _ := ch.Recv()
+		val, _, err := ch.RecvContext(vm.ctx)
+		if err != nil {
+			return err
+		}
 		vm.push(val)
 
 	case bytecode.OpRecvOk:
 		// Receive with comma-ok: returns (value, ok) tuple
 		ch := vm.pop()
-		val, ok := ch.Recv()
+		val, recvOK, err := ch.RecvContext(vm.ctx)
+		if err != nil {
+			return err
+		}
 		// Push as tuple (value, ok)
-		tuple := []value.Value{val, value.MakeBool(ok)}
+		tuple := []value.Value{val, value.MakeBool(recvOK)}
 		vm.push(value.FromInterface(tuple))
 
 	case bytecode.OpClose:
@@ -996,10 +1004,8 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		}
 
 		// Build reflect.SelectCase slice
-		numCases := meta.NumStates
-		if !meta.Blocking {
-			numCases++ // add default case
-		}
+		// Add 1 for default case (non-blocking) or context cancellation case (blocking)
+		numCases := meta.NumStates + 1
 		cases := make([]reflect.SelectCase, numCases)
 		for i := 0; i < meta.NumStates; i++ {
 			rv, _ := states[i].ch.ReflectValue()
@@ -1019,10 +1025,21 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		}
 		if !meta.Blocking {
 			cases[meta.NumStates] = reflect.SelectCase{Dir: reflect.SelectDefault}
+		} else {
+			// Inject context cancellation case for blocking select
+			cases[meta.NumStates] = reflect.SelectCase{
+				Dir:  reflect.SelectRecv,
+				Chan: reflect.ValueOf(vm.ctx.Done()),
+			}
 		}
 
 		// Perform the select
 		chosen, recv, recvOK := reflect.Select(cases)
+
+		// Check if context was cancelled (chosen == meta.NumStates in blocking mode)
+		if meta.Blocking && chosen == meta.NumStates {
+			return vm.ctx.Err()
+		}
 
 		// Adjust chosen index: if default was selected, chosen == meta.NumStates → map to -1
 		if !meta.Blocking && chosen == meta.NumStates {
@@ -1303,7 +1320,9 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	case bytecode.OpCallExternal:
 		funcIdx := frame.readUint16()
 		numArgs := frame.readByte()
-		vm.callExternal(int(funcIdx), int(numArgs))
+		if err := vm.callExternal(int(funcIdx), int(numArgs)); err != nil {
+			return err
+		}
 
 	// Indirect call (closures, function values)
 	case bytecode.OpCallIndirect:

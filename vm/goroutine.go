@@ -1,8 +1,8 @@
 package vm
 
 import (
+	"context"
 	"sync"
-	"sync/atomic"
 
 	"github.com/t04dJ14n9/gig/value"
 )
@@ -28,24 +28,44 @@ func (vm *VM) newChildVM() *VM {
 	return child
 }
 
-// Goroutine tracking for concurrent execution.
-var activeGoroutines int64
+// goroutineTracker provides efficient goroutine lifecycle tracking using sync.WaitGroup.
+type goroutineTracker struct {
+	wg sync.WaitGroup
+}
+
+// Global tracker instance
+var globalGoroutineTracker = &goroutineTracker{}
 
 // StartGoroutine starts a new goroutine and tracks it.
 // Used for the "go" statement implementation.
 func StartGoroutine(fn func()) {
-	atomic.AddInt64(&activeGoroutines, 1)
+	globalGoroutineTracker.wg.Add(1)
 	go func() {
-		defer atomic.AddInt64(&activeGoroutines, -1)
+		defer globalGoroutineTracker.wg.Done()
 		fn()
 	}()
 }
 
 // WaitGoroutines waits for all tracked goroutines to complete.
-// Uses busy waiting - could be improved with sync.WaitGroup.
+// This blocks until all goroutines finish or the context is cancelled.
 func WaitGoroutines() {
-	for atomic.LoadInt64(&activeGoroutines) > 0 {
-		// Busy wait - could use a WaitGroup instead
+	globalGoroutineTracker.wg.Wait()
+}
+
+// WaitGoroutinesContext waits for all tracked goroutines to complete with context cancellation.
+// Returns ctx.Err() if the context is cancelled before all goroutines complete.
+func WaitGoroutinesContext(ctx context.Context) error {
+	done := make(chan struct{})
+	go func() {
+		globalGoroutineTracker.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 

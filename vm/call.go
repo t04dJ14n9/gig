@@ -7,6 +7,20 @@ import (
 	"github.com/t04dJ14n9/gig/value"
 )
 
+// ExternalCallCancelledError is returned when a context is cancelled before/after an external call.
+// This wraps the original context error to provide more context.
+type ExternalCallCancelledError struct {
+	Cause error
+}
+
+func (e *ExternalCallCancelledError) Error() string {
+	return "external call cancelled: " + e.Cause.Error()
+}
+
+func (e *ExternalCallCancelledError) Unwrap() error {
+	return e.Cause
+}
+
 // callCompiledFunction calls a compiled function by its index.
 // It creates a new call frame with the function's local variables.
 func (vm *VM) callCompiledFunction(funcIdx, numArgs int) {
@@ -64,7 +78,8 @@ func (vm *VM) callFunction(fn *bytecode.CompiledFunction, args []value.Value, fr
 // callExternal calls an external (native Go) function.
 // It first checks the inline cache, then resolves the function if not cached.
 // Supports both DirectCall (fast path) and reflect.Call (slow path).
-func (vm *VM) callExternal(funcIdx, numArgs int) {
+// Returns an error if the context is cancelled during or immediately after the call.
+func (vm *VM) callExternal(funcIdx, numArgs int) error {
 	// Pop arguments first (before any cache lookup)
 	args := make([]value.Value, numArgs)
 	for i := numArgs - 1; i >= 0; i-- {
@@ -74,8 +89,7 @@ func (vm *VM) callExternal(funcIdx, numArgs int) {
 	// Check if this is a method call (ExternalMethodInfo)
 	if funcIdx < len(vm.program.Constants) {
 		if methodInfo, ok := vm.program.Constants[funcIdx].(*bytecode.ExternalMethodInfo); ok {
-			vm.callExternalMethod(methodInfo, args)
-			return
+			return vm.callExternalMethod(methodInfo, args)
 		}
 	}
 
@@ -111,11 +125,17 @@ func (vm *VM) callExternal(funcIdx, numArgs int) {
 		}
 		result := cacheEntry.directCall(args)
 		vm.push(result)
-		return
+		// Check context after the call for post-call cancellation
+		select {
+		case <-vm.ctx.Done():
+			return &ExternalCallCancelledError{Cause: vm.ctx.Err()}
+		default:
+		}
+		return nil
 	}
 
 	// Slow path: use reflect.Call
-	vm.callExternalReflect(cacheEntry, args)
+	return vm.callExternalReflect(cacheEntry, args)
 }
 
 // resolveExternalFunc resolves an external function from the constant pool.
@@ -152,10 +172,10 @@ func (vm *VM) resolveExternalFunc(funcIdx int) *extCallCacheEntry {
 
 // callExternalReflect executes an external function using reflect.Call.
 // This is the slow path when no DirectCall wrapper is available.
-func (vm *VM) callExternalReflect(entry *extCallCacheEntry, args []value.Value) {
+func (vm *VM) callExternalReflect(entry *extCallCacheEntry, args []value.Value) error {
 	if !entry.fn.IsValid() || entry.fn.Kind() != reflect.Func {
 		vm.push(value.MakeNil())
-		return
+		return nil
 	}
 
 	numArgs := len(args)
@@ -212,6 +232,13 @@ func (vm *VM) callExternalReflect(entry *extCallCacheEntry, args []value.Value) 
 	// Call the function
 	out := entry.fn.Call(in)
 
+	// Check context after the call for post-call cancellation
+	select {
+	case <-vm.ctx.Done():
+		return &ExternalCallCancelledError{Cause: vm.ctx.Err()}
+	default:
+	}
+
 	// Convert result
 	if len(out) == 0 {
 		vm.push(value.MakeNil())
@@ -225,30 +252,37 @@ func (vm *VM) callExternalReflect(entry *extCallCacheEntry, args []value.Value) 
 		}
 		vm.push(value.FromInterface(results))
 	}
+	return nil
 }
 
 // callExternalMethod dispatches a method call on an external type.
 // args[0] is the receiver, args[1:] are the method arguments.
 // Uses DirectCall fast path if available, otherwise falls back to reflection.
-func (vm *VM) callExternalMethod(methodInfo *bytecode.ExternalMethodInfo, args []value.Value) {
+func (vm *VM) callExternalMethod(methodInfo *bytecode.ExternalMethodInfo, args []value.Value) error {
 	if len(args) == 0 {
 		vm.push(value.MakeNil())
-		return
+		return nil
 	}
 
 	// Fast path: DirectCall wrapper resolved at compile time
 	if methodInfo.DirectCall != nil {
 		result := methodInfo.DirectCall(args)
 		vm.push(result)
-		return
+		// Check context after the call
+		select {
+		case <-vm.ctx.Done():
+			return &ExternalCallCancelledError{Cause: vm.ctx.Err()}
+		default:
+		}
+		return nil
 	}
 
 	// Slow path: use reflect.MethodByName + reflect.Call
-	vm.callExternalMethodReflect(methodInfo, args)
+	return vm.callExternalMethodReflect(methodInfo, args)
 }
 
 // callExternalMethodReflect dispatches a method call using reflection.
-func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo, args []value.Value) {
+func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo, args []value.Value) error {
 	// Get the receiver as a reflect.Value
 	receiver := args[0]
 	var rv reflect.Value
@@ -260,7 +294,7 @@ func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo,
 
 	if !rv.IsValid() {
 		vm.push(value.MakeNil())
-		return
+		return nil
 	}
 
 	// Look up the method by name
@@ -272,7 +306,7 @@ func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo,
 		}
 		if !method.IsValid() {
 			vm.push(value.MakeNil())
-			return
+			return nil
 		}
 	}
 
@@ -328,6 +362,13 @@ func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo,
 	// Call the method
 	out := method.Call(in)
 
+	// Check context after the call for post-call cancellation
+	select {
+	case <-vm.ctx.Done():
+		return &ExternalCallCancelledError{Cause: vm.ctx.Err()}
+	default:
+	}
+
 	// Convert result
 	if len(out) == 0 {
 		vm.push(value.MakeNil())
@@ -340,4 +381,5 @@ func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo,
 		}
 		vm.push(value.FromInterface(results))
 	}
+	return nil
 }

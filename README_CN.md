@@ -11,6 +11,7 @@ Gig 是一个用 Go 语言编写的高性能 Go 解释器，采用 SSA 到字节
 - **Tagged-Union 值系统**：基本类型零反射开销
 - **安全性**：在解释代码中禁止 `unsafe`、`reflect` 和 `panic`
 - **可扩展**：支持注册外部 Go 包（内置 40+ 标准库包）
+- **Context 取消支持**：完整支持 `context.Context` 超时和取消（[文档](docs/context-cancellation_CN.md)）
 
 ## 安装
 
@@ -242,11 +243,11 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 
 | 工作负载 | 原生 Go | Gig | Yaegi | GopherLua | Gig vs Yaegi |
 |---|---:|---:|---:|---:|---:|
-| **Fibonacci(25)** 递归 | 449 μs | **19.7 ms** | 109 ms | 6.8 ms | **Gig 快 5.5 倍** |
-| **ArithmeticSum(1K)** 循环 | 333 ns | **35 μs** | 40.9 μs | 18 μs | **Gig 快 1.2 倍** |
-| **BubbleSort(100)** 嵌套循环 | 6.2 μs | **992 μs** | 1.23 ms | 278 μs | **Gig 快 1.2 倍** |
+| **Fibonacci(25)** 递归 | 449 μs | **20.1 ms** | 109 ms | 6.8 ms | **Gig 快 5.4 倍** |
+| **ArithmeticSum(1K)** 循环 | 333 ns | **35.4 μs** | 40.9 μs | 18 μs | **Gig 快 1.2 倍** |
+| **BubbleSort(100)** 嵌套循环 | 6.2 μs | **927 μs** | 1.23 ms | 278 μs | **Gig 快 1.3 倍** |
 | **Sieve(1000)** 质数筛 | 1.88 μs | **192 μs** | 205 μs | 172 μs | **Gig 快 1.1 倍** |
-| **ClosureCalls(1K)** 闭包调用 | 661 ns | **327 μs** | 1 ms | 156 μs | **Gig 快 3 倍** |
+| **ClosureCalls(1K)** 闭包调用 | 661 ns | **320 μs** | 1 ms | 156 μs | **Gig 快 3.1 倍** |
 
 ### 外部函数调用 (Gig vs Yaegi vs 原生 Go)
 
@@ -254,10 +255,10 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 
 | 工作负载 | 原生 Go | Gig | Yaegi | Gig vs Yaegi |
 |---|---:|---:|---:|---:|
-| **DirectCall** (strings/strconv) | 27.9 μs | **583 μs** | 1,551 μs | **Gig 快 2.7 倍** |
-| **Reflect** (fmt/encoding) | 24.1 μs | **359 μs** | 1,001 μs | **Gig 快 2.8 倍** |
-| **Method** (Builder/Buffer/Regexp) | 18.4 μs | **460 μs** | 1,214 μs | **Gig 快 2.6 倍** |
-| **Mixed** (函数 + 方法) | 11.5 μs | **331 μs** | 846 μs | **Gig 快 2.6 倍** |
+| **DirectCall** (strings/strconv) | 27.9 μs | **553 μs** | 1,551 μs | **Gig 快 2.8 倍** |
+| **Reflect** (fmt/encoding) | 24.1 μs | **356 μs** | 1,001 μs | **Gig 快 2.8 倍** |
+| **Method** (Builder/Buffer/Regexp) | 18.4 μs | **450 μs** | 1,214 μs | **Gig 快 2.7 倍** |
+| **Mixed** (函数 + 方法) | 11.5 μs | **321 μs** | 846 μs | **Gig 快 2.6 倍** |
 
 ### 内存效率
 
@@ -271,12 +272,12 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 
 ### 分析
 
-**Gig 在全部 9 项基准测试中均优于 Yaegi**，优势从 1.1 倍到 5.5 倍：
+**Gig 在全部 9 项基准测试中均优于 Yaegi**，优势从 1.1 倍到 5.4 倍：
 
-- **递归快 5.5 倍**（Fib25）—— O(1) 函数查找、帧池化，仅 7 次分配 vs 210 万次
+- **递归快 5.4 倍**（Fib25）—— O(1) 函数查找、帧池化，仅 7 次分配 vs 210 万次
 - **外部调用快 2.6–2.8 倍** —— 1,162 个生成的 DirectCall 包装器消除了 92% 标准库函数和方法的 `reflect.Value.Call()`
-- **紧凑循环快 1.1–1.2 倍**（ArithSum、BubbleSort、Sieve）—— 整数特化 `int64` 局部变量和融合超级指令
-- **闭包快 3 倍** —— 高效的闭包表示，通过共享 `*value.Value` 捕获变量
+- **紧凑循环快 1.1–1.3 倍**（ArithSum、BubbleSort、Sieve）—— 整数特化 `int64` 局部变量和融合超级指令
+- **闭包快 3.1 倍** —— 高效的闭包表示，通过共享 `*value.Value` 捕获变量
 
 **GopherLua vs Gig**：GopherLua 在核心工作负载上快 2-4 倍，因为 Lua 是更简单的动态类型语言，针对这些模式进行了优化。但是：
 
