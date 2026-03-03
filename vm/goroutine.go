@@ -3,6 +3,8 @@ package vm
 import (
 	"context"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/t04dJ14n9/gig/value"
 )
@@ -28,45 +30,48 @@ func (vm *VM) newChildVM() *VM {
 	return child
 }
 
-// goroutineTracker provides efficient goroutine lifecycle tracking using sync.WaitGroup.
-type goroutineTracker struct {
-	wg sync.WaitGroup
-}
-
-// Global tracker instance
-var globalGoroutineTracker = &goroutineTracker{}
+// activeGoroutines tracks the number of active goroutines using atomic operations.
+var activeGoroutines int64
 
 // StartGoroutine starts a new goroutine and tracks it.
 // Used for the "go" statement implementation.
 func StartGoroutine(fn func()) {
-	globalGoroutineTracker.wg.Add(1)
+	atomic.AddInt64(&activeGoroutines, 1)
 	go func() {
-		defer globalGoroutineTracker.wg.Done()
+		defer atomic.AddInt64(&activeGoroutines, -1)
 		fn()
 	}()
 }
 
 // WaitGoroutines waits for all tracked goroutines to complete.
-// This blocks until all goroutines finish or the context is cancelled.
+// Uses exponential backoff to avoid busy waiting.
 func WaitGoroutines() {
-	globalGoroutineTracker.wg.Wait()
+	backoff := time.Microsecond
+	for atomic.LoadInt64(&activeGoroutines) > 0 {
+		time.Sleep(backoff)
+		// Cap backoff at 10ms to avoid waiting too long
+		if backoff < 10*time.Millisecond {
+			backoff *= 2
+		}
+	}
 }
 
 // WaitGoroutinesContext waits for all tracked goroutines to complete with context cancellation.
 // Returns ctx.Err() if the context is cancelled before all goroutines complete.
 func WaitGoroutinesContext(ctx context.Context) error {
-	done := make(chan struct{})
-	go func() {
-		globalGoroutineTracker.wg.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
+	backoff := time.Microsecond
+	for atomic.LoadInt64(&activeGoroutines) > 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		time.Sleep(backoff)
+		if backoff < 10*time.Millisecond {
+			backoff *= 2
+		}
 	}
+	return nil
 }
 
 // Global VM registry for concurrent execution.

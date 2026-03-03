@@ -333,9 +333,6 @@ func TestChannelRecvSuccess(t *testing.T) {
 
 // TestGoroutineWaitContext verifies that WaitGoroutinesContext respects cancellation.
 func TestGoroutineWaitContext(t *testing.T) {
-	// Reset the global tracker to ensure clean state
-	globalGoroutineTracker = &goroutineTracker{}
-
 	// Start a goroutine that takes a while
 	StartGoroutine(func() {
 		time.Sleep(100 * time.Millisecond)
