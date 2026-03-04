@@ -174,9 +174,6 @@ func Build(sourceCode string, packages ...string) (*Program, error) {
 	// Build the package
 	ssaPkg.Build()
 
-	// Wrap external values
-	externalValueWrap(ssaPkg, imp)
-
 	// Compile to bytecode
 	lookup := newPackageLookupAdapter()
 	compiled, err := compiler.Compile(lookup, ssaPkg)
@@ -263,25 +260,52 @@ func checkBannedImports(file *ast.File) error {
 // It scans the AST for selector expressions (e.g., fmt.Println) and checks if
 // the identifier matches a registered package name.
 func autoImport(file *ast.File) {
+	// Collect already-imported paths to avoid duplicates
+	alreadyImported := make(map[string]bool)
+	for _, imp := range file.Imports {
+		path := strings.Trim(imp.Path.Value, `"`)
+		alreadyImported[path] = true
+	}
+
 	// Scan for identifiers that match package names
 	usedPackages := make(map[string]bool)
-
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch node := n.(type) {
 		case *ast.SelectorExpr:
 			if ident, ok := node.X.(*ast.Ident); ok {
 				// Check if this is a known package
-				if _, pkg, ok := importer.AutoImport(ident.Name); ok {
-					usedPackages[pkg.Path] = true
+				if pkgPath, _, ok := importer.AutoImport(ident.Name); ok {
+					usedPackages[pkgPath] = true
 				}
 			}
 		}
 		return true
 	})
 
-	// Add import declarations for used packages
-	// (In a real implementation, we'd modify the AST)
-	_ = usedPackages
+	// Inject import declarations into the AST for packages not already imported
+	for pkgPath := range usedPackages {
+		if alreadyImported[pkgPath] {
+			continue
+		}
+
+		// Build a new import spec: import "pkgPath"
+		importSpec := &ast.ImportSpec{
+			Path: &ast.BasicLit{
+				Kind:  token.STRING,
+				Value: `"` + pkgPath + `"`,
+			},
+		}
+
+		// Wrap it in a GenDecl and prepend to file.Decls
+		importDecl := &ast.GenDecl{
+			Tok:   token.IMPORT,
+			Specs: []ast.Spec{importSpec},
+		}
+		file.Decls = append([]ast.Decl{importDecl}, file.Decls...)
+		file.Imports = append(file.Imports, importSpec)
+
+		alreadyImported[pkgPath] = true
+	}
 }
 
 // checkPanicUsage checks for panic usage in the code.
@@ -314,30 +338,7 @@ func checkPanicUsage(file *ast.File, info *types.Info) error {
 	return nil
 }
 
-// externalValueWrap wraps external package references in SSA.
-// This processes external function calls in the SSA package to ensure
-// proper interfacing with the external package registry.
-func externalValueWrap(ssaPkg *ssa.Package, imp *importer.Importer) {
-	// Iterate through all functions in the package
-	for _, member := range ssaPkg.Members {
-		if fn, ok := member.(*ssa.Function); ok {
-			// Process each function
-			for _, block := range fn.Blocks {
-				for _, instr := range block.Instrs {
-					// Look for external function calls
-					if call, ok := instr.(*ssa.Call); ok {
-						if fn, ok := call.Call.Value.(*ssa.Function); ok {
-							if fn.Pkg == nil || fn.Pkg != ssaPkg {
-								// External function - would wrap here
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
+// RegisterPackage
 // RegisterPackage registers an external package for use in interpreted code.
 // This is typically called by init() functions in generated package wrappers.
 // The path is the import path (e.g., "fmt"), and name is the package identifier (e.g., "fmt").
