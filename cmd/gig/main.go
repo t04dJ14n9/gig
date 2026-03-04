@@ -235,10 +235,8 @@ func isValidPackageName(name string) bool {
 		return false
 	}
 	// Simple check: must start with letter, contain only letters, digits, underscores
-	if name[0] < 'a' || name[0] > 'z' {
-		if name[0] < 'A' || name[0] > 'Z' {
-			return false
-		}
+	if (name[0] < 'a' || name[0] > 'z') && (name[0] < 'A' || name[0] > 'Z') {
+		return false
 	}
 	for _, c := range name {
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
@@ -319,14 +317,7 @@ func runGen() {
 	fmt.Printf("  import _ %q\n", pkgName+"/packages")
 }
 
-func sanitizePkgName(path string) string {
-	return strings.NewReplacer(
-		"/", "_",
-		"-", "_",
-		".", "_",
-	).Replace(path)
-}
-
+// parsePkgsGo
 // parsePkgsGo reads a pkgs.go file and extracts the package name and import paths.
 func parsePkgsGo(path string) ([]string, string, error) {
 	// Use gentool's parser for imports

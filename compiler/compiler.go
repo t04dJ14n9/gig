@@ -76,12 +76,7 @@ type jumpInfo struct {
 	targetBlock *ssa.BasicBlock
 }
 
-// phiMove represents a move instruction for Phi elimination.
-type phiMove struct {
-	sourceValue ssa.Value
-	targetSlot  int
-}
-
+// SymbolTable
 // SymbolTable tracks SSA values to local slots.
 type SymbolTable struct {
 	locals    map[ssa.Value]int

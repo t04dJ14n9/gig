@@ -235,14 +235,3 @@ func (vm *VM) getGlobals() []value.Value {
 	}
 	return vm.globals
 }
-
-// checkContext returns ctx.Err() if the context is cancelled, nil otherwise.
-// Use this for fast context checks in hot paths.
-func (vm *VM) checkContext() error {
-	select {
-	case <-vm.ctx.Done():
-		return vm.ctx.Err()
-	default:
-		return nil
-	}
-}

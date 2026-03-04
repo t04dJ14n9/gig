@@ -11,6 +11,17 @@ type cmpJumpPattern struct {
 	fused  bytecode.OpCode
 }
 
+func init() {
+	Register(
+		cmpJumpPattern{bytecode.OpLocal, bytecode.OpLess, bytecode.OpJumpTrue, bytecode.OpLessLocalLocalJumpTrue},
+		cmpJumpPattern{bytecode.OpLocal, bytecode.OpLess, bytecode.OpJumpFalse, bytecode.OpLessLocalLocalJumpFalse},
+		cmpJumpPattern{bytecode.OpConst, bytecode.OpLess, bytecode.OpJumpTrue, bytecode.OpLessLocalConstJumpTrue},
+		cmpJumpPattern{bytecode.OpConst, bytecode.OpLess, bytecode.OpJumpFalse, bytecode.OpLessLocalConstJumpFalse},
+		cmpJumpPattern{bytecode.OpConst, bytecode.OpLessEq, bytecode.OpJumpTrue, bytecode.OpLessEqLocalConstJumpTrue},
+		cmpJumpPattern{bytecode.OpLocal, bytecode.OpGreater, bytecode.OpJumpTrue, bytecode.OpGreaterLocalLocalJumpTrue},
+	)
+}
+
 func (p cmpJumpPattern) Match(code []byte, i int) (int, []byte, bool) {
 	const size = 10
 	if !MatchOp(code, i, bytecode.OpLocal) || i+size > len(code) {

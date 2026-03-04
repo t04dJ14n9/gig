@@ -131,12 +131,7 @@ type testCase struct {
 	native   func() any
 }
 
-// testSuite groups tests by source file
-type testSuite struct {
-	src   string
-	tests map[string]func() any
-}
-
+// allTests
 // allTests contains all test definitions
 var allTests = map[string]testCase{
 	// algorithms

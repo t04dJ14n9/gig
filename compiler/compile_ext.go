@@ -9,23 +9,6 @@ import (
 	"git.woa.com/youngjin/gig/bytecode"
 )
 
-// compileExternalCall compiles an external function call (non-static / unknown callee).
-func (c *compiler) compileExternalCall(i *ssa.Call) {
-	resultIdx := c.symbolTable.AllocLocal(i)
-
-	for _, arg := range i.Call.Args {
-		c.compileValue(arg)
-	}
-
-	funcIdx := c.addConstant(i.Call.Value)
-	numArgs := len(i.Call.Args)
-	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
-		byte(bytecode.OpCallExternal),
-		byte(funcIdx>>8), byte(funcIdx),
-		byte(numArgs))
-	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
-}
-
 // compileExternalStaticCall compiles a call to an external package function.
 // It uses the injected PackageLookup to resolve the function, avoiding direct importer dependency.
 func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resultIdx int) {

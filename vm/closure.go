@@ -39,12 +39,3 @@ func getClosure(fn *bytecode.CompiledFunction, numFree int) *Closure {
 	}
 	return c
 }
-
-// putClosure returns a Closure to the pool.
-func putClosure(c *Closure) {
-	c.Fn = nil
-	// Don't clear FreeVars pointers — the frame.freeVars may still reference them.
-	// Just nil the slice header so GC can reclaim if no frame references it.
-	c.FreeVars = c.FreeVars[:0]
-	closurePool.Put(c)
-}
