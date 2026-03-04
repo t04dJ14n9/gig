@@ -338,7 +338,6 @@ func checkPanicUsage(file *ast.File, info *types.Info) error {
 	return nil
 }
 
-// RegisterPackage
 // RegisterPackage registers an external package for use in interpreted code.
 // This is typically called by init() functions in generated package wrappers.
 // The path is the import path (e.g., "fmt"), and name is the package identifier (e.g., "fmt").
