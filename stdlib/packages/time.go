@@ -112,9 +112,7 @@ func init() {
 	pkg.AddMethodDirectCall("Time", "Add", direct_method_time_Time_Add)
 	pkg.AddMethodDirectCall("Time", "AddDate", direct_method_time_Time_AddDate)
 	pkg.AddMethodDirectCall("Time", "After", direct_method_time_Time_After)
-	pkg.AddMethodDirectCall("Time", "AppendBinary", direct_method_time_Time_AppendBinary)
 	pkg.AddMethodDirectCall("Time", "AppendFormat", direct_method_time_Time_AppendFormat)
-	pkg.AddMethodDirectCall("Time", "AppendText", direct_method_time_Time_AppendText)
 	pkg.AddMethodDirectCall("Time", "Before", direct_method_time_Time_Before)
 	pkg.AddMethodDirectCall("Time", "Clock", direct_method_time_Time_Clock)
 	pkg.AddMethodDirectCall("Time", "Compare", direct_method_time_Time_Compare)
@@ -381,18 +379,6 @@ func direct_method_time_Time_After(args []value.Value) value.Value {
 	return value.MakeBool(recv.After(a0))
 }
 
-func direct_method_time_Time_AppendBinary(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.AppendBinary(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
-}
-
 func direct_method_time_Time_AppendFormat(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
 	a0 := func() []byte {
@@ -403,18 +389,6 @@ func direct_method_time_Time_AppendFormat(args []value.Value) value.Value {
 	}()
 	a1 := args[2].String()
 	return value.MakeBytes([]byte(recv.AppendFormat(a0, a1)))
-}
-
-func direct_method_time_Time_AppendText(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.AppendText(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
 }
 
 func direct_method_time_Time_Before(args []value.Value) value.Value {

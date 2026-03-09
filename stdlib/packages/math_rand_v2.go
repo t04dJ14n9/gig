@@ -44,13 +44,11 @@ func init() {
 	pkg.AddType("Zipf", reflect.TypeOf(math_rand_v2.Zipf{}), "")
 
 	// Method DirectCalls
-	pkg.AddMethodDirectCall("ChaCha8", "AppendBinary", direct_method_math_rand_v2_ChaCha8_AppendBinary)
 	pkg.AddMethodDirectCall("ChaCha8", "MarshalBinary", direct_method_math_rand_v2_ChaCha8_MarshalBinary)
 	pkg.AddMethodDirectCall("ChaCha8", "Read", direct_method_math_rand_v2_ChaCha8_Read)
 	pkg.AddMethodDirectCall("ChaCha8", "Seed", direct_method_math_rand_v2_ChaCha8_Seed)
 	pkg.AddMethodDirectCall("ChaCha8", "Uint64", direct_method_math_rand_v2_ChaCha8_Uint64)
 	pkg.AddMethodDirectCall("ChaCha8", "UnmarshalBinary", direct_method_math_rand_v2_ChaCha8_UnmarshalBinary)
-	pkg.AddMethodDirectCall("PCG", "AppendBinary", direct_method_math_rand_v2_PCG_AppendBinary)
 	pkg.AddMethodDirectCall("PCG", "MarshalBinary", direct_method_math_rand_v2_PCG_MarshalBinary)
 	pkg.AddMethodDirectCall("PCG", "Seed", direct_method_math_rand_v2_PCG_Seed)
 	pkg.AddMethodDirectCall("PCG", "Uint64", direct_method_math_rand_v2_PCG_Uint64)
@@ -183,18 +181,6 @@ func direct_math_rand_v2_UintN(args []value.Value) value.Value {
 	return value.MakeUint(uint64(math_rand_v2.UintN(a0)))
 }
 
-func direct_method_math_rand_v2_ChaCha8_AppendBinary(args []value.Value) value.Value {
-	recv := args[0].Interface().(*math_rand_v2.ChaCha8)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.AppendBinary(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
-}
-
 func direct_method_math_rand_v2_ChaCha8_MarshalBinary(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.ChaCha8)
 	r0, r1 := recv.MarshalBinary()
@@ -234,18 +220,6 @@ func direct_method_math_rand_v2_ChaCha8_UnmarshalBinary(args []value.Value) valu
 		return (args[1]).Interface().([]byte)
 	}()
 	return value.FromInterface(recv.UnmarshalBinary(a0))
-}
-
-func direct_method_math_rand_v2_PCG_AppendBinary(args []value.Value) value.Value {
-	recv := args[0].Interface().(*math_rand_v2.PCG)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.AppendBinary(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
 }
 
 func direct_method_math_rand_v2_PCG_MarshalBinary(args []value.Value) value.Value {

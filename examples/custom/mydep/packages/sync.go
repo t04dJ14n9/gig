@@ -55,7 +55,6 @@ func init() {
 	pkg.AddMethodDirectCall("RWMutex", "Unlock", direct_method_sync_RWMutex_Unlock)
 	pkg.AddMethodDirectCall("WaitGroup", "Add", direct_method_sync_WaitGroup_Add)
 	pkg.AddMethodDirectCall("WaitGroup", "Done", direct_method_sync_WaitGroup_Done)
-	pkg.AddMethodDirectCall("WaitGroup", "Go", direct_method_sync_WaitGroup_Go)
 	pkg.AddMethodDirectCall("WaitGroup", "Wait", direct_method_sync_WaitGroup_Wait)
 
 }
@@ -246,13 +245,6 @@ func direct_method_sync_WaitGroup_Add(args []value.Value) value.Value {
 func direct_method_sync_WaitGroup_Done(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync.WaitGroup)
 	recv.Done()
-	return value.MakeNil()
-}
-
-func direct_method_sync_WaitGroup_Go(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync.WaitGroup)
-	a0 := args[1].Interface().(func())
-	recv.Go(a0)
 	return value.MakeNil()
 }
 
