@@ -39,7 +39,6 @@ func init() {
 	pkg.AddMethodDirectCall("Error", "Unwrap", direct_method_net_url_Error_Unwrap)
 	pkg.AddMethodDirectCall("EscapeError", "Error", direct_method_net_url_EscapeError_Error)
 	pkg.AddMethodDirectCall("InvalidHostError", "Error", direct_method_net_url_InvalidHostError_Error)
-	pkg.AddMethodDirectCall("URL", "AppendBinary", direct_method_net_url_URL_AppendBinary)
 	pkg.AddMethodDirectCall("URL", "EscapedFragment", direct_method_net_url_URL_EscapedFragment)
 	pkg.AddMethodDirectCall("URL", "EscapedPath", direct_method_net_url_URL_EscapedPath)
 	pkg.AddMethodDirectCall("URL", "Hostname", direct_method_net_url_URL_Hostname)
@@ -155,18 +154,6 @@ func direct_method_net_url_EscapeError_Error(args []value.Value) value.Value {
 func direct_method_net_url_InvalidHostError_Error(args []value.Value) value.Value {
 	recv := args[0].Interface().(net_url.InvalidHostError)
 	return value.MakeString(string(recv.Error()))
-}
-
-func direct_method_net_url_URL_AppendBinary(args []value.Value) value.Value {
-	recv := args[0].Interface().(*net_url.URL)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.AppendBinary(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
 }
 
 func direct_method_net_url_URL_EscapedFragment(args []value.Value) value.Value {

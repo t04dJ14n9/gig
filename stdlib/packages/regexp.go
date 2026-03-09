@@ -27,7 +27,6 @@ func init() {
 	pkg.AddType("Regexp", reflect.TypeOf(regexp.Regexp{}), "")
 
 	// Method DirectCalls
-	pkg.AddMethodDirectCall("Regexp", "AppendText", direct_method_regexp_Regexp_AppendText)
 	pkg.AddMethodDirectCall("Regexp", "Copy", direct_method_regexp_Regexp_Copy)
 	pkg.AddMethodDirectCall("Regexp", "Find", direct_method_regexp_Regexp_Find)
 	pkg.AddMethodDirectCall("Regexp", "FindAll", direct_method_regexp_Regexp_FindAll)
@@ -119,18 +118,6 @@ func direct_regexp_MustCompilePOSIX(args []value.Value) value.Value {
 func direct_regexp_QuoteMeta(args []value.Value) value.Value {
 	a0 := args[0].String()
 	return value.MakeString(string(regexp.QuoteMeta(a0)))
-}
-
-func direct_method_regexp_Regexp_AppendText(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.AppendText(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
 }
 
 func direct_method_regexp_Regexp_Copy(args []value.Value) value.Value {

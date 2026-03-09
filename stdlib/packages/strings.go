@@ -28,8 +28,6 @@ func init() {
 	pkg.AddFunction("EqualFold", strings.EqualFold, "", direct_strings_EqualFold)
 	pkg.AddFunction("Fields", strings.Fields, "", direct_strings_Fields)
 	pkg.AddFunction("FieldsFunc", strings.FieldsFunc, "", direct_strings_FieldsFunc)
-	pkg.AddFunction("FieldsFuncSeq", strings.FieldsFuncSeq, "", direct_strings_FieldsFuncSeq)
-	pkg.AddFunction("FieldsSeq", strings.FieldsSeq, "", direct_strings_FieldsSeq)
 	pkg.AddFunction("HasPrefix", strings.HasPrefix, "", direct_strings_HasPrefix)
 	pkg.AddFunction("HasSuffix", strings.HasSuffix, "", direct_strings_HasSuffix)
 	pkg.AddFunction("Index", strings.Index, "", direct_strings_Index)
@@ -42,7 +40,6 @@ func init() {
 	pkg.AddFunction("LastIndexAny", strings.LastIndexAny, "", direct_strings_LastIndexAny)
 	pkg.AddFunction("LastIndexByte", strings.LastIndexByte, "", direct_strings_LastIndexByte)
 	pkg.AddFunction("LastIndexFunc", strings.LastIndexFunc, "", direct_strings_LastIndexFunc)
-	pkg.AddFunction("Lines", strings.Lines, "", direct_strings_Lines)
 	pkg.AddFunction("Map", strings.Map, "", direct_strings_Map)
 	pkg.AddFunction("NewReader", strings.NewReader, "", direct_strings_NewReader)
 	pkg.AddFunction("NewReplacer", strings.NewReplacer, "", direct_strings_NewReplacer)
@@ -52,9 +49,7 @@ func init() {
 	pkg.AddFunction("Split", strings.Split, "", direct_strings_Split)
 	pkg.AddFunction("SplitAfter", strings.SplitAfter, "", direct_strings_SplitAfter)
 	pkg.AddFunction("SplitAfterN", strings.SplitAfterN, "", direct_strings_SplitAfterN)
-	pkg.AddFunction("SplitAfterSeq", strings.SplitAfterSeq, "", direct_strings_SplitAfterSeq)
 	pkg.AddFunction("SplitN", strings.SplitN, "", direct_strings_SplitN)
-	pkg.AddFunction("SplitSeq", strings.SplitSeq, "", direct_strings_SplitSeq)
 	pkg.AddFunction("Title", strings.Title, "", direct_strings_Title)
 	pkg.AddFunction("ToLower", strings.ToLower, "", direct_strings_ToLower)
 	pkg.AddFunction("ToLowerSpecial", strings.ToLowerSpecial, "", direct_strings_ToLowerSpecial)
@@ -183,17 +178,6 @@ func direct_strings_FieldsFunc(args []value.Value) value.Value {
 	return value.FromInterface(strings.FieldsFunc(a0, a1))
 }
 
-func direct_strings_FieldsFuncSeq(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].Interface().(func(rune) bool)
-	return value.FromInterface(strings.FieldsFuncSeq(a0, a1))
-}
-
-func direct_strings_FieldsSeq(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.FromInterface(strings.FieldsSeq(a0))
-}
-
 func direct_strings_HasPrefix(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
@@ -266,11 +250,6 @@ func direct_strings_LastIndexFunc(args []value.Value) value.Value {
 	return value.MakeInt(int64(strings.LastIndexFunc(a0, a1)))
 }
 
-func direct_strings_Lines(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.FromInterface(strings.Lines(a0))
-}
-
 func direct_strings_Map(args []value.Value) value.Value {
 	a0 := args[0].Interface().(func(rune) rune)
 	a1 := args[1].String()
@@ -330,23 +309,11 @@ func direct_strings_SplitAfterN(args []value.Value) value.Value {
 	return value.FromInterface(strings.SplitAfterN(a0, a1, a2))
 }
 
-func direct_strings_SplitAfterSeq(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].String()
-	return value.FromInterface(strings.SplitAfterSeq(a0, a1))
-}
-
 func direct_strings_SplitN(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
 	a2 := int(args[2].Int())
 	return value.FromInterface(strings.SplitN(a0, a1, a2))
-}
-
-func direct_strings_SplitSeq(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].String()
-	return value.FromInterface(strings.SplitSeq(a0, a1))
 }
 
 func direct_strings_Title(args []value.Value) value.Value {

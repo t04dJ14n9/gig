@@ -29,8 +29,6 @@ func init() {
 	pkg.AddFunction("EqualFold", bytes.EqualFold, "", direct_bytes_EqualFold)
 	pkg.AddFunction("Fields", bytes.Fields, "", direct_bytes_Fields)
 	pkg.AddFunction("FieldsFunc", bytes.FieldsFunc, "", direct_bytes_FieldsFunc)
-	pkg.AddFunction("FieldsFuncSeq", bytes.FieldsFuncSeq, "", direct_bytes_FieldsFuncSeq)
-	pkg.AddFunction("FieldsSeq", bytes.FieldsSeq, "", direct_bytes_FieldsSeq)
 	pkg.AddFunction("HasPrefix", bytes.HasPrefix, "", direct_bytes_HasPrefix)
 	pkg.AddFunction("HasSuffix", bytes.HasSuffix, "", direct_bytes_HasSuffix)
 	pkg.AddFunction("Index", bytes.Index, "", direct_bytes_Index)
@@ -43,7 +41,6 @@ func init() {
 	pkg.AddFunction("LastIndexAny", bytes.LastIndexAny, "", direct_bytes_LastIndexAny)
 	pkg.AddFunction("LastIndexByte", bytes.LastIndexByte, "", direct_bytes_LastIndexByte)
 	pkg.AddFunction("LastIndexFunc", bytes.LastIndexFunc, "", direct_bytes_LastIndexFunc)
-	pkg.AddFunction("Lines", bytes.Lines, "", direct_bytes_Lines)
 	pkg.AddFunction("Map", bytes.Map, "", direct_bytes_Map)
 	pkg.AddFunction("NewBuffer", bytes.NewBuffer, "", direct_bytes_NewBuffer)
 	pkg.AddFunction("NewBufferString", bytes.NewBufferString, "", direct_bytes_NewBufferString)
@@ -55,9 +52,7 @@ func init() {
 	pkg.AddFunction("Split", bytes.Split, "", direct_bytes_Split)
 	pkg.AddFunction("SplitAfter", bytes.SplitAfter, "", direct_bytes_SplitAfter)
 	pkg.AddFunction("SplitAfterN", bytes.SplitAfterN, "", direct_bytes_SplitAfterN)
-	pkg.AddFunction("SplitAfterSeq", bytes.SplitAfterSeq, "", direct_bytes_SplitAfterSeq)
 	pkg.AddFunction("SplitN", bytes.SplitN, "", direct_bytes_SplitN)
-	pkg.AddFunction("SplitSeq", bytes.SplitSeq, "", direct_bytes_SplitSeq)
 	pkg.AddFunction("Title", bytes.Title, "", direct_bytes_Title)
 	pkg.AddFunction("ToLower", bytes.ToLower, "", direct_bytes_ToLower)
 	pkg.AddFunction("ToLowerSpecial", bytes.ToLowerSpecial, "", direct_bytes_ToLowerSpecial)
@@ -319,27 +314,6 @@ func direct_bytes_FieldsFunc(args []value.Value) value.Value {
 	return value.FromInterface(bytes.FieldsFunc(a0, a1))
 }
 
-func direct_bytes_FieldsFuncSeq(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		return (args[0]).Interface().([]byte)
-	}()
-	a1 := args[1].Interface().(func(rune) bool)
-	return value.FromInterface(bytes.FieldsFuncSeq(a0, a1))
-}
-
-func direct_bytes_FieldsSeq(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		return (args[0]).Interface().([]byte)
-	}()
-	return value.FromInterface(bytes.FieldsSeq(a0))
-}
-
 func direct_bytes_HasPrefix(args []value.Value) value.Value {
 	a0 := func() []byte {
 		if b, ok := (args[0]).Bytes(); ok {
@@ -479,16 +453,6 @@ func direct_bytes_LastIndexFunc(args []value.Value) value.Value {
 	}()
 	a1 := args[1].Interface().(func(rune) bool)
 	return value.MakeInt(int64(bytes.LastIndexFunc(a0, a1)))
-}
-
-func direct_bytes_Lines(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		return (args[0]).Interface().([]byte)
-	}()
-	return value.FromInterface(bytes.Lines(a0))
 }
 
 func direct_bytes_Map(args []value.Value) value.Value {
@@ -642,22 +606,6 @@ func direct_bytes_SplitAfterN(args []value.Value) value.Value {
 	return value.FromInterface(bytes.SplitAfterN(a0, a1, a2))
 }
 
-func direct_bytes_SplitAfterSeq(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		return (args[0]).Interface().([]byte)
-	}()
-	a1 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	return value.FromInterface(bytes.SplitAfterSeq(a0, a1))
-}
-
 func direct_bytes_SplitN(args []value.Value) value.Value {
 	a0 := func() []byte {
 		if b, ok := (args[0]).Bytes(); ok {
@@ -673,22 +621,6 @@ func direct_bytes_SplitN(args []value.Value) value.Value {
 	}()
 	a2 := int(args[2].Int())
 	return value.FromInterface(bytes.SplitN(a0, a1, a2))
-}
-
-func direct_bytes_SplitSeq(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		return (args[0]).Interface().([]byte)
-	}()
-	a1 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	return value.FromInterface(bytes.SplitSeq(a0, a1))
 }
 
 func direct_bytes_Title(args []value.Value) value.Value {

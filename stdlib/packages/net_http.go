@@ -35,7 +35,6 @@ func init() {
 	pkg.AddFunction("ListenAndServeTLS", net_http.ListenAndServeTLS, "", direct_net_http_ListenAndServeTLS)
 	pkg.AddFunction("MaxBytesHandler", net_http.MaxBytesHandler, "", direct_net_http_MaxBytesHandler)
 	pkg.AddFunction("MaxBytesReader", net_http.MaxBytesReader, "", direct_net_http_MaxBytesReader)
-	pkg.AddFunction("NewCrossOriginProtection", net_http.NewCrossOriginProtection, "", direct_net_http_NewCrossOriginProtection)
 	pkg.AddFunction("NewFileTransport", net_http.NewFileTransport, "", direct_net_http_NewFileTransport)
 	pkg.AddFunction("NewFileTransportFS", net_http.NewFileTransportFS, "", direct_net_http_NewFileTransportFS)
 	pkg.AddFunction("NewRequest", net_http.NewRequest, "", direct_net_http_NewRequest)
@@ -188,19 +187,16 @@ func init() {
 	pkg.AddType("ConnState", reflect.TypeOf((*net_http.ConnState)(nil)).Elem(), "")
 	pkg.AddType("Cookie", reflect.TypeOf(net_http.Cookie{}), "")
 	pkg.AddType("CookieJar", reflect.TypeOf((*net_http.CookieJar)(nil)).Elem(), "")
-	pkg.AddType("CrossOriginProtection", reflect.TypeOf(net_http.CrossOriginProtection{}), "")
 	pkg.AddType("Dir", reflect.TypeOf((*net_http.Dir)(nil)).Elem(), "")
 	pkg.AddType("File", reflect.TypeOf((*net_http.File)(nil)).Elem(), "")
 	pkg.AddType("FileSystem", reflect.TypeOf((*net_http.FileSystem)(nil)).Elem(), "")
 	pkg.AddType("Flusher", reflect.TypeOf((*net_http.Flusher)(nil)).Elem(), "")
-	pkg.AddType("HTTP2Config", reflect.TypeOf(net_http.HTTP2Config{}), "")
 	pkg.AddType("Handler", reflect.TypeOf((*net_http.Handler)(nil)).Elem(), "")
 	pkg.AddType("HandlerFunc", reflect.TypeOf((*net_http.HandlerFunc)(nil)).Elem(), "")
 	pkg.AddType("Header", reflect.TypeOf((*net_http.Header)(nil)).Elem(), "")
 	pkg.AddType("Hijacker", reflect.TypeOf((*net_http.Hijacker)(nil)).Elem(), "")
 	pkg.AddType("MaxBytesError", reflect.TypeOf(net_http.MaxBytesError{}), "")
 	pkg.AddType("ProtocolError", reflect.TypeOf(net_http.ProtocolError{}), "")
-	pkg.AddType("Protocols", reflect.TypeOf(net_http.Protocols{}), "")
 	pkg.AddType("PushOptions", reflect.TypeOf(net_http.PushOptions{}), "")
 	pkg.AddType("Pusher", reflect.TypeOf((*net_http.Pusher)(nil)).Elem(), "")
 	pkg.AddType("Request", reflect.TypeOf(net_http.Request{}), "")
@@ -223,11 +219,6 @@ func init() {
 	pkg.AddMethodDirectCall("ConnState", "String", direct_method_net_http_ConnState_String)
 	pkg.AddMethodDirectCall("Cookie", "String", direct_method_net_http_Cookie_String)
 	pkg.AddMethodDirectCall("Cookie", "Valid", direct_method_net_http_Cookie_Valid)
-	pkg.AddMethodDirectCall("CrossOriginProtection", "AddInsecureBypassPattern", direct_method_net_http_CrossOriginProtection_AddInsecureBypassPattern)
-	pkg.AddMethodDirectCall("CrossOriginProtection", "AddTrustedOrigin", direct_method_net_http_CrossOriginProtection_AddTrustedOrigin)
-	pkg.AddMethodDirectCall("CrossOriginProtection", "Check", direct_method_net_http_CrossOriginProtection_Check)
-	pkg.AddMethodDirectCall("CrossOriginProtection", "Handler", direct_method_net_http_CrossOriginProtection_Handler)
-	pkg.AddMethodDirectCall("CrossOriginProtection", "SetDenyHandler", direct_method_net_http_CrossOriginProtection_SetDenyHandler)
 	pkg.AddMethodDirectCall("Dir", "Open", direct_method_net_http_Dir_Open)
 	pkg.AddMethodDirectCall("HandlerFunc", "ServeHTTP", direct_method_net_http_HandlerFunc_ServeHTTP)
 	pkg.AddMethodDirectCall("Header", "Add", direct_method_net_http_Header_Add)
@@ -241,13 +232,6 @@ func init() {
 	pkg.AddMethodDirectCall("MaxBytesError", "Error", direct_method_net_http_MaxBytesError_Error)
 	pkg.AddMethodDirectCall("ProtocolError", "Error", direct_method_net_http_ProtocolError_Error)
 	pkg.AddMethodDirectCall("ProtocolError", "Is", direct_method_net_http_ProtocolError_Is)
-	pkg.AddMethodDirectCall("Protocols", "HTTP1", direct_method_net_http_Protocols_HTTP1)
-	pkg.AddMethodDirectCall("Protocols", "HTTP2", direct_method_net_http_Protocols_HTTP2)
-	pkg.AddMethodDirectCall("Protocols", "String", direct_method_net_http_Protocols_String)
-	pkg.AddMethodDirectCall("Protocols", "UnencryptedHTTP2", direct_method_net_http_Protocols_UnencryptedHTTP2)
-	pkg.AddMethodDirectCall("Protocols", "SetHTTP1", direct_method_net_http_Protocols_SetHTTP1)
-	pkg.AddMethodDirectCall("Protocols", "SetHTTP2", direct_method_net_http_Protocols_SetHTTP2)
-	pkg.AddMethodDirectCall("Protocols", "SetUnencryptedHTTP2", direct_method_net_http_Protocols_SetUnencryptedHTTP2)
 	pkg.AddMethodDirectCall("Request", "AddCookie", direct_method_net_http_Request_AddCookie)
 	pkg.AddMethodDirectCall("Request", "BasicAuth", direct_method_net_http_Request_BasicAuth)
 	pkg.AddMethodDirectCall("Request", "Clone", direct_method_net_http_Request_Clone)
@@ -393,10 +377,6 @@ func direct_net_http_MaxBytesReader(args []value.Value) value.Value {
 	a1 := args[1].Interface().(io.ReadCloser)
 	a2 := args[2].Int()
 	return value.FromInterface(net_http.MaxBytesReader(a0, a1, a2))
-}
-
-func direct_net_http_NewCrossOriginProtection(args []value.Value) value.Value {
-	return value.FromInterface(net_http.NewCrossOriginProtection())
 }
 
 func direct_net_http_NewFileTransport(args []value.Value) value.Value {
@@ -649,38 +629,6 @@ func direct_method_net_http_Cookie_Valid(args []value.Value) value.Value {
 	return value.FromInterface(recv.Valid())
 }
 
-func direct_method_net_http_CrossOriginProtection_AddInsecureBypassPattern(args []value.Value) value.Value {
-	recv := args[0].Interface().(*net_http.CrossOriginProtection)
-	a0 := args[1].String()
-	recv.AddInsecureBypassPattern(a0)
-	return value.MakeNil()
-}
-
-func direct_method_net_http_CrossOriginProtection_AddTrustedOrigin(args []value.Value) value.Value {
-	recv := args[0].Interface().(*net_http.CrossOriginProtection)
-	a0 := args[1].String()
-	return value.FromInterface(recv.AddTrustedOrigin(a0))
-}
-
-func direct_method_net_http_CrossOriginProtection_Check(args []value.Value) value.Value {
-	recv := args[0].Interface().(*net_http.CrossOriginProtection)
-	a0 := args[1].Interface().(*net_http.Request)
-	return value.FromInterface(recv.Check(a0))
-}
-
-func direct_method_net_http_CrossOriginProtection_Handler(args []value.Value) value.Value {
-	recv := args[0].Interface().(*net_http.CrossOriginProtection)
-	a0 := args[1].Interface().(net_http.Handler)
-	return value.FromInterface(recv.Handler(a0))
-}
-
-func direct_method_net_http_CrossOriginProtection_SetDenyHandler(args []value.Value) value.Value {
-	recv := args[0].Interface().(*net_http.CrossOriginProtection)
-	a0 := args[1].Interface().(net_http.Handler)
-	recv.SetDenyHandler(a0)
-	return value.MakeNil()
-}
-
 func direct_method_net_http_Dir_Open(args []value.Value) value.Value {
 	recv := args[0].Interface().(net_http.Dir)
 	a0 := args[1].String()
@@ -763,47 +711,6 @@ func direct_method_net_http_ProtocolError_Is(args []value.Value) value.Value {
 	recv := args[0].Interface().(*net_http.ProtocolError)
 	a0 := args[1].Interface().(error)
 	return value.MakeBool(recv.Is(a0))
-}
-
-func direct_method_net_http_Protocols_HTTP1(args []value.Value) value.Value {
-	recv := args[0].Interface().(net_http.Protocols)
-	return value.MakeBool(recv.HTTP1())
-}
-
-func direct_method_net_http_Protocols_HTTP2(args []value.Value) value.Value {
-	recv := args[0].Interface().(net_http.Protocols)
-	return value.MakeBool(recv.HTTP2())
-}
-
-func direct_method_net_http_Protocols_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(net_http.Protocols)
-	return value.MakeString(string(recv.String()))
-}
-
-func direct_method_net_http_Protocols_UnencryptedHTTP2(args []value.Value) value.Value {
-	recv := args[0].Interface().(net_http.Protocols)
-	return value.MakeBool(recv.UnencryptedHTTP2())
-}
-
-func direct_method_net_http_Protocols_SetHTTP1(args []value.Value) value.Value {
-	recv := args[0].Interface().(*net_http.Protocols)
-	a0 := args[1].Bool()
-	recv.SetHTTP1(a0)
-	return value.MakeNil()
-}
-
-func direct_method_net_http_Protocols_SetHTTP2(args []value.Value) value.Value {
-	recv := args[0].Interface().(*net_http.Protocols)
-	a0 := args[1].Bool()
-	recv.SetHTTP2(a0)
-	return value.MakeNil()
-}
-
-func direct_method_net_http_Protocols_SetUnencryptedHTTP2(args []value.Value) value.Value {
-	recv := args[0].Interface().(*net_http.Protocols)
-	a0 := args[1].Bool()
-	recv.SetUnencryptedHTTP2(a0)
-	return value.MakeNil()
 }
 
 func direct_method_net_http_Request_AddCookie(args []value.Value) value.Value {
