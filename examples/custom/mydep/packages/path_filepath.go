@@ -2,7 +2,6 @@
 package packages
 
 import (
-	io_fs "io/fs"
 	path_filepath "path/filepath"
 	"reflect"
 
@@ -26,15 +25,14 @@ func init() {
 	pkg.AddFunction("IsAbs", path_filepath.IsAbs, "", direct_path_filepath_IsAbs)
 	pkg.AddFunction("IsLocal", path_filepath.IsLocal, "", direct_path_filepath_IsLocal)
 	pkg.AddFunction("Join", path_filepath.Join, "", direct_path_filepath_Join)
-	pkg.AddFunction("Localize", path_filepath.Localize, "", direct_path_filepath_Localize)
 	pkg.AddFunction("Match", path_filepath.Match, "", direct_path_filepath_Match)
 	pkg.AddFunction("Rel", path_filepath.Rel, "", direct_path_filepath_Rel)
 	pkg.AddFunction("Split", path_filepath.Split, "", direct_path_filepath_Split)
 	pkg.AddFunction("SplitList", path_filepath.SplitList, "", direct_path_filepath_SplitList)
 	pkg.AddFunction("ToSlash", path_filepath.ToSlash, "", direct_path_filepath_ToSlash)
 	pkg.AddFunction("VolumeName", path_filepath.VolumeName, "", direct_path_filepath_VolumeName)
-	pkg.AddFunction("Walk", path_filepath.Walk, "", direct_path_filepath_Walk)
-	pkg.AddFunction("WalkDir", path_filepath.WalkDir, "", direct_path_filepath_WalkDir)
+	pkg.AddFunction("Walk", path_filepath.Walk, "", nil)
+	pkg.AddFunction("WalkDir", path_filepath.WalkDir, "", nil)
 
 	// Constants
 	pkg.AddConstant("ListSeparator", path_filepath.ListSeparator, "")
@@ -53,7 +51,7 @@ func init() {
 func direct_path_filepath_Abs(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := path_filepath.Abs(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_path_filepath_Base(args []value.Value) value.Value {
@@ -74,7 +72,7 @@ func direct_path_filepath_Dir(args []value.Value) value.Value {
 func direct_path_filepath_EvalSymlinks(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := path_filepath.EvalSymlinks(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_path_filepath_Ext(args []value.Value) value.Value {
@@ -90,7 +88,7 @@ func direct_path_filepath_FromSlash(args []value.Value) value.Value {
 func direct_path_filepath_Glob(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := path_filepath.Glob(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_path_filepath_HasPrefix(args []value.Value) value.Value {
@@ -117,30 +115,24 @@ func direct_path_filepath_Join(args []value.Value) value.Value {
 	return value.MakeString(string(path_filepath.Join(varArgs...)))
 }
 
-func direct_path_filepath_Localize(args []value.Value) value.Value {
-	a0 := args[0].String()
-	r0, r1 := path_filepath.Localize(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
-}
-
 func direct_path_filepath_Match(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
 	r0, r1 := path_filepath.Match(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeBool(r0), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_path_filepath_Rel(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
 	r0, r1 := path_filepath.Rel(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_path_filepath_Split(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := path_filepath.Split(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.MakeString(string(r1))})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_path_filepath_SplitList(args []value.Value) value.Value {
@@ -156,16 +148,4 @@ func direct_path_filepath_ToSlash(args []value.Value) value.Value {
 func direct_path_filepath_VolumeName(args []value.Value) value.Value {
 	a0 := args[0].String()
 	return value.MakeString(string(path_filepath.VolumeName(a0)))
-}
-
-func direct_path_filepath_Walk(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].Interface().(path_filepath.WalkFunc)
-	return value.FromInterface(path_filepath.Walk(a0, a1))
-}
-
-func direct_path_filepath_WalkDir(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].Interface().(io_fs.WalkDirFunc)
-	return value.FromInterface(path_filepath.WalkDir(a0, a1))
 }

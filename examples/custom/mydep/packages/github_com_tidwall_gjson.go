@@ -13,15 +13,15 @@ func init() {
 	pkg := importer.RegisterPackage("github.com/tidwall/gjson", "gjson")
 
 	// Functions
-	pkg.AddFunction("AddModifier", github_com_tidwall_gjson.AddModifier, "", direct_github_com_tidwall_gjson_AddModifier)
+	pkg.AddFunction("AddModifier", github_com_tidwall_gjson.AddModifier, "", nil)
 	pkg.AddFunction("AppendJSONString", github_com_tidwall_gjson.AppendJSONString, "", direct_github_com_tidwall_gjson_AppendJSONString)
 	pkg.AddFunction("Escape", github_com_tidwall_gjson.Escape, "", direct_github_com_tidwall_gjson_Escape)
-	pkg.AddFunction("ForEachLine", github_com_tidwall_gjson.ForEachLine, "", direct_github_com_tidwall_gjson_ForEachLine)
+	pkg.AddFunction("ForEachLine", github_com_tidwall_gjson.ForEachLine, "", nil)
 	pkg.AddFunction("Get", github_com_tidwall_gjson.Get, "", direct_github_com_tidwall_gjson_Get)
 	pkg.AddFunction("GetBytes", github_com_tidwall_gjson.GetBytes, "", direct_github_com_tidwall_gjson_GetBytes)
 	pkg.AddFunction("GetMany", github_com_tidwall_gjson.GetMany, "", direct_github_com_tidwall_gjson_GetMany)
 	pkg.AddFunction("GetManyBytes", github_com_tidwall_gjson.GetManyBytes, "", direct_github_com_tidwall_gjson_GetManyBytes)
-	pkg.AddFunction("ModifierExists", github_com_tidwall_gjson.ModifierExists, "", direct_github_com_tidwall_gjson_ModifierExists)
+	pkg.AddFunction("ModifierExists", github_com_tidwall_gjson.ModifierExists, "", nil)
 	pkg.AddFunction("Parse", github_com_tidwall_gjson.Parse, "", direct_github_com_tidwall_gjson_Parse)
 	pkg.AddFunction("ParseBytes", github_com_tidwall_gjson.ParseBytes, "", direct_github_com_tidwall_gjson_ParseBytes)
 	pkg.AddFunction("Valid", github_com_tidwall_gjson.Valid, "", direct_github_com_tidwall_gjson_Valid)
@@ -43,57 +43,17 @@ func init() {
 	pkg.AddType("Result", reflect.TypeOf(github_com_tidwall_gjson.Result{}), "")
 	pkg.AddType("Type", reflect.TypeOf((*github_com_tidwall_gjson.Type)(nil)).Elem(), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Result", "Array", direct_method_github_com_tidwall_gjson_Result_Array)
-	pkg.AddMethodDirectCall("Result", "Bool", direct_method_github_com_tidwall_gjson_Result_Bool)
-	pkg.AddMethodDirectCall("Result", "Exists", direct_method_github_com_tidwall_gjson_Result_Exists)
-	pkg.AddMethodDirectCall("Result", "Float", direct_method_github_com_tidwall_gjson_Result_Float)
-	pkg.AddMethodDirectCall("Result", "ForEach", direct_method_github_com_tidwall_gjson_Result_ForEach)
-	pkg.AddMethodDirectCall("Result", "Get", direct_method_github_com_tidwall_gjson_Result_Get)
-	pkg.AddMethodDirectCall("Result", "Int", direct_method_github_com_tidwall_gjson_Result_Int)
-	pkg.AddMethodDirectCall("Result", "IsArray", direct_method_github_com_tidwall_gjson_Result_IsArray)
-	pkg.AddMethodDirectCall("Result", "IsBool", direct_method_github_com_tidwall_gjson_Result_IsBool)
-	pkg.AddMethodDirectCall("Result", "IsObject", direct_method_github_com_tidwall_gjson_Result_IsObject)
-	pkg.AddMethodDirectCall("Result", "Less", direct_method_github_com_tidwall_gjson_Result_Less)
-	pkg.AddMethodDirectCall("Result", "Map", direct_method_github_com_tidwall_gjson_Result_Map)
-	pkg.AddMethodDirectCall("Result", "Path", direct_method_github_com_tidwall_gjson_Result_Path)
-	pkg.AddMethodDirectCall("Result", "Paths", direct_method_github_com_tidwall_gjson_Result_Paths)
-	pkg.AddMethodDirectCall("Result", "String", direct_method_github_com_tidwall_gjson_Result_String)
-	pkg.AddMethodDirectCall("Result", "Time", direct_method_github_com_tidwall_gjson_Result_Time)
-	pkg.AddMethodDirectCall("Result", "Uint", direct_method_github_com_tidwall_gjson_Result_Uint)
-	pkg.AddMethodDirectCall("Result", "Value", direct_method_github_com_tidwall_gjson_Result_Value)
-	pkg.AddMethodDirectCall("Type", "String", direct_method_github_com_tidwall_gjson_Type_String)
-
-}
-
-func direct_github_com_tidwall_gjson_AddModifier(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].Interface().(func(string, string) string)
-	github_com_tidwall_gjson.AddModifier(a0, a1)
-	return value.MakeNil()
 }
 
 func direct_github_com_tidwall_gjson_AppendJSONString(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		return (args[0]).Interface().([]byte)
-	}()
+	a0 := args[0].Interface().([]byte)
 	a1 := args[1].String()
-	return value.MakeBytes([]byte(github_com_tidwall_gjson.AppendJSONString(a0, a1)))
+	return value.FromInterface(github_com_tidwall_gjson.AppendJSONString(a0, a1))
 }
 
 func direct_github_com_tidwall_gjson_Escape(args []value.Value) value.Value {
 	a0 := args[0].String()
 	return value.MakeString(string(github_com_tidwall_gjson.Escape(a0)))
-}
-
-func direct_github_com_tidwall_gjson_ForEachLine(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].Interface().(func(github_com_tidwall_gjson.Result) bool)
-	github_com_tidwall_gjson.ForEachLine(a0, a1)
-	return value.MakeNil()
 }
 
 func direct_github_com_tidwall_gjson_Get(args []value.Value) value.Value {
@@ -103,12 +63,7 @@ func direct_github_com_tidwall_gjson_Get(args []value.Value) value.Value {
 }
 
 func direct_github_com_tidwall_gjson_GetBytes(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		return (args[0]).Interface().([]byte)
-	}()
+	a0 := args[0].Interface().([]byte)
 	a1 := args[1].String()
 	return value.FromInterface(github_com_tidwall_gjson.GetBytes(a0, a1))
 }
@@ -123,23 +78,12 @@ func direct_github_com_tidwall_gjson_GetMany(args []value.Value) value.Value {
 }
 
 func direct_github_com_tidwall_gjson_GetManyBytes(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		return (args[0]).Interface().([]byte)
-	}()
+	a0 := args[0].Interface().([]byte)
 	varArgs := make([]string, len(args)-1)
 	for i := 1; i < len(args); i++ {
 		varArgs[i-1] = args[i].String()
 	}
 	return value.FromInterface(github_com_tidwall_gjson.GetManyBytes(a0, varArgs...))
-}
-
-func direct_github_com_tidwall_gjson_ModifierExists(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].Interface().(func(string, string) string)
-	return value.MakeBool(github_com_tidwall_gjson.ModifierExists(a0, a1))
 }
 
 func direct_github_com_tidwall_gjson_Parse(args []value.Value) value.Value {
@@ -148,12 +92,7 @@ func direct_github_com_tidwall_gjson_Parse(args []value.Value) value.Value {
 }
 
 func direct_github_com_tidwall_gjson_ParseBytes(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		return (args[0]).Interface().([]byte)
-	}()
+	a0 := args[0].Interface().([]byte)
 	return value.FromInterface(github_com_tidwall_gjson.ParseBytes(a0))
 }
 
@@ -163,113 +102,6 @@ func direct_github_com_tidwall_gjson_Valid(args []value.Value) value.Value {
 }
 
 func direct_github_com_tidwall_gjson_ValidBytes(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		return (args[0]).Interface().([]byte)
-	}()
+	a0 := args[0].Interface().([]byte)
 	return value.MakeBool(github_com_tidwall_gjson.ValidBytes(a0))
-}
-
-func direct_method_github_com_tidwall_gjson_Result_Array(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.FromInterface(recv.Array())
-}
-
-func direct_method_github_com_tidwall_gjson_Result_Bool(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.MakeBool(recv.Bool())
-}
-
-func direct_method_github_com_tidwall_gjson_Result_Exists(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.MakeBool(recv.Exists())
-}
-
-func direct_method_github_com_tidwall_gjson_Result_Float(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.MakeFloat(float64(recv.Float()))
-}
-
-func direct_method_github_com_tidwall_gjson_Result_ForEach(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	a0 := args[1].Interface().(func(github_com_tidwall_gjson.Result, github_com_tidwall_gjson.Result) bool)
-	recv.ForEach(a0)
-	return value.MakeNil()
-}
-
-func direct_method_github_com_tidwall_gjson_Result_Get(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	a0 := args[1].String()
-	return value.FromInterface(recv.Get(a0))
-}
-
-func direct_method_github_com_tidwall_gjson_Result_Int(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.MakeInt(int64(recv.Int()))
-}
-
-func direct_method_github_com_tidwall_gjson_Result_IsArray(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.MakeBool(recv.IsArray())
-}
-
-func direct_method_github_com_tidwall_gjson_Result_IsBool(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.MakeBool(recv.IsBool())
-}
-
-func direct_method_github_com_tidwall_gjson_Result_IsObject(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.MakeBool(recv.IsObject())
-}
-
-func direct_method_github_com_tidwall_gjson_Result_Less(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	a0 := args[1].Interface().(github_com_tidwall_gjson.Result)
-	a1 := args[2].Bool()
-	return value.MakeBool(recv.Less(a0, a1))
-}
-
-func direct_method_github_com_tidwall_gjson_Result_Map(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.FromInterface(recv.Map())
-}
-
-func direct_method_github_com_tidwall_gjson_Result_Path(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	a0 := args[1].String()
-	return value.MakeString(string(recv.Path(a0)))
-}
-
-func direct_method_github_com_tidwall_gjson_Result_Paths(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	a0 := args[1].String()
-	return value.FromInterface(recv.Paths(a0))
-}
-
-func direct_method_github_com_tidwall_gjson_Result_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.MakeString(string(recv.String()))
-}
-
-func direct_method_github_com_tidwall_gjson_Result_Time(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.FromInterface(recv.Time())
-}
-
-func direct_method_github_com_tidwall_gjson_Result_Uint(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.MakeUint(uint64(recv.Uint()))
-}
-
-func direct_method_github_com_tidwall_gjson_Result_Value(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.FromInterface(recv.Value())
-}
-
-func direct_method_github_com_tidwall_gjson_Type_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Type)
-	return value.MakeString(string(recv.String()))
 }

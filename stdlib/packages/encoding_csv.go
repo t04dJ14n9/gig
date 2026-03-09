@@ -65,7 +65,7 @@ func direct_method_encoding_csv_Reader_FieldPos(args []value.Value) value.Value 
 	recv := args[0].Interface().(*encoding_csv.Reader)
 	a0 := int(args[1].Int())
 	r0, r1 := recv.FieldPos(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1))})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_encoding_csv_Reader_InputOffset(args []value.Value) value.Value {
@@ -76,13 +76,13 @@ func direct_method_encoding_csv_Reader_InputOffset(args []value.Value) value.Val
 func direct_method_encoding_csv_Reader_Read(args []value.Value) value.Value {
 	recv := args[0].Interface().(*encoding_csv.Reader)
 	r0, r1 := recv.Read()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_encoding_csv_Reader_ReadAll(args []value.Value) value.Value {
 	recv := args[0].Interface().(*encoding_csv.Reader)
 	r0, r1 := recv.ReadAll()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_encoding_csv_Writer_Error(args []value.Value) value.Value {

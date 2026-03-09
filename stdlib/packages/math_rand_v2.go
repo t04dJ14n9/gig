@@ -23,12 +23,12 @@ func init() {
 	pkg.AddFunction("Int64N", math_rand_v2.Int64N, "", direct_math_rand_v2_Int64N)
 	pkg.AddFunction("IntN", math_rand_v2.IntN, "", direct_math_rand_v2_IntN)
 	pkg.AddFunction("New", math_rand_v2.New, "", direct_math_rand_v2_New)
-	pkg.AddFunction("NewChaCha8", math_rand_v2.NewChaCha8, "", direct_math_rand_v2_NewChaCha8)
+	pkg.AddFunction("NewChaCha8", math_rand_v2.NewChaCha8, "", nil)
 	pkg.AddFunction("NewPCG", math_rand_v2.NewPCG, "", direct_math_rand_v2_NewPCG)
 	pkg.AddFunction("NewZipf", math_rand_v2.NewZipf, "", direct_math_rand_v2_NewZipf)
 	pkg.AddFunction("NormFloat64", math_rand_v2.NormFloat64, "", direct_math_rand_v2_NormFloat64)
 	pkg.AddFunction("Perm", math_rand_v2.Perm, "", direct_math_rand_v2_Perm)
-	pkg.AddFunction("Shuffle", math_rand_v2.Shuffle, "", direct_math_rand_v2_Shuffle)
+	pkg.AddFunction("Shuffle", math_rand_v2.Shuffle, "", nil)
 	pkg.AddFunction("Uint", math_rand_v2.Uint, "", direct_math_rand_v2_Uint)
 	pkg.AddFunction("Uint32", math_rand_v2.Uint32, "", direct_math_rand_v2_Uint32)
 	pkg.AddFunction("Uint32N", math_rand_v2.Uint32N, "", direct_math_rand_v2_Uint32N)
@@ -44,13 +44,10 @@ func init() {
 	pkg.AddType("Zipf", reflect.TypeOf(math_rand_v2.Zipf{}), "")
 
 	// Method DirectCalls
-	pkg.AddMethodDirectCall("ChaCha8", "AppendBinary", direct_method_math_rand_v2_ChaCha8_AppendBinary)
 	pkg.AddMethodDirectCall("ChaCha8", "MarshalBinary", direct_method_math_rand_v2_ChaCha8_MarshalBinary)
 	pkg.AddMethodDirectCall("ChaCha8", "Read", direct_method_math_rand_v2_ChaCha8_Read)
-	pkg.AddMethodDirectCall("ChaCha8", "Seed", direct_method_math_rand_v2_ChaCha8_Seed)
 	pkg.AddMethodDirectCall("ChaCha8", "Uint64", direct_method_math_rand_v2_ChaCha8_Uint64)
 	pkg.AddMethodDirectCall("ChaCha8", "UnmarshalBinary", direct_method_math_rand_v2_ChaCha8_UnmarshalBinary)
-	pkg.AddMethodDirectCall("PCG", "AppendBinary", direct_method_math_rand_v2_PCG_AppendBinary)
 	pkg.AddMethodDirectCall("PCG", "MarshalBinary", direct_method_math_rand_v2_PCG_MarshalBinary)
 	pkg.AddMethodDirectCall("PCG", "Seed", direct_method_math_rand_v2_PCG_Seed)
 	pkg.AddMethodDirectCall("PCG", "Uint64", direct_method_math_rand_v2_PCG_Uint64)
@@ -66,7 +63,6 @@ func init() {
 	pkg.AddMethodDirectCall("Rand", "IntN", direct_method_math_rand_v2_Rand_IntN)
 	pkg.AddMethodDirectCall("Rand", "NormFloat64", direct_method_math_rand_v2_Rand_NormFloat64)
 	pkg.AddMethodDirectCall("Rand", "Perm", direct_method_math_rand_v2_Rand_Perm)
-	pkg.AddMethodDirectCall("Rand", "Shuffle", direct_method_math_rand_v2_Rand_Shuffle)
 	pkg.AddMethodDirectCall("Rand", "Uint", direct_method_math_rand_v2_Rand_Uint)
 	pkg.AddMethodDirectCall("Rand", "Uint32", direct_method_math_rand_v2_Rand_Uint32)
 	pkg.AddMethodDirectCall("Rand", "Uint32N", direct_method_math_rand_v2_Rand_Uint32N)
@@ -121,11 +117,6 @@ func direct_math_rand_v2_New(args []value.Value) value.Value {
 	return value.FromInterface(math_rand_v2.New(a0))
 }
 
-func direct_math_rand_v2_NewChaCha8(args []value.Value) value.Value {
-	a0 := args[0].Interface().([32]byte)
-	return value.FromInterface(math_rand_v2.NewChaCha8(a0))
-}
-
 func direct_math_rand_v2_NewPCG(args []value.Value) value.Value {
 	a0 := args[0].Uint()
 	a1 := args[1].Uint()
@@ -147,13 +138,6 @@ func direct_math_rand_v2_NormFloat64(args []value.Value) value.Value {
 func direct_math_rand_v2_Perm(args []value.Value) value.Value {
 	a0 := int(args[0].Int())
 	return value.FromInterface(math_rand_v2.Perm(a0))
-}
-
-func direct_math_rand_v2_Shuffle(args []value.Value) value.Value {
-	a0 := int(args[0].Int())
-	a1 := args[1].Interface().(func(int, int))
-	math_rand_v2.Shuffle(a0, a1)
-	return value.MakeNil()
 }
 
 func direct_math_rand_v2_Uint(args []value.Value) value.Value {
@@ -183,41 +167,17 @@ func direct_math_rand_v2_UintN(args []value.Value) value.Value {
 	return value.MakeUint(uint64(math_rand_v2.UintN(a0)))
 }
 
-func direct_method_math_rand_v2_ChaCha8_AppendBinary(args []value.Value) value.Value {
-	recv := args[0].Interface().(*math_rand_v2.ChaCha8)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.AppendBinary(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
-}
-
 func direct_method_math_rand_v2_ChaCha8_MarshalBinary(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.ChaCha8)
 	r0, r1 := recv.MarshalBinary()
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_math_rand_v2_ChaCha8_Read(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.ChaCha8)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	r0, r1 := recv.Read(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_math_rand_v2_ChaCha8_Seed(args []value.Value) value.Value {
-	recv := args[0].Interface().(*math_rand_v2.ChaCha8)
-	a0 := args[1].Interface().([32]byte)
-	recv.Seed(a0)
-	return value.MakeNil()
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_math_rand_v2_ChaCha8_Uint64(args []value.Value) value.Value {
@@ -227,31 +187,14 @@ func direct_method_math_rand_v2_ChaCha8_Uint64(args []value.Value) value.Value {
 
 func direct_method_math_rand_v2_ChaCha8_UnmarshalBinary(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.ChaCha8)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	return value.FromInterface(recv.UnmarshalBinary(a0))
-}
-
-func direct_method_math_rand_v2_PCG_AppendBinary(args []value.Value) value.Value {
-	recv := args[0].Interface().(*math_rand_v2.PCG)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.AppendBinary(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
 }
 
 func direct_method_math_rand_v2_PCG_MarshalBinary(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.PCG)
 	r0, r1 := recv.MarshalBinary()
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_math_rand_v2_PCG_Seed(args []value.Value) value.Value {
@@ -269,12 +212,7 @@ func direct_method_math_rand_v2_PCG_Uint64(args []value.Value) value.Value {
 
 func direct_method_math_rand_v2_PCG_UnmarshalBinary(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.PCG)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	return value.FromInterface(recv.UnmarshalBinary(a0))
 }
 
@@ -335,14 +273,6 @@ func direct_method_math_rand_v2_Rand_Perm(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.Rand)
 	a0 := int(args[1].Int())
 	return value.FromInterface(recv.Perm(a0))
-}
-
-func direct_method_math_rand_v2_Rand_Shuffle(args []value.Value) value.Value {
-	recv := args[0].Interface().(*math_rand_v2.Rand)
-	a0 := int(args[1].Int())
-	a1 := args[2].Interface().(func(int, int))
-	recv.Shuffle(a0, a1)
-	return value.MakeNil()
 }
 
 func direct_method_math_rand_v2_Rand_Uint(args []value.Value) value.Value {

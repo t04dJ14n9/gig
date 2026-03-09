@@ -39,7 +39,6 @@ func init() {
 	pkg.AddMethodDirectCall("Error", "Unwrap", direct_method_net_url_Error_Unwrap)
 	pkg.AddMethodDirectCall("EscapeError", "Error", direct_method_net_url_EscapeError_Error)
 	pkg.AddMethodDirectCall("InvalidHostError", "Error", direct_method_net_url_InvalidHostError_Error)
-	pkg.AddMethodDirectCall("URL", "AppendBinary", direct_method_net_url_URL_AppendBinary)
 	pkg.AddMethodDirectCall("URL", "EscapedFragment", direct_method_net_url_URL_EscapedFragment)
 	pkg.AddMethodDirectCall("URL", "EscapedPath", direct_method_net_url_URL_EscapedPath)
 	pkg.AddMethodDirectCall("URL", "Hostname", direct_method_net_url_URL_Hostname)
@@ -73,25 +72,25 @@ func direct_net_url_JoinPath(args []value.Value) value.Value {
 		varArgs[i-1] = args[i].String()
 	}
 	r0, r1 := net_url.JoinPath(a0, varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_net_url_Parse(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := net_url.Parse(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_net_url_ParseQuery(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := net_url.ParseQuery(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_net_url_ParseRequestURI(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := net_url.ParseRequestURI(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_net_url_PathEscape(args []value.Value) value.Value {
@@ -102,7 +101,7 @@ func direct_net_url_PathEscape(args []value.Value) value.Value {
 func direct_net_url_PathUnescape(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := net_url.PathUnescape(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_net_url_QueryEscape(args []value.Value) value.Value {
@@ -113,7 +112,7 @@ func direct_net_url_QueryEscape(args []value.Value) value.Value {
 func direct_net_url_QueryUnescape(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := net_url.QueryUnescape(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_net_url_User(args []value.Value) value.Value {
@@ -157,18 +156,6 @@ func direct_method_net_url_InvalidHostError_Error(args []value.Value) value.Valu
 	return value.MakeString(string(recv.Error()))
 }
 
-func direct_method_net_url_URL_AppendBinary(args []value.Value) value.Value {
-	recv := args[0].Interface().(*net_url.URL)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.AppendBinary(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
-}
-
 func direct_method_net_url_URL_EscapedFragment(args []value.Value) value.Value {
 	recv := args[0].Interface().(*net_url.URL)
 	return value.MakeString(string(recv.EscapedFragment()))
@@ -201,14 +188,14 @@ func direct_method_net_url_URL_JoinPath(args []value.Value) value.Value {
 func direct_method_net_url_URL_MarshalBinary(args []value.Value) value.Value {
 	recv := args[0].Interface().(*net_url.URL)
 	r0, r1 := recv.MarshalBinary()
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_net_url_URL_Parse(args []value.Value) value.Value {
 	recv := args[0].Interface().(*net_url.URL)
 	a0 := args[1].String()
 	r0, r1 := recv.Parse(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_net_url_URL_Port(args []value.Value) value.Value {
@@ -244,19 +231,14 @@ func direct_method_net_url_URL_String(args []value.Value) value.Value {
 
 func direct_method_net_url_URL_UnmarshalBinary(args []value.Value) value.Value {
 	recv := args[0].Interface().(*net_url.URL)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	return value.FromInterface(recv.UnmarshalBinary(a0))
 }
 
 func direct_method_net_url_Userinfo_Password(args []value.Value) value.Value {
 	recv := args[0].Interface().(*net_url.Userinfo)
 	r0, r1 := recv.Password()
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.MakeBool(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_net_url_Userinfo_String(args []value.Value) value.Value {

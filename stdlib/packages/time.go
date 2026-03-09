@@ -14,7 +14,7 @@ func init() {
 
 	// Functions
 	pkg.AddFunction("After", time.After, "", direct_time_After)
-	pkg.AddFunction("AfterFunc", time.AfterFunc, "", direct_time_AfterFunc)
+	pkg.AddFunction("AfterFunc", time.AfterFunc, "", nil)
 	pkg.AddFunction("Date", time.Date, "", direct_time_Date)
 	pkg.AddFunction("FixedZone", time.FixedZone, "", direct_time_FixedZone)
 	pkg.AddFunction("LoadLocation", time.LoadLocation, "", direct_time_LoadLocation)
@@ -112,9 +112,7 @@ func init() {
 	pkg.AddMethodDirectCall("Time", "Add", direct_method_time_Time_Add)
 	pkg.AddMethodDirectCall("Time", "AddDate", direct_method_time_Time_AddDate)
 	pkg.AddMethodDirectCall("Time", "After", direct_method_time_Time_After)
-	pkg.AddMethodDirectCall("Time", "AppendBinary", direct_method_time_Time_AppendBinary)
 	pkg.AddMethodDirectCall("Time", "AppendFormat", direct_method_time_Time_AppendFormat)
-	pkg.AddMethodDirectCall("Time", "AppendText", direct_method_time_Time_AppendText)
 	pkg.AddMethodDirectCall("Time", "Before", direct_method_time_Time_Before)
 	pkg.AddMethodDirectCall("Time", "Clock", direct_method_time_Time_Clock)
 	pkg.AddMethodDirectCall("Time", "Compare", direct_method_time_Time_Compare)
@@ -167,12 +165,6 @@ func direct_time_After(args []value.Value) value.Value {
 	return value.FromInterface(time.After(a0))
 }
 
-func direct_time_AfterFunc(args []value.Value) value.Value {
-	a0 := time.Duration(args[0].Int())
-	a1 := args[1].Interface().(func())
-	return value.FromInterface(time.AfterFunc(a0, a1))
-}
-
 func direct_time_Date(args []value.Value) value.Value {
 	a0 := int(args[0].Int())
 	a1 := time.Month(int(args[1].Int()))
@@ -194,19 +186,14 @@ func direct_time_FixedZone(args []value.Value) value.Value {
 func direct_time_LoadLocation(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := time.LoadLocation(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_time_LoadLocationFromTZData(args []value.Value) value.Value {
 	a0 := args[0].String()
-	a1 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a1 := args[1].Interface().([]byte)
 	r0, r1 := time.LoadLocationFromTZData(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_time_NewTicker(args []value.Value) value.Value {
@@ -227,13 +214,13 @@ func direct_time_Parse(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
 	r0, r1 := time.Parse(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_time_ParseDuration(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := time.ParseDuration(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(int64(r0))), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_time_ParseInLocation(args []value.Value) value.Value {
@@ -241,12 +228,12 @@ func direct_time_ParseInLocation(args []value.Value) value.Value {
 	a1 := args[1].String()
 	a2 := args[2].Interface().(*time.Location)
 	r0, r1 := time.ParseInLocation(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_time_Since(args []value.Value) value.Value {
 	a0 := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(int64(time.Since(a0))))
+	return value.MakeInt(int64(time.Since(a0)))
 }
 
 func direct_time_Sleep(args []value.Value) value.Value {
@@ -278,12 +265,12 @@ func direct_time_UnixMilli(args []value.Value) value.Value {
 
 func direct_time_Until(args []value.Value) value.Value {
 	a0 := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(int64(time.Until(a0))))
+	return value.MakeInt(int64(time.Until(a0)))
 }
 
 func direct_method_time_Duration_Abs(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Duration)
-	return value.MakeInt(int64(int64(recv.Abs())))
+	return value.MakeInt(int64(recv.Abs()))
 }
 
 func direct_method_time_Duration_Hours(args []value.Value) value.Value {
@@ -314,7 +301,7 @@ func direct_method_time_Duration_Nanoseconds(args []value.Value) value.Value {
 func direct_method_time_Duration_Round(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Duration)
 	a0 := time.Duration(args[1].Int())
-	return value.MakeInt(int64(int64(recv.Round(a0))))
+	return value.MakeInt(int64(recv.Round(a0)))
 }
 
 func direct_method_time_Duration_Seconds(args []value.Value) value.Value {
@@ -330,7 +317,7 @@ func direct_method_time_Duration_String(args []value.Value) value.Value {
 func direct_method_time_Duration_Truncate(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Duration)
 	a0 := time.Duration(args[1].Int())
-	return value.MakeInt(int64(int64(recv.Truncate(a0))))
+	return value.MakeInt(int64(recv.Truncate(a0)))
 }
 
 func direct_method_time_Location_String(args []value.Value) value.Value {
@@ -381,40 +368,11 @@ func direct_method_time_Time_After(args []value.Value) value.Value {
 	return value.MakeBool(recv.After(a0))
 }
 
-func direct_method_time_Time_AppendBinary(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.AppendBinary(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
-}
-
 func direct_method_time_Time_AppendFormat(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	a1 := args[2].String()
-	return value.MakeBytes([]byte(recv.AppendFormat(a0, a1)))
-}
-
-func direct_method_time_Time_AppendText(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.AppendText(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+	return value.FromInterface(recv.AppendFormat(a0, a1))
 }
 
 func direct_method_time_Time_Before(args []value.Value) value.Value {
@@ -426,7 +384,7 @@ func direct_method_time_Time_Before(args []value.Value) value.Value {
 func direct_method_time_Time_Clock(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
 	r0, r1, r2 := recv.Clock()
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1)), value.MakeInt(int64(r2))})
+	return value.FromInterface([]interface{}{r0, r1, r2})
 }
 
 func direct_method_time_Time_Compare(args []value.Value) value.Value {
@@ -438,7 +396,7 @@ func direct_method_time_Time_Compare(args []value.Value) value.Value {
 func direct_method_time_Time_Date(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
 	r0, r1, r2 := recv.Date()
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(int(r1))), value.MakeInt(int64(r2))})
+	return value.FromInterface([]interface{}{r0, r1, r2})
 }
 
 func direct_method_time_Time_Day(args []value.Value) value.Value {
@@ -466,7 +424,7 @@ func direct_method_time_Time_GoString(args []value.Value) value.Value {
 func direct_method_time_Time_GobEncode(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
 	r0, r1 := recv.GobEncode()
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_time_Time_Hour(args []value.Value) value.Value {
@@ -477,7 +435,7 @@ func direct_method_time_Time_Hour(args []value.Value) value.Value {
 func direct_method_time_Time_ISOWeek(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
 	r0, r1 := recv.ISOWeek()
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1))})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_time_Time_In(args []value.Value) value.Value {
@@ -509,19 +467,19 @@ func direct_method_time_Time_Location(args []value.Value) value.Value {
 func direct_method_time_Time_MarshalBinary(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
 	r0, r1 := recv.MarshalBinary()
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_time_Time_MarshalJSON(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
 	r0, r1 := recv.MarshalJSON()
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_time_Time_MarshalText(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
 	r0, r1 := recv.MarshalText()
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_time_Time_Minute(args []value.Value) value.Value {
@@ -531,7 +489,7 @@ func direct_method_time_Time_Minute(args []value.Value) value.Value {
 
 func direct_method_time_Time_Month(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(int(recv.Month())))
+	return value.MakeInt(int64(recv.Month()))
 }
 
 func direct_method_time_Time_Nanosecond(args []value.Value) value.Value {
@@ -558,7 +516,7 @@ func direct_method_time_Time_String(args []value.Value) value.Value {
 func direct_method_time_Time_Sub(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
 	a0 := args[1].Interface().(time.Time)
-	return value.MakeInt(int64(int64(recv.Sub(a0))))
+	return value.MakeInt(int64(recv.Sub(a0)))
 }
 
 func direct_method_time_Time_Truncate(args []value.Value) value.Value {
@@ -594,7 +552,7 @@ func direct_method_time_Time_UnixNano(args []value.Value) value.Value {
 
 func direct_method_time_Time_Weekday(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(int(recv.Weekday())))
+	return value.MakeInt(int64(recv.Weekday()))
 }
 
 func direct_method_time_Time_Year(args []value.Value) value.Value {
@@ -610,56 +568,36 @@ func direct_method_time_Time_YearDay(args []value.Value) value.Value {
 func direct_method_time_Time_Zone(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
 	r0, r1 := recv.Zone()
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.MakeInt(int64(r1))})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_time_Time_ZoneBounds(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
 	r0, r1 := recv.ZoneBounds()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_time_Time_GobDecode(args []value.Value) value.Value {
 	recv := args[0].Interface().(*time.Time)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	return value.FromInterface(recv.GobDecode(a0))
 }
 
 func direct_method_time_Time_UnmarshalBinary(args []value.Value) value.Value {
 	recv := args[0].Interface().(*time.Time)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	return value.FromInterface(recv.UnmarshalBinary(a0))
 }
 
 func direct_method_time_Time_UnmarshalJSON(args []value.Value) value.Value {
 	recv := args[0].Interface().(*time.Time)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	return value.FromInterface(recv.UnmarshalJSON(a0))
 }
 
 func direct_method_time_Time_UnmarshalText(args []value.Value) value.Value {
 	recv := args[0].Interface().(*time.Time)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	return value.FromInterface(recv.UnmarshalText(a0))
 }
 

@@ -1360,13 +1360,6 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	case bytecode.OpUnpack:
 		// Pop a slice and push each element onto the stack
 		slice := vm.pop()
-		// Fast path: native []value.Value (produced by DirectCall multi-return wrappers)
-		if vals, ok := slice.ValueSlice(); ok {
-			for _, v := range vals {
-				vm.push(v)
-			}
-			break
-		}
 		if slice.Kind() == value.KindSlice || slice.Kind() == value.KindReflect {
 			if rv, ok := slice.ReflectValue(); ok {
 				for i := 0; i < rv.Len(); i++ {

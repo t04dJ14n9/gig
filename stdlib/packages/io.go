@@ -95,20 +95,15 @@ func direct_io_Copy(args []value.Value) value.Value {
 	a0 := args[0].Interface().(io.Writer)
 	a1 := args[1].Interface().(io.Reader)
 	r0, r1 := io.Copy(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_io_CopyBuffer(args []value.Value) value.Value {
 	a0 := args[0].Interface().(io.Writer)
 	a1 := args[1].Interface().(io.Reader)
-	a2 := func() []byte {
-		if b, ok := (args[2]).Bytes(); ok {
-			return b
-		}
-		return (args[2]).Interface().([]byte)
-	}()
+	a2 := args[2].Interface().([]byte)
 	r0, r1 := io.CopyBuffer(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_io_CopyN(args []value.Value) value.Value {
@@ -116,7 +111,7 @@ func direct_io_CopyN(args []value.Value) value.Value {
 	a1 := args[1].Interface().(io.Reader)
 	a2 := args[2].Int()
 	r0, r1 := io.CopyN(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_io_LimitReader(args []value.Value) value.Value {
@@ -161,38 +156,28 @@ func direct_io_NopCloser(args []value.Value) value.Value {
 
 func direct_io_Pipe(args []value.Value) value.Value {
 	r0, r1 := io.Pipe()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_io_ReadAll(args []value.Value) value.Value {
 	a0 := args[0].Interface().(io.Reader)
 	r0, r1 := io.ReadAll(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_io_ReadAtLeast(args []value.Value) value.Value {
 	a0 := args[0].Interface().(io.Reader)
-	a1 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a1 := args[1].Interface().([]byte)
 	a2 := int(args[2].Int())
 	r0, r1 := io.ReadAtLeast(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_io_ReadFull(args []value.Value) value.Value {
 	a0 := args[0].Interface().(io.Reader)
-	a1 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a1 := args[1].Interface().([]byte)
 	r0, r1 := io.ReadFull(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_io_TeeReader(args []value.Value) value.Value {
@@ -205,19 +190,14 @@ func direct_io_WriteString(args []value.Value) value.Value {
 	a0 := args[0].Interface().(io.Writer)
 	a1 := args[1].String()
 	r0, r1 := io.WriteString(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_io_LimitedReader_Read(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.LimitedReader)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	r0, r1 := recv.Read(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_io_OffsetWriter_Seek(args []value.Value) value.Value {
@@ -225,32 +205,22 @@ func direct_method_io_OffsetWriter_Seek(args []value.Value) value.Value {
 	a0 := args[1].Int()
 	a1 := int(args[2].Int())
 	r0, r1 := recv.Seek(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_io_OffsetWriter_Write(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.OffsetWriter)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	r0, r1 := recv.Write(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_io_OffsetWriter_WriteAt(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.OffsetWriter)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	a1 := args[2].Int()
 	r0, r1 := recv.WriteAt(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_io_PipeReader_Close(args []value.Value) value.Value {
@@ -266,14 +236,9 @@ func direct_method_io_PipeReader_CloseWithError(args []value.Value) value.Value 
 
 func direct_method_io_PipeReader_Read(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.PipeReader)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	r0, r1 := recv.Read(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_io_PipeWriter_Close(args []value.Value) value.Value {
@@ -289,45 +254,30 @@ func direct_method_io_PipeWriter_CloseWithError(args []value.Value) value.Value 
 
 func direct_method_io_PipeWriter_Write(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.PipeWriter)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	r0, r1 := recv.Write(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_io_SectionReader_Outer(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.SectionReader)
 	r0, r1, r2 := recv.Outer()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.MakeInt(int64(r1)), value.MakeInt(int64(r2))})
+	return value.FromInterface([]interface{}{r0, r1, r2})
 }
 
 func direct_method_io_SectionReader_Read(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.SectionReader)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	r0, r1 := recv.Read(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_io_SectionReader_ReadAt(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.SectionReader)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
+	a0 := args[1].Interface().([]byte)
 	a1 := args[2].Int()
 	r0, r1 := recv.ReadAt(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_io_SectionReader_Seek(args []value.Value) value.Value {
@@ -335,7 +285,7 @@ func direct_method_io_SectionReader_Seek(args []value.Value) value.Value {
 	a0 := args[1].Int()
 	a1 := int(args[2].Int())
 	r0, r1 := recv.Seek(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.FromInterface([]interface{}{r0, r1})
 }
 
 func direct_method_io_SectionReader_Size(args []value.Value) value.Value {

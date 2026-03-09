@@ -19,7 +19,6 @@ func init() {
 	pkg.AddType("Ring", reflect.TypeOf(container_ring.Ring{}), "")
 
 	// Method DirectCalls
-	pkg.AddMethodDirectCall("Ring", "Do", direct_method_container_ring_Ring_Do)
 	pkg.AddMethodDirectCall("Ring", "Len", direct_method_container_ring_Ring_Len)
 	pkg.AddMethodDirectCall("Ring", "Link", direct_method_container_ring_Ring_Link)
 	pkg.AddMethodDirectCall("Ring", "Move", direct_method_container_ring_Ring_Move)
@@ -32,13 +31,6 @@ func init() {
 func direct_container_ring_New(args []value.Value) value.Value {
 	a0 := int(args[0].Int())
 	return value.FromInterface(container_ring.New(a0))
-}
-
-func direct_method_container_ring_Ring_Do(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_ring.Ring)
-	a0 := args[1].Interface().(func(any))
-	recv.Do(a0)
-	return value.MakeNil()
 }
 
 func direct_method_container_ring_Ring_Len(args []value.Value) value.Value {

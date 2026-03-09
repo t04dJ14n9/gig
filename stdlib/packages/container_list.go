@@ -25,16 +25,12 @@ func init() {
 	pkg.AddMethodDirectCall("List", "Back", direct_method_container_list_List_Back)
 	pkg.AddMethodDirectCall("List", "Front", direct_method_container_list_List_Front)
 	pkg.AddMethodDirectCall("List", "Init", direct_method_container_list_List_Init)
-	pkg.AddMethodDirectCall("List", "InsertAfter", direct_method_container_list_List_InsertAfter)
-	pkg.AddMethodDirectCall("List", "InsertBefore", direct_method_container_list_List_InsertBefore)
 	pkg.AddMethodDirectCall("List", "Len", direct_method_container_list_List_Len)
 	pkg.AddMethodDirectCall("List", "MoveAfter", direct_method_container_list_List_MoveAfter)
 	pkg.AddMethodDirectCall("List", "MoveBefore", direct_method_container_list_List_MoveBefore)
 	pkg.AddMethodDirectCall("List", "MoveToBack", direct_method_container_list_List_MoveToBack)
 	pkg.AddMethodDirectCall("List", "MoveToFront", direct_method_container_list_List_MoveToFront)
-	pkg.AddMethodDirectCall("List", "PushBack", direct_method_container_list_List_PushBack)
 	pkg.AddMethodDirectCall("List", "PushBackList", direct_method_container_list_List_PushBackList)
-	pkg.AddMethodDirectCall("List", "PushFront", direct_method_container_list_List_PushFront)
 	pkg.AddMethodDirectCall("List", "PushFrontList", direct_method_container_list_List_PushFrontList)
 	pkg.AddMethodDirectCall("List", "Remove", direct_method_container_list_List_Remove)
 
@@ -67,20 +63,6 @@ func direct_method_container_list_List_Front(args []value.Value) value.Value {
 func direct_method_container_list_List_Init(args []value.Value) value.Value {
 	recv := args[0].Interface().(*container_list.List)
 	return value.FromInterface(recv.Init())
-}
-
-func direct_method_container_list_List_InsertAfter(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface()
-	a1 := args[2].Interface().(*container_list.Element)
-	return value.FromInterface(recv.InsertAfter(a0, a1))
-}
-
-func direct_method_container_list_List_InsertBefore(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface()
-	a1 := args[2].Interface().(*container_list.Element)
-	return value.FromInterface(recv.InsertBefore(a0, a1))
 }
 
 func direct_method_container_list_List_Len(args []value.Value) value.Value {
@@ -118,23 +100,11 @@ func direct_method_container_list_List_MoveToFront(args []value.Value) value.Val
 	return value.MakeNil()
 }
 
-func direct_method_container_list_List_PushBack(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface()
-	return value.FromInterface(recv.PushBack(a0))
-}
-
 func direct_method_container_list_List_PushBackList(args []value.Value) value.Value {
 	recv := args[0].Interface().(*container_list.List)
 	a0 := args[1].Interface().(*container_list.List)
 	recv.PushBackList(a0)
 	return value.MakeNil()
-}
-
-func direct_method_container_list_List_PushFront(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface()
-	return value.FromInterface(recv.PushFront(a0))
 }
 
 func direct_method_container_list_List_PushFrontList(args []value.Value) value.Value {

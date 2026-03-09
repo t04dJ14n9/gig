@@ -1,12 +1,12 @@
 // Package mydep declares dependencies for gig interpreter.
 // Standard library packages are included by default.
 // Add your custom third-party library imports at the end.
+
+// use `gig gen ./package` to generate registration code
 package mydep
 
 import (
-	// ============================================
-	// Go Standard Library (provided by gig)
-	// ============================================
+	// built-in standard library packages
 	_ "bytes"
 	_ "cmp"
 	_ "container/heap"
@@ -47,9 +47,7 @@ import (
 	_ "unicode/utf16"
 	_ "unicode/utf8"
 
-	// ============================================
-	// Custom third-party libraries (add yours below)
-	// ============================================
+	// third-party libraries
 	_ "github.com/spf13/cast"
 	_ "github.com/tidwall/gjson"
 )

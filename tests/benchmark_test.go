@@ -1,11 +1,13 @@
 package tests
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"os"
+	"os/exec"
 	"runtime"
 	"sort"
 	"strconv"
@@ -806,26 +808,145 @@ func categorize(name string) string {
 	}
 }
 
-// getHardcodedResults returns fallback benchmark data.
-// Last measured: AMD EPYC 9754 128-Core Processor, Go 1.23, linux/amd64, -benchtime=3s
+// runAllBenchmarks runs all benchmark pairs and returns results.
+// NOTE: This function is intentionally NOT called in TestBenchmarkSummary
+// because running all benchmarks takes too long. Use hardcoded results instead.
+// To regenerate benchmark data, run manually:
+//
+//	go test -bench . -benchmem -count=1 ./tests/ -run='^$' | tee /tmp/bench.txt
+func runAllBenchmarks(t *testing.T) []benchmarkResult {
+	t.Helper()
+	// Use subprocess to run benchmarks and parse output
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "go", "test", "-bench=Benchmark", "-benchmem", "-count=1", "./tests/", "-run=^$")
+	cmd.Dir = "/data/workspace/Code/gig"
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Logf("Warning: Could not run benchmarks: %v", err)
+		return getHardcodedResults()
+	}
+
+	return parseBenchmarkOutput(t, string(output))
+}
+
+// parseBenchmarkOutput parses go test -bench output and extracts timing data
+func parseBenchmarkOutput(t *testing.T, output string) []benchmarkResult {
+	t.Helper()
+	results := []benchmarkResult{}
+
+	// Known benchmark pairs to look for
+	benchPairs := []struct {
+		gigName    string
+		nativeName string
+		display    string
+	}{
+		{"BenchmarkGig_ArithmeticSum", "BenchmarkNative_ArithmeticSum", "ArithmeticSum"},
+		{"BenchmarkGig_FibRecursive", "BenchmarkNative_FibRecursive", "FibRecursive"},
+		{"BenchmarkGig_FibIterative", "BenchmarkNative_FibIterative", "FibIterative"},
+		{"BenchmarkGig_Factorial", "BenchmarkNative_Factorial", "Factorial"},
+		{"BenchmarkGig_SliceAppend", "BenchmarkNative_SliceAppend", "SliceAppend"},
+		{"BenchmarkGig_SliceSum", "BenchmarkNative_SliceSum", "SliceSum"},
+		{"BenchmarkGig_MapOps", "BenchmarkNative_MapOps", "MapOps"},
+		{"BenchmarkGig_StringConcat", "BenchmarkNative_StringConcat", "StringConcat"},
+		{"BenchmarkGig_ClosureCalls", "BenchmarkNative_ClosureCalls", "ClosureCalls"},
+		{"BenchmarkGig_NestedLoops", "BenchmarkNative_NestedLoops", "NestedLoops"},
+		{"BenchmarkGig_BubbleSort", "BenchmarkNative_BubbleSort", "BubbleSort"},
+		{"BenchmarkGig_GCD", "BenchmarkNative_GCD", "GCD"},
+		{"BenchmarkGig_Sieve", "BenchmarkNative_Sieve", "Sieve"},
+		{"BenchmarkGig_HigherOrder", "BenchmarkNative_HigherOrder", "HigherOrder"},
+		{"BenchmarkGig_ExternalSprintf", "BenchmarkNative_ExternalSprintf", "ExternalSprintf"},
+		{"BenchmarkGig_ExternalStrings", "BenchmarkNative_ExternalStrings", "ExternalStrings"},
+		{"BenchmarkGig_CallOverhead", "BenchmarkNative_CallOverhead", "CallOverhead"},
+		{"BenchmarkGig_StructMethod", "BenchmarkNative_StructMethod", "StructMethod"},
+		{"BenchmarkGig_Interface", "BenchmarkNative_Interface", "Interface"},
+		{"BenchmarkGig_TypeAssertion", "BenchmarkNative_TypeAssertion", "TypeAssertion"},
+		{"BenchmarkGig_TypeSwitch", "BenchmarkNative_TypeSwitch", "TypeSwitch"},
+		{"BenchmarkGig_Defer", "BenchmarkNative_Defer", "Defer"},
+		{"BenchmarkGig_PanicRecover", "BenchmarkNative_PanicRecover", "PanicRecover"},
+		{"BenchmarkGig_Select", "BenchmarkNative_Select", "Select"},
+		{"BenchmarkGig_SliceInterface", "BenchmarkNative_SliceInterface", "SliceInterface"},
+		{"BenchmarkGig_CompositeLiteral", "BenchmarkNative_CompositeLiteral", "CompositeLiteral"},
+		{"BenchmarkGig_SortInts", "BenchmarkNative_SortInts", "SortInts"},
+		{"BenchmarkGig_StringsBuilder", "BenchmarkNative_StringsBuilder", "StringsBuilder"},
+		{"BenchmarkGig_MathBig", "BenchmarkNative_MathBig", "MathBig"},
+		{"BenchmarkGig_JsonMarshal", "BenchmarkNative_JsonMarshal", "JsonMarshal"},
+	}
+
+	// Parse ns/op values from output
+	gigTimes := extractTimes(output, "BenchmarkGig_")
+	nativeTimes := extractTimes(output, "BenchmarkNative_")
+
+	for _, bm := range benchPairs {
+		gigNs, ok1 := gigTimes[bm.gigName]
+		nativeNs, ok2 := nativeTimes[bm.nativeName]
+
+		if ok1 && ok2 && nativeNs > 0 {
+			results = append(results, benchmarkResult{
+				name:     bm.display,
+				gigNs:    gigNs,
+				nativeNs: nativeNs,
+			})
+		}
+	}
+
+	// If we couldn't parse results, return hardcoded fallbacks
+	if len(results) == 0 {
+		t.Log("Warning: Could not parse benchmark output, using fallback data")
+		return getHardcodedResults()
+	}
+
+	return results
+}
+
+// extractTimes extracts ns/op values for benchmarks matching prefix
+func extractTimes(output, prefix string) map[string]float64 {
+	times := make(map[string]float64)
+	lines := strings.Split(output, "\n")
+
+	for _, line := range lines {
+		if !strings.HasPrefix(line, prefix) {
+			continue
+		}
+
+		// Format: BenchmarkName	N	ns/op
+		// Example: BenchmarkGig_ArithmeticSum	1000000	278193 ns/op
+		fields := strings.Fields(line)
+		if len(fields) >= 3 {
+			name := fields[0]
+			// Last field should be like "1234ns/op"
+			nsOp := fields[len(fields)-1]
+			nsOp = strings.TrimSuffix(nsOp, " ns/op")
+			if nsOpFloat, err := strconv.ParseFloat(nsOp, 64); err == nil {
+				times[name] = nsOpFloat
+			}
+		}
+	}
+
+	return times
+}
+
+// getHardcodedResults returns fallback benchmark data
 func getHardcodedResults() []benchmarkResult {
 	return []benchmarkResult{
-		{"ArithmeticSum", 56633, 335.6},
-		{"FibRecursive", 153321, 3642},
-		{"FibIterative", 4036, 18.13},
-		{"Factorial", 1562, 12.08},
-		{"SliceAppend", 548003, 8726},
-		{"SliceSum", 116557, 669.4},
-		{"MapOps", 93123, 8356},
-		{"StringConcat", 37622, 21991},
-		{"ClosureCalls", 300486, 339.5},
-		{"NestedLoops", 67174, 436.0},
-		{"BubbleSort", 205365, 1951},
-		{"GCD", 60235, 914.2},
-		{"Sieve", 206280, 4920},
-		{"HigherOrder", 18351, 68.13},
-		{"ExternalSprintf", 91763, 5455},
-		{"ExternalStrings", 25490, 10514},
-		{"CallOverhead", 103037, 332.6},
+		{"ArithmeticSum", 278193, 333.8},
+		{"FibRecursive", 12075922, 40648},
+		{"FibIterative", 28308, 17.72},
+		{"Factorial", 18565, 11.89},
+		{"SliceAppend", 984479, 8072},
+		{"SliceSum", 763048, 1001},
+		{"MapOps", 134692, 6825},
+		{"StringConcat", 64725, 23435},
+		{"ClosureCalls", 723049, 659.6},
+		{"NestedLoops", 2424187, 3111},
+		{"BubbleSort", 8049678, 4782},
+		{"GCD", 176303, 912.8},
+		{"Sieve", 1400950, 1897},
+		{"HigherOrder", 119780, 67.78},
+		{"ExternalSprintf", 113358, 5205},
+		{"ExternalStrings", 51435, 10296},
+		{"CallOverhead", 5196143, 3341},
 	}
 }

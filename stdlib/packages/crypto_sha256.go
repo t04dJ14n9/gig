@@ -33,21 +33,11 @@ func direct_crypto_sha256_New224(args []value.Value) value.Value {
 }
 
 func direct_crypto_sha256_Sum224(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		return (args[0]).Interface().([]byte)
-	}()
+	a0 := args[0].Interface().([]byte)
 	return value.FromInterface(crypto_sha256.Sum224(a0))
 }
 
 func direct_crypto_sha256_Sum256(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		return (args[0]).Interface().([]byte)
-	}()
+	a0 := args[0].Interface().([]byte)
 	return value.FromInterface(crypto_sha256.Sum256(a0))
 }

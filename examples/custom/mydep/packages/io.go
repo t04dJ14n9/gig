@@ -13,21 +13,21 @@ func init() {
 	pkg := importer.RegisterPackage("io", "io")
 
 	// Functions
-	pkg.AddFunction("Copy", io.Copy, "", direct_io_Copy)
-	pkg.AddFunction("CopyBuffer", io.CopyBuffer, "", direct_io_CopyBuffer)
-	pkg.AddFunction("CopyN", io.CopyN, "", direct_io_CopyN)
-	pkg.AddFunction("LimitReader", io.LimitReader, "", direct_io_LimitReader)
-	pkg.AddFunction("MultiReader", io.MultiReader, "", direct_io_MultiReader)
-	pkg.AddFunction("MultiWriter", io.MultiWriter, "", direct_io_MultiWriter)
-	pkg.AddFunction("NewOffsetWriter", io.NewOffsetWriter, "", direct_io_NewOffsetWriter)
-	pkg.AddFunction("NewSectionReader", io.NewSectionReader, "", direct_io_NewSectionReader)
-	pkg.AddFunction("NopCloser", io.NopCloser, "", direct_io_NopCloser)
+	pkg.AddFunction("Copy", io.Copy, "", nil)
+	pkg.AddFunction("CopyBuffer", io.CopyBuffer, "", nil)
+	pkg.AddFunction("CopyN", io.CopyN, "", nil)
+	pkg.AddFunction("LimitReader", io.LimitReader, "", nil)
+	pkg.AddFunction("MultiReader", io.MultiReader, "", nil)
+	pkg.AddFunction("MultiWriter", io.MultiWriter, "", nil)
+	pkg.AddFunction("NewOffsetWriter", io.NewOffsetWriter, "", nil)
+	pkg.AddFunction("NewSectionReader", io.NewSectionReader, "", nil)
+	pkg.AddFunction("NopCloser", io.NopCloser, "", nil)
 	pkg.AddFunction("Pipe", io.Pipe, "", direct_io_Pipe)
-	pkg.AddFunction("ReadAll", io.ReadAll, "", direct_io_ReadAll)
-	pkg.AddFunction("ReadAtLeast", io.ReadAtLeast, "", direct_io_ReadAtLeast)
-	pkg.AddFunction("ReadFull", io.ReadFull, "", direct_io_ReadFull)
-	pkg.AddFunction("TeeReader", io.TeeReader, "", direct_io_TeeReader)
-	pkg.AddFunction("WriteString", io.WriteString, "", direct_io_WriteString)
+	pkg.AddFunction("ReadAll", io.ReadAll, "", nil)
+	pkg.AddFunction("ReadAtLeast", io.ReadAtLeast, "", nil)
+	pkg.AddFunction("ReadFull", io.ReadFull, "", nil)
+	pkg.AddFunction("TeeReader", io.TeeReader, "", nil)
+	pkg.AddFunction("WriteString", io.WriteString, "", nil)
 
 	// Constants
 	pkg.AddConstant("SeekCurrent", io.SeekCurrent, "")
@@ -72,273 +72,9 @@ func init() {
 	pkg.AddType("WriterAt", reflect.TypeOf((*io.WriterAt)(nil)).Elem(), "")
 	pkg.AddType("WriterTo", reflect.TypeOf((*io.WriterTo)(nil)).Elem(), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("LimitedReader", "Read", direct_method_io_LimitedReader_Read)
-	pkg.AddMethodDirectCall("OffsetWriter", "Seek", direct_method_io_OffsetWriter_Seek)
-	pkg.AddMethodDirectCall("OffsetWriter", "Write", direct_method_io_OffsetWriter_Write)
-	pkg.AddMethodDirectCall("OffsetWriter", "WriteAt", direct_method_io_OffsetWriter_WriteAt)
-	pkg.AddMethodDirectCall("PipeReader", "Close", direct_method_io_PipeReader_Close)
-	pkg.AddMethodDirectCall("PipeReader", "CloseWithError", direct_method_io_PipeReader_CloseWithError)
-	pkg.AddMethodDirectCall("PipeReader", "Read", direct_method_io_PipeReader_Read)
-	pkg.AddMethodDirectCall("PipeWriter", "Close", direct_method_io_PipeWriter_Close)
-	pkg.AddMethodDirectCall("PipeWriter", "CloseWithError", direct_method_io_PipeWriter_CloseWithError)
-	pkg.AddMethodDirectCall("PipeWriter", "Write", direct_method_io_PipeWriter_Write)
-	pkg.AddMethodDirectCall("SectionReader", "Outer", direct_method_io_SectionReader_Outer)
-	pkg.AddMethodDirectCall("SectionReader", "Read", direct_method_io_SectionReader_Read)
-	pkg.AddMethodDirectCall("SectionReader", "ReadAt", direct_method_io_SectionReader_ReadAt)
-	pkg.AddMethodDirectCall("SectionReader", "Seek", direct_method_io_SectionReader_Seek)
-	pkg.AddMethodDirectCall("SectionReader", "Size", direct_method_io_SectionReader_Size)
-
-}
-
-func direct_io_Copy(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	a1 := args[1].Interface().(io.Reader)
-	r0, r1 := io.Copy(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_io_CopyBuffer(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	a1 := args[1].Interface().(io.Reader)
-	a2 := func() []byte {
-		if b, ok := (args[2]).Bytes(); ok {
-			return b
-		}
-		return (args[2]).Interface().([]byte)
-	}()
-	r0, r1 := io.CopyBuffer(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_io_CopyN(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	a1 := args[1].Interface().(io.Reader)
-	a2 := args[2].Int()
-	r0, r1 := io.CopyN(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_io_LimitReader(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	a1 := args[1].Int()
-	return value.FromInterface(io.LimitReader(a0, a1))
-}
-
-func direct_io_MultiReader(args []value.Value) value.Value {
-	varArgs := make([]io.Reader, len(args)-0)
-	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].Interface().(io.Reader)
-	}
-	return value.FromInterface(io.MultiReader(varArgs...))
-}
-
-func direct_io_MultiWriter(args []value.Value) value.Value {
-	varArgs := make([]io.Writer, len(args)-0)
-	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].Interface().(io.Writer)
-	}
-	return value.FromInterface(io.MultiWriter(varArgs...))
-}
-
-func direct_io_NewOffsetWriter(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.WriterAt)
-	a1 := args[1].Int()
-	return value.FromInterface(io.NewOffsetWriter(a0, a1))
-}
-
-func direct_io_NewSectionReader(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.ReaderAt)
-	a1 := args[1].Int()
-	a2 := args[2].Int()
-	return value.FromInterface(io.NewSectionReader(a0, a1, a2))
-}
-
-func direct_io_NopCloser(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	return value.FromInterface(io.NopCloser(a0))
 }
 
 func direct_io_Pipe(args []value.Value) value.Value {
 	r0, r1 := io.Pipe()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_io_ReadAll(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	r0, r1 := io.ReadAll(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
-}
-
-func direct_io_ReadAtLeast(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	a1 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	a2 := int(args[2].Int())
-	r0, r1 := io.ReadAtLeast(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_io_ReadFull(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	a1 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := io.ReadFull(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_io_TeeReader(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	a1 := args[1].Interface().(io.Writer)
-	return value.FromInterface(io.TeeReader(a0, a1))
-}
-
-func direct_io_WriteString(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	a1 := args[1].String()
-	r0, r1 := io.WriteString(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_io_LimitedReader_Read(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.LimitedReader)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.Read(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_io_OffsetWriter_Seek(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.OffsetWriter)
-	a0 := args[1].Int()
-	a1 := int(args[2].Int())
-	r0, r1 := recv.Seek(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_io_OffsetWriter_Write(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.OffsetWriter)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.Write(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_io_OffsetWriter_WriteAt(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.OffsetWriter)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	a1 := args[2].Int()
-	r0, r1 := recv.WriteAt(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_io_PipeReader_Close(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.PipeReader)
-	return value.FromInterface(recv.Close())
-}
-
-func direct_method_io_PipeReader_CloseWithError(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.PipeReader)
-	a0 := args[1].Interface().(error)
-	return value.FromInterface(recv.CloseWithError(a0))
-}
-
-func direct_method_io_PipeReader_Read(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.PipeReader)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.Read(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_io_PipeWriter_Close(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.PipeWriter)
-	return value.FromInterface(recv.Close())
-}
-
-func direct_method_io_PipeWriter_CloseWithError(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.PipeWriter)
-	a0 := args[1].Interface().(error)
-	return value.FromInterface(recv.CloseWithError(a0))
-}
-
-func direct_method_io_PipeWriter_Write(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.PipeWriter)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.Write(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_io_SectionReader_Outer(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.SectionReader)
-	r0, r1, r2 := recv.Outer()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.MakeInt(int64(r1)), value.MakeInt(int64(r2))})
-}
-
-func direct_method_io_SectionReader_Read(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.SectionReader)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	r0, r1 := recv.Read(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_io_SectionReader_ReadAt(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.SectionReader)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		return (args[1]).Interface().([]byte)
-	}()
-	a1 := args[2].Int()
-	r0, r1 := recv.ReadAt(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_io_SectionReader_Seek(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.SectionReader)
-	a0 := args[1].Int()
-	a1 := int(args[2].Int())
-	r0, r1 := recv.Seek(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_io_SectionReader_Size(args []value.Value) value.Value {
-	recv := args[0].Interface().(*io.SectionReader)
-	return value.MakeInt(int64(recv.Size()))
+	return value.FromInterface([]interface{}{r0, r1})
 }
