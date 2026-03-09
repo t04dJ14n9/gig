@@ -83,6 +83,7 @@ const (
 	KindStruct  // struct{}
 	KindInterface
 	KindReflect // fallback to reflect.Value
+	KindBytes   // []byte stored natively (zero reflection)
 )
 
 // String returns the name of the kind.
@@ -122,6 +123,8 @@ func (k Kind) String() string {
 		return "interface"
 	case KindReflect:
 		return "reflect"
+	case KindBytes:
+		return "bytes"
 	default:
 		return "unknown"
 	}
@@ -234,6 +237,22 @@ func MakeIntPtr(p *int64) Value {
 	return Value{kind: KindPointer, obj: p}
 }
 
+// MakeBytes creates a Value backed by a native []byte (KindBytes).
+// This avoids reflect overhead for []byte arguments and return values.
+func MakeBytes(b []byte) Value {
+	return Value{kind: KindBytes, obj: b}
+}
+
+// Bytes returns the underlying []byte if this is a KindBytes value.
+// Returns nil, false if not a KindBytes value.
+func (v Value) Bytes() ([]byte, bool) {
+	if v.kind == KindBytes {
+		b, ok := v.obj.([]byte)
+		return b, ok
+	}
+	return nil, false
+}
+
 // MakeIntSlice creates a Value backed by a native []int64 (KindSlice).
 // This avoids reflect overhead for the common []int case.
 func MakeIntSlice(s []int64) Value {
@@ -289,6 +308,12 @@ func MakeFromReflect(rv reflect.Value) Value {
 	case reflect.Complex64, reflect.Complex128:
 		c := rv.Complex()
 		return MakeComplex(real(c), imag(c))
+	case reflect.Slice:
+		// Native []byte storage: avoid reflect overhead for the common []byte case
+		if rv.Type().Elem().Kind() == reflect.Uint8 {
+			return MakeBytes(rv.Bytes())
+		}
+		return Value{kind: KindReflect, obj: rv}
 	default:
 		return Value{kind: KindReflect, obj: rv}
 	}
@@ -298,6 +323,39 @@ func MakeFromReflect(rv reflect.Value) Value {
 func FromInterface(v any) Value {
 	if v == nil {
 		return MakeNil()
+	}
+	// Fast path: detect []byte via type switch to avoid reflect.ValueOf
+	switch val := v.(type) {
+	case bool:
+		return MakeBool(val)
+	case int:
+		return MakeInt(int64(val))
+	case int8:
+		return MakeInt(int64(val))
+	case int16:
+		return MakeInt(int64(val))
+	case int32:
+		return MakeInt(int64(val))
+	case int64:
+		return MakeInt(val)
+	case uint:
+		return MakeUint(uint64(val))
+	case uint8:
+		return MakeUint(uint64(val))
+	case uint16:
+		return MakeUint(uint64(val))
+	case uint32:
+		return MakeUint(uint64(val))
+	case uint64:
+		return MakeUint(val)
+	case float32:
+		return MakeFloat(float64(val))
+	case float64:
+		return MakeFloat(val)
+	case string:
+		return MakeString(val)
+	case []byte:
+		return MakeBytes(val)
 	}
 	return MakeFromReflect(reflect.ValueOf(v))
 }
@@ -310,6 +368,22 @@ func (v Value) RawObj() any { return v.obj }
 // This avoids the reflect.ValueOf overhead of FromInterface for callable objects.
 func MakeFunc(fn any) Value {
 	return Value{kind: KindFunc, obj: fn}
+}
+
+// MakeValueSlice creates a Value backed by a native []Value slice.
+// Used by DirectCall wrappers for multi-return packing — zero reflection.
+func MakeValueSlice(vals []Value) Value {
+	return Value{kind: KindSlice, obj: vals}
+}
+
+// ValueSlice returns the underlying []Value if this is a native value slice.
+// Returns nil, false if not a native value slice.
+func (v Value) ValueSlice() ([]Value, bool) {
+	if v.kind == KindSlice {
+		s, ok := v.obj.([]Value)
+		return s, ok
+	}
+	return nil, false
 }
 
 // GoString returns a Go-syntax representation of the value.

@@ -19,7 +19,7 @@ func init() {
 	pkg.AddFunction("HTMLEscape", text_template.HTMLEscape, "", direct_text_template_HTMLEscape)
 	pkg.AddFunction("HTMLEscapeString", text_template.HTMLEscapeString, "", direct_text_template_HTMLEscapeString)
 	pkg.AddFunction("HTMLEscaper", text_template.HTMLEscaper, "", direct_text_template_HTMLEscaper)
-	pkg.AddFunction("IsTrue", text_template.IsTrue, "", nil)
+	pkg.AddFunction("IsTrue", text_template.IsTrue, "", direct_text_template_IsTrue)
 	pkg.AddFunction("JSEscape", text_template.JSEscape, "", direct_text_template_JSEscape)
 	pkg.AddFunction("JSEscapeString", text_template.JSEscapeString, "", direct_text_template_JSEscapeString)
 	pkg.AddFunction("JSEscaper", text_template.JSEscaper, "", direct_text_template_JSEscaper)
@@ -42,6 +42,8 @@ func init() {
 	pkg.AddMethodDirectCall("Template", "Clone", direct_method_text_template_Template_Clone)
 	pkg.AddMethodDirectCall("Template", "DefinedTemplates", direct_method_text_template_Template_DefinedTemplates)
 	pkg.AddMethodDirectCall("Template", "Delims", direct_method_text_template_Template_Delims)
+	pkg.AddMethodDirectCall("Template", "Execute", direct_method_text_template_Template_Execute)
+	pkg.AddMethodDirectCall("Template", "ExecuteTemplate", direct_method_text_template_Template_ExecuteTemplate)
 	pkg.AddMethodDirectCall("Template", "Funcs", direct_method_text_template_Template_Funcs)
 	pkg.AddMethodDirectCall("Template", "Lookup", direct_method_text_template_Template_Lookup)
 	pkg.AddMethodDirectCall("Template", "Name", direct_method_text_template_Template_Name)
@@ -57,7 +59,12 @@ func init() {
 
 func direct_text_template_HTMLEscape(args []value.Value) value.Value {
 	a0 := args[0].Interface().(io.Writer)
-	a1 := args[1].Interface().([]byte)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	text_template.HTMLEscape(a0, a1)
 	return value.MakeNil()
 }
@@ -75,9 +82,20 @@ func direct_text_template_HTMLEscaper(args []value.Value) value.Value {
 	return value.MakeString(string(text_template.HTMLEscaper(varArgs...)))
 }
 
+func direct_text_template_IsTrue(args []value.Value) value.Value {
+	a0 := args[0].Interface()
+	r0, r1 := text_template.IsTrue(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeBool(r0), value.MakeBool(r1)})
+}
+
 func direct_text_template_JSEscape(args []value.Value) value.Value {
 	a0 := args[0].Interface().(io.Writer)
-	a1 := args[1].Interface().([]byte)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	text_template.JSEscape(a0, a1)
 	return value.MakeNil()
 }
@@ -113,7 +131,7 @@ func direct_text_template_ParseFS(args []value.Value) value.Value {
 		varArgs[i-1] = args[i].String()
 	}
 	r0, r1 := text_template.ParseFS(a0, varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_text_template_ParseFiles(args []value.Value) value.Value {
@@ -122,13 +140,13 @@ func direct_text_template_ParseFiles(args []value.Value) value.Value {
 		varArgs[i-0] = args[i].String()
 	}
 	r0, r1 := text_template.ParseFiles(varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_text_template_ParseGlob(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := text_template.ParseGlob(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_text_template_URLQueryEscaper(args []value.Value) value.Value {
@@ -154,13 +172,13 @@ func direct_method_text_template_Template_AddParseTree(args []value.Value) value
 	a0 := args[1].String()
 	a1 := args[2].Interface().(*text_template_parse.Tree)
 	r0, r1 := recv.AddParseTree(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_method_text_template_Template_Clone(args []value.Value) value.Value {
 	recv := args[0].Interface().(*text_template.Template)
 	r0, r1 := recv.Clone()
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_method_text_template_Template_DefinedTemplates(args []value.Value) value.Value {
@@ -173,6 +191,21 @@ func direct_method_text_template_Template_Delims(args []value.Value) value.Value
 	a0 := args[1].String()
 	a1 := args[2].String()
 	return value.FromInterface(recv.Delims(a0, a1))
+}
+
+func direct_method_text_template_Template_Execute(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	a0 := args[1].Interface().(io.Writer)
+	a1 := args[2].Interface()
+	return value.FromInterface(recv.Execute(a0, a1))
+}
+
+func direct_method_text_template_Template_ExecuteTemplate(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	a0 := args[1].Interface().(io.Writer)
+	a1 := args[2].String()
+	a2 := args[3].Interface()
+	return value.FromInterface(recv.ExecuteTemplate(a0, a1, a2))
 }
 
 func direct_method_text_template_Template_Funcs(args []value.Value) value.Value {
@@ -211,7 +244,7 @@ func direct_method_text_template_Template_Parse(args []value.Value) value.Value 
 	recv := args[0].Interface().(*text_template.Template)
 	a0 := args[1].String()
 	r0, r1 := recv.Parse(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_method_text_template_Template_ParseFS(args []value.Value) value.Value {
@@ -222,7 +255,7 @@ func direct_method_text_template_Template_ParseFS(args []value.Value) value.Valu
 		varArgs[i-2] = args[i].String()
 	}
 	r0, r1 := recv.ParseFS(a0, varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_method_text_template_Template_ParseFiles(args []value.Value) value.Value {
@@ -232,14 +265,14 @@ func direct_method_text_template_Template_ParseFiles(args []value.Value) value.V
 		varArgs[i-1] = args[i].String()
 	}
 	r0, r1 := recv.ParseFiles(varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_method_text_template_Template_ParseGlob(args []value.Value) value.Value {
 	recv := args[0].Interface().(*text_template.Template)
 	a0 := args[1].String()
 	r0, r1 := recv.ParseGlob(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_method_text_template_Template_Templates(args []value.Value) value.Value {

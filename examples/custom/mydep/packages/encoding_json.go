@@ -2,7 +2,9 @@
 package packages
 
 import (
+	bytes "bytes"
 	encoding_json "encoding/json"
+	io "io"
 	"reflect"
 
 	"git.woa.com/youngjin/gig/importer"
@@ -13,13 +15,13 @@ func init() {
 	pkg := importer.RegisterPackage("encoding/json", "json")
 
 	// Functions
-	pkg.AddFunction("Compact", encoding_json.Compact, "", nil)
-	pkg.AddFunction("HTMLEscape", encoding_json.HTMLEscape, "", nil)
-	pkg.AddFunction("Indent", encoding_json.Indent, "", nil)
+	pkg.AddFunction("Compact", encoding_json.Compact, "", direct_encoding_json_Compact)
+	pkg.AddFunction("HTMLEscape", encoding_json.HTMLEscape, "", direct_encoding_json_HTMLEscape)
+	pkg.AddFunction("Indent", encoding_json.Indent, "", direct_encoding_json_Indent)
 	pkg.AddFunction("Marshal", encoding_json.Marshal, "", direct_encoding_json_Marshal)
 	pkg.AddFunction("MarshalIndent", encoding_json.MarshalIndent, "", direct_encoding_json_MarshalIndent)
-	pkg.AddFunction("NewDecoder", encoding_json.NewDecoder, "", nil)
-	pkg.AddFunction("NewEncoder", encoding_json.NewEncoder, "", nil)
+	pkg.AddFunction("NewDecoder", encoding_json.NewDecoder, "", direct_encoding_json_NewDecoder)
+	pkg.AddFunction("NewEncoder", encoding_json.NewEncoder, "", direct_encoding_json_NewEncoder)
 	pkg.AddFunction("Unmarshal", encoding_json.Unmarshal, "", direct_encoding_json_Unmarshal)
 	pkg.AddFunction("Valid", encoding_json.Valid, "", direct_encoding_json_Valid)
 
@@ -41,12 +43,75 @@ func init() {
 	pkg.AddType("UnsupportedTypeError", reflect.TypeOf(encoding_json.UnsupportedTypeError{}), "")
 	pkg.AddType("UnsupportedValueError", reflect.TypeOf(encoding_json.UnsupportedValueError{}), "")
 
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("Decoder", "Buffered", direct_method_encoding_json_Decoder_Buffered)
+	pkg.AddMethodDirectCall("Decoder", "Decode", direct_method_encoding_json_Decoder_Decode)
+	pkg.AddMethodDirectCall("Decoder", "DisallowUnknownFields", direct_method_encoding_json_Decoder_DisallowUnknownFields)
+	pkg.AddMethodDirectCall("Decoder", "InputOffset", direct_method_encoding_json_Decoder_InputOffset)
+	pkg.AddMethodDirectCall("Decoder", "More", direct_method_encoding_json_Decoder_More)
+	pkg.AddMethodDirectCall("Decoder", "Token", direct_method_encoding_json_Decoder_Token)
+	pkg.AddMethodDirectCall("Decoder", "UseNumber", direct_method_encoding_json_Decoder_UseNumber)
+	pkg.AddMethodDirectCall("Delim", "String", direct_method_encoding_json_Delim_String)
+	pkg.AddMethodDirectCall("Encoder", "Encode", direct_method_encoding_json_Encoder_Encode)
+	pkg.AddMethodDirectCall("Encoder", "SetEscapeHTML", direct_method_encoding_json_Encoder_SetEscapeHTML)
+	pkg.AddMethodDirectCall("Encoder", "SetIndent", direct_method_encoding_json_Encoder_SetIndent)
+	pkg.AddMethodDirectCall("InvalidUTF8Error", "Error", direct_method_encoding_json_InvalidUTF8Error_Error)
+	pkg.AddMethodDirectCall("InvalidUnmarshalError", "Error", direct_method_encoding_json_InvalidUnmarshalError_Error)
+	pkg.AddMethodDirectCall("MarshalerError", "Error", direct_method_encoding_json_MarshalerError_Error)
+	pkg.AddMethodDirectCall("MarshalerError", "Unwrap", direct_method_encoding_json_MarshalerError_Unwrap)
+	pkg.AddMethodDirectCall("Number", "Float64", direct_method_encoding_json_Number_Float64)
+	pkg.AddMethodDirectCall("Number", "Int64", direct_method_encoding_json_Number_Int64)
+	pkg.AddMethodDirectCall("Number", "String", direct_method_encoding_json_Number_String)
+	pkg.AddMethodDirectCall("RawMessage", "MarshalJSON", direct_method_encoding_json_RawMessage_MarshalJSON)
+	pkg.AddMethodDirectCall("RawMessage", "UnmarshalJSON", direct_method_encoding_json_RawMessage_UnmarshalJSON)
+	pkg.AddMethodDirectCall("SyntaxError", "Error", direct_method_encoding_json_SyntaxError_Error)
+	pkg.AddMethodDirectCall("UnmarshalFieldError", "Error", direct_method_encoding_json_UnmarshalFieldError_Error)
+	pkg.AddMethodDirectCall("UnmarshalTypeError", "Error", direct_method_encoding_json_UnmarshalTypeError_Error)
+	pkg.AddMethodDirectCall("UnsupportedTypeError", "Error", direct_method_encoding_json_UnsupportedTypeError_Error)
+	pkg.AddMethodDirectCall("UnsupportedValueError", "Error", direct_method_encoding_json_UnsupportedValueError_Error)
+
+}
+
+func direct_encoding_json_Compact(args []value.Value) value.Value {
+	a0 := args[0].Interface().(*bytes.Buffer)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.FromInterface(encoding_json.Compact(a0, a1))
+}
+
+func direct_encoding_json_HTMLEscape(args []value.Value) value.Value {
+	a0 := args[0].Interface().(*bytes.Buffer)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	encoding_json.HTMLEscape(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_encoding_json_Indent(args []value.Value) value.Value {
+	a0 := args[0].Interface().(*bytes.Buffer)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	a2 := args[2].String()
+	a3 := args[3].String()
+	return value.FromInterface(encoding_json.Indent(a0, a1, a2, a3))
 }
 
 func direct_encoding_json_Marshal(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := encoding_json.Marshal(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
 }
 
 func direct_encoding_json_MarshalIndent(args []value.Value) value.Value {
@@ -54,16 +119,180 @@ func direct_encoding_json_MarshalIndent(args []value.Value) value.Value {
 	a1 := args[1].String()
 	a2 := args[2].String()
 	r0, r1 := encoding_json.MarshalIndent(a0, a1, a2)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+}
+
+func direct_encoding_json_NewDecoder(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Reader)
+	return value.FromInterface(encoding_json.NewDecoder(a0))
+}
+
+func direct_encoding_json_NewEncoder(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Writer)
+	return value.FromInterface(encoding_json.NewEncoder(a0))
 }
 
 func direct_encoding_json_Unmarshal(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].Interface()
 	return value.FromInterface(encoding_json.Unmarshal(a0, a1))
 }
 
 func direct_encoding_json_Valid(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	return value.MakeBool(encoding_json.Valid(a0))
+}
+
+func direct_method_encoding_json_Decoder_Buffered(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.Decoder)
+	return value.FromInterface(recv.Buffered())
+}
+
+func direct_method_encoding_json_Decoder_Decode(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.Decoder)
+	a0 := args[1].Interface()
+	return value.FromInterface(recv.Decode(a0))
+}
+
+func direct_method_encoding_json_Decoder_DisallowUnknownFields(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.Decoder)
+	recv.DisallowUnknownFields()
+	return value.MakeNil()
+}
+
+func direct_method_encoding_json_Decoder_InputOffset(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.Decoder)
+	return value.MakeInt(int64(recv.InputOffset()))
+}
+
+func direct_method_encoding_json_Decoder_More(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.Decoder)
+	return value.MakeBool(recv.More())
+}
+
+func direct_method_encoding_json_Decoder_Token(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.Decoder)
+	r0, r1 := recv.Token()
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_encoding_json_Decoder_UseNumber(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.Decoder)
+	recv.UseNumber()
+	return value.MakeNil()
+}
+
+func direct_method_encoding_json_Delim_String(args []value.Value) value.Value {
+	recv := args[0].Interface().(encoding_json.Delim)
+	return value.MakeString(string(recv.String()))
+}
+
+func direct_method_encoding_json_Encoder_Encode(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.Encoder)
+	a0 := args[1].Interface()
+	return value.FromInterface(recv.Encode(a0))
+}
+
+func direct_method_encoding_json_Encoder_SetEscapeHTML(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.Encoder)
+	a0 := args[1].Bool()
+	recv.SetEscapeHTML(a0)
+	return value.MakeNil()
+}
+
+func direct_method_encoding_json_Encoder_SetIndent(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.Encoder)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	recv.SetIndent(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_encoding_json_InvalidUTF8Error_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.InvalidUTF8Error)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_encoding_json_InvalidUnmarshalError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.InvalidUnmarshalError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_encoding_json_MarshalerError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.MarshalerError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_encoding_json_MarshalerError_Unwrap(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.MarshalerError)
+	return value.FromInterface(recv.Unwrap())
+}
+
+func direct_method_encoding_json_Number_Float64(args []value.Value) value.Value {
+	recv := args[0].Interface().(encoding_json.Number)
+	r0, r1 := recv.Float64()
+	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_encoding_json_Number_Int64(args []value.Value) value.Value {
+	recv := args[0].Interface().(encoding_json.Number)
+	r0, r1 := recv.Int64()
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_encoding_json_Number_String(args []value.Value) value.Value {
+	recv := args[0].Interface().(encoding_json.Number)
+	return value.MakeString(string(recv.String()))
+}
+
+func direct_method_encoding_json_RawMessage_MarshalJSON(args []value.Value) value.Value {
+	recv := args[0].Interface().(encoding_json.RawMessage)
+	r0, r1 := recv.MarshalJSON()
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_encoding_json_RawMessage_UnmarshalJSON(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.RawMessage)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.FromInterface(recv.UnmarshalJSON(a0))
+}
+
+func direct_method_encoding_json_SyntaxError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.SyntaxError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_encoding_json_UnmarshalFieldError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.UnmarshalFieldError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_encoding_json_UnmarshalTypeError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.UnmarshalTypeError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_encoding_json_UnsupportedTypeError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.UnsupportedTypeError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_encoding_json_UnsupportedValueError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_json.UnsupportedValueError)
+	return value.MakeString(string(recv.Error()))
 }

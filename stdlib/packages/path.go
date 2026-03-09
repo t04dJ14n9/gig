@@ -63,11 +63,11 @@ func direct_path_Match(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
 	r0, r1 := path.Match(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBool(r0), value.FromInterface(r1)})
 }
 
 func direct_path_Split(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := path.Split(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.MakeString(string(r1))})
 }

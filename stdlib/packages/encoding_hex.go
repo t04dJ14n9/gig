@@ -39,29 +39,59 @@ func init() {
 }
 
 func direct_encoding_hex_AppendDecode(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	r0, r1 := encoding_hex.AppendDecode(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
 }
 
 func direct_encoding_hex_AppendEncode(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
-	return value.FromInterface(encoding_hex.AppendEncode(a0, a1))
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(encoding_hex.AppendEncode(a0, a1)))
 }
 
 func direct_encoding_hex_Decode(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	r0, r1 := encoding_hex.Decode(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_encoding_hex_DecodeString(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := encoding_hex.DecodeString(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
 }
 
 func direct_encoding_hex_DecodedLen(args []value.Value) value.Value {
@@ -70,7 +100,12 @@ func direct_encoding_hex_DecodedLen(args []value.Value) value.Value {
 }
 
 func direct_encoding_hex_Dump(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	return value.MakeString(string(encoding_hex.Dump(a0)))
 }
 
@@ -80,13 +115,28 @@ func direct_encoding_hex_Dumper(args []value.Value) value.Value {
 }
 
 func direct_encoding_hex_Encode(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.MakeInt(int64(encoding_hex.Encode(a0, a1)))
 }
 
 func direct_encoding_hex_EncodeToString(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	return value.MakeString(string(encoding_hex.EncodeToString(a0)))
 }
 

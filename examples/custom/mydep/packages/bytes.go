@@ -3,7 +3,9 @@ package packages
 
 import (
 	"bytes"
+	io "io"
 	"reflect"
+	unicode "unicode"
 
 	"git.woa.com/youngjin/gig/importer"
 	"git.woa.com/youngjin/gig/value"
@@ -17,7 +19,7 @@ func init() {
 	pkg.AddFunction("Compare", bytes.Compare, "", direct_bytes_Compare)
 	pkg.AddFunction("Contains", bytes.Contains, "", direct_bytes_Contains)
 	pkg.AddFunction("ContainsAny", bytes.ContainsAny, "", direct_bytes_ContainsAny)
-	pkg.AddFunction("ContainsFunc", bytes.ContainsFunc, "", nil)
+	pkg.AddFunction("ContainsFunc", bytes.ContainsFunc, "", direct_bytes_ContainsFunc)
 	pkg.AddFunction("ContainsRune", bytes.ContainsRune, "", direct_bytes_ContainsRune)
 	pkg.AddFunction("Count", bytes.Count, "", direct_bytes_Count)
 	pkg.AddFunction("Cut", bytes.Cut, "", direct_bytes_Cut)
@@ -26,20 +28,23 @@ func init() {
 	pkg.AddFunction("Equal", bytes.Equal, "", direct_bytes_Equal)
 	pkg.AddFunction("EqualFold", bytes.EqualFold, "", direct_bytes_EqualFold)
 	pkg.AddFunction("Fields", bytes.Fields, "", direct_bytes_Fields)
-	pkg.AddFunction("FieldsFunc", bytes.FieldsFunc, "", nil)
+	pkg.AddFunction("FieldsFunc", bytes.FieldsFunc, "", direct_bytes_FieldsFunc)
+	pkg.AddFunction("FieldsFuncSeq", bytes.FieldsFuncSeq, "", direct_bytes_FieldsFuncSeq)
+	pkg.AddFunction("FieldsSeq", bytes.FieldsSeq, "", direct_bytes_FieldsSeq)
 	pkg.AddFunction("HasPrefix", bytes.HasPrefix, "", direct_bytes_HasPrefix)
 	pkg.AddFunction("HasSuffix", bytes.HasSuffix, "", direct_bytes_HasSuffix)
 	pkg.AddFunction("Index", bytes.Index, "", direct_bytes_Index)
 	pkg.AddFunction("IndexAny", bytes.IndexAny, "", direct_bytes_IndexAny)
 	pkg.AddFunction("IndexByte", bytes.IndexByte, "", direct_bytes_IndexByte)
-	pkg.AddFunction("IndexFunc", bytes.IndexFunc, "", nil)
+	pkg.AddFunction("IndexFunc", bytes.IndexFunc, "", direct_bytes_IndexFunc)
 	pkg.AddFunction("IndexRune", bytes.IndexRune, "", direct_bytes_IndexRune)
 	pkg.AddFunction("Join", bytes.Join, "", nil)
 	pkg.AddFunction("LastIndex", bytes.LastIndex, "", direct_bytes_LastIndex)
 	pkg.AddFunction("LastIndexAny", bytes.LastIndexAny, "", direct_bytes_LastIndexAny)
 	pkg.AddFunction("LastIndexByte", bytes.LastIndexByte, "", direct_bytes_LastIndexByte)
-	pkg.AddFunction("LastIndexFunc", bytes.LastIndexFunc, "", nil)
-	pkg.AddFunction("Map", bytes.Map, "", nil)
+	pkg.AddFunction("LastIndexFunc", bytes.LastIndexFunc, "", direct_bytes_LastIndexFunc)
+	pkg.AddFunction("Lines", bytes.Lines, "", direct_bytes_Lines)
+	pkg.AddFunction("Map", bytes.Map, "", direct_bytes_Map)
 	pkg.AddFunction("NewBuffer", bytes.NewBuffer, "", direct_bytes_NewBuffer)
 	pkg.AddFunction("NewBufferString", bytes.NewBufferString, "", direct_bytes_NewBufferString)
 	pkg.AddFunction("NewReader", bytes.NewReader, "", direct_bytes_NewReader)
@@ -50,22 +55,24 @@ func init() {
 	pkg.AddFunction("Split", bytes.Split, "", direct_bytes_Split)
 	pkg.AddFunction("SplitAfter", bytes.SplitAfter, "", direct_bytes_SplitAfter)
 	pkg.AddFunction("SplitAfterN", bytes.SplitAfterN, "", direct_bytes_SplitAfterN)
+	pkg.AddFunction("SplitAfterSeq", bytes.SplitAfterSeq, "", direct_bytes_SplitAfterSeq)
 	pkg.AddFunction("SplitN", bytes.SplitN, "", direct_bytes_SplitN)
+	pkg.AddFunction("SplitSeq", bytes.SplitSeq, "", direct_bytes_SplitSeq)
 	pkg.AddFunction("Title", bytes.Title, "", direct_bytes_Title)
 	pkg.AddFunction("ToLower", bytes.ToLower, "", direct_bytes_ToLower)
-	pkg.AddFunction("ToLowerSpecial", bytes.ToLowerSpecial, "", nil)
+	pkg.AddFunction("ToLowerSpecial", bytes.ToLowerSpecial, "", direct_bytes_ToLowerSpecial)
 	pkg.AddFunction("ToTitle", bytes.ToTitle, "", direct_bytes_ToTitle)
-	pkg.AddFunction("ToTitleSpecial", bytes.ToTitleSpecial, "", nil)
+	pkg.AddFunction("ToTitleSpecial", bytes.ToTitleSpecial, "", direct_bytes_ToTitleSpecial)
 	pkg.AddFunction("ToUpper", bytes.ToUpper, "", direct_bytes_ToUpper)
-	pkg.AddFunction("ToUpperSpecial", bytes.ToUpperSpecial, "", nil)
+	pkg.AddFunction("ToUpperSpecial", bytes.ToUpperSpecial, "", direct_bytes_ToUpperSpecial)
 	pkg.AddFunction("ToValidUTF8", bytes.ToValidUTF8, "", direct_bytes_ToValidUTF8)
 	pkg.AddFunction("Trim", bytes.Trim, "", direct_bytes_Trim)
-	pkg.AddFunction("TrimFunc", bytes.TrimFunc, "", nil)
+	pkg.AddFunction("TrimFunc", bytes.TrimFunc, "", direct_bytes_TrimFunc)
 	pkg.AddFunction("TrimLeft", bytes.TrimLeft, "", direct_bytes_TrimLeft)
-	pkg.AddFunction("TrimLeftFunc", bytes.TrimLeftFunc, "", nil)
+	pkg.AddFunction("TrimLeftFunc", bytes.TrimLeftFunc, "", direct_bytes_TrimLeftFunc)
 	pkg.AddFunction("TrimPrefix", bytes.TrimPrefix, "", direct_bytes_TrimPrefix)
 	pkg.AddFunction("TrimRight", bytes.TrimRight, "", direct_bytes_TrimRight)
-	pkg.AddFunction("TrimRightFunc", bytes.TrimRightFunc, "", nil)
+	pkg.AddFunction("TrimRightFunc", bytes.TrimRightFunc, "", direct_bytes_TrimRightFunc)
 	pkg.AddFunction("TrimSpace", bytes.TrimSpace, "", direct_bytes_TrimSpace)
 	pkg.AddFunction("TrimSuffix", bytes.TrimSuffix, "", direct_bytes_TrimSuffix)
 
@@ -79,137 +86,429 @@ func init() {
 	pkg.AddType("Buffer", reflect.TypeOf(bytes.Buffer{}), "")
 	pkg.AddType("Reader", reflect.TypeOf(bytes.Reader{}), "")
 
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("Buffer", "Available", direct_method_bytes_Buffer_Available)
+	pkg.AddMethodDirectCall("Buffer", "AvailableBuffer", direct_method_bytes_Buffer_AvailableBuffer)
+	pkg.AddMethodDirectCall("Buffer", "Bytes", direct_method_bytes_Buffer_Bytes)
+	pkg.AddMethodDirectCall("Buffer", "Cap", direct_method_bytes_Buffer_Cap)
+	pkg.AddMethodDirectCall("Buffer", "Grow", direct_method_bytes_Buffer_Grow)
+	pkg.AddMethodDirectCall("Buffer", "Len", direct_method_bytes_Buffer_Len)
+	pkg.AddMethodDirectCall("Buffer", "Next", direct_method_bytes_Buffer_Next)
+	pkg.AddMethodDirectCall("Buffer", "Read", direct_method_bytes_Buffer_Read)
+	pkg.AddMethodDirectCall("Buffer", "ReadByte", direct_method_bytes_Buffer_ReadByte)
+	pkg.AddMethodDirectCall("Buffer", "ReadBytes", direct_method_bytes_Buffer_ReadBytes)
+	pkg.AddMethodDirectCall("Buffer", "ReadFrom", direct_method_bytes_Buffer_ReadFrom)
+	pkg.AddMethodDirectCall("Buffer", "ReadRune", direct_method_bytes_Buffer_ReadRune)
+	pkg.AddMethodDirectCall("Buffer", "ReadString", direct_method_bytes_Buffer_ReadString)
+	pkg.AddMethodDirectCall("Buffer", "Reset", direct_method_bytes_Buffer_Reset)
+	pkg.AddMethodDirectCall("Buffer", "String", direct_method_bytes_Buffer_String)
+	pkg.AddMethodDirectCall("Buffer", "Truncate", direct_method_bytes_Buffer_Truncate)
+	pkg.AddMethodDirectCall("Buffer", "UnreadByte", direct_method_bytes_Buffer_UnreadByte)
+	pkg.AddMethodDirectCall("Buffer", "UnreadRune", direct_method_bytes_Buffer_UnreadRune)
+	pkg.AddMethodDirectCall("Buffer", "Write", direct_method_bytes_Buffer_Write)
+	pkg.AddMethodDirectCall("Buffer", "WriteByte", direct_method_bytes_Buffer_WriteByte)
+	pkg.AddMethodDirectCall("Buffer", "WriteRune", direct_method_bytes_Buffer_WriteRune)
+	pkg.AddMethodDirectCall("Buffer", "WriteString", direct_method_bytes_Buffer_WriteString)
+	pkg.AddMethodDirectCall("Buffer", "WriteTo", direct_method_bytes_Buffer_WriteTo)
+	pkg.AddMethodDirectCall("Reader", "Len", direct_method_bytes_Reader_Len)
+	pkg.AddMethodDirectCall("Reader", "Read", direct_method_bytes_Reader_Read)
+	pkg.AddMethodDirectCall("Reader", "ReadAt", direct_method_bytes_Reader_ReadAt)
+	pkg.AddMethodDirectCall("Reader", "ReadByte", direct_method_bytes_Reader_ReadByte)
+	pkg.AddMethodDirectCall("Reader", "ReadRune", direct_method_bytes_Reader_ReadRune)
+	pkg.AddMethodDirectCall("Reader", "Reset", direct_method_bytes_Reader_Reset)
+	pkg.AddMethodDirectCall("Reader", "Seek", direct_method_bytes_Reader_Seek)
+	pkg.AddMethodDirectCall("Reader", "Size", direct_method_bytes_Reader_Size)
+	pkg.AddMethodDirectCall("Reader", "UnreadByte", direct_method_bytes_Reader_UnreadByte)
+	pkg.AddMethodDirectCall("Reader", "UnreadRune", direct_method_bytes_Reader_UnreadRune)
+	pkg.AddMethodDirectCall("Reader", "WriteTo", direct_method_bytes_Reader_WriteTo)
+
 }
 
 func direct_bytes_Clone(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	return value.FromInterface(bytes.Clone(a0))
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(bytes.Clone(a0)))
 }
 
 func direct_bytes_Compare(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.MakeInt(int64(bytes.Compare(a0, a1)))
 }
 
 func direct_bytes_Contains(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.MakeBool(bytes.Contains(a0, a1))
 }
 
 func direct_bytes_ContainsAny(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].String()
 	return value.MakeBool(bytes.ContainsAny(a0, a1))
 }
 
+func direct_bytes_ContainsFunc(args []value.Value) value.Value {
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := args[1].Interface().(func(rune) bool)
+	return value.MakeBool(bytes.ContainsFunc(a0, a1))
+}
+
 func direct_bytes_ContainsRune(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := int32(args[1].Int())
 	return value.MakeBool(bytes.ContainsRune(a0, a1))
 }
 
 func direct_bytes_Count(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.MakeInt(int64(bytes.Count(a0, a1)))
 }
 
 func direct_bytes_Cut(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	r0, r1, r2 := bytes.Cut(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1, r2})
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.MakeBytes([]byte(r1)), value.MakeBool(r2)})
 }
 
 func direct_bytes_CutPrefix(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	r0, r1 := bytes.CutPrefix(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.MakeBool(r1)})
 }
 
 func direct_bytes_CutSuffix(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	r0, r1 := bytes.CutSuffix(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.MakeBool(r1)})
 }
 
 func direct_bytes_Equal(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.MakeBool(bytes.Equal(a0, a1))
 }
 
 func direct_bytes_EqualFold(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.MakeBool(bytes.EqualFold(a0, a1))
 }
 
 func direct_bytes_Fields(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	return value.FromInterface(bytes.Fields(a0))
 }
 
+func direct_bytes_FieldsFunc(args []value.Value) value.Value {
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := args[1].Interface().(func(rune) bool)
+	return value.FromInterface(bytes.FieldsFunc(a0, a1))
+}
+
+func direct_bytes_FieldsFuncSeq(args []value.Value) value.Value {
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := args[1].Interface().(func(rune) bool)
+	return value.FromInterface(bytes.FieldsFuncSeq(a0, a1))
+}
+
+func direct_bytes_FieldsSeq(args []value.Value) value.Value {
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	return value.FromInterface(bytes.FieldsSeq(a0))
+}
+
 func direct_bytes_HasPrefix(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.MakeBool(bytes.HasPrefix(a0, a1))
 }
 
 func direct_bytes_HasSuffix(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.MakeBool(bytes.HasSuffix(a0, a1))
 }
 
 func direct_bytes_Index(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.MakeInt(int64(bytes.Index(a0, a1)))
 }
 
 func direct_bytes_IndexAny(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].String()
 	return value.MakeInt(int64(bytes.IndexAny(a0, a1)))
 }
 
 func direct_bytes_IndexByte(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := byte(args[1].Uint())
 	return value.MakeInt(int64(bytes.IndexByte(a0, a1)))
 }
 
+func direct_bytes_IndexFunc(args []value.Value) value.Value {
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := args[1].Interface().(func(rune) bool)
+	return value.MakeInt(int64(bytes.IndexFunc(a0, a1)))
+}
+
 func direct_bytes_IndexRune(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := int32(args[1].Int())
 	return value.MakeInt(int64(bytes.IndexRune(a0, a1)))
 }
 
 func direct_bytes_LastIndex(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.MakeInt(int64(bytes.LastIndex(a0, a1)))
 }
 
 func direct_bytes_LastIndexAny(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].String()
 	return value.MakeInt(int64(bytes.LastIndexAny(a0, a1)))
 }
 
 func direct_bytes_LastIndexByte(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := byte(args[1].Uint())
 	return value.MakeInt(int64(bytes.LastIndexByte(a0, a1)))
 }
 
+func direct_bytes_LastIndexFunc(args []value.Value) value.Value {
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := args[1].Interface().(func(rune) bool)
+	return value.MakeInt(int64(bytes.LastIndexFunc(a0, a1)))
+}
+
+func direct_bytes_Lines(args []value.Value) value.Value {
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	return value.FromInterface(bytes.Lines(a0))
+}
+
+func direct_bytes_Map(args []value.Value) value.Value {
+	a0 := args[0].Interface().(func(rune) rune)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(bytes.Map(a0, a1)))
+}
+
 func direct_bytes_NewBuffer(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	return value.FromInterface(bytes.NewBuffer(a0))
 }
 
@@ -219,119 +518,606 @@ func direct_bytes_NewBufferString(args []value.Value) value.Value {
 }
 
 func direct_bytes_NewReader(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	return value.FromInterface(bytes.NewReader(a0))
 }
 
 func direct_bytes_Repeat(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := int(args[1].Int())
-	return value.FromInterface(bytes.Repeat(a0, a1))
+	return value.MakeBytes([]byte(bytes.Repeat(a0, a1)))
 }
 
 func direct_bytes_Replace(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
-	a2 := args[2].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	a2 := func() []byte {
+		if b, ok := (args[2]).Bytes(); ok {
+			return b
+		}
+		return (args[2]).Interface().([]byte)
+	}()
 	a3 := int(args[3].Int())
-	return value.FromInterface(bytes.Replace(a0, a1, a2, a3))
+	return value.MakeBytes([]byte(bytes.Replace(a0, a1, a2, a3)))
 }
 
 func direct_bytes_ReplaceAll(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
-	a2 := args[2].Interface().([]byte)
-	return value.FromInterface(bytes.ReplaceAll(a0, a1, a2))
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	a2 := func() []byte {
+		if b, ok := (args[2]).Bytes(); ok {
+			return b
+		}
+		return (args[2]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(bytes.ReplaceAll(a0, a1, a2)))
 }
 
 func direct_bytes_Runes(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	return value.FromInterface(bytes.Runes(a0))
 }
 
 func direct_bytes_Split(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.FromInterface(bytes.Split(a0, a1))
 }
 
 func direct_bytes_SplitAfter(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.FromInterface(bytes.SplitAfter(a0, a1))
 }
 
 func direct_bytes_SplitAfterN(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	a2 := int(args[2].Int())
 	return value.FromInterface(bytes.SplitAfterN(a0, a1, a2))
 }
 
+func direct_bytes_SplitAfterSeq(args []value.Value) value.Value {
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.FromInterface(bytes.SplitAfterSeq(a0, a1))
+}
+
 func direct_bytes_SplitN(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	a2 := int(args[2].Int())
 	return value.FromInterface(bytes.SplitN(a0, a1, a2))
 }
 
+func direct_bytes_SplitSeq(args []value.Value) value.Value {
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.FromInterface(bytes.SplitSeq(a0, a1))
+}
+
 func direct_bytes_Title(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	return value.FromInterface(bytes.Title(a0))
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(bytes.Title(a0)))
 }
 
 func direct_bytes_ToLower(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	return value.FromInterface(bytes.ToLower(a0))
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(bytes.ToLower(a0)))
+}
+
+func direct_bytes_ToLowerSpecial(args []value.Value) value.Value {
+	a0 := args[0].Interface().(unicode.SpecialCase)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(bytes.ToLowerSpecial(a0, a1)))
 }
 
 func direct_bytes_ToTitle(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	return value.FromInterface(bytes.ToTitle(a0))
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(bytes.ToTitle(a0)))
+}
+
+func direct_bytes_ToTitleSpecial(args []value.Value) value.Value {
+	a0 := args[0].Interface().(unicode.SpecialCase)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(bytes.ToTitleSpecial(a0, a1)))
 }
 
 func direct_bytes_ToUpper(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	return value.FromInterface(bytes.ToUpper(a0))
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(bytes.ToUpper(a0)))
+}
+
+func direct_bytes_ToUpperSpecial(args []value.Value) value.Value {
+	a0 := args[0].Interface().(unicode.SpecialCase)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(bytes.ToUpperSpecial(a0, a1)))
 }
 
 func direct_bytes_ToValidUTF8(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
-	return value.FromInterface(bytes.ToValidUTF8(a0, a1))
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(bytes.ToValidUTF8(a0, a1)))
 }
 
 func direct_bytes_Trim(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].String()
-	return value.FromInterface(bytes.Trim(a0, a1))
+	return value.MakeBytes([]byte(bytes.Trim(a0, a1)))
+}
+
+func direct_bytes_TrimFunc(args []value.Value) value.Value {
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := args[1].Interface().(func(rune) bool)
+	return value.MakeBytes([]byte(bytes.TrimFunc(a0, a1)))
 }
 
 func direct_bytes_TrimLeft(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].String()
-	return value.FromInterface(bytes.TrimLeft(a0, a1))
+	return value.MakeBytes([]byte(bytes.TrimLeft(a0, a1)))
+}
+
+func direct_bytes_TrimLeftFunc(args []value.Value) value.Value {
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := args[1].Interface().(func(rune) bool)
+	return value.MakeBytes([]byte(bytes.TrimLeftFunc(a0, a1)))
 }
 
 func direct_bytes_TrimPrefix(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
-	return value.FromInterface(bytes.TrimPrefix(a0, a1))
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(bytes.TrimPrefix(a0, a1)))
 }
 
 func direct_bytes_TrimRight(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].String()
-	return value.FromInterface(bytes.TrimRight(a0, a1))
+	return value.MakeBytes([]byte(bytes.TrimRight(a0, a1)))
+}
+
+func direct_bytes_TrimRightFunc(args []value.Value) value.Value {
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := args[1].Interface().(func(rune) bool)
+	return value.MakeBytes([]byte(bytes.TrimRightFunc(a0, a1)))
 }
 
 func direct_bytes_TrimSpace(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	return value.FromInterface(bytes.TrimSpace(a0))
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(bytes.TrimSpace(a0)))
 }
 
 func direct_bytes_TrimSuffix(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
-	return value.FromInterface(bytes.TrimSuffix(a0, a1))
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(bytes.TrimSuffix(a0, a1)))
+}
+
+func direct_method_bytes_Buffer_Available(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.MakeInt(int64(recv.Available()))
+}
+
+func direct_method_bytes_Buffer_AvailableBuffer(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.MakeBytes([]byte(recv.AvailableBuffer()))
+}
+
+func direct_method_bytes_Buffer_Bytes(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.MakeBytes([]byte(recv.Bytes()))
+}
+
+func direct_method_bytes_Buffer_Cap(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.MakeInt(int64(recv.Cap()))
+}
+
+func direct_method_bytes_Buffer_Grow(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := int(args[1].Int())
+	recv.Grow(a0)
+	return value.MakeNil()
+}
+
+func direct_method_bytes_Buffer_Len(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.MakeInt(int64(recv.Len()))
+}
+
+func direct_method_bytes_Buffer_Next(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := int(args[1].Int())
+	return value.MakeBytes([]byte(recv.Next(a0)))
+}
+
+func direct_method_bytes_Buffer_Read(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	r0, r1 := recv.Read(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_bytes_Buffer_ReadByte(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	r0, r1 := recv.ReadByte()
+	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_bytes_Buffer_ReadBytes(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := byte(args[1].Uint())
+	r0, r1 := recv.ReadBytes(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_bytes_Buffer_ReadFrom(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := args[1].Interface().(io.Reader)
+	r0, r1 := recv.ReadFrom(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_bytes_Buffer_ReadRune(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	r0, r1, r2 := recv.ReadRune()
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1)), value.FromInterface(r2)})
+}
+
+func direct_method_bytes_Buffer_ReadString(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := byte(args[1].Uint())
+	r0, r1 := recv.ReadString(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_bytes_Buffer_Reset(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	recv.Reset()
+	return value.MakeNil()
+}
+
+func direct_method_bytes_Buffer_String(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.MakeString(string(recv.String()))
+}
+
+func direct_method_bytes_Buffer_Truncate(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := int(args[1].Int())
+	recv.Truncate(a0)
+	return value.MakeNil()
+}
+
+func direct_method_bytes_Buffer_UnreadByte(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.FromInterface(recv.UnreadByte())
+}
+
+func direct_method_bytes_Buffer_UnreadRune(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	return value.FromInterface(recv.UnreadRune())
+}
+
+func direct_method_bytes_Buffer_Write(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	r0, r1 := recv.Write(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_bytes_Buffer_WriteByte(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := byte(args[1].Uint())
+	return value.FromInterface(recv.WriteByte(a0))
+}
+
+func direct_method_bytes_Buffer_WriteRune(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := int32(args[1].Int())
+	r0, r1 := recv.WriteRune(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_bytes_Buffer_WriteString(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := args[1].String()
+	r0, r1 := recv.WriteString(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_bytes_Buffer_WriteTo(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Buffer)
+	a0 := args[1].Interface().(io.Writer)
+	r0, r1 := recv.WriteTo(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_bytes_Reader_Len(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	return value.MakeInt(int64(recv.Len()))
+}
+
+func direct_method_bytes_Reader_Read(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	r0, r1 := recv.Read(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_bytes_Reader_ReadAt(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	a1 := args[2].Int()
+	r0, r1 := recv.ReadAt(a0, a1)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_bytes_Reader_ReadByte(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	r0, r1 := recv.ReadByte()
+	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_bytes_Reader_ReadRune(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	r0, r1, r2 := recv.ReadRune()
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1)), value.FromInterface(r2)})
+}
+
+func direct_method_bytes_Reader_Reset(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	recv.Reset(a0)
+	return value.MakeNil()
+}
+
+func direct_method_bytes_Reader_Seek(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	a0 := args[1].Int()
+	a1 := int(args[2].Int())
+	r0, r1 := recv.Seek(a0, a1)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_bytes_Reader_Size(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	return value.MakeInt(int64(recv.Size()))
+}
+
+func direct_method_bytes_Reader_UnreadByte(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	return value.FromInterface(recv.UnreadByte())
+}
+
+func direct_method_bytes_Reader_UnreadRune(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	return value.FromInterface(recv.UnreadRune())
+}
+
+func direct_method_bytes_Reader_WriteTo(args []value.Value) value.Value {
+	recv := args[0].Interface().(*bytes.Reader)
+	a0 := args[1].Interface().(io.Writer)
+	r0, r1 := recv.WriteTo(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }

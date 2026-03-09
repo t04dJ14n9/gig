@@ -1176,3 +1176,300 @@ func TestPerformanceComparison(t *testing.T) {
 // 影响: s[5:3] 在原生 Go 中会 panic，但 gofun 可能返回错误结果
 //
 // ============================================================================
+
+// ============================================================================
+// Zero-Reflection Benchmark Suite
+//
+// Compares prog.Run (reflection-based entry) vs prog.RunWithValues (zero-reflection
+// entry) for the same workload, and validates DirectCall vs NoDirectCall for
+// custom operators.
+// ============================================================================
+
+// --- shared source programs ---
+
+const zeroReflSrc = `
+package main
+
+import "strings"
+
+func Add(a, b int) int {
+	return a + b
+}
+
+func Greet(name string) string {
+	return "Hello, " + name + "!"
+}
+
+func Check(flag bool, x int) bool {
+	if flag {
+		return x > 0
+	}
+	return false
+}
+
+func SprintfBench(format, arg string) string {
+	return strings.Replace(format, "{}", arg, 1)
+}
+`
+
+// buildZeroReflProg builds the shared program once per benchmark suite.
+func buildZeroReflProg(b *testing.B) *gig.Program {
+	b.Helper()
+	prog, err := gig.Build(zeroReflSrc)
+	if err != nil {
+		b.Fatalf("Build failed: %v", err)
+	}
+	return prog
+}
+
+// ============================================================================
+// Benchmark 1: Run (reflection) vs RunWithValues (zero-reflection) — int args
+// ============================================================================
+
+// BenchmarkGig_Run_WithReflection is the baseline: prog.Run boxes args via
+// reflect.ValueOf inside value.FromInterface.
+func BenchmarkGig_Run_WithReflection(b *testing.B) {
+	prog := buildZeroReflProg(b)
+	ctx := context.Background()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = prog.RunWithContext(ctx, "Add", 3, 7)
+	}
+}
+
+// BenchmarkGig_RunWithValues_ZeroReflection uses pre-boxed value.Value args,
+// bypassing reflect.ValueOf entirely on the entry path.
+func BenchmarkGig_RunWithValues_ZeroReflection(b *testing.B) {
+	prog := buildZeroReflProg(b)
+	ctx := context.Background()
+	args := []value.Value{value.MakeInt(3), value.MakeInt(7)}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = prog.RunWithValues(ctx, "Add", args)
+	}
+}
+
+// ============================================================================
+// Benchmark 2: Run vs RunWithValues — string args
+// ============================================================================
+
+func BenchmarkGig_Run_StringArg_WithReflection(b *testing.B) {
+	prog := buildZeroReflProg(b)
+	ctx := context.Background()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = prog.RunWithContext(ctx, "Greet", "World")
+	}
+}
+
+func BenchmarkGig_RunWithValues_StringArg_ZeroReflection(b *testing.B) {
+	prog := buildZeroReflProg(b)
+	ctx := context.Background()
+	args := []value.Value{value.MakeString("World")}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = prog.RunWithValues(ctx, "Greet", args)
+	}
+}
+
+// ============================================================================
+// Benchmark 3: Run vs RunWithValues — bool + int args
+// ============================================================================
+
+func BenchmarkGig_Run_BoolIntArgs_WithReflection(b *testing.B) {
+	prog := buildZeroReflProg(b)
+	ctx := context.Background()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = prog.RunWithContext(ctx, "Check", true, 42)
+	}
+}
+
+func BenchmarkGig_RunWithValues_BoolIntArgs_ZeroReflection(b *testing.B) {
+	prog := buildZeroReflProg(b)
+	ctx := context.Background()
+	args := []value.Value{value.MakeBool(true), value.MakeInt(42)}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = prog.RunWithValues(ctx, "Check", args)
+	}
+}
+
+// ============================================================================
+// Benchmark 4: Result extraction — Interface() vs typed accessor
+// ============================================================================
+
+// BenchmarkGig_ResultExtract_Interface extracts the result via Interface()
+// (may call rv.Interface() for KindReflect values).
+func BenchmarkGig_ResultExtract_Interface(b *testing.B) {
+	prog := buildZeroReflProg(b)
+	ctx := context.Background()
+	args := []value.Value{value.MakeInt(3), value.MakeInt(7)}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		v, _ := prog.RunWithValues(ctx, "Add", args)
+		_ = v.Interface()
+	}
+}
+
+// BenchmarkGig_ResultExtract_TypedAccessor extracts the result via Int()
+// (zero reflection — direct tagged-union field access).
+func BenchmarkGig_ResultExtract_TypedAccessor(b *testing.B) {
+	prog := buildZeroReflProg(b)
+	ctx := context.Background()
+	args := []value.Value{value.MakeInt(3), value.MakeInt(7)}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		v, _ := prog.RunWithValues(ctx, "Add", args)
+		_ = v.Int()
+	}
+}
+
+// ============================================================================
+// Benchmark 5: Custom operator — DirectCall vs NoDirectCall
+//
+// Registers a custom "myfilter" package with and without a DirectCall wrapper
+// to measure the overhead of reflect.Call vs direct dispatch.
+// ============================================================================
+
+const customOpSrc = `
+package main
+
+import "myfilter"
+
+func FilterData(input string, threshold int) bool {
+	return myfilter.Check(input, threshold)
+}
+`
+
+// filterCheckDirectCall is the DirectCall wrapper for myfilter.Check.
+// It extracts args without reflection and calls the native function directly.
+func filterCheckDirectCall(args []value.Value) value.Value {
+	input := args[0].String()
+	threshold := int(args[1].Int())
+	result := nativeFilterCheck(input, threshold)
+	return value.MakeBool(result)
+}
+
+// nativeFilterCheck is the underlying native function.
+func nativeFilterCheck(input string, threshold int) bool {
+	return len(input) > threshold
+}
+
+// BenchmarkGig_CustomOperator2_DirectCall benchmarks a simple custom operator with a
+// DirectCall wrapper (zero reflect.Call overhead) using RunWithValues entry point.
+func BenchmarkGig_CustomOperator2_DirectCall(b *testing.B) {
+	// Register the package with DirectCall
+	pkg := importer.RegisterPackage("myfilter", "myfilter")
+	pkg.AddFunction("Check", nativeFilterCheck, "", filterCheckDirectCall)
+
+	prog, err := gig.Build(customOpSrc)
+	if err != nil {
+		b.Fatalf("Build failed: %v", err)
+	}
+	ctx := context.Background()
+	args := []value.Value{value.MakeString("hello world"), value.MakeInt(5)}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = prog.RunWithValues(ctx, "FilterData", args)
+	}
+}
+
+// BenchmarkGig_CustomOperator2_NoDirectCall benchmarks the same custom operator
+// but without a DirectCall wrapper, forcing reflect.Call on every invocation.
+func BenchmarkGig_CustomOperator2_NoDirectCall(b *testing.B) {
+	// Register the package WITHOUT DirectCall (nil wrapper → reflect.Call path).
+	// Path and name must match the import statement in the source.
+	pkg := importer.RegisterPackage("myfilter_nodirect", "myfilter_nodirect")
+	pkg.AddFunction("Check", nativeFilterCheck, "", nil)
+
+	slowSrc := `
+package main
+
+import "myfilter_nodirect"
+
+func FilterData(input string, threshold int) bool {
+	return myfilter_nodirect.Check(input, threshold)
+}
+`
+	prog, err := gig.Build(slowSrc)
+	if err != nil {
+		b.Fatalf("Build failed: %v", err)
+	}
+	ctx := context.Background()
+	args := []value.Value{value.MakeString("hello world"), value.MakeInt(5)}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = prog.RunWithValues(ctx, "FilterData", args)
+	}
+}
+
+// ============================================================================
+// Benchmark 6: KindBytes — MakeBytes vs FromInterface for []byte args
+// ============================================================================
+
+// BenchmarkValue_MakeBytes_ZeroReflection measures the cost of constructing a
+// KindBytes value using the zero-reflection MakeBytes constructor.
+func BenchmarkValue_MakeBytes_ZeroReflection(b *testing.B) {
+	data := []byte("hello world benchmark data")
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		v := value.MakeBytes(data)
+		_, _ = v.Bytes()
+	}
+}
+
+// BenchmarkValue_FromInterface_ByteSlice measures the cost of boxing a []byte
+// via FromInterface (now uses type-switch fast path, not reflect.ValueOf).
+func BenchmarkValue_FromInterface_ByteSlice(b *testing.B) {
+	data := []byte("hello world benchmark data")
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		v := value.FromInterface(data)
+		_ = v.Interface()
+	}
+}
+
+// ============================================================================
+// Benchmark 7: Variadic DirectCall unpacking — native vs reflect path
+// ============================================================================
+
+const variadicSrc = `
+package main
+
+import "strings"
+
+func JoinWords(sep, a, b, c string) string {
+	return strings.Join([]string{a, b, c}, sep)
+}
+`
+
+func BenchmarkGig_VariadicDirectCall(b *testing.B) {
+	prog, err := gig.Build(variadicSrc)
+	if err != nil {
+		b.Fatalf("Build failed: %v", err)
+	}
+	ctx := context.Background()
+	args := []value.Value{
+		value.MakeString(","),
+		value.MakeString("foo"),
+		value.MakeString("bar"),
+		value.MakeString("baz"),
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = prog.RunWithValues(ctx, "JoinWords", args)
+	}
+}
+
+func BenchmarkGig_VariadicDirectCall_ViaRun(b *testing.B) {
+	prog, err := gig.Build(variadicSrc)
+	if err != nil {
+		b.Fatalf("Build failed: %v", err)
+	}
+	ctx := context.Background()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = prog.RunWithContext(ctx, "JoinWords", ",", "foo", "bar", "baz")
+	}
+}

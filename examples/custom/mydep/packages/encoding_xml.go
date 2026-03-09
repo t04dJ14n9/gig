@@ -3,6 +3,7 @@ package packages
 
 import (
 	encoding_xml "encoding/xml"
+	io "io"
 	"reflect"
 
 	"git.woa.com/youngjin/gig/importer"
@@ -14,13 +15,13 @@ func init() {
 
 	// Functions
 	pkg.AddFunction("CopyToken", encoding_xml.CopyToken, "", direct_encoding_xml_CopyToken)
-	pkg.AddFunction("Escape", encoding_xml.Escape, "", nil)
-	pkg.AddFunction("EscapeText", encoding_xml.EscapeText, "", nil)
+	pkg.AddFunction("Escape", encoding_xml.Escape, "", direct_encoding_xml_Escape)
+	pkg.AddFunction("EscapeText", encoding_xml.EscapeText, "", direct_encoding_xml_EscapeText)
 	pkg.AddFunction("Marshal", encoding_xml.Marshal, "", direct_encoding_xml_Marshal)
 	pkg.AddFunction("MarshalIndent", encoding_xml.MarshalIndent, "", direct_encoding_xml_MarshalIndent)
-	pkg.AddFunction("NewDecoder", encoding_xml.NewDecoder, "", nil)
-	pkg.AddFunction("NewEncoder", encoding_xml.NewEncoder, "", nil)
-	pkg.AddFunction("NewTokenDecoder", encoding_xml.NewTokenDecoder, "", nil)
+	pkg.AddFunction("NewDecoder", encoding_xml.NewDecoder, "", direct_encoding_xml_NewDecoder)
+	pkg.AddFunction("NewEncoder", encoding_xml.NewEncoder, "", direct_encoding_xml_NewEncoder)
+	pkg.AddFunction("NewTokenDecoder", encoding_xml.NewTokenDecoder, "", direct_encoding_xml_NewTokenDecoder)
 	pkg.AddFunction("Unmarshal", encoding_xml.Unmarshal, "", direct_encoding_xml_Unmarshal)
 
 	// Constants
@@ -52,17 +53,65 @@ func init() {
 	pkg.AddType("UnmarshalerAttr", reflect.TypeOf((*encoding_xml.UnmarshalerAttr)(nil)).Elem(), "")
 	pkg.AddType("UnsupportedTypeError", reflect.TypeOf(encoding_xml.UnsupportedTypeError{}), "")
 
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("CharData", "Copy", direct_method_encoding_xml_CharData_Copy)
+	pkg.AddMethodDirectCall("Comment", "Copy", direct_method_encoding_xml_Comment_Copy)
+	pkg.AddMethodDirectCall("Decoder", "Decode", direct_method_encoding_xml_Decoder_Decode)
+	pkg.AddMethodDirectCall("Decoder", "DecodeElement", direct_method_encoding_xml_Decoder_DecodeElement)
+	pkg.AddMethodDirectCall("Decoder", "InputOffset", direct_method_encoding_xml_Decoder_InputOffset)
+	pkg.AddMethodDirectCall("Decoder", "InputPos", direct_method_encoding_xml_Decoder_InputPos)
+	pkg.AddMethodDirectCall("Decoder", "RawToken", direct_method_encoding_xml_Decoder_RawToken)
+	pkg.AddMethodDirectCall("Decoder", "Skip", direct_method_encoding_xml_Decoder_Skip)
+	pkg.AddMethodDirectCall("Decoder", "Token", direct_method_encoding_xml_Decoder_Token)
+	pkg.AddMethodDirectCall("Directive", "Copy", direct_method_encoding_xml_Directive_Copy)
+	pkg.AddMethodDirectCall("Encoder", "Close", direct_method_encoding_xml_Encoder_Close)
+	pkg.AddMethodDirectCall("Encoder", "Encode", direct_method_encoding_xml_Encoder_Encode)
+	pkg.AddMethodDirectCall("Encoder", "EncodeElement", direct_method_encoding_xml_Encoder_EncodeElement)
+	pkg.AddMethodDirectCall("Encoder", "EncodeToken", direct_method_encoding_xml_Encoder_EncodeToken)
+	pkg.AddMethodDirectCall("Encoder", "Flush", direct_method_encoding_xml_Encoder_Flush)
+	pkg.AddMethodDirectCall("Encoder", "Indent", direct_method_encoding_xml_Encoder_Indent)
+	pkg.AddMethodDirectCall("ProcInst", "Copy", direct_method_encoding_xml_ProcInst_Copy)
+	pkg.AddMethodDirectCall("StartElement", "Copy", direct_method_encoding_xml_StartElement_Copy)
+	pkg.AddMethodDirectCall("StartElement", "End", direct_method_encoding_xml_StartElement_End)
+	pkg.AddMethodDirectCall("SyntaxError", "Error", direct_method_encoding_xml_SyntaxError_Error)
+	pkg.AddMethodDirectCall("TagPathError", "Error", direct_method_encoding_xml_TagPathError_Error)
+	pkg.AddMethodDirectCall("UnmarshalError", "Error", direct_method_encoding_xml_UnmarshalError_Error)
+	pkg.AddMethodDirectCall("UnsupportedTypeError", "Error", direct_method_encoding_xml_UnsupportedTypeError_Error)
+
 }
 
 func direct_encoding_xml_CopyToken(args []value.Value) value.Value {
-	a0 := args[0].Interface()
+	a0 := args[0].Interface().(encoding_xml.Token)
 	return value.FromInterface(encoding_xml.CopyToken(a0))
+}
+
+func direct_encoding_xml_Escape(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Writer)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	encoding_xml.Escape(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_encoding_xml_EscapeText(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Writer)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.FromInterface(encoding_xml.EscapeText(a0, a1))
 }
 
 func direct_encoding_xml_Marshal(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := encoding_xml.Marshal(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
 }
 
 func direct_encoding_xml_MarshalIndent(args []value.Value) value.Value {
@@ -70,11 +119,159 @@ func direct_encoding_xml_MarshalIndent(args []value.Value) value.Value {
 	a1 := args[1].String()
 	a2 := args[2].String()
 	r0, r1 := encoding_xml.MarshalIndent(a0, a1, a2)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+}
+
+func direct_encoding_xml_NewDecoder(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Reader)
+	return value.FromInterface(encoding_xml.NewDecoder(a0))
+}
+
+func direct_encoding_xml_NewEncoder(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Writer)
+	return value.FromInterface(encoding_xml.NewEncoder(a0))
+}
+
+func direct_encoding_xml_NewTokenDecoder(args []value.Value) value.Value {
+	a0 := args[0].Interface().(encoding_xml.TokenReader)
+	return value.FromInterface(encoding_xml.NewTokenDecoder(a0))
 }
 
 func direct_encoding_xml_Unmarshal(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].Interface()
 	return value.FromInterface(encoding_xml.Unmarshal(a0, a1))
+}
+
+func direct_method_encoding_xml_CharData_Copy(args []value.Value) value.Value {
+	recv := args[0].Interface().(encoding_xml.CharData)
+	return value.MakeBytes([]byte(recv.Copy()))
+}
+
+func direct_method_encoding_xml_Comment_Copy(args []value.Value) value.Value {
+	recv := args[0].Interface().(encoding_xml.Comment)
+	return value.MakeBytes([]byte(recv.Copy()))
+}
+
+func direct_method_encoding_xml_Decoder_Decode(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.Decoder)
+	a0 := args[1].Interface()
+	return value.FromInterface(recv.Decode(a0))
+}
+
+func direct_method_encoding_xml_Decoder_DecodeElement(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.Decoder)
+	a0 := args[1].Interface()
+	a1 := args[2].Interface().(*encoding_xml.StartElement)
+	return value.FromInterface(recv.DecodeElement(a0, a1))
+}
+
+func direct_method_encoding_xml_Decoder_InputOffset(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.Decoder)
+	return value.MakeInt(int64(recv.InputOffset()))
+}
+
+func direct_method_encoding_xml_Decoder_InputPos(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.Decoder)
+	r0, r1 := recv.InputPos()
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1))})
+}
+
+func direct_method_encoding_xml_Decoder_RawToken(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.Decoder)
+	r0, r1 := recv.RawToken()
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_encoding_xml_Decoder_Skip(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.Decoder)
+	return value.FromInterface(recv.Skip())
+}
+
+func direct_method_encoding_xml_Decoder_Token(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.Decoder)
+	r0, r1 := recv.Token()
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_encoding_xml_Directive_Copy(args []value.Value) value.Value {
+	recv := args[0].Interface().(encoding_xml.Directive)
+	return value.MakeBytes([]byte(recv.Copy()))
+}
+
+func direct_method_encoding_xml_Encoder_Close(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.Encoder)
+	return value.FromInterface(recv.Close())
+}
+
+func direct_method_encoding_xml_Encoder_Encode(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.Encoder)
+	a0 := args[1].Interface()
+	return value.FromInterface(recv.Encode(a0))
+}
+
+func direct_method_encoding_xml_Encoder_EncodeElement(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.Encoder)
+	a0 := args[1].Interface()
+	a1 := args[2].Interface().(encoding_xml.StartElement)
+	return value.FromInterface(recv.EncodeElement(a0, a1))
+}
+
+func direct_method_encoding_xml_Encoder_EncodeToken(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.Encoder)
+	a0 := args[1].Interface().(encoding_xml.Token)
+	return value.FromInterface(recv.EncodeToken(a0))
+}
+
+func direct_method_encoding_xml_Encoder_Flush(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.Encoder)
+	return value.FromInterface(recv.Flush())
+}
+
+func direct_method_encoding_xml_Encoder_Indent(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.Encoder)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	recv.Indent(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_encoding_xml_ProcInst_Copy(args []value.Value) value.Value {
+	recv := args[0].Interface().(encoding_xml.ProcInst)
+	return value.FromInterface(recv.Copy())
+}
+
+func direct_method_encoding_xml_StartElement_Copy(args []value.Value) value.Value {
+	recv := args[0].Interface().(encoding_xml.StartElement)
+	return value.FromInterface(recv.Copy())
+}
+
+func direct_method_encoding_xml_StartElement_End(args []value.Value) value.Value {
+	recv := args[0].Interface().(encoding_xml.StartElement)
+	return value.FromInterface(recv.End())
+}
+
+func direct_method_encoding_xml_SyntaxError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.SyntaxError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_encoding_xml_TagPathError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.TagPathError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_encoding_xml_UnmarshalError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(encoding_xml.UnmarshalError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_encoding_xml_UnsupportedTypeError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*encoding_xml.UnsupportedTypeError)
+	return value.MakeString(string(recv.Error()))
 }

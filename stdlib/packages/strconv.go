@@ -46,7 +46,7 @@ func init() {
 	pkg.AddFunction("QuoteToGraphic", strconv.QuoteToGraphic, "", direct_strconv_QuoteToGraphic)
 	pkg.AddFunction("QuotedPrefix", strconv.QuotedPrefix, "", direct_strconv_QuotedPrefix)
 	pkg.AddFunction("Unquote", strconv.Unquote, "", direct_strconv_Unquote)
-	pkg.AddFunction("UnquoteChar", strconv.UnquoteChar, "", nil)
+	pkg.AddFunction("UnquoteChar", strconv.UnquoteChar, "", direct_strconv_UnquoteChar)
 
 	// Constants
 	pkg.AddConstant("IntSize", strconv.IntSize, "")
@@ -65,74 +65,124 @@ func init() {
 }
 
 func direct_strconv_AppendBool(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].Bool()
-	return value.FromInterface(strconv.AppendBool(a0, a1))
+	return value.MakeBytes([]byte(strconv.AppendBool(a0, a1)))
 }
 
 func direct_strconv_AppendFloat(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].Float()
 	a2 := byte(args[2].Uint())
 	a3 := int(args[3].Int())
 	a4 := int(args[4].Int())
-	return value.FromInterface(strconv.AppendFloat(a0, a1, a2, a3, a4))
+	return value.MakeBytes([]byte(strconv.AppendFloat(a0, a1, a2, a3, a4)))
 }
 
 func direct_strconv_AppendInt(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].Int()
 	a2 := int(args[2].Int())
-	return value.FromInterface(strconv.AppendInt(a0, a1, a2))
+	return value.MakeBytes([]byte(strconv.AppendInt(a0, a1, a2)))
 }
 
 func direct_strconv_AppendQuote(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].String()
-	return value.FromInterface(strconv.AppendQuote(a0, a1))
+	return value.MakeBytes([]byte(strconv.AppendQuote(a0, a1)))
 }
 
 func direct_strconv_AppendQuoteRune(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := int32(args[1].Int())
-	return value.FromInterface(strconv.AppendQuoteRune(a0, a1))
+	return value.MakeBytes([]byte(strconv.AppendQuoteRune(a0, a1)))
 }
 
 func direct_strconv_AppendQuoteRuneToASCII(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := int32(args[1].Int())
-	return value.FromInterface(strconv.AppendQuoteRuneToASCII(a0, a1))
+	return value.MakeBytes([]byte(strconv.AppendQuoteRuneToASCII(a0, a1)))
 }
 
 func direct_strconv_AppendQuoteRuneToGraphic(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := int32(args[1].Int())
-	return value.FromInterface(strconv.AppendQuoteRuneToGraphic(a0, a1))
+	return value.MakeBytes([]byte(strconv.AppendQuoteRuneToGraphic(a0, a1)))
 }
 
 func direct_strconv_AppendQuoteToASCII(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].String()
-	return value.FromInterface(strconv.AppendQuoteToASCII(a0, a1))
+	return value.MakeBytes([]byte(strconv.AppendQuoteToASCII(a0, a1)))
 }
 
 func direct_strconv_AppendQuoteToGraphic(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].String()
-	return value.FromInterface(strconv.AppendQuoteToGraphic(a0, a1))
+	return value.MakeBytes([]byte(strconv.AppendQuoteToGraphic(a0, a1)))
 }
 
 func direct_strconv_AppendUint(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].Uint()
 	a2 := int(args[2].Int())
-	return value.FromInterface(strconv.AppendUint(a0, a1, a2))
+	return value.MakeBytes([]byte(strconv.AppendUint(a0, a1, a2)))
 }
 
 func direct_strconv_Atoi(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := strconv.Atoi(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_strconv_CanBackquote(args []value.Value) value.Value {
@@ -191,21 +241,21 @@ func direct_strconv_Itoa(args []value.Value) value.Value {
 func direct_strconv_ParseBool(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := strconv.ParseBool(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBool(r0), value.FromInterface(r1)})
 }
 
 func direct_strconv_ParseComplex(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := int(args[1].Int())
 	r0, r1 := strconv.ParseComplex(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_strconv_ParseFloat(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := int(args[1].Int())
 	r0, r1 := strconv.ParseFloat(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.FromInterface(r1)})
 }
 
 func direct_strconv_ParseInt(args []value.Value) value.Value {
@@ -213,7 +263,7 @@ func direct_strconv_ParseInt(args []value.Value) value.Value {
 	a1 := int(args[1].Int())
 	a2 := int(args[2].Int())
 	r0, r1 := strconv.ParseInt(a0, a1, a2)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_strconv_ParseUint(args []value.Value) value.Value {
@@ -221,7 +271,7 @@ func direct_strconv_ParseUint(args []value.Value) value.Value {
 	a1 := int(args[1].Int())
 	a2 := int(args[2].Int())
 	r0, r1 := strconv.ParseUint(a0, a1, a2)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.FromInterface(r1)})
 }
 
 func direct_strconv_Quote(args []value.Value) value.Value {
@@ -257,13 +307,20 @@ func direct_strconv_QuoteToGraphic(args []value.Value) value.Value {
 func direct_strconv_QuotedPrefix(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := strconv.QuotedPrefix(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
 }
 
 func direct_strconv_Unquote(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := strconv.Unquote(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
+}
+
+func direct_strconv_UnquoteChar(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := byte(args[1].Uint())
+	r0, r1, r2, r3 := strconv.UnquoteChar(a0, a1)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeBool(r1), value.MakeString(string(r2)), value.FromInterface(r3)})
 }
 
 func direct_method_strconv_NumError_Error(args []value.Value) value.Value {

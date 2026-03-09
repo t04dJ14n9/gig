@@ -22,14 +22,14 @@ func init() {
 	pkg.AddFunction("Int63", math_rand.Int63, "", direct_math_rand_Int63)
 	pkg.AddFunction("Int63n", math_rand.Int63n, "", direct_math_rand_Int63n)
 	pkg.AddFunction("Intn", math_rand.Intn, "", direct_math_rand_Intn)
-	pkg.AddFunction("New", math_rand.New, "", nil)
+	pkg.AddFunction("New", math_rand.New, "", direct_math_rand_New)
 	pkg.AddFunction("NewSource", math_rand.NewSource, "", direct_math_rand_NewSource)
-	pkg.AddFunction("NewZipf", math_rand.NewZipf, "", nil)
+	pkg.AddFunction("NewZipf", math_rand.NewZipf, "", direct_math_rand_NewZipf)
 	pkg.AddFunction("NormFloat64", math_rand.NormFloat64, "", direct_math_rand_NormFloat64)
 	pkg.AddFunction("Perm", math_rand.Perm, "", direct_math_rand_Perm)
 	pkg.AddFunction("Read", math_rand.Read, "", direct_math_rand_Read)
 	pkg.AddFunction("Seed", math_rand.Seed, "", direct_math_rand_Seed)
-	pkg.AddFunction("Shuffle", math_rand.Shuffle, "", nil)
+	pkg.AddFunction("Shuffle", math_rand.Shuffle, "", direct_math_rand_Shuffle)
 	pkg.AddFunction("Uint32", math_rand.Uint32, "", direct_math_rand_Uint32)
 	pkg.AddFunction("Uint64", math_rand.Uint64, "", direct_math_rand_Uint64)
 
@@ -39,6 +39,26 @@ func init() {
 	pkg.AddType("Source64", reflect.TypeOf((*math_rand.Source64)(nil)).Elem(), "")
 	pkg.AddType("Zipf", reflect.TypeOf(math_rand.Zipf{}), "")
 
+}
+
+func direct_math_rand_New(args []value.Value) value.Value {
+	a0 := args[0].Interface().(math_rand.Source)
+	return value.FromInterface(math_rand.New(a0))
+}
+
+func direct_math_rand_NewZipf(args []value.Value) value.Value {
+	a0 := args[0].Interface().(*math_rand.Rand)
+	a1 := args[1].Float()
+	a2 := args[2].Float()
+	a3 := uint64(args[3].Uint())
+	return value.FromInterface(math_rand.NewZipf(a0, a1, a2, a3))
+}
+
+func direct_math_rand_Shuffle(args []value.Value) value.Value {
+	n := int(args[0].Int())
+	swap := args[1].Interface().(func(i, j int))
+	math_rand.Shuffle(n, swap)
+	return value.MakeNil()
 }
 
 func direct_math_rand_ExpFloat64(args []value.Value) value.Value {

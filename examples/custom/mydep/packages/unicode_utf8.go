@@ -37,43 +37,68 @@ func init() {
 }
 
 func direct_unicode_utf8_AppendRune(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := int32(args[1].Int())
-	return value.FromInterface(unicode_utf8.AppendRune(a0, a1))
+	return value.MakeBytes([]byte(unicode_utf8.AppendRune(a0, a1)))
 }
 
 func direct_unicode_utf8_DecodeLastRune(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	r0, r1 := unicode_utf8.DecodeLastRune(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1))})
 }
 
 func direct_unicode_utf8_DecodeLastRuneInString(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := unicode_utf8.DecodeLastRuneInString(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1))})
 }
 
 func direct_unicode_utf8_DecodeRune(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	r0, r1 := unicode_utf8.DecodeRune(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1))})
 }
 
 func direct_unicode_utf8_DecodeRuneInString(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := unicode_utf8.DecodeRuneInString(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1))})
 }
 
 func direct_unicode_utf8_EncodeRune(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := int32(args[1].Int())
 	return value.MakeInt(int64(unicode_utf8.EncodeRune(a0, a1)))
 }
 
 func direct_unicode_utf8_FullRune(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	return value.MakeBool(unicode_utf8.FullRune(a0))
 }
 
@@ -83,7 +108,12 @@ func direct_unicode_utf8_FullRuneInString(args []value.Value) value.Value {
 }
 
 func direct_unicode_utf8_RuneCount(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	return value.MakeInt(int64(unicode_utf8.RuneCount(a0)))
 }
 
@@ -103,7 +133,12 @@ func direct_unicode_utf8_RuneStart(args []value.Value) value.Value {
 }
 
 func direct_unicode_utf8_Valid(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	return value.MakeBool(unicode_utf8.Valid(a0))
 }
 

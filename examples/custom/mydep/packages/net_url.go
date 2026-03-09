@@ -32,6 +32,38 @@ func init() {
 	pkg.AddType("Userinfo", reflect.TypeOf(net_url.Userinfo{}), "")
 	pkg.AddType("Values", reflect.TypeOf((*net_url.Values)(nil)).Elem(), "")
 
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("Error", "Error", direct_method_net_url_Error_Error)
+	pkg.AddMethodDirectCall("Error", "Temporary", direct_method_net_url_Error_Temporary)
+	pkg.AddMethodDirectCall("Error", "Timeout", direct_method_net_url_Error_Timeout)
+	pkg.AddMethodDirectCall("Error", "Unwrap", direct_method_net_url_Error_Unwrap)
+	pkg.AddMethodDirectCall("EscapeError", "Error", direct_method_net_url_EscapeError_Error)
+	pkg.AddMethodDirectCall("InvalidHostError", "Error", direct_method_net_url_InvalidHostError_Error)
+	pkg.AddMethodDirectCall("URL", "AppendBinary", direct_method_net_url_URL_AppendBinary)
+	pkg.AddMethodDirectCall("URL", "EscapedFragment", direct_method_net_url_URL_EscapedFragment)
+	pkg.AddMethodDirectCall("URL", "EscapedPath", direct_method_net_url_URL_EscapedPath)
+	pkg.AddMethodDirectCall("URL", "Hostname", direct_method_net_url_URL_Hostname)
+	pkg.AddMethodDirectCall("URL", "IsAbs", direct_method_net_url_URL_IsAbs)
+	pkg.AddMethodDirectCall("URL", "JoinPath", direct_method_net_url_URL_JoinPath)
+	pkg.AddMethodDirectCall("URL", "MarshalBinary", direct_method_net_url_URL_MarshalBinary)
+	pkg.AddMethodDirectCall("URL", "Parse", direct_method_net_url_URL_Parse)
+	pkg.AddMethodDirectCall("URL", "Port", direct_method_net_url_URL_Port)
+	pkg.AddMethodDirectCall("URL", "Query", direct_method_net_url_URL_Query)
+	pkg.AddMethodDirectCall("URL", "Redacted", direct_method_net_url_URL_Redacted)
+	pkg.AddMethodDirectCall("URL", "RequestURI", direct_method_net_url_URL_RequestURI)
+	pkg.AddMethodDirectCall("URL", "ResolveReference", direct_method_net_url_URL_ResolveReference)
+	pkg.AddMethodDirectCall("URL", "String", direct_method_net_url_URL_String)
+	pkg.AddMethodDirectCall("URL", "UnmarshalBinary", direct_method_net_url_URL_UnmarshalBinary)
+	pkg.AddMethodDirectCall("Userinfo", "Password", direct_method_net_url_Userinfo_Password)
+	pkg.AddMethodDirectCall("Userinfo", "String", direct_method_net_url_Userinfo_String)
+	pkg.AddMethodDirectCall("Userinfo", "Username", direct_method_net_url_Userinfo_Username)
+	pkg.AddMethodDirectCall("Values", "Add", direct_method_net_url_Values_Add)
+	pkg.AddMethodDirectCall("Values", "Del", direct_method_net_url_Values_Del)
+	pkg.AddMethodDirectCall("Values", "Encode", direct_method_net_url_Values_Encode)
+	pkg.AddMethodDirectCall("Values", "Get", direct_method_net_url_Values_Get)
+	pkg.AddMethodDirectCall("Values", "Has", direct_method_net_url_Values_Has)
+	pkg.AddMethodDirectCall("Values", "Set", direct_method_net_url_Values_Set)
+
 }
 
 func direct_net_url_JoinPath(args []value.Value) value.Value {
@@ -41,25 +73,25 @@ func direct_net_url_JoinPath(args []value.Value) value.Value {
 		varArgs[i-1] = args[i].String()
 	}
 	r0, r1 := net_url.JoinPath(a0, varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
 }
 
 func direct_net_url_Parse(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := net_url.Parse(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_net_url_ParseQuery(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := net_url.ParseQuery(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_net_url_ParseRequestURI(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := net_url.ParseRequestURI(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_net_url_PathEscape(args []value.Value) value.Value {
@@ -70,7 +102,7 @@ func direct_net_url_PathEscape(args []value.Value) value.Value {
 func direct_net_url_PathUnescape(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := net_url.PathUnescape(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
 }
 
 func direct_net_url_QueryEscape(args []value.Value) value.Value {
@@ -81,7 +113,7 @@ func direct_net_url_QueryEscape(args []value.Value) value.Value {
 func direct_net_url_QueryUnescape(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := net_url.QueryUnescape(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
 }
 
 func direct_net_url_User(args []value.Value) value.Value {
@@ -93,4 +125,186 @@ func direct_net_url_UserPassword(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
 	return value.FromInterface(net_url.UserPassword(a0, a1))
+}
+
+func direct_method_net_url_Error_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.Error)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_net_url_Error_Temporary(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.Error)
+	return value.MakeBool(recv.Temporary())
+}
+
+func direct_method_net_url_Error_Timeout(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.Error)
+	return value.MakeBool(recv.Timeout())
+}
+
+func direct_method_net_url_Error_Unwrap(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.Error)
+	return value.FromInterface(recv.Unwrap())
+}
+
+func direct_method_net_url_EscapeError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_url.EscapeError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_net_url_InvalidHostError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_url.InvalidHostError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_net_url_URL_AppendBinary(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	r0, r1 := recv.AppendBinary(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_net_url_URL_EscapedFragment(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	return value.MakeString(string(recv.EscapedFragment()))
+}
+
+func direct_method_net_url_URL_EscapedPath(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	return value.MakeString(string(recv.EscapedPath()))
+}
+
+func direct_method_net_url_URL_Hostname(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	return value.MakeString(string(recv.Hostname()))
+}
+
+func direct_method_net_url_URL_IsAbs(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	return value.MakeBool(recv.IsAbs())
+}
+
+func direct_method_net_url_URL_JoinPath(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	varArgs := make([]string, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].String()
+	}
+	return value.FromInterface(recv.JoinPath(varArgs...))
+}
+
+func direct_method_net_url_URL_MarshalBinary(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	r0, r1 := recv.MarshalBinary()
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_net_url_URL_Parse(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	a0 := args[1].String()
+	r0, r1 := recv.Parse(a0)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_net_url_URL_Port(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	return value.MakeString(string(recv.Port()))
+}
+
+func direct_method_net_url_URL_Query(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	return value.FromInterface(recv.Query())
+}
+
+func direct_method_net_url_URL_Redacted(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	return value.MakeString(string(recv.Redacted()))
+}
+
+func direct_method_net_url_URL_RequestURI(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	return value.MakeString(string(recv.RequestURI()))
+}
+
+func direct_method_net_url_URL_ResolveReference(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	a0 := args[1].Interface().(*net_url.URL)
+	return value.FromInterface(recv.ResolveReference(a0))
+}
+
+func direct_method_net_url_URL_String(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	return value.MakeString(string(recv.String()))
+}
+
+func direct_method_net_url_URL_UnmarshalBinary(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.FromInterface(recv.UnmarshalBinary(a0))
+}
+
+func direct_method_net_url_Userinfo_Password(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.Userinfo)
+	r0, r1 := recv.Password()
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.MakeBool(r1)})
+}
+
+func direct_method_net_url_Userinfo_String(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.Userinfo)
+	return value.MakeString(string(recv.String()))
+}
+
+func direct_method_net_url_Userinfo_Username(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.Userinfo)
+	return value.MakeString(string(recv.Username()))
+}
+
+func direct_method_net_url_Values_Add(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_url.Values)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	recv.Add(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_net_url_Values_Del(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_url.Values)
+	a0 := args[1].String()
+	recv.Del(a0)
+	return value.MakeNil()
+}
+
+func direct_method_net_url_Values_Encode(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_url.Values)
+	return value.MakeString(string(recv.Encode()))
+}
+
+func direct_method_net_url_Values_Get(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_url.Values)
+	a0 := args[1].String()
+	return value.MakeString(string(recv.Get(a0)))
+}
+
+func direct_method_net_url_Values_Has(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_url.Values)
+	a0 := args[1].String()
+	return value.MakeBool(recv.Has(a0))
+}
+
+func direct_method_net_url_Values_Set(args []value.Value) value.Value {
+	recv := args[0].Interface().(net_url.Values)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	recv.Set(a0, a1)
+	return value.MakeNil()
 }

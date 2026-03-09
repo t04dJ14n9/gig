@@ -257,7 +257,7 @@ func direct_math_Floor(args []value.Value) value.Value {
 func direct_math_Frexp(args []value.Value) value.Value {
 	a0 := args[0].Float()
 	r0, r1 := math.Frexp(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeInt(int64(r1))})
 }
 
 func direct_math_Gamma(args []value.Value) value.Value {
@@ -317,7 +317,7 @@ func direct_math_Ldexp(args []value.Value) value.Value {
 func direct_math_Lgamma(args []value.Value) value.Value {
 	a0 := args[0].Float()
 	r0, r1 := math.Lgamma(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeInt(int64(r1))})
 }
 
 func direct_math_Log(args []value.Value) value.Value {
@@ -366,7 +366,7 @@ func direct_math_Mod(args []value.Value) value.Value {
 func direct_math_Modf(args []value.Value) value.Value {
 	a0 := args[0].Float()
 	r0, r1 := math.Modf(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeFloat(float64(r1))})
 }
 
 func direct_math_NaN(args []value.Value) value.Value {
@@ -425,7 +425,7 @@ func direct_math_Sin(args []value.Value) value.Value {
 func direct_math_Sincos(args []value.Value) value.Value {
 	a0 := args[0].Float()
 	r0, r1 := math.Sincos(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeFloat(float64(r1))})
 }
 
 func direct_math_Sinh(args []value.Value) value.Value {

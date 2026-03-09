@@ -14,7 +14,7 @@ func init() {
 
 	// Functions
 	pkg.AddFunction("NewCond", sync.NewCond, "", direct_sync_NewCond)
-	pkg.AddFunction("OnceFunc", sync.OnceFunc, "", nil)
+	pkg.AddFunction("OnceFunc", sync.OnceFunc, "", direct_sync_OnceFunc)
 
 	// Types
 	pkg.AddType("Cond", reflect.TypeOf(sync.Cond{}), "")
@@ -31,10 +31,21 @@ func init() {
 	pkg.AddMethodDirectCall("Cond", "Signal", direct_method_sync_Cond_Signal)
 	pkg.AddMethodDirectCall("Cond", "Wait", direct_method_sync_Cond_Wait)
 	pkg.AddMethodDirectCall("Map", "Clear", direct_method_sync_Map_Clear)
+	pkg.AddMethodDirectCall("Map", "CompareAndDelete", direct_method_sync_Map_CompareAndDelete)
+	pkg.AddMethodDirectCall("Map", "CompareAndSwap", direct_method_sync_Map_CompareAndSwap)
+	pkg.AddMethodDirectCall("Map", "Delete", direct_method_sync_Map_Delete)
+	pkg.AddMethodDirectCall("Map", "Load", direct_method_sync_Map_Load)
+	pkg.AddMethodDirectCall("Map", "LoadAndDelete", direct_method_sync_Map_LoadAndDelete)
+	pkg.AddMethodDirectCall("Map", "LoadOrStore", direct_method_sync_Map_LoadOrStore)
+	pkg.AddMethodDirectCall("Map", "Range", direct_method_sync_Map_Range)
+	pkg.AddMethodDirectCall("Map", "Store", direct_method_sync_Map_Store)
+	pkg.AddMethodDirectCall("Map", "Swap", direct_method_sync_Map_Swap)
 	pkg.AddMethodDirectCall("Mutex", "Lock", direct_method_sync_Mutex_Lock)
 	pkg.AddMethodDirectCall("Mutex", "TryLock", direct_method_sync_Mutex_TryLock)
 	pkg.AddMethodDirectCall("Mutex", "Unlock", direct_method_sync_Mutex_Unlock)
+	pkg.AddMethodDirectCall("Once", "Do", direct_method_sync_Once_Do)
 	pkg.AddMethodDirectCall("Pool", "Get", direct_method_sync_Pool_Get)
+	pkg.AddMethodDirectCall("Pool", "Put", direct_method_sync_Pool_Put)
 	pkg.AddMethodDirectCall("RWMutex", "Lock", direct_method_sync_RWMutex_Lock)
 	pkg.AddMethodDirectCall("RWMutex", "RLock", direct_method_sync_RWMutex_RLock)
 	pkg.AddMethodDirectCall("RWMutex", "RLocker", direct_method_sync_RWMutex_RLocker)
@@ -44,6 +55,7 @@ func init() {
 	pkg.AddMethodDirectCall("RWMutex", "Unlock", direct_method_sync_RWMutex_Unlock)
 	pkg.AddMethodDirectCall("WaitGroup", "Add", direct_method_sync_WaitGroup_Add)
 	pkg.AddMethodDirectCall("WaitGroup", "Done", direct_method_sync_WaitGroup_Done)
+	pkg.AddMethodDirectCall("WaitGroup", "Go", direct_method_sync_WaitGroup_Go)
 	pkg.AddMethodDirectCall("WaitGroup", "Wait", direct_method_sync_WaitGroup_Wait)
 
 }
@@ -51,6 +63,11 @@ func init() {
 func direct_sync_NewCond(args []value.Value) value.Value {
 	a0 := args[0].Interface().(sync.Locker)
 	return value.FromInterface(sync.NewCond(a0))
+}
+
+func direct_sync_OnceFunc(args []value.Value) value.Value {
+	a0 := args[0].Interface().(func())
+	return value.FromInterface(sync.OnceFunc(a0))
 }
 
 func direct_method_sync_Cond_Broadcast(args []value.Value) value.Value {
@@ -77,6 +94,73 @@ func direct_method_sync_Map_Clear(args []value.Value) value.Value {
 	return value.MakeNil()
 }
 
+func direct_method_sync_Map_CompareAndDelete(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Map)
+	a0 := args[1].Interface()
+	a1 := args[2].Interface()
+	return value.MakeBool(recv.CompareAndDelete(a0, a1))
+}
+
+func direct_method_sync_Map_CompareAndSwap(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Map)
+	a0 := args[1].Interface()
+	a1 := args[2].Interface()
+	a2 := args[3].Interface()
+	return value.MakeBool(recv.CompareAndSwap(a0, a1, a2))
+}
+
+func direct_method_sync_Map_Delete(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Map)
+	a0 := args[1].Interface()
+	recv.Delete(a0)
+	return value.MakeNil()
+}
+
+func direct_method_sync_Map_Load(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Map)
+	a0 := args[1].Interface()
+	r0, r1 := recv.Load(a0)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.MakeBool(r1)})
+}
+
+func direct_method_sync_Map_LoadAndDelete(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Map)
+	a0 := args[1].Interface()
+	r0, r1 := recv.LoadAndDelete(a0)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.MakeBool(r1)})
+}
+
+func direct_method_sync_Map_LoadOrStore(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Map)
+	a0 := args[1].Interface()
+	a1 := args[2].Interface()
+	r0, r1 := recv.LoadOrStore(a0, a1)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.MakeBool(r1)})
+}
+
+func direct_method_sync_Map_Range(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Map)
+	a0 := args[1].Interface().(func(any, any) bool)
+	recv.Range(a0)
+	return value.MakeNil()
+}
+
+func direct_method_sync_Map_Store(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Map)
+	a0 := args[1].Interface()
+	a1 := args[2].Interface()
+	recv.Store(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_sync_Map_Swap(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Map)
+	a0 := args[1].Interface()
+	a1 := args[2].Interface()
+	r0, r1 := recv.Swap(a0, a1)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.MakeBool(r1)})
+}
+
 func direct_method_sync_Mutex_Lock(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync.Mutex)
 	recv.Lock()
@@ -94,9 +178,23 @@ func direct_method_sync_Mutex_Unlock(args []value.Value) value.Value {
 	return value.MakeNil()
 }
 
+func direct_method_sync_Once_Do(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Once)
+	a0 := args[1].Interface().(func())
+	recv.Do(a0)
+	return value.MakeNil()
+}
+
 func direct_method_sync_Pool_Get(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync.Pool)
 	return value.FromInterface(recv.Get())
+}
+
+func direct_method_sync_Pool_Put(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.Pool)
+	a0 := args[1].Interface()
+	recv.Put(a0)
+	return value.MakeNil()
 }
 
 func direct_method_sync_RWMutex_Lock(args []value.Value) value.Value {
@@ -148,6 +246,13 @@ func direct_method_sync_WaitGroup_Add(args []value.Value) value.Value {
 func direct_method_sync_WaitGroup_Done(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync.WaitGroup)
 	recv.Done()
+	return value.MakeNil()
+}
+
+func direct_method_sync_WaitGroup_Go(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync.WaitGroup)
+	a0 := args[1].Interface().(func())
+	recv.Go(a0)
 	return value.MakeNil()
 }
 

@@ -82,32 +82,62 @@ func direct_method_encoding_base64_Encoding_WithPadding(args []value.Value) valu
 
 func direct_method_encoding_base64_Encoding_AppendDecode(args []value.Value) value.Value {
 	recv := args[0].Interface().(*encoding_base64.Encoding)
-	a0 := args[1].Interface().([]byte)
-	a1 := args[2].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[2]).Bytes(); ok {
+			return b
+		}
+		return (args[2]).Interface().([]byte)
+	}()
 	r0, r1 := recv.AppendDecode(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
 }
 
 func direct_method_encoding_base64_Encoding_AppendEncode(args []value.Value) value.Value {
 	recv := args[0].Interface().(*encoding_base64.Encoding)
-	a0 := args[1].Interface().([]byte)
-	a1 := args[2].Interface().([]byte)
-	return value.FromInterface(recv.AppendEncode(a0, a1))
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[2]).Bytes(); ok {
+			return b
+		}
+		return (args[2]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(recv.AppendEncode(a0, a1)))
 }
 
 func direct_method_encoding_base64_Encoding_Decode(args []value.Value) value.Value {
 	recv := args[0].Interface().(*encoding_base64.Encoding)
-	a0 := args[1].Interface().([]byte)
-	a1 := args[2].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[2]).Bytes(); ok {
+			return b
+		}
+		return (args[2]).Interface().([]byte)
+	}()
 	r0, r1 := recv.Decode(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_method_encoding_base64_Encoding_DecodeString(args []value.Value) value.Value {
 	recv := args[0].Interface().(*encoding_base64.Encoding)
 	a0 := args[1].String()
 	r0, r1 := recv.DecodeString(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
 }
 
 func direct_method_encoding_base64_Encoding_DecodedLen(args []value.Value) value.Value {
@@ -118,15 +148,30 @@ func direct_method_encoding_base64_Encoding_DecodedLen(args []value.Value) value
 
 func direct_method_encoding_base64_Encoding_Encode(args []value.Value) value.Value {
 	recv := args[0].Interface().(*encoding_base64.Encoding)
-	a0 := args[1].Interface().([]byte)
-	a1 := args[2].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[2]).Bytes(); ok {
+			return b
+		}
+		return (args[2]).Interface().([]byte)
+	}()
 	recv.Encode(a0, a1)
 	return value.MakeNil()
 }
 
 func direct_method_encoding_base64_Encoding_EncodeToString(args []value.Value) value.Value {
 	recv := args[0].Interface().(*encoding_base64.Encoding)
-	a0 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.MakeString(string(recv.EncodeToString(a0)))
 }
 

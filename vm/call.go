@@ -21,6 +21,63 @@ func (e *ExternalCallCancelledError) Unwrap() error {
 	return e.Cause
 }
 
+// unpackVariadicArgs unpacks the last argument (a packed variadic slice from SSA) into
+// individual value.Value elements. This avoids reflection-based rv.Len()/rv.Index(i) calls
+// for native slice types ([]value.Value, []int64, []byte).
+func unpackVariadicArgs(args []value.Value, numArgs int) []value.Value {
+	lastArg := args[numArgs-1]
+
+	// Fast path 1: native []value.Value slice (function slices, etc.)
+	if lastArg.Kind() == value.KindReflect || lastArg.Kind() == value.KindSlice {
+		// Try native []value.Value first (zero reflection)
+		if rawObj := lastArg.RawObj(); rawObj != nil {
+			if valSlice, ok := rawObj.([]value.Value); ok {
+				unpackedArgs := make([]value.Value, numArgs-1+len(valSlice))
+				copy(unpackedArgs, args[:numArgs-1])
+				copy(unpackedArgs[numArgs-1:], valSlice)
+				return unpackedArgs
+			}
+		}
+	}
+
+	// Fast path 2: native []int64 slice (int variadic args)
+	if lastArg.Kind() == value.KindSlice {
+		if intSlice, ok := lastArg.IntSlice(); ok {
+			unpackedArgs := make([]value.Value, numArgs-1+len(intSlice))
+			copy(unpackedArgs, args[:numArgs-1])
+			for i, n := range intSlice {
+				unpackedArgs[numArgs-1+i] = value.MakeInt(n)
+			}
+			return unpackedArgs
+		}
+	}
+
+	// Fast path 3: KindBytes ([]byte variadic args)
+	if lastArg.Kind() == value.KindBytes {
+		if b, ok := lastArg.Bytes(); ok {
+			unpackedArgs := make([]value.Value, numArgs-1+len(b))
+			copy(unpackedArgs, args[:numArgs-1])
+			for i, byt := range b {
+				unpackedArgs[numArgs-1+i] = value.MakeUint(uint64(byt))
+			}
+			return unpackedArgs
+		}
+	}
+
+	// Slow path: reflect.Value slice (most common for stdlib variadic functions)
+	if rv, ok := lastArg.ReflectValue(); ok && rv.Kind() == reflect.Slice {
+		sliceLen := rv.Len()
+		unpackedArgs := make([]value.Value, numArgs-1+sliceLen)
+		copy(unpackedArgs, args[:numArgs-1])
+		for i := 0; i < sliceLen; i++ {
+			unpackedArgs[numArgs-1+i] = value.MakeFromReflect(rv.Index(i))
+		}
+		return unpackedArgs
+	}
+
+	return args
+}
+
 // callCompiledFunction calls a compiled function by its index.
 // It creates a new call frame with the function's local variables.
 func (vm *VM) callCompiledFunction(funcIdx, numArgs int) {
@@ -111,17 +168,7 @@ func (vm *VM) callExternal(funcIdx, numArgs int) error {
 		// For variadic functions, SSA packs variadic args into a slice.
 		// We need to unpack them for DirectCall wrappers.
 		if cacheEntry.isVariadic && numArgs == cacheEntry.numIn {
-			lastArg := args[numArgs-1]
-			if rv, ok := lastArg.ReflectValue(); ok && rv.Kind() == reflect.Slice {
-				// Unpack the variadic slice
-				sliceLen := rv.Len()
-				unpackedArgs := make([]value.Value, numArgs-1+sliceLen)
-				copy(unpackedArgs, args[:numArgs-1])
-				for i := 0; i < sliceLen; i++ {
-					unpackedArgs[numArgs-1+i] = value.MakeFromReflect(rv.Index(i))
-				}
-				args = unpackedArgs
-			}
+			args = unpackVariadicArgs(args, numArgs)
 		}
 		result := cacheEntry.directCall(args)
 		vm.push(result)
