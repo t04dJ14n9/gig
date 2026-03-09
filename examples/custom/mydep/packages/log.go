@@ -2,6 +2,7 @@
 package packages
 
 import (
+	io "io"
 	"log"
 	"reflect"
 
@@ -18,7 +19,7 @@ func init() {
 	pkg.AddFunction("Fatalf", log.Fatalf, "", direct_log_Fatalf)
 	pkg.AddFunction("Fatalln", log.Fatalln, "", direct_log_Fatalln)
 	pkg.AddFunction("Flags", log.Flags, "", direct_log_Flags)
-	pkg.AddFunction("New", log.New, "", nil)
+	pkg.AddFunction("New", log.New, "", direct_log_New)
 	pkg.AddFunction("Output", log.Output, "", direct_log_Output)
 	pkg.AddFunction("Panic", log.Panic, "", direct_log_Panic)
 	pkg.AddFunction("Panicf", log.Panicf, "", direct_log_Panicf)
@@ -28,7 +29,7 @@ func init() {
 	pkg.AddFunction("Printf", log.Printf, "", direct_log_Printf)
 	pkg.AddFunction("Println", log.Println, "", direct_log_Println)
 	pkg.AddFunction("SetFlags", log.SetFlags, "", direct_log_SetFlags)
-	pkg.AddFunction("SetOutput", log.SetOutput, "", nil)
+	pkg.AddFunction("SetOutput", log.SetOutput, "", direct_log_SetOutput)
 	pkg.AddFunction("SetPrefix", log.SetPrefix, "", direct_log_SetPrefix)
 	pkg.AddFunction("Writer", log.Writer, "", direct_log_Writer)
 
@@ -44,6 +45,24 @@ func init() {
 
 	// Types
 	pkg.AddType("Logger", reflect.TypeOf(log.Logger{}), "")
+
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("Logger", "Fatal", direct_method_log_Logger_Fatal)
+	pkg.AddMethodDirectCall("Logger", "Fatalf", direct_method_log_Logger_Fatalf)
+	pkg.AddMethodDirectCall("Logger", "Fatalln", direct_method_log_Logger_Fatalln)
+	pkg.AddMethodDirectCall("Logger", "Flags", direct_method_log_Logger_Flags)
+	pkg.AddMethodDirectCall("Logger", "Output", direct_method_log_Logger_Output)
+	pkg.AddMethodDirectCall("Logger", "Panic", direct_method_log_Logger_Panic)
+	pkg.AddMethodDirectCall("Logger", "Panicf", direct_method_log_Logger_Panicf)
+	pkg.AddMethodDirectCall("Logger", "Panicln", direct_method_log_Logger_Panicln)
+	pkg.AddMethodDirectCall("Logger", "Prefix", direct_method_log_Logger_Prefix)
+	pkg.AddMethodDirectCall("Logger", "Print", direct_method_log_Logger_Print)
+	pkg.AddMethodDirectCall("Logger", "Printf", direct_method_log_Logger_Printf)
+	pkg.AddMethodDirectCall("Logger", "Println", direct_method_log_Logger_Println)
+	pkg.AddMethodDirectCall("Logger", "SetFlags", direct_method_log_Logger_SetFlags)
+	pkg.AddMethodDirectCall("Logger", "SetOutput", direct_method_log_Logger_SetOutput)
+	pkg.AddMethodDirectCall("Logger", "SetPrefix", direct_method_log_Logger_SetPrefix)
+	pkg.AddMethodDirectCall("Logger", "Writer", direct_method_log_Logger_Writer)
 
 }
 
@@ -81,6 +100,13 @@ func direct_log_Fatalln(args []value.Value) value.Value {
 
 func direct_log_Flags(args []value.Value) value.Value {
 	return value.MakeInt(int64(log.Flags()))
+}
+
+func direct_log_New(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Writer)
+	a1 := args[1].String()
+	a2 := int(args[2].Int())
+	return value.FromInterface(log.New(a0, a1, a2))
 }
 
 func direct_log_Output(args []value.Value) value.Value {
@@ -155,6 +181,12 @@ func direct_log_SetFlags(args []value.Value) value.Value {
 	return value.MakeNil()
 }
 
+func direct_log_SetOutput(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Writer)
+	log.SetOutput(a0)
+	return value.MakeNil()
+}
+
 func direct_log_SetPrefix(args []value.Value) value.Value {
 	a0 := args[0].String()
 	log.SetPrefix(a0)
@@ -163,4 +195,140 @@ func direct_log_SetPrefix(args []value.Value) value.Value {
 
 func direct_log_Writer(args []value.Value) value.Value {
 	return value.FromInterface(log.Writer())
+}
+
+func direct_method_log_Logger_Fatal(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	varArgs := make([]interface{}, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].Interface()
+	}
+	recv.Fatal(varArgs...)
+	return value.MakeNil()
+}
+
+func direct_method_log_Logger_Fatalf(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	a0 := args[1].String()
+	varArgs := make([]interface{}, len(args)-2)
+	for i := 2; i < len(args); i++ {
+		varArgs[i-2] = args[i].Interface()
+	}
+	recv.Fatalf(a0, varArgs...)
+	return value.MakeNil()
+}
+
+func direct_method_log_Logger_Fatalln(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	varArgs := make([]interface{}, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].Interface()
+	}
+	recv.Fatalln(varArgs...)
+	return value.MakeNil()
+}
+
+func direct_method_log_Logger_Flags(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	return value.MakeInt(int64(recv.Flags()))
+}
+
+func direct_method_log_Logger_Output(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	a0 := int(args[1].Int())
+	a1 := args[2].String()
+	return value.FromInterface(recv.Output(a0, a1))
+}
+
+func direct_method_log_Logger_Panic(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	varArgs := make([]interface{}, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].Interface()
+	}
+	recv.Panic(varArgs...)
+	return value.MakeNil()
+}
+
+func direct_method_log_Logger_Panicf(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	a0 := args[1].String()
+	varArgs := make([]interface{}, len(args)-2)
+	for i := 2; i < len(args); i++ {
+		varArgs[i-2] = args[i].Interface()
+	}
+	recv.Panicf(a0, varArgs...)
+	return value.MakeNil()
+}
+
+func direct_method_log_Logger_Panicln(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	varArgs := make([]interface{}, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].Interface()
+	}
+	recv.Panicln(varArgs...)
+	return value.MakeNil()
+}
+
+func direct_method_log_Logger_Prefix(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	return value.MakeString(string(recv.Prefix()))
+}
+
+func direct_method_log_Logger_Print(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	varArgs := make([]interface{}, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].Interface()
+	}
+	recv.Print(varArgs...)
+	return value.MakeNil()
+}
+
+func direct_method_log_Logger_Printf(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	a0 := args[1].String()
+	varArgs := make([]interface{}, len(args)-2)
+	for i := 2; i < len(args); i++ {
+		varArgs[i-2] = args[i].Interface()
+	}
+	recv.Printf(a0, varArgs...)
+	return value.MakeNil()
+}
+
+func direct_method_log_Logger_Println(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	varArgs := make([]interface{}, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].Interface()
+	}
+	recv.Println(varArgs...)
+	return value.MakeNil()
+}
+
+func direct_method_log_Logger_SetFlags(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	a0 := int(args[1].Int())
+	recv.SetFlags(a0)
+	return value.MakeNil()
+}
+
+func direct_method_log_Logger_SetOutput(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	a0 := args[1].Interface().(io.Writer)
+	recv.SetOutput(a0)
+	return value.MakeNil()
+}
+
+func direct_method_log_Logger_SetPrefix(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	a0 := args[1].String()
+	recv.SetPrefix(a0)
+	return value.MakeNil()
+}
+
+func direct_method_log_Logger_Writer(args []value.Value) value.Value {
+	recv := args[0].Interface().(*log.Logger)
+	return value.FromInterface(recv.Writer())
 }

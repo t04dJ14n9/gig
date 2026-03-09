@@ -3,6 +3,7 @@ package packages
 
 import (
 	"fmt"
+	io "io"
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
@@ -17,13 +18,13 @@ func init() {
 	pkg.AddFunction("Appendf", fmt.Appendf, "", direct_fmt_Appendf)
 	pkg.AddFunction("Appendln", fmt.Appendln, "", direct_fmt_Appendln)
 	pkg.AddFunction("Errorf", fmt.Errorf, "", direct_fmt_Errorf)
-	pkg.AddFunction("FormatString", fmt.FormatString, "", nil)
-	pkg.AddFunction("Fprint", fmt.Fprint, "", nil)
-	pkg.AddFunction("Fprintf", fmt.Fprintf, "", nil)
-	pkg.AddFunction("Fprintln", fmt.Fprintln, "", nil)
-	pkg.AddFunction("Fscan", fmt.Fscan, "", nil)
-	pkg.AddFunction("Fscanf", fmt.Fscanf, "", nil)
-	pkg.AddFunction("Fscanln", fmt.Fscanln, "", nil)
+	pkg.AddFunction("FormatString", fmt.FormatString, "", direct_fmt_FormatString)
+	pkg.AddFunction("Fprint", fmt.Fprint, "", direct_fmt_Fprint)
+	pkg.AddFunction("Fprintf", fmt.Fprintf, "", direct_fmt_Fprintf)
+	pkg.AddFunction("Fprintln", fmt.Fprintln, "", direct_fmt_Fprintln)
+	pkg.AddFunction("Fscan", fmt.Fscan, "", direct_fmt_Fscan)
+	pkg.AddFunction("Fscanf", fmt.Fscanf, "", direct_fmt_Fscanf)
+	pkg.AddFunction("Fscanln", fmt.Fscanln, "", direct_fmt_Fscanln)
 	pkg.AddFunction("Print", fmt.Print, "", direct_fmt_Print)
 	pkg.AddFunction("Printf", fmt.Printf, "", direct_fmt_Printf)
 	pkg.AddFunction("Println", fmt.Println, "", direct_fmt_Println)
@@ -48,31 +49,46 @@ func init() {
 }
 
 func direct_fmt_Append(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	varArgs := make([]interface{}, len(args)-1)
 	for i := 1; i < len(args); i++ {
 		varArgs[i-1] = args[i].Interface()
 	}
-	return value.FromInterface(fmt.Append(a0, varArgs...))
+	return value.MakeBytes([]byte(fmt.Append(a0, varArgs...)))
 }
 
 func direct_fmt_Appendf(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	a1 := args[1].String()
 	varArgs := make([]interface{}, len(args)-2)
 	for i := 2; i < len(args); i++ {
 		varArgs[i-2] = args[i].Interface()
 	}
-	return value.FromInterface(fmt.Appendf(a0, a1, varArgs...))
+	return value.MakeBytes([]byte(fmt.Appendf(a0, a1, varArgs...)))
 }
 
 func direct_fmt_Appendln(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
 	varArgs := make([]interface{}, len(args)-1)
 	for i := 1; i < len(args); i++ {
 		varArgs[i-1] = args[i].Interface()
 	}
-	return value.FromInterface(fmt.Appendln(a0, varArgs...))
+	return value.MakeBytes([]byte(fmt.Appendln(a0, varArgs...)))
 }
 
 func direct_fmt_Errorf(args []value.Value) value.Value {
@@ -84,13 +100,81 @@ func direct_fmt_Errorf(args []value.Value) value.Value {
 	return value.FromInterface(fmt.Errorf(a0, varArgs...))
 }
 
+func direct_fmt_FormatString(args []value.Value) value.Value {
+	a0 := args[0].Interface().(fmt.State)
+	a1 := int32(args[1].Int())
+	return value.MakeString(string(fmt.FormatString(a0, a1)))
+}
+
+func direct_fmt_Fprint(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Writer)
+	varArgs := make([]interface{}, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].Interface()
+	}
+	r0, r1 := fmt.Fprint(a0, varArgs...)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_fmt_Fprintf(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Writer)
+	a1 := args[1].String()
+	varArgs := make([]interface{}, len(args)-2)
+	for i := 2; i < len(args); i++ {
+		varArgs[i-2] = args[i].Interface()
+	}
+	r0, r1 := fmt.Fprintf(a0, a1, varArgs...)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_fmt_Fprintln(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Writer)
+	varArgs := make([]interface{}, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].Interface()
+	}
+	r0, r1 := fmt.Fprintln(a0, varArgs...)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_fmt_Fscan(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Reader)
+	varArgs := make([]interface{}, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].Interface()
+	}
+	r0, r1 := fmt.Fscan(a0, varArgs...)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_fmt_Fscanf(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Reader)
+	a1 := args[1].String()
+	varArgs := make([]interface{}, len(args)-2)
+	for i := 2; i < len(args); i++ {
+		varArgs[i-2] = args[i].Interface()
+	}
+	r0, r1 := fmt.Fscanf(a0, a1, varArgs...)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_fmt_Fscanln(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Reader)
+	varArgs := make([]interface{}, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].Interface()
+	}
+	r0, r1 := fmt.Fscanln(a0, varArgs...)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
 func direct_fmt_Print(args []value.Value) value.Value {
 	varArgs := make([]interface{}, len(args)-0)
 	for i := 0; i < len(args); i++ {
 		varArgs[i-0] = args[i].Interface()
 	}
 	r0, r1 := fmt.Print(varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_fmt_Printf(args []value.Value) value.Value {
@@ -100,7 +184,7 @@ func direct_fmt_Printf(args []value.Value) value.Value {
 		varArgs[i-1] = args[i].Interface()
 	}
 	r0, r1 := fmt.Printf(a0, varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_fmt_Println(args []value.Value) value.Value {
@@ -109,7 +193,7 @@ func direct_fmt_Println(args []value.Value) value.Value {
 		varArgs[i-0] = args[i].Interface()
 	}
 	r0, r1 := fmt.Println(varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_fmt_Scan(args []value.Value) value.Value {
@@ -118,7 +202,7 @@ func direct_fmt_Scan(args []value.Value) value.Value {
 		varArgs[i-0] = args[i].Interface()
 	}
 	r0, r1 := fmt.Scan(varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_fmt_Scanf(args []value.Value) value.Value {
@@ -128,7 +212,7 @@ func direct_fmt_Scanf(args []value.Value) value.Value {
 		varArgs[i-1] = args[i].Interface()
 	}
 	r0, r1 := fmt.Scanf(a0, varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_fmt_Scanln(args []value.Value) value.Value {
@@ -137,7 +221,7 @@ func direct_fmt_Scanln(args []value.Value) value.Value {
 		varArgs[i-0] = args[i].Interface()
 	}
 	r0, r1 := fmt.Scanln(varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_fmt_Sprint(args []value.Value) value.Value {
@@ -172,7 +256,7 @@ func direct_fmt_Sscan(args []value.Value) value.Value {
 		varArgs[i-1] = args[i].Interface()
 	}
 	r0, r1 := fmt.Sscan(a0, varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_fmt_Sscanf(args []value.Value) value.Value {
@@ -183,7 +267,7 @@ func direct_fmt_Sscanf(args []value.Value) value.Value {
 		varArgs[i-2] = args[i].Interface()
 	}
 	r0, r1 := fmt.Sscanf(a0, a1, varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_fmt_Sscanln(args []value.Value) value.Value {
@@ -193,5 +277,5 @@ func direct_fmt_Sscanln(args []value.Value) value.Value {
 		varArgs[i-1] = args[i].Interface()
 	}
 	r0, r1 := fmt.Sscanln(a0, varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }

@@ -27,9 +27,8 @@ func init() {
 	pkg.AddType("Regexp", reflect.TypeOf(regexp.Regexp{}), "")
 
 	// Method DirectCalls
+	pkg.AddMethodDirectCall("Regexp", "AppendText", direct_method_regexp_Regexp_AppendText)
 	pkg.AddMethodDirectCall("Regexp", "Copy", direct_method_regexp_Regexp_Copy)
-	pkg.AddMethodDirectCall("Regexp", "Expand", direct_method_regexp_Regexp_Expand)
-	pkg.AddMethodDirectCall("Regexp", "ExpandString", direct_method_regexp_Regexp_ExpandString)
 	pkg.AddMethodDirectCall("Regexp", "Find", direct_method_regexp_Regexp_Find)
 	pkg.AddMethodDirectCall("Regexp", "FindAll", direct_method_regexp_Regexp_FindAll)
 	pkg.AddMethodDirectCall("Regexp", "FindAllIndex", direct_method_regexp_Regexp_FindAllIndex)
@@ -56,9 +55,11 @@ func init() {
 	pkg.AddMethodDirectCall("Regexp", "MatchString", direct_method_regexp_Regexp_MatchString)
 	pkg.AddMethodDirectCall("Regexp", "NumSubexp", direct_method_regexp_Regexp_NumSubexp)
 	pkg.AddMethodDirectCall("Regexp", "ReplaceAll", direct_method_regexp_Regexp_ReplaceAll)
+	pkg.AddMethodDirectCall("Regexp", "ReplaceAllFunc", direct_method_regexp_Regexp_ReplaceAllFunc)
 	pkg.AddMethodDirectCall("Regexp", "ReplaceAllLiteral", direct_method_regexp_Regexp_ReplaceAllLiteral)
 	pkg.AddMethodDirectCall("Regexp", "ReplaceAllLiteralString", direct_method_regexp_Regexp_ReplaceAllLiteralString)
 	pkg.AddMethodDirectCall("Regexp", "ReplaceAllString", direct_method_regexp_Regexp_ReplaceAllString)
+	pkg.AddMethodDirectCall("Regexp", "ReplaceAllStringFunc", direct_method_regexp_Regexp_ReplaceAllStringFunc)
 	pkg.AddMethodDirectCall("Regexp", "Split", direct_method_regexp_Regexp_Split)
 	pkg.AddMethodDirectCall("Regexp", "String", direct_method_regexp_Regexp_String)
 	pkg.AddMethodDirectCall("Regexp", "SubexpIndex", direct_method_regexp_Regexp_SubexpIndex)
@@ -70,34 +71,39 @@ func init() {
 func direct_regexp_Compile(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := regexp.Compile(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_regexp_CompilePOSIX(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := regexp.CompilePOSIX(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_regexp_Match(args []value.Value) value.Value {
 	a0 := args[0].String()
-	a1 := args[1].Interface().([]byte)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	r0, r1 := regexp.Match(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBool(r0), value.FromInterface(r1)})
 }
 
 func direct_regexp_MatchReader(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].Interface().(io.RuneReader)
 	r0, r1 := regexp.MatchReader(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBool(r0), value.FromInterface(r1)})
 }
 
 func direct_regexp_MatchString(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
 	r0, r1 := regexp.MatchString(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBool(r0), value.FromInterface(r1)})
 }
 
 func direct_regexp_MustCompile(args []value.Value) value.Value {
@@ -115,45 +121,54 @@ func direct_regexp_QuoteMeta(args []value.Value) value.Value {
 	return value.MakeString(string(regexp.QuoteMeta(a0)))
 }
 
+func direct_method_regexp_Regexp_AppendText(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	r0, r1 := recv.AppendText(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+}
+
 func direct_method_regexp_Regexp_Copy(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
 	return value.FromInterface(recv.Copy())
 }
 
-func direct_method_regexp_Regexp_Expand(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := args[1].Interface().([]byte)
-	a1 := args[2].Interface().([]byte)
-	a2 := args[3].Interface().([]byte)
-	a3 := args[4].Interface().([]int)
-	return value.FromInterface(recv.Expand(a0, a1, a2, a3))
-}
-
-func direct_method_regexp_Regexp_ExpandString(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := args[1].Interface().([]byte)
-	a1 := args[2].String()
-	a2 := args[3].String()
-	a3 := args[4].Interface().([]int)
-	return value.FromInterface(recv.ExpandString(a0, a1, a2, a3))
-}
-
 func direct_method_regexp_Regexp_Find(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := args[1].Interface().([]byte)
-	return value.FromInterface(recv.Find(a0))
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(recv.Find(a0)))
 }
 
 func direct_method_regexp_Regexp_FindAll(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	a1 := int(args[2].Int())
 	return value.FromInterface(recv.FindAll(a0, a1))
 }
 
 func direct_method_regexp_Regexp_FindAllIndex(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	a1 := int(args[2].Int())
 	return value.FromInterface(recv.FindAllIndex(a0, a1))
 }
@@ -188,21 +203,36 @@ func direct_method_regexp_Regexp_FindAllStringSubmatchIndex(args []value.Value) 
 
 func direct_method_regexp_Regexp_FindAllSubmatch(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	a1 := int(args[2].Int())
 	return value.FromInterface(recv.FindAllSubmatch(a0, a1))
 }
 
 func direct_method_regexp_Regexp_FindAllSubmatchIndex(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	a1 := int(args[2].Int())
 	return value.FromInterface(recv.FindAllSubmatchIndex(a0, a1))
 }
 
 func direct_method_regexp_Regexp_FindIndex(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.FromInterface(recv.FindIndex(a0))
 }
 
@@ -244,20 +274,30 @@ func direct_method_regexp_Regexp_FindStringSubmatchIndex(args []value.Value) val
 
 func direct_method_regexp_Regexp_FindSubmatch(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.FromInterface(recv.FindSubmatch(a0))
 }
 
 func direct_method_regexp_Regexp_FindSubmatchIndex(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.FromInterface(recv.FindSubmatchIndex(a0))
 }
 
 func direct_method_regexp_Regexp_LiteralPrefix(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
 	r0, r1 := recv.LiteralPrefix()
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.MakeBool(r1)})
 }
 
 func direct_method_regexp_Regexp_Longest(args []value.Value) value.Value {
@@ -269,12 +309,17 @@ func direct_method_regexp_Regexp_Longest(args []value.Value) value.Value {
 func direct_method_regexp_Regexp_MarshalText(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
 	r0, r1 := recv.MarshalText()
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
 }
 
 func direct_method_regexp_Regexp_Match(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.MakeBool(recv.Match(a0))
 }
 
@@ -297,16 +342,48 @@ func direct_method_regexp_Regexp_NumSubexp(args []value.Value) value.Value {
 
 func direct_method_regexp_Regexp_ReplaceAll(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := args[1].Interface().([]byte)
-	a1 := args[2].Interface().([]byte)
-	return value.FromInterface(recv.ReplaceAll(a0, a1))
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[2]).Bytes(); ok {
+			return b
+		}
+		return (args[2]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(recv.ReplaceAll(a0, a1)))
+}
+
+func direct_method_regexp_Regexp_ReplaceAllFunc(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	a1 := args[2].Interface().(func([]byte) []byte)
+	return value.MakeBytes([]byte(recv.ReplaceAllFunc(a0, a1)))
 }
 
 func direct_method_regexp_Regexp_ReplaceAllLiteral(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := args[1].Interface().([]byte)
-	a1 := args[2].Interface().([]byte)
-	return value.FromInterface(recv.ReplaceAllLiteral(a0, a1))
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[2]).Bytes(); ok {
+			return b
+		}
+		return (args[2]).Interface().([]byte)
+	}()
+	return value.MakeBytes([]byte(recv.ReplaceAllLiteral(a0, a1)))
 }
 
 func direct_method_regexp_Regexp_ReplaceAllLiteralString(args []value.Value) value.Value {
@@ -321,6 +398,13 @@ func direct_method_regexp_Regexp_ReplaceAllString(args []value.Value) value.Valu
 	a0 := args[1].String()
 	a1 := args[2].String()
 	return value.MakeString(string(recv.ReplaceAllString(a0, a1)))
+}
+
+func direct_method_regexp_Regexp_ReplaceAllStringFunc(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := args[1].String()
+	a1 := args[2].Interface().(func(string) string)
+	return value.MakeString(string(recv.ReplaceAllStringFunc(a0, a1)))
 }
 
 func direct_method_regexp_Regexp_Split(args []value.Value) value.Value {
@@ -348,6 +432,11 @@ func direct_method_regexp_Regexp_SubexpNames(args []value.Value) value.Value {
 
 func direct_method_regexp_Regexp_UnmarshalText(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
-	a0 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.FromInterface(recv.UnmarshalText(a0))
 }

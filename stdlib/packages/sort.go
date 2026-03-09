@@ -13,20 +13,20 @@ func init() {
 	pkg := importer.RegisterPackage("sort", "sort")
 
 	// Functions
-	pkg.AddFunction("Find", sort.Find, "", nil)
-	pkg.AddFunction("Float64s", sort.Float64s, "", direct_sort_Float64s)
-	pkg.AddFunction("Float64sAreSorted", sort.Float64sAreSorted, "", direct_sort_Float64sAreSorted)
-	pkg.AddFunction("Ints", sort.Ints, "", direct_sort_Ints)
-	pkg.AddFunction("IntsAreSorted", sort.IntsAreSorted, "", direct_sort_IntsAreSorted)
+	pkg.AddFunction("Find", sort.Find, "", direct_sort_Find)
+	pkg.AddFunction("Float64s", sort.Float64s, "", nil)
+	pkg.AddFunction("Float64sAreSorted", sort.Float64sAreSorted, "", nil)
+	pkg.AddFunction("Ints", sort.Ints, "", nil)
+	pkg.AddFunction("IntsAreSorted", sort.IntsAreSorted, "", nil)
 	pkg.AddFunction("IsSorted", sort.IsSorted, "", direct_sort_IsSorted)
 	pkg.AddFunction("Reverse", sort.Reverse, "", direct_sort_Reverse)
-	pkg.AddFunction("Search", sort.Search, "", nil)
-	pkg.AddFunction("SearchFloat64s", sort.SearchFloat64s, "", direct_sort_SearchFloat64s)
-	pkg.AddFunction("SearchInts", sort.SearchInts, "", direct_sort_SearchInts)
+	pkg.AddFunction("Search", sort.Search, "", direct_sort_Search)
+	pkg.AddFunction("SearchFloat64s", sort.SearchFloat64s, "", nil)
+	pkg.AddFunction("SearchInts", sort.SearchInts, "", nil)
 	pkg.AddFunction("SearchStrings", sort.SearchStrings, "", direct_sort_SearchStrings)
-	pkg.AddFunction("Slice", sort.Slice, "", nil)
-	pkg.AddFunction("SliceIsSorted", sort.SliceIsSorted, "", nil)
-	pkg.AddFunction("SliceStable", sort.SliceStable, "", nil)
+	pkg.AddFunction("Slice", sort.Slice, "", direct_sort_Slice)
+	pkg.AddFunction("SliceIsSorted", sort.SliceIsSorted, "", direct_sort_SliceIsSorted)
+	pkg.AddFunction("SliceStable", sort.SliceStable, "", direct_sort_SliceStable)
 	pkg.AddFunction("Sort", sort.Sort, "", direct_sort_Sort)
 	pkg.AddFunction("Stable", sort.Stable, "", direct_sort_Stable)
 	pkg.AddFunction("Strings", sort.Strings, "", direct_sort_Strings)
@@ -57,26 +57,11 @@ func init() {
 
 }
 
-func direct_sort_Float64s(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]float64)
-	sort.Float64s(a0)
-	return value.MakeNil()
-}
-
-func direct_sort_Float64sAreSorted(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]float64)
-	return value.MakeBool(sort.Float64sAreSorted(a0))
-}
-
-func direct_sort_Ints(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]int)
-	sort.Ints(a0)
-	return value.MakeNil()
-}
-
-func direct_sort_IntsAreSorted(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]int)
-	return value.MakeBool(sort.IntsAreSorted(a0))
+func direct_sort_Find(args []value.Value) value.Value {
+	a0 := int(args[0].Int())
+	a1 := args[1].Interface().(func(int) int)
+	r0, r1 := sort.Find(a0, a1)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeBool(r1)})
 }
 
 func direct_sort_IsSorted(args []value.Value) value.Value {
@@ -89,22 +74,36 @@ func direct_sort_Reverse(args []value.Value) value.Value {
 	return value.FromInterface(sort.Reverse(a0))
 }
 
-func direct_sort_SearchFloat64s(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]float64)
-	a1 := args[1].Float()
-	return value.MakeInt(int64(sort.SearchFloat64s(a0, a1)))
-}
-
-func direct_sort_SearchInts(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]int)
-	a1 := int(args[1].Int())
-	return value.MakeInt(int64(sort.SearchInts(a0, a1)))
+func direct_sort_Search(args []value.Value) value.Value {
+	a0 := int(args[0].Int())
+	a1 := args[1].Interface().(func(int) bool)
+	return value.MakeInt(int64(sort.Search(a0, a1)))
 }
 
 func direct_sort_SearchStrings(args []value.Value) value.Value {
 	a0 := args[0].Interface().([]string)
 	a1 := args[1].String()
 	return value.MakeInt(int64(sort.SearchStrings(a0, a1)))
+}
+
+func direct_sort_Slice(args []value.Value) value.Value {
+	a0 := args[0].Interface()
+	a1 := args[1].Interface().(func(int, int) bool)
+	sort.Slice(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_sort_SliceIsSorted(args []value.Value) value.Value {
+	a0 := args[0].Interface()
+	a1 := args[1].Interface().(func(int, int) bool)
+	return value.MakeBool(sort.SliceIsSorted(a0, a1))
+}
+
+func direct_sort_SliceStable(args []value.Value) value.Value {
+	a0 := args[0].Interface()
+	a1 := args[1].Interface().(func(int, int) bool)
+	sort.SliceStable(a0, a1)
+	return value.MakeNil()
 }
 
 func direct_sort_Sort(args []value.Value) value.Value {
