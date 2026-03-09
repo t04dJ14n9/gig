@@ -28,10 +28,12 @@ golangci-lint run --timeout=5m
 gosec -exclude-generated -exclude-dir=stdlib/packages ./...
 
 # Generate registration code for a package dir
-go run ./cmd/gig gen <dir>
+# IMPORTANT: always use go1.23.1 explicitly — using a newer Go will generate
+# symbols that don't exist in go1.23 (e.g. bytes.FieldsSeq, net/http.CrossOriginProtection)
+go1.23.1 run ./cmd/gig gen <dir>
 
 # Initialize a new dependency package
-go run ./cmd/gig init -package <name>
+go1.23.1 run ./cmd/gig init -package <name>
 ```
 
 ## Architecture
