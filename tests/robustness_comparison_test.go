@@ -26,20 +26,53 @@ import (
 //
 // ============================================================================
 
+// init registers a custom "myops" package with a DirectCall wrapper for
+// filterJSONField — exactly imitating the Rule Engine's operator registration.
+func init() {
+	pkg := importer.RegisterPackage("git.woa.com/youngjin/gig/tests/myops", "myops")
+
+	// Register filterJSONField with a hand-written DirectCall wrapper.
+	// This wrapper is structurally identical to the generated wrappers in
+	// stdlib/packages/*.go — no reflect.Value, no reflect.Value.Call().
+	pkg.AddFunction("FilterJSON", filterJSONField, "FilterJSON extracts a field from JSON bytes",
+		func(args []value.Value) value.Value {
+			// args[0]: []byte  — extracted via .Interface().([]byte) (type assertion, no reflect.Call)
+			// args[1]: string  — extracted via .String() (no reflect)
+			a0 := args[0].Interface().([]byte)
+			a1 := args[1].String()
+			r0 := filterJSONField(a0, a1)
+			return value.MakeString(r0) // no reflect, just tagged-union construction
+		},
+	)
+}
+
+// filterJSONField extracts a string field from a JSON byte slice.
+// This is the Go equivalent of the Rule Engine's filterJson operator.
+func filterJSONField(data []byte, field string) string {
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return ""
+	}
+	if v, ok := m[field]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
 // ----------------------------------------------------------------------------
-// Bug 1: 整数字面量强制转换为 int（导致溢出）
-// gofun 位置: interpreter/expr.go:98-99
-// 问题代码: val = int(val.(int64))  // BUG: 强制转换为 int
+// Case 1: integer literal cast to int (causes overflow)
+// gofun location: interpreter/expr.go:98-99
+// problem code: val = int(val.(int64))  // ISSUE: forced cast to int
 // ----------------------------------------------------------------------------
 
 func TestNative_IntegerOverflow(t *testing.T) {
-	// 原生 Go：int64 最大值
 	var x int64 = 9223372036854775807
 	if x != 9223372036854775807 {
 		t.Errorf("Native Go int64 overflow: got %d", x)
 	}
 
-	// 原生 Go：uint64 最大值
 	var y uint64 = 18446744073709551615
 	if y != 18446744073709551615 {
 		t.Errorf("Native Go uint64 overflow: got %d", y)
@@ -59,7 +92,7 @@ func Uint64Max() uint64 {
 }
 
 func LargeIntSum() int64 {
-	// 超过 int32 范围的计算
+	// exceeds int32 range
 	return 2147483648 + 2147483648  // = 4294967296
 }
 `
@@ -97,7 +130,7 @@ func LargeIntSum() int64 {
 }
 
 // ----------------------------------------------------------------------------
-// Bug 2: runtimeMake 容量参数错误
+// Case 2: runtimeMake wrong capacity argument
 // gofun 位置: interpreter/builtin.go:125-126
 // 问题代码: capacity, isInt = args[0].(int)  // BUG: 应该是 args[1]
 // ----------------------------------------------------------------------------
@@ -137,7 +170,7 @@ func GetSliceLenCap() (int, int) {
 	case []value.Value:
 		lenVal = int(results[0].Int())
 		capVal = int(results[1].Int())
-	case []interface{}:
+	case []any:
 		switch v := results[0].(type) {
 		case int64:
 			lenVal = int(v)
@@ -163,7 +196,7 @@ func GetSliceLenCap() (int, int) {
 }
 
 // ----------------------------------------------------------------------------
-// Bug 3: 短路求值缺失
+// Case 3: missing short-circuit evaluation
 // gofun 位置: interpreter/expr.go:370-381
 // 问题: 总是求值两个操作数，即使不需要
 // ----------------------------------------------------------------------------
@@ -194,17 +227,17 @@ func TestGig_ShortCircuitEvaluation(t *testing.T) {
 	source := `
 package main
 
-// && 短路求值测试
+// && short-circuit test
 func ShortCircuitAnd() bool {
-	return false && true  // 右边不应该被求值
+	return false && true  // right side should not be evaluated
 }
 
-// || 短路求值测试  
+// || short-circuit test
 func ShortCircuitOr() bool {
-	return true || false  // 右边不应该被求值
+	return true || false  // right side should not be evaluated
 }
 
-// 实际场景：nil 指针安全访问
+// real-world: safe nil pointer access
 func SafePointerAccess(ptr *int) int {
 	if ptr != nil && *ptr > 0 {
 		return *ptr
@@ -270,7 +303,7 @@ func SafePointerAccess(ptr *int) int {
 }
 
 // ----------------------------------------------------------------------------
-// Bug 4: Map 索引不返回 "key 存在" 标志
+// Case 4: Map index does not return "key exists" flag
 // gofun 位置: interpreter/expr.go:249-255
 // 问题: 没有 bool 标志区分零值和不存在
 // ----------------------------------------------------------------------------
@@ -324,7 +357,7 @@ func MapKeyMissing() (int, bool) {
 	case []value.Value:
 		v = int(results[0].Int())
 		ok = results[1].Bool()
-	case []interface{}:
+	case []any:
 		v = results[0].(int)
 		ok = results[1].(bool)
 	}
@@ -341,7 +374,7 @@ func MapKeyMissing() (int, bool) {
 	case []value.Value:
 		v = int(results[0].Int())
 		ok = results[1].Bool()
-	case []interface{}:
+	case []any:
 		v = results[0].(int)
 		ok = results[1].(bool)
 	}
@@ -351,7 +384,7 @@ func MapKeyMissing() (int, bool) {
 }
 
 // ----------------------------------------------------------------------------
-// Bug 5: 切片边界检查不完整
+// Case 5: incomplete slice bounds check
 // gofun 位置: interpreter/expr.go:294-296
 // 问题: 缺少 low > high 的检查
 // ----------------------------------------------------------------------------
@@ -386,7 +419,7 @@ func ValidSlice() int {
 
 func SliceLowEqualsHigh() int {
 	s := []int{1, 2, 3, 4, 5}
-	return len(s[2:2])  // 合法：返回空切片
+	return len(s[2:2])  // valid: returns empty slice
 }
 `
 	prog, err := gig.Build(source)
@@ -461,7 +494,7 @@ func ClosureSum() int {
 	return sum
 }
 
-// 测试嵌套闭包
+// nested closure
 func NestedClosure() int {
 	outer := func(x int) func(int) int {
 		return func(y int) int {
@@ -514,74 +547,74 @@ func NestedClosure() int {
 // ----------------------------------------------------------------------------
 
 func TestGofun_Bugs_Documented(t *testing.T) {
-	t.Log("========== gofun 已知 Bug 列表 ==========")
+	t.Log("========== known gofun issues ==========")
 	t.Log("")
-	t.Log("Bug #1: 整数字面量强制转换为 int")
-	t.Log("  位置: interpreter/expr.go:98-99")
-	t.Log("  影响: 大整数字面量会溢出")
+	t.Log("Issue #1: integer literal forced cast to int")
+	t.Log("  location: interpreter/expr.go:98-99")
+	t.Log("  impact: large integer literals overflow")
 	t.Log("")
-	t.Log("Bug #2: runtimeMake 容量参数错误")
-	t.Log("  位置: interpreter/builtin.go:125-126")
-	t.Log("  影响: make([]int, 5, 10) 的 cap 错误")
+	t.Log("Issue #2: runtimeMake wrong capacity argument")
+	t.Log("  location: interpreter/builtin.go:125-126")
+	t.Log("  impact: make([]int, 5, 10) cap is wrong")
 	t.Log("")
-	t.Log("Bug #3: 缺少短路求值")
-	t.Log("  位置: interpreter/expr.go:370-381")
-	t.Log("  影响: nil 指针检查可能 panic")
+	t.Log("Issue #3: missing short-circuit evaluation")
+	t.Log("  location: interpreter/expr.go:370-381")
+	t.Log("  impact: nil pointer check may panic")
 	t.Log("")
-	t.Log("Bug #4: Map 索引不返回 'key 存在' 标志")
-	t.Log("  位置: interpreter/expr.go:249-255")
-	t.Log("  影响: 无法区分零值和不存在")
+	t.Log("Issue #4: Map index does not return 'key exists' flag")
+	t.Log("  location: interpreter/expr.go:249-255")
+	t.Log("  impact: cannot distinguish zero value from missing key")
 	t.Log("")
-	t.Log("Bug #5: 切片边界检查不完整")
-	t.Log("  位置: interpreter/expr.go:294-296")
-	t.Log("  影响: low > high 的情况未检查")
+	t.Log("Issue #5: incomplete slice bounds check")
+	t.Log("  location: interpreter/expr.go:294-296")
+	t.Log("  impact: low > high case not checked")
 	t.Log("")
-	t.Log("结论: Gig 在健壮性方面远优于 gofun")
+	t.Log("conclusion: Gig is far more robust than gofun")
 	t.Log("")
-	t.Log("========== gofun Bug 源码位置 ==========")
+	t.Log("========== gofun issue source locations ==========")
 	t.Log("")
-	t.Log("Bug #1 源码 (reference/faas/languages/golang/old/gofun/interpreter/expr.go:93-99):")
+	t.Log("Issue #1 source (reference/faas/languages/golang/old/gofun/interpreter/expr.go:93-99):")
 	t.Log(`  func (e *_BasicLit) prepare() Node {
       switch e.Kind {
       case token.INT:
           val, err = strconv.ParseInt(e.Value, 0, 64)
-          val = int(val.(int64))  // BUG: 强制转换为 int，丢失精度
+          val = int(val.(int64))  // ISSUE: forced cast to int, loses precision
       }
   }`)
 	t.Log("")
-	t.Log("Bug #2 源码 (reference/faas/languages/golang/old/gofun/interpreter/builtin.go:110-132):")
+	t.Log("Issue #2 source (reference/faas/languages/golang/old/gofun/interpreter/builtin.go:110-132):")
 	t.Log(`  func runtimeMake(t interface{}, args ...interface{}) interface{} {
       switch typ.Kind() {
       case reflect.Slice:
           capacity := length
           if len(args) == 2 {
-              capacity, isInt = args[0].(int)  // BUG: 应该是 args[1]
+              capacity, isInt = args[0].(int)  // ISSUE: should be args[1]
           }
       }
   }`)
 	t.Log("")
-	t.Log("Bug #3 源码 (reference/faas/languages/golang/old/gofun/interpreter/expr.go:370-381):")
+	t.Log("Issue #3 source (reference/faas/languages/golang/old/gofun/interpreter/expr.go:370-381):")
 	t.Log(`  func (e *_BinaryExpr) do(scope *Scope) (interface{}, error) {
-      x, err := scope.eval(e.X)  // 先求值左边
-      y, err := scope.eval(e.Y)  // 再求值右边 - 即使不需要！
+      x, err := scope.eval(e.X)  // evaluate left side first
+      y, err := scope.eval(e.Y)  // evaluate right side too - even when not needed!
       return ComputeBinaryOp(x, y, e.Op), nil
-      // BUG: 缺少短路求值逻辑
+      // ISSUE: missing short-circuit evaluation
   }`)
 	t.Log("")
-	t.Log("Bug #4 源码 (reference/faas/languages/golang/old/gofun/interpreter/expr.go:249-255):")
+	t.Log("Issue #4 source (reference/faas/languages/golang/old/gofun/interpreter/expr.go:249-255):")
 	t.Log(`  if reflect.TypeOf(X).Kind() == reflect.Map {
       val := xVal.MapIndex(reflect.ValueOf(i))
       if !val.IsValid() {
           return reflect.Zero(xVal.Type().Elem()).Interface(), nil
-          // BUG: 没有返回 bool 标志
+          // ISSUE: does not return bool flag
       }
   }`)
 	t.Log("")
-	t.Log("Bug #5 源码 (reference/faas/languages/golang/old/gofun/interpreter/expr.go:294-296):")
+	t.Log("Issue #5 source (reference/faas/languages/golang/old/gofun/interpreter/expr.go:294-296):")
 	t.Log(`  if lowVal < 0 || highVal > xVal.Len() {
       return nil, errors.New("slice: index out of bounds")
   }
-  // BUG: 缺少 lowVal > highVal 的检查`)
+  // ISSUE: missing lowVal > highVal check`)
 }
 
 // ----------------------------------------------------------------------------
@@ -654,7 +687,7 @@ func BenchmarkNative_ExternalCall_JSON(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var m map[string]interface{}
+		var m map[string]any
 		_ = json.Unmarshal(payload, &m)
 		_ = m["vip"] == "true"
 	}
@@ -914,41 +947,6 @@ func LongRunning() int {
 // Rule Engine uses Go's text/template engine (also compiled, but simpler).
 // ============================================================================
 
-// filterJSONField extracts a string field from a JSON byte slice.
-// This is the Go equivalent of the Rule Engine's filterJson operator.
-func filterJSONField(data []byte, field string) string {
-	var m map[string]interface{}
-	if err := json.Unmarshal(data, &m); err != nil {
-		return ""
-	}
-	if v, ok := m[field]; ok {
-		if s, ok := v.(string); ok {
-			return s
-		}
-	}
-	return ""
-}
-
-// init registers a custom "myops" package with a DirectCall wrapper for
-// filterJSONField — exactly imitating the Rule Engine's operator registration.
-func init() {
-	pkg := importer.RegisterPackage("git.woa.com/youngjin/gig/tests/myops", "myops")
-
-	// Register filterJSONField with a hand-written DirectCall wrapper.
-	// This wrapper is structurally identical to the generated wrappers in
-	// stdlib/packages/*.go — no reflect.Value, no reflect.Value.Call().
-	pkg.AddFunction("FilterJSON", filterJSONField, "FilterJSON extracts a field from JSON bytes",
-		func(args []value.Value) value.Value {
-			// args[0]: []byte  — extracted via .Interface().([]byte) (type assertion, no reflect.Call)
-			// args[1]: string  — extracted via .String() (no reflect)
-			a0 := args[0].Interface().([]byte)
-			a1 := args[1].String()
-			r0 := filterJSONField(a0, a1)
-			return value.MakeString(r0) // no reflect, just tagged-union construction
-		},
-	)
-}
-
 // BenchmarkNative_CustomOperator is the baseline: calling filterJSONField
 // directly in native Go — no interpreter, no template engine.
 func BenchmarkNative_CustomOperator(b *testing.B) {
@@ -1082,98 +1080,98 @@ func TestPerformanceComparison(t *testing.T) {
 }
 
 // ============================================================================
-// gofun Bug 验证测试（需要 -tags=gofun 运行）
+// gofun issue verification tests (requires -tags=gofun to run)
 // ============================================================================
 //
-// 运行方式：
+// Usage:
 //   go test -tags=gofun -v -run "TestGofun_Bug" ./tests/gofun_benchmark_test.go
 //
-// 注意：这些测试验证 gofun 的已知 bug，对比 Gig 的正确行为
+// Note: these tests verify gofun's known issues and compare against Gig's correct behavior
 //
 // ============================================================================
-// Bug #1: 整数字面量溢出
+// Case 1: integer literal overflow
 // ============================================================================
 //
-// gofun 源码位置: reference/faas/languages/golang/old/gofun/interpreter/expr.go:93-99
+// gofun source location: reference/faas/languages/golang/old/gofun/interpreter/expr.go:93-99
 //
-// 问题代码:
+// problem code:
 //   func (e *_BasicLit) prepare() Node {
 //       switch e.Kind {
 //       case token.INT:
 //           val, err = strconv.ParseInt(e.Value, 0, 64)
-//           val = int(val.(int64))  // BUG: 强制转换为 int，64位整数会溢出
+//           val = int(val.(int64))  // ISSUE: forced cast to int, 64-bit integer may overflow
 //       }
 //   }
 //
-// 影响: 任何大于 int32 范围的整数字面量都会溢出
-// 例如: 2147483648 (int32 max + 1) 在 32 位系统上会溢出
+// impact: any integer literal larger than int32 range will overflow
+// example: 2147483648 (int32 max + 1) overflows on 32-bit systems
 //
 // ============================================================================
-// Bug #2: runtimeMake 容量参数错误
+// Case 2: runtimeMake wrong capacity argument
 // ============================================================================
 //
-// gofun 源码位置: reference/faas/languages/golang/old/gofun/interpreter/builtin.go:110-132
+// gofun source location: reference/faas/languages/golang/old/gofun/interpreter/builtin.go:110-132
 //
-// 问题代码:
+// problem code:
 //   func runtimeMake(t interface{}, args ...interface{}) interface{} {
 //       switch typ.Kind() {
 //       case reflect.Slice:
 //           capacity := length
 //           if len(args) == 2 {
-//               capacity, isInt = args[0].(int)  // BUG: 应该是 args[1]
+//               capacity, isInt = args[0].(int)  // ISSUE: should be args[1]
 //           }
 //       }
 //   }
 //
-// 影响: make([]int, 5, 10) 的 capacity 会是 5 而不是 10
+// impact: make([]int, 5, 10) capacity will be 5 instead of 10
 //
 // ============================================================================
-// Bug #3: 缺少短路求值
+// Case 3: missing short-circuit evaluation
 // ============================================================================
 //
-// gofun 源码位置: reference/faas/languages/golang/old/gofun/interpreter/expr.go:370-381
+// gofun source location: reference/faas/languages/golang/old/gofun/interpreter/expr.go:370-381
 //
-// 问题代码:
+// problem code:
 //   func (e *_BinaryExpr) do(scope *Scope) (interface{}, error) {
-//       x, err := scope.eval(e.X)  // 先求值左边
-//       y, err := scope.eval(e.Y)  // 再求值右边 - 即使不需要！
+//       x, err := scope.eval(e.X)  // evaluate left side first
+//       y, err := scope.eval(e.Y)  // evaluate right side too - even when not needed!
 //       return ComputeBinaryOp(x, y, e.Op), nil
 //   }
 //
-// 影响:
-//   - if ptr != nil && *ptr > 0 { ... }  // 如果 ptr 是 nil，*ptr > 0 仍然会被求值，导致 panic
-//   - if false && panicFunc() { ... }    // panicFunc() 仍然会被调用
+// impact:
+//   - if ptr != nil && *ptr > 0 { ... }  // if ptr is nil, *ptr > 0 is still evaluated, causing panic
+//   - if false && panicFunc() { ... }    // panicFunc() is still called
 //
 // ============================================================================
-// Bug #4: Map 索引不返回 "key 存在" 标志
+// Case 4: Map index does not return "key exists" flag
 // ============================================================================
 //
-// gofun 源码位置: reference/faas/languages/golang/old/gofun/interpreter/expr.go:249-255
+// gofun source location: reference/faas/languages/golang/old/gofun/interpreter/expr.go:249-255
 //
-// 问题代码:
+// problem code:
 //   if reflect.TypeOf(X).Kind() == reflect.Map {
 //       val := xVal.MapIndex(reflect.ValueOf(i))
 //       if !val.IsValid() {
 //           return reflect.Zero(xVal.Type().Elem()).Interface(), nil
-//           // BUG: 没有返回 bool 标志，无法区分零值和不存在的 key
+//           // ISSUE: does not return bool flag, cannot distinguish zero value from missing key
 //       }
 //   }
 //
-// 影响: 无法区分 m["key"] 返回零值是因为 key 不存在还是因为值本身就是零值
+// impact: cannot distinguish whether m["key"] returned zero value because key is missing or value is zero
 //
 // ============================================================================
-// Bug #5: 切片边界检查不完整
+// Case 5: incomplete slice bounds check
 // ============================================================================
 //
-// gofun 源码位置: reference/faas/languages/golang/old/gofun/interpreter/expr.go:294-296
+// gofun source location: reference/faas/languages/golang/old/gofun/interpreter/expr.go:294-296
 //
-// 问题代码:
+// problem code:
 //   if lowVal < 0 || highVal > xVal.Len() {
 //       return nil, errors.New("slice: index out of bounds")
 //   }
-//   // BUG: 缺少 lowVal > highVal 的检查
+//   // ISSUE: missing lowVal > highVal check
 //
-// 影响: s[5:3] 在原生 Go 中会 panic，但 gofun 可能返回错误结果
+// impact: s[5:3] would panic in native Go, but gofun may return wrong result
 //
 // ============================================================================
 
