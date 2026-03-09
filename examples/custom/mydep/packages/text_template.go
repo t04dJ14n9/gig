@@ -2,8 +2,11 @@
 package packages
 
 import (
+	io "io"
+	io_fs "io/fs"
 	"reflect"
 	text_template "text/template"
+	text_template_parse "text/template/parse"
 
 	"github.com/t04dJ14n9/gig/importer"
 	"github.com/t04dJ14n9/gig/value"
@@ -13,16 +16,16 @@ func init() {
 	pkg := importer.RegisterPackage("text/template", "template")
 
 	// Functions
-	pkg.AddFunction("HTMLEscape", text_template.HTMLEscape, "", nil)
+	pkg.AddFunction("HTMLEscape", text_template.HTMLEscape, "", direct_text_template_HTMLEscape)
 	pkg.AddFunction("HTMLEscapeString", text_template.HTMLEscapeString, "", direct_text_template_HTMLEscapeString)
 	pkg.AddFunction("HTMLEscaper", text_template.HTMLEscaper, "", direct_text_template_HTMLEscaper)
 	pkg.AddFunction("IsTrue", text_template.IsTrue, "", direct_text_template_IsTrue)
-	pkg.AddFunction("JSEscape", text_template.JSEscape, "", nil)
+	pkg.AddFunction("JSEscape", text_template.JSEscape, "", direct_text_template_JSEscape)
 	pkg.AddFunction("JSEscapeString", text_template.JSEscapeString, "", direct_text_template_JSEscapeString)
 	pkg.AddFunction("JSEscaper", text_template.JSEscaper, "", direct_text_template_JSEscaper)
-	pkg.AddFunction("Must", text_template.Must, "", nil)
+	pkg.AddFunction("Must", text_template.Must, "", direct_text_template_Must)
 	pkg.AddFunction("New", text_template.New, "", direct_text_template_New)
-	pkg.AddFunction("ParseFS", text_template.ParseFS, "", nil)
+	pkg.AddFunction("ParseFS", text_template.ParseFS, "", direct_text_template_ParseFS)
 	pkg.AddFunction("ParseFiles", text_template.ParseFiles, "", direct_text_template_ParseFiles)
 	pkg.AddFunction("ParseGlob", text_template.ParseGlob, "", direct_text_template_ParseGlob)
 	pkg.AddFunction("URLQueryEscaper", text_template.URLQueryEscaper, "", direct_text_template_URLQueryEscaper)
@@ -32,6 +35,38 @@ func init() {
 	pkg.AddType("FuncMap", reflect.TypeOf((*text_template.FuncMap)(nil)).Elem(), "")
 	pkg.AddType("Template", reflect.TypeOf(text_template.Template{}), "")
 
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("ExecError", "Error", direct_method_text_template_ExecError_Error)
+	pkg.AddMethodDirectCall("ExecError", "Unwrap", direct_method_text_template_ExecError_Unwrap)
+	pkg.AddMethodDirectCall("Template", "AddParseTree", direct_method_text_template_Template_AddParseTree)
+	pkg.AddMethodDirectCall("Template", "Clone", direct_method_text_template_Template_Clone)
+	pkg.AddMethodDirectCall("Template", "DefinedTemplates", direct_method_text_template_Template_DefinedTemplates)
+	pkg.AddMethodDirectCall("Template", "Delims", direct_method_text_template_Template_Delims)
+	pkg.AddMethodDirectCall("Template", "Execute", direct_method_text_template_Template_Execute)
+	pkg.AddMethodDirectCall("Template", "ExecuteTemplate", direct_method_text_template_Template_ExecuteTemplate)
+	pkg.AddMethodDirectCall("Template", "Funcs", direct_method_text_template_Template_Funcs)
+	pkg.AddMethodDirectCall("Template", "Lookup", direct_method_text_template_Template_Lookup)
+	pkg.AddMethodDirectCall("Template", "Name", direct_method_text_template_Template_Name)
+	pkg.AddMethodDirectCall("Template", "New", direct_method_text_template_Template_New)
+	pkg.AddMethodDirectCall("Template", "Option", direct_method_text_template_Template_Option)
+	pkg.AddMethodDirectCall("Template", "Parse", direct_method_text_template_Template_Parse)
+	pkg.AddMethodDirectCall("Template", "ParseFS", direct_method_text_template_Template_ParseFS)
+	pkg.AddMethodDirectCall("Template", "ParseFiles", direct_method_text_template_Template_ParseFiles)
+	pkg.AddMethodDirectCall("Template", "ParseGlob", direct_method_text_template_Template_ParseGlob)
+	pkg.AddMethodDirectCall("Template", "Templates", direct_method_text_template_Template_Templates)
+
+}
+
+func direct_text_template_HTMLEscape(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Writer)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	text_template.HTMLEscape(a0, a1)
+	return value.MakeNil()
 }
 
 func direct_text_template_HTMLEscapeString(args []value.Value) value.Value {
@@ -50,7 +85,19 @@ func direct_text_template_HTMLEscaper(args []value.Value) value.Value {
 func direct_text_template_IsTrue(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := text_template.IsTrue(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBool(r0), value.MakeBool(r1)})
+}
+
+func direct_text_template_JSEscape(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io.Writer)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	text_template.JSEscape(a0, a1)
+	return value.MakeNil()
 }
 
 func direct_text_template_JSEscapeString(args []value.Value) value.Value {
@@ -66,9 +113,25 @@ func direct_text_template_JSEscaper(args []value.Value) value.Value {
 	return value.MakeString(string(text_template.JSEscaper(varArgs...)))
 }
 
+func direct_text_template_Must(args []value.Value) value.Value {
+	a0 := args[0].Interface().(*text_template.Template)
+	a1 := args[1].Interface().(error)
+	return value.FromInterface(text_template.Must(a0, a1))
+}
+
 func direct_text_template_New(args []value.Value) value.Value {
 	a0 := args[0].String()
 	return value.FromInterface(text_template.New(a0))
+}
+
+func direct_text_template_ParseFS(args []value.Value) value.Value {
+	a0 := args[0].Interface().(io_fs.FS)
+	varArgs := make([]string, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].String()
+	}
+	r0, r1 := text_template.ParseFS(a0, varArgs...)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_text_template_ParseFiles(args []value.Value) value.Value {
@@ -77,13 +140,13 @@ func direct_text_template_ParseFiles(args []value.Value) value.Value {
 		varArgs[i-0] = args[i].String()
 	}
 	r0, r1 := text_template.ParseFiles(varArgs...)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_text_template_ParseGlob(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := text_template.ParseGlob(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_text_template_URLQueryEscaper(args []value.Value) value.Value {
@@ -92,4 +155,127 @@ func direct_text_template_URLQueryEscaper(args []value.Value) value.Value {
 		varArgs[i-0] = args[i].Interface()
 	}
 	return value.MakeString(string(text_template.URLQueryEscaper(varArgs...)))
+}
+
+func direct_method_text_template_ExecError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(text_template.ExecError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_text_template_ExecError_Unwrap(args []value.Value) value.Value {
+	recv := args[0].Interface().(text_template.ExecError)
+	return value.FromInterface(recv.Unwrap())
+}
+
+func direct_method_text_template_Template_AddParseTree(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	a0 := args[1].String()
+	a1 := args[2].Interface().(*text_template_parse.Tree)
+	r0, r1 := recv.AddParseTree(a0, a1)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_text_template_Template_Clone(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	r0, r1 := recv.Clone()
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_text_template_Template_DefinedTemplates(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	return value.MakeString(string(recv.DefinedTemplates()))
+}
+
+func direct_method_text_template_Template_Delims(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	return value.FromInterface(recv.Delims(a0, a1))
+}
+
+func direct_method_text_template_Template_Execute(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	a0 := args[1].Interface().(io.Writer)
+	a1 := args[2].Interface()
+	return value.FromInterface(recv.Execute(a0, a1))
+}
+
+func direct_method_text_template_Template_ExecuteTemplate(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	a0 := args[1].Interface().(io.Writer)
+	a1 := args[2].String()
+	a2 := args[3].Interface()
+	return value.FromInterface(recv.ExecuteTemplate(a0, a1, a2))
+}
+
+func direct_method_text_template_Template_Funcs(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	a0 := args[1].Interface().(text_template.FuncMap)
+	return value.FromInterface(recv.Funcs(a0))
+}
+
+func direct_method_text_template_Template_Lookup(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	a0 := args[1].String()
+	return value.FromInterface(recv.Lookup(a0))
+}
+
+func direct_method_text_template_Template_Name(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	return value.MakeString(string(recv.Name()))
+}
+
+func direct_method_text_template_Template_New(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	a0 := args[1].String()
+	return value.FromInterface(recv.New(a0))
+}
+
+func direct_method_text_template_Template_Option(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	varArgs := make([]string, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].String()
+	}
+	return value.FromInterface(recv.Option(varArgs...))
+}
+
+func direct_method_text_template_Template_Parse(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	a0 := args[1].String()
+	r0, r1 := recv.Parse(a0)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_text_template_Template_ParseFS(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	a0 := args[1].Interface().(io_fs.FS)
+	varArgs := make([]string, len(args)-2)
+	for i := 2; i < len(args); i++ {
+		varArgs[i-2] = args[i].String()
+	}
+	r0, r1 := recv.ParseFS(a0, varArgs...)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_text_template_Template_ParseFiles(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	varArgs := make([]string, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		varArgs[i-1] = args[i].String()
+	}
+	r0, r1 := recv.ParseFiles(varArgs...)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_text_template_Template_ParseGlob(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	a0 := args[1].String()
+	r0, r1 := recv.ParseGlob(a0)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_text_template_Template_Templates(args []value.Value) value.Value {
+	recv := args[0].Interface().(*text_template.Template)
+	return value.FromInterface(recv.Templates())
 }

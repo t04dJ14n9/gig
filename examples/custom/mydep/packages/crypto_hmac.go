@@ -3,6 +3,7 @@ package packages
 
 import (
 	crypto_hmac "crypto/hmac"
+	hash "hash"
 
 	"github.com/t04dJ14n9/gig/importer"
 	"github.com/t04dJ14n9/gig/value"
@@ -13,12 +14,33 @@ func init() {
 
 	// Functions
 	pkg.AddFunction("Equal", crypto_hmac.Equal, "", direct_crypto_hmac_Equal)
-	pkg.AddFunction("New", crypto_hmac.New, "", nil)
+	pkg.AddFunction("New", crypto_hmac.New, "", direct_crypto_hmac_New)
 
 }
 
 func direct_crypto_hmac_Equal(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
-	a1 := args[1].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		return (args[0]).Interface().([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
 	return value.MakeBool(crypto_hmac.Equal(a0, a1))
+}
+
+func direct_crypto_hmac_New(args []value.Value) value.Value {
+	a0 := args[0].Interface().(func() hash.Hash)
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	return value.FromInterface(crypto_hmac.New(a0, a1))
 }

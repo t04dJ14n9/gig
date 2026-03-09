@@ -102,7 +102,10 @@ func init() {
 	pkg.AddMethodDirectCall("Uintptr", "Or", direct_method_sync_atomic_Uintptr_Or)
 	pkg.AddMethodDirectCall("Uintptr", "Store", direct_method_sync_atomic_Uintptr_Store)
 	pkg.AddMethodDirectCall("Uintptr", "Swap", direct_method_sync_atomic_Uintptr_Swap)
+	pkg.AddMethodDirectCall("Value", "CompareAndSwap", direct_method_sync_atomic_Value_CompareAndSwap)
 	pkg.AddMethodDirectCall("Value", "Load", direct_method_sync_atomic_Value_Load)
+	pkg.AddMethodDirectCall("Value", "Store", direct_method_sync_atomic_Value_Store)
+	pkg.AddMethodDirectCall("Value", "Swap", direct_method_sync_atomic_Value_Swap)
 
 }
 
@@ -561,7 +564,27 @@ func direct_method_sync_atomic_Uintptr_Swap(args []value.Value) value.Value {
 	return value.MakeUint(uint64(recv.Swap(a0)))
 }
 
+func direct_method_sync_atomic_Value_CompareAndSwap(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync_atomic.Value)
+	a0 := args[1].Interface()
+	a1 := args[2].Interface()
+	return value.MakeBool(recv.CompareAndSwap(a0, a1))
+}
+
 func direct_method_sync_atomic_Value_Load(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync_atomic.Value)
 	return value.FromInterface(recv.Load())
+}
+
+func direct_method_sync_atomic_Value_Store(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync_atomic.Value)
+	a0 := args[1].Interface()
+	recv.Store(a0)
+	return value.MakeNil()
+}
+
+func direct_method_sync_atomic_Value_Swap(args []value.Value) value.Value {
+	recv := args[0].Interface().(*sync_atomic.Value)
+	a0 := args[1].Interface()
+	return value.FromInterface(recv.Swap(a0))
 }

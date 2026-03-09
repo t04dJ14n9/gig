@@ -2,8 +2,11 @@
 package packages
 
 import (
+	io "io"
+	io_fs "io/fs"
 	"os"
 	"reflect"
+	time "time"
 
 	"github.com/t04dJ14n9/gig/importer"
 	"github.com/t04dJ14n9/gig/value"
@@ -14,17 +17,18 @@ func init() {
 
 	// Functions
 	pkg.AddFunction("Chdir", os.Chdir, "", direct_os_Chdir)
-	pkg.AddFunction("Chmod", os.Chmod, "", nil)
+	pkg.AddFunction("Chmod", os.Chmod, "", direct_os_Chmod)
 	pkg.AddFunction("Chown", os.Chown, "", direct_os_Chown)
-	pkg.AddFunction("Chtimes", os.Chtimes, "", nil)
+	pkg.AddFunction("Chtimes", os.Chtimes, "", direct_os_Chtimes)
 	pkg.AddFunction("Clearenv", os.Clearenv, "", direct_os_Clearenv)
+	pkg.AddFunction("CopyFS", os.CopyFS, "", direct_os_CopyFS)
 	pkg.AddFunction("Create", os.Create, "", direct_os_Create)
 	pkg.AddFunction("CreateTemp", os.CreateTemp, "", direct_os_CreateTemp)
 	pkg.AddFunction("DirFS", os.DirFS, "", direct_os_DirFS)
 	pkg.AddFunction("Environ", os.Environ, "", direct_os_Environ)
 	pkg.AddFunction("Executable", os.Executable, "", direct_os_Executable)
 	pkg.AddFunction("Exit", os.Exit, "", direct_os_Exit)
-	pkg.AddFunction("Expand", os.Expand, "", nil)
+	pkg.AddFunction("Expand", os.Expand, "", direct_os_Expand)
 	pkg.AddFunction("ExpandEnv", os.ExpandEnv, "", direct_os_ExpandEnv)
 	pkg.AddFunction("FindProcess", os.FindProcess, "", direct_os_FindProcess)
 	pkg.AddFunction("Getegid", os.Getegid, "", direct_os_Getegid)
@@ -47,13 +51,15 @@ func init() {
 	pkg.AddFunction("Link", os.Link, "", direct_os_Link)
 	pkg.AddFunction("LookupEnv", os.LookupEnv, "", direct_os_LookupEnv)
 	pkg.AddFunction("Lstat", os.Lstat, "", direct_os_Lstat)
-	pkg.AddFunction("Mkdir", os.Mkdir, "", nil)
-	pkg.AddFunction("MkdirAll", os.MkdirAll, "", nil)
+	pkg.AddFunction("Mkdir", os.Mkdir, "", direct_os_Mkdir)
+	pkg.AddFunction("MkdirAll", os.MkdirAll, "", direct_os_MkdirAll)
 	pkg.AddFunction("MkdirTemp", os.MkdirTemp, "", direct_os_MkdirTemp)
 	pkg.AddFunction("NewFile", os.NewFile, "", direct_os_NewFile)
 	pkg.AddFunction("NewSyscallError", os.NewSyscallError, "", direct_os_NewSyscallError)
 	pkg.AddFunction("Open", os.Open, "", direct_os_Open)
-	pkg.AddFunction("OpenFile", os.OpenFile, "", nil)
+	pkg.AddFunction("OpenFile", os.OpenFile, "", direct_os_OpenFile)
+	pkg.AddFunction("OpenInRoot", os.OpenInRoot, "", direct_os_OpenInRoot)
+	pkg.AddFunction("OpenRoot", os.OpenRoot, "", direct_os_OpenRoot)
 	pkg.AddFunction("Pipe", os.Pipe, "", direct_os_Pipe)
 	pkg.AddFunction("ReadDir", os.ReadDir, "", direct_os_ReadDir)
 	pkg.AddFunction("ReadFile", os.ReadFile, "", direct_os_ReadFile)
@@ -61,9 +67,9 @@ func init() {
 	pkg.AddFunction("Remove", os.Remove, "", direct_os_Remove)
 	pkg.AddFunction("RemoveAll", os.RemoveAll, "", direct_os_RemoveAll)
 	pkg.AddFunction("Rename", os.Rename, "", direct_os_Rename)
-	pkg.AddFunction("SameFile", os.SameFile, "", nil)
+	pkg.AddFunction("SameFile", os.SameFile, "", direct_os_SameFile)
 	pkg.AddFunction("Setenv", os.Setenv, "", direct_os_Setenv)
-	pkg.AddFunction("StartProcess", os.StartProcess, "", nil)
+	pkg.AddFunction("StartProcess", os.StartProcess, "", direct_os_StartProcess)
 	pkg.AddFunction("Stat", os.Stat, "", direct_os_Stat)
 	pkg.AddFunction("Symlink", os.Symlink, "", direct_os_Symlink)
 	pkg.AddFunction("TempDir", os.TempDir, "", direct_os_TempDir)
@@ -72,7 +78,7 @@ func init() {
 	pkg.AddFunction("UserCacheDir", os.UserCacheDir, "", direct_os_UserCacheDir)
 	pkg.AddFunction("UserConfigDir", os.UserConfigDir, "", direct_os_UserConfigDir)
 	pkg.AddFunction("UserHomeDir", os.UserHomeDir, "", direct_os_UserHomeDir)
-	pkg.AddFunction("WriteFile", os.WriteFile, "", nil)
+	pkg.AddFunction("WriteFile", os.WriteFile, "", direct_os_WriteFile)
 
 	// Constants
 	pkg.AddConstant("DevNull", os.DevNull, "")
@@ -127,14 +133,88 @@ func init() {
 	pkg.AddType("ProcAttr", reflect.TypeOf(os.ProcAttr{}), "")
 	pkg.AddType("Process", reflect.TypeOf(os.Process{}), "")
 	pkg.AddType("ProcessState", reflect.TypeOf(os.ProcessState{}), "")
+	pkg.AddType("Root", reflect.TypeOf(os.Root{}), "")
 	pkg.AddType("Signal", reflect.TypeOf((*os.Signal)(nil)).Elem(), "")
 	pkg.AddType("SyscallError", reflect.TypeOf(os.SyscallError{}), "")
+
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("File", "Chdir", direct_method_os_File_Chdir)
+	pkg.AddMethodDirectCall("File", "Chmod", direct_method_os_File_Chmod)
+	pkg.AddMethodDirectCall("File", "Chown", direct_method_os_File_Chown)
+	pkg.AddMethodDirectCall("File", "Close", direct_method_os_File_Close)
+	pkg.AddMethodDirectCall("File", "Fd", direct_method_os_File_Fd)
+	pkg.AddMethodDirectCall("File", "Name", direct_method_os_File_Name)
+	pkg.AddMethodDirectCall("File", "Read", direct_method_os_File_Read)
+	pkg.AddMethodDirectCall("File", "ReadAt", direct_method_os_File_ReadAt)
+	pkg.AddMethodDirectCall("File", "ReadDir", direct_method_os_File_ReadDir)
+	pkg.AddMethodDirectCall("File", "ReadFrom", direct_method_os_File_ReadFrom)
+	pkg.AddMethodDirectCall("File", "Readdir", direct_method_os_File_Readdir)
+	pkg.AddMethodDirectCall("File", "Readdirnames", direct_method_os_File_Readdirnames)
+	pkg.AddMethodDirectCall("File", "Seek", direct_method_os_File_Seek)
+	pkg.AddMethodDirectCall("File", "SetDeadline", direct_method_os_File_SetDeadline)
+	pkg.AddMethodDirectCall("File", "SetReadDeadline", direct_method_os_File_SetReadDeadline)
+	pkg.AddMethodDirectCall("File", "SetWriteDeadline", direct_method_os_File_SetWriteDeadline)
+	pkg.AddMethodDirectCall("File", "Stat", direct_method_os_File_Stat)
+	pkg.AddMethodDirectCall("File", "Sync", direct_method_os_File_Sync)
+	pkg.AddMethodDirectCall("File", "SyscallConn", direct_method_os_File_SyscallConn)
+	pkg.AddMethodDirectCall("File", "Truncate", direct_method_os_File_Truncate)
+	pkg.AddMethodDirectCall("File", "Write", direct_method_os_File_Write)
+	pkg.AddMethodDirectCall("File", "WriteAt", direct_method_os_File_WriteAt)
+	pkg.AddMethodDirectCall("File", "WriteString", direct_method_os_File_WriteString)
+	pkg.AddMethodDirectCall("File", "WriteTo", direct_method_os_File_WriteTo)
+	pkg.AddMethodDirectCall("LinkError", "Error", direct_method_os_LinkError_Error)
+	pkg.AddMethodDirectCall("LinkError", "Unwrap", direct_method_os_LinkError_Unwrap)
+	pkg.AddMethodDirectCall("Process", "Kill", direct_method_os_Process_Kill)
+	pkg.AddMethodDirectCall("Process", "Release", direct_method_os_Process_Release)
+	pkg.AddMethodDirectCall("Process", "Signal", direct_method_os_Process_Signal)
+	pkg.AddMethodDirectCall("Process", "Wait", direct_method_os_Process_Wait)
+	pkg.AddMethodDirectCall("ProcessState", "ExitCode", direct_method_os_ProcessState_ExitCode)
+	pkg.AddMethodDirectCall("ProcessState", "Exited", direct_method_os_ProcessState_Exited)
+	pkg.AddMethodDirectCall("ProcessState", "Pid", direct_method_os_ProcessState_Pid)
+	pkg.AddMethodDirectCall("ProcessState", "String", direct_method_os_ProcessState_String)
+	pkg.AddMethodDirectCall("ProcessState", "Success", direct_method_os_ProcessState_Success)
+	pkg.AddMethodDirectCall("ProcessState", "Sys", direct_method_os_ProcessState_Sys)
+	pkg.AddMethodDirectCall("ProcessState", "SysUsage", direct_method_os_ProcessState_SysUsage)
+	pkg.AddMethodDirectCall("ProcessState", "SystemTime", direct_method_os_ProcessState_SystemTime)
+	pkg.AddMethodDirectCall("ProcessState", "UserTime", direct_method_os_ProcessState_UserTime)
+	pkg.AddMethodDirectCall("Root", "Chmod", direct_method_os_Root_Chmod)
+	pkg.AddMethodDirectCall("Root", "Chown", direct_method_os_Root_Chown)
+	pkg.AddMethodDirectCall("Root", "Chtimes", direct_method_os_Root_Chtimes)
+	pkg.AddMethodDirectCall("Root", "Close", direct_method_os_Root_Close)
+	pkg.AddMethodDirectCall("Root", "Create", direct_method_os_Root_Create)
+	pkg.AddMethodDirectCall("Root", "FS", direct_method_os_Root_FS)
+	pkg.AddMethodDirectCall("Root", "Lchown", direct_method_os_Root_Lchown)
+	pkg.AddMethodDirectCall("Root", "Link", direct_method_os_Root_Link)
+	pkg.AddMethodDirectCall("Root", "Lstat", direct_method_os_Root_Lstat)
+	pkg.AddMethodDirectCall("Root", "Mkdir", direct_method_os_Root_Mkdir)
+	pkg.AddMethodDirectCall("Root", "MkdirAll", direct_method_os_Root_MkdirAll)
+	pkg.AddMethodDirectCall("Root", "Name", direct_method_os_Root_Name)
+	pkg.AddMethodDirectCall("Root", "Open", direct_method_os_Root_Open)
+	pkg.AddMethodDirectCall("Root", "OpenFile", direct_method_os_Root_OpenFile)
+	pkg.AddMethodDirectCall("Root", "OpenRoot", direct_method_os_Root_OpenRoot)
+	pkg.AddMethodDirectCall("Root", "ReadFile", direct_method_os_Root_ReadFile)
+	pkg.AddMethodDirectCall("Root", "Readlink", direct_method_os_Root_Readlink)
+	pkg.AddMethodDirectCall("Root", "Remove", direct_method_os_Root_Remove)
+	pkg.AddMethodDirectCall("Root", "RemoveAll", direct_method_os_Root_RemoveAll)
+	pkg.AddMethodDirectCall("Root", "Rename", direct_method_os_Root_Rename)
+	pkg.AddMethodDirectCall("Root", "Stat", direct_method_os_Root_Stat)
+	pkg.AddMethodDirectCall("Root", "Symlink", direct_method_os_Root_Symlink)
+	pkg.AddMethodDirectCall("Root", "WriteFile", direct_method_os_Root_WriteFile)
+	pkg.AddMethodDirectCall("SyscallError", "Error", direct_method_os_SyscallError_Error)
+	pkg.AddMethodDirectCall("SyscallError", "Timeout", direct_method_os_SyscallError_Timeout)
+	pkg.AddMethodDirectCall("SyscallError", "Unwrap", direct_method_os_SyscallError_Unwrap)
 
 }
 
 func direct_os_Chdir(args []value.Value) value.Value {
 	a0 := args[0].String()
 	return value.FromInterface(os.Chdir(a0))
+}
+
+func direct_os_Chmod(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := os.FileMode(uint32(args[1].Uint()))
+	return value.FromInterface(os.Chmod(a0, a1))
 }
 
 func direct_os_Chown(args []value.Value) value.Value {
@@ -144,22 +224,35 @@ func direct_os_Chown(args []value.Value) value.Value {
 	return value.FromInterface(os.Chown(a0, a1, a2))
 }
 
+func direct_os_Chtimes(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].Interface().(time.Time)
+	a2 := args[2].Interface().(time.Time)
+	return value.FromInterface(os.Chtimes(a0, a1, a2))
+}
+
 func direct_os_Clearenv(args []value.Value) value.Value {
 	os.Clearenv()
 	return value.MakeNil()
 }
 
+func direct_os_CopyFS(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].Interface().(io_fs.FS)
+	return value.FromInterface(os.CopyFS(a0, a1))
+}
+
 func direct_os_Create(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := os.Create(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_os_CreateTemp(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
 	r0, r1 := os.CreateTemp(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_os_DirFS(args []value.Value) value.Value {
@@ -173,13 +266,19 @@ func direct_os_Environ(args []value.Value) value.Value {
 
 func direct_os_Executable(args []value.Value) value.Value {
 	r0, r1 := os.Executable()
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
 }
 
 func direct_os_Exit(args []value.Value) value.Value {
 	a0 := int(args[0].Int())
 	os.Exit(a0)
 	return value.MakeNil()
+}
+
+func direct_os_Expand(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].Interface().(func(string) string)
+	return value.MakeString(string(os.Expand(a0, a1)))
 }
 
 func direct_os_ExpandEnv(args []value.Value) value.Value {
@@ -190,7 +289,7 @@ func direct_os_ExpandEnv(args []value.Value) value.Value {
 func direct_os_FindProcess(args []value.Value) value.Value {
 	a0 := int(args[0].Int())
 	r0, r1 := os.FindProcess(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_os_Getegid(args []value.Value) value.Value {
@@ -212,7 +311,7 @@ func direct_os_Getgid(args []value.Value) value.Value {
 
 func direct_os_Getgroups(args []value.Value) value.Value {
 	r0, r1 := os.Getgroups()
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_os_Getpagesize(args []value.Value) value.Value {
@@ -233,12 +332,12 @@ func direct_os_Getuid(args []value.Value) value.Value {
 
 func direct_os_Getwd(args []value.Value) value.Value {
 	r0, r1 := os.Getwd()
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
 }
 
 func direct_os_Hostname(args []value.Value) value.Value {
 	r0, r1 := os.Hostname()
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
 }
 
 func direct_os_IsExist(args []value.Value) value.Value {
@@ -282,20 +381,32 @@ func direct_os_Link(args []value.Value) value.Value {
 func direct_os_LookupEnv(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := os.LookupEnv(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.MakeBool(r1)})
 }
 
 func direct_os_Lstat(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := os.Lstat(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_os_Mkdir(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := os.FileMode(uint32(args[1].Uint()))
+	return value.FromInterface(os.Mkdir(a0, a1))
+}
+
+func direct_os_MkdirAll(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := os.FileMode(uint32(args[1].Uint()))
+	return value.FromInterface(os.MkdirAll(a0, a1))
 }
 
 func direct_os_MkdirTemp(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
 	r0, r1 := os.MkdirTemp(a0, a1)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
 }
 
 func direct_os_NewFile(args []value.Value) value.Value {
@@ -313,30 +424,51 @@ func direct_os_NewSyscallError(args []value.Value) value.Value {
 func direct_os_Open(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := os.Open(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_os_OpenFile(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := int(args[1].Int())
+	a2 := os.FileMode(uint32(args[2].Uint()))
+	r0, r1 := os.OpenFile(a0, a1, a2)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_os_OpenInRoot(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].String()
+	r0, r1 := os.OpenInRoot(a0, a1)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_os_OpenRoot(args []value.Value) value.Value {
+	a0 := args[0].String()
+	r0, r1 := os.OpenRoot(a0)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_os_Pipe(args []value.Value) value.Value {
 	r0, r1, r2 := os.Pipe()
-	return value.FromInterface([]interface{}{r0, r1, r2})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1), value.FromInterface(r2)})
 }
 
 func direct_os_ReadDir(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := os.ReadDir(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_os_ReadFile(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := os.ReadFile(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
 }
 
 func direct_os_Readlink(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := os.Readlink(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
 }
 
 func direct_os_Remove(args []value.Value) value.Value {
@@ -355,16 +487,30 @@ func direct_os_Rename(args []value.Value) value.Value {
 	return value.FromInterface(os.Rename(a0, a1))
 }
 
+func direct_os_SameFile(args []value.Value) value.Value {
+	a0 := args[0].Interface().(os.FileInfo)
+	a1 := args[1].Interface().(os.FileInfo)
+	return value.MakeBool(os.SameFile(a0, a1))
+}
+
 func direct_os_Setenv(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
 	return value.FromInterface(os.Setenv(a0, a1))
 }
 
+func direct_os_StartProcess(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].Interface().([]string)
+	a2 := args[2].Interface().(*os.ProcAttr)
+	r0, r1 := os.StartProcess(a0, a1, a2)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
 func direct_os_Stat(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := os.Stat(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_os_Symlink(args []value.Value) value.Value {
@@ -390,15 +536,457 @@ func direct_os_Unsetenv(args []value.Value) value.Value {
 
 func direct_os_UserCacheDir(args []value.Value) value.Value {
 	r0, r1 := os.UserCacheDir()
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
 }
 
 func direct_os_UserConfigDir(args []value.Value) value.Value {
 	r0, r1 := os.UserConfigDir()
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
 }
 
 func direct_os_UserHomeDir(args []value.Value) value.Value {
 	r0, r1 := os.UserHomeDir()
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
+}
+
+func direct_os_WriteFile(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	a2 := os.FileMode(uint32(args[2].Uint()))
+	return value.FromInterface(os.WriteFile(a0, a1, a2))
+}
+
+func direct_method_os_File_Chdir(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	return value.FromInterface(recv.Chdir())
+}
+
+func direct_method_os_File_Chmod(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := os.FileMode(uint32(args[1].Uint()))
+	return value.FromInterface(recv.Chmod(a0))
+}
+
+func direct_method_os_File_Chown(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := int(args[1].Int())
+	a1 := int(args[2].Int())
+	return value.FromInterface(recv.Chown(a0, a1))
+}
+
+func direct_method_os_File_Close(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	return value.FromInterface(recv.Close())
+}
+
+func direct_method_os_File_Fd(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	return value.MakeUint(uint64(recv.Fd()))
+}
+
+func direct_method_os_File_Name(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	return value.MakeString(string(recv.Name()))
+}
+
+func direct_method_os_File_Read(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	r0, r1 := recv.Read(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_os_File_ReadAt(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	a1 := args[2].Int()
+	r0, r1 := recv.ReadAt(a0, a1)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_os_File_ReadDir(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := int(args[1].Int())
+	r0, r1 := recv.ReadDir(a0)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_os_File_ReadFrom(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := args[1].Interface().(io.Reader)
+	r0, r1 := recv.ReadFrom(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_os_File_Readdir(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := int(args[1].Int())
+	r0, r1 := recv.Readdir(a0)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_os_File_Readdirnames(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := int(args[1].Int())
+	r0, r1 := recv.Readdirnames(a0)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_os_File_Seek(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := args[1].Int()
+	a1 := int(args[2].Int())
+	r0, r1 := recv.Seek(a0, a1)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_os_File_SetDeadline(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := args[1].Interface().(time.Time)
+	return value.FromInterface(recv.SetDeadline(a0))
+}
+
+func direct_method_os_File_SetReadDeadline(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := args[1].Interface().(time.Time)
+	return value.FromInterface(recv.SetReadDeadline(a0))
+}
+
+func direct_method_os_File_SetWriteDeadline(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := args[1].Interface().(time.Time)
+	return value.FromInterface(recv.SetWriteDeadline(a0))
+}
+
+func direct_method_os_File_Stat(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	r0, r1 := recv.Stat()
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_os_File_Sync(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	return value.FromInterface(recv.Sync())
+}
+
+func direct_method_os_File_SyscallConn(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	r0, r1 := recv.SyscallConn()
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_os_File_Truncate(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := args[1].Int()
+	return value.FromInterface(recv.Truncate(a0))
+}
+
+func direct_method_os_File_Write(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	r0, r1 := recv.Write(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_os_File_WriteAt(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		return (args[1]).Interface().([]byte)
+	}()
+	a1 := args[2].Int()
+	r0, r1 := recv.WriteAt(a0, a1)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_os_File_WriteString(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := args[1].String()
+	r0, r1 := recv.WriteString(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_os_File_WriteTo(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.File)
+	a0 := args[1].Interface().(io.Writer)
+	r0, r1 := recv.WriteTo(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_os_LinkError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.LinkError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_os_LinkError_Unwrap(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.LinkError)
+	return value.FromInterface(recv.Unwrap())
+}
+
+func direct_method_os_Process_Kill(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Process)
+	return value.FromInterface(recv.Kill())
+}
+
+func direct_method_os_Process_Release(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Process)
+	return value.FromInterface(recv.Release())
+}
+
+func direct_method_os_Process_Signal(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Process)
+	a0 := args[1].Interface().(os.Signal)
+	return value.FromInterface(recv.Signal(a0))
+}
+
+func direct_method_os_Process_Wait(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Process)
+	r0, r1 := recv.Wait()
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_os_ProcessState_ExitCode(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.ProcessState)
+	return value.MakeInt(int64(recv.ExitCode()))
+}
+
+func direct_method_os_ProcessState_Exited(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.ProcessState)
+	return value.MakeBool(recv.Exited())
+}
+
+func direct_method_os_ProcessState_Pid(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.ProcessState)
+	return value.MakeInt(int64(recv.Pid()))
+}
+
+func direct_method_os_ProcessState_String(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.ProcessState)
+	return value.MakeString(string(recv.String()))
+}
+
+func direct_method_os_ProcessState_Success(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.ProcessState)
+	return value.MakeBool(recv.Success())
+}
+
+func direct_method_os_ProcessState_Sys(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.ProcessState)
+	return value.FromInterface(recv.Sys())
+}
+
+func direct_method_os_ProcessState_SysUsage(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.ProcessState)
+	return value.FromInterface(recv.SysUsage())
+}
+
+func direct_method_os_ProcessState_SystemTime(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.ProcessState)
+	return value.MakeInt(int64(int64(recv.SystemTime())))
+}
+
+func direct_method_os_ProcessState_UserTime(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.ProcessState)
+	return value.MakeInt(int64(int64(recv.UserTime())))
+}
+
+func direct_method_os_Root_Chmod(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	a1 := os.FileMode(uint32(args[2].Uint()))
+	return value.FromInterface(recv.Chmod(a0, a1))
+}
+
+func direct_method_os_Root_Chown(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	a1 := int(args[2].Int())
+	a2 := int(args[3].Int())
+	return value.FromInterface(recv.Chown(a0, a1, a2))
+}
+
+func direct_method_os_Root_Chtimes(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	a1 := args[2].Interface().(time.Time)
+	a2 := args[3].Interface().(time.Time)
+	return value.FromInterface(recv.Chtimes(a0, a1, a2))
+}
+
+func direct_method_os_Root_Close(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	return value.FromInterface(recv.Close())
+}
+
+func direct_method_os_Root_Create(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	r0, r1 := recv.Create(a0)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_os_Root_FS(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	return value.FromInterface(recv.FS())
+}
+
+func direct_method_os_Root_Lchown(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	a1 := int(args[2].Int())
+	a2 := int(args[3].Int())
+	return value.FromInterface(recv.Lchown(a0, a1, a2))
+}
+
+func direct_method_os_Root_Link(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	return value.FromInterface(recv.Link(a0, a1))
+}
+
+func direct_method_os_Root_Lstat(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	r0, r1 := recv.Lstat(a0)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_os_Root_Mkdir(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	a1 := os.FileMode(uint32(args[2].Uint()))
+	return value.FromInterface(recv.Mkdir(a0, a1))
+}
+
+func direct_method_os_Root_MkdirAll(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	a1 := os.FileMode(uint32(args[2].Uint()))
+	return value.FromInterface(recv.MkdirAll(a0, a1))
+}
+
+func direct_method_os_Root_Name(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	return value.MakeString(string(recv.Name()))
+}
+
+func direct_method_os_Root_Open(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	r0, r1 := recv.Open(a0)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_os_Root_OpenFile(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	a1 := int(args[2].Int())
+	a2 := os.FileMode(uint32(args[3].Uint()))
+	r0, r1 := recv.OpenFile(a0, a1, a2)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_os_Root_OpenRoot(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	r0, r1 := recv.OpenRoot(a0)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_os_Root_ReadFile(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	r0, r1 := recv.ReadFile(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_os_Root_Readlink(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	r0, r1 := recv.Readlink(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_os_Root_Remove(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	return value.FromInterface(recv.Remove(a0))
+}
+
+func direct_method_os_Root_RemoveAll(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	return value.FromInterface(recv.RemoveAll(a0))
+}
+
+func direct_method_os_Root_Rename(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	return value.FromInterface(recv.Rename(a0, a1))
+}
+
+func direct_method_os_Root_Stat(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	r0, r1 := recv.Stat(a0)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_method_os_Root_Symlink(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	a1 := args[2].String()
+	return value.FromInterface(recv.Symlink(a0, a1))
+}
+
+func direct_method_os_Root_WriteFile(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.Root)
+	a0 := args[1].String()
+	a1 := func() []byte {
+		if b, ok := (args[2]).Bytes(); ok {
+			return b
+		}
+		return (args[2]).Interface().([]byte)
+	}()
+	a2 := os.FileMode(uint32(args[3].Uint()))
+	return value.FromInterface(recv.WriteFile(a0, a1, a2))
+}
+
+func direct_method_os_SyscallError_Error(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.SyscallError)
+	return value.MakeString(string(recv.Error()))
+}
+
+func direct_method_os_SyscallError_Timeout(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.SyscallError)
+	return value.MakeBool(recv.Timeout())
+}
+
+func direct_method_os_SyscallError_Unwrap(args []value.Value) value.Value {
+	recv := args[0].Interface().(*os.SyscallError)
+	return value.FromInterface(recv.Unwrap())
 }

@@ -16,7 +16,7 @@ func init() {
 	pkg.AddFunction("Fix", container_heap.Fix, "", direct_container_heap_Fix)
 	pkg.AddFunction("Init", container_heap.Init, "", direct_container_heap_Init)
 	pkg.AddFunction("Pop", container_heap.Pop, "", direct_container_heap_Pop)
-	pkg.AddFunction("Push", container_heap.Push, "", nil)
+	pkg.AddFunction("Push", container_heap.Push, "", direct_container_heap_Push)
 	pkg.AddFunction("Remove", container_heap.Remove, "", direct_container_heap_Remove)
 
 	// Types
@@ -40,6 +40,13 @@ func direct_container_heap_Init(args []value.Value) value.Value {
 func direct_container_heap_Pop(args []value.Value) value.Value {
 	a0 := args[0].Interface().(container_heap.Interface)
 	return value.FromInterface(container_heap.Pop(a0))
+}
+
+func direct_container_heap_Push(args []value.Value) value.Value {
+	a0 := args[0].Interface().(container_heap.Interface)
+	a1 := args[1].Interface()
+	container_heap.Push(a0, a1)
+	return value.MakeNil()
 }
 
 func direct_container_heap_Remove(args []value.Value) value.Value {

@@ -3,6 +3,7 @@ package packages
 
 import (
 	github_com_spf13_cast "github.com/spf13/cast"
+	time "time"
 
 	"github.com/t04dJ14n9/gig/importer"
 	"github.com/t04dJ14n9/gig/value"
@@ -13,7 +14,7 @@ func init() {
 
 	// Functions
 	pkg.AddFunction("StringToDate", github_com_spf13_cast.StringToDate, "", direct_github_com_spf13_cast_StringToDate)
-	pkg.AddFunction("StringToDateInDefaultLocation", github_com_spf13_cast.StringToDateInDefaultLocation, "", nil)
+	pkg.AddFunction("StringToDateInDefaultLocation", github_com_spf13_cast.StringToDateInDefaultLocation, "", direct_github_com_spf13_cast_StringToDateInDefaultLocation)
 	pkg.AddFunction("ToBool", github_com_spf13_cast.ToBool, "", direct_github_com_spf13_cast_ToBool)
 	pkg.AddFunction("ToBoolE", github_com_spf13_cast.ToBoolE, "", direct_github_com_spf13_cast_ToBoolE)
 	pkg.AddFunction("ToBoolSlice", github_com_spf13_cast.ToBoolSlice, "", direct_github_com_spf13_cast_ToBoolSlice)
@@ -66,8 +67,8 @@ func init() {
 	pkg.AddFunction("ToStringSliceE", github_com_spf13_cast.ToStringSliceE, "", direct_github_com_spf13_cast_ToStringSliceE)
 	pkg.AddFunction("ToTime", github_com_spf13_cast.ToTime, "", direct_github_com_spf13_cast_ToTime)
 	pkg.AddFunction("ToTimeE", github_com_spf13_cast.ToTimeE, "", direct_github_com_spf13_cast_ToTimeE)
-	pkg.AddFunction("ToTimeInDefaultLocation", github_com_spf13_cast.ToTimeInDefaultLocation, "", nil)
-	pkg.AddFunction("ToTimeInDefaultLocationE", github_com_spf13_cast.ToTimeInDefaultLocationE, "", nil)
+	pkg.AddFunction("ToTimeInDefaultLocation", github_com_spf13_cast.ToTimeInDefaultLocation, "", direct_github_com_spf13_cast_ToTimeInDefaultLocation)
+	pkg.AddFunction("ToTimeInDefaultLocationE", github_com_spf13_cast.ToTimeInDefaultLocationE, "", direct_github_com_spf13_cast_ToTimeInDefaultLocationE)
 	pkg.AddFunction("ToUint", github_com_spf13_cast.ToUint, "", direct_github_com_spf13_cast_ToUint)
 	pkg.AddFunction("ToUint16", github_com_spf13_cast.ToUint16, "", direct_github_com_spf13_cast_ToUint16)
 	pkg.AddFunction("ToUint16E", github_com_spf13_cast.ToUint16E, "", direct_github_com_spf13_cast_ToUint16E)
@@ -90,7 +91,14 @@ func init() {
 func direct_github_com_spf13_cast_StringToDate(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := github_com_spf13_cast.StringToDate(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_github_com_spf13_cast_StringToDateInDefaultLocation(args []value.Value) value.Value {
+	a0 := args[0].String()
+	a1 := args[1].Interface().(*time.Location)
+	r0, r1 := github_com_spf13_cast.StringToDateInDefaultLocation(a0, a1)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToBool(args []value.Value) value.Value {
@@ -101,7 +109,7 @@ func direct_github_com_spf13_cast_ToBool(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToBoolE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToBoolE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBool(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToBoolSlice(args []value.Value) value.Value {
@@ -112,18 +120,18 @@ func direct_github_com_spf13_cast_ToBoolSlice(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToBoolSliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToBoolSliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToDuration(args []value.Value) value.Value {
 	a0 := args[0].Interface()
-	return value.MakeInt(int64(github_com_spf13_cast.ToDuration(a0)))
+	return value.MakeInt(int64(int64(github_com_spf13_cast.ToDuration(a0))))
 }
 
 func direct_github_com_spf13_cast_ToDurationE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToDurationE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(int64(r0))), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToDurationSlice(args []value.Value) value.Value {
@@ -134,7 +142,7 @@ func direct_github_com_spf13_cast_ToDurationSlice(args []value.Value) value.Valu
 func direct_github_com_spf13_cast_ToDurationSliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToDurationSliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToFloat32(args []value.Value) value.Value {
@@ -145,13 +153,13 @@ func direct_github_com_spf13_cast_ToFloat32(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToFloat32E(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToFloat32E(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToFloat32SliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToFloat32SliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToFloat64(args []value.Value) value.Value {
@@ -162,7 +170,7 @@ func direct_github_com_spf13_cast_ToFloat64(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToFloat64E(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToFloat64E(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToFloat64Slice(args []value.Value) value.Value {
@@ -173,7 +181,7 @@ func direct_github_com_spf13_cast_ToFloat64Slice(args []value.Value) value.Value
 func direct_github_com_spf13_cast_ToFloat64SliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToFloat64SliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToInt(args []value.Value) value.Value {
@@ -189,13 +197,13 @@ func direct_github_com_spf13_cast_ToInt16(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToInt16E(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToInt16E(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToInt16SliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToInt16SliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToInt32(args []value.Value) value.Value {
@@ -206,13 +214,13 @@ func direct_github_com_spf13_cast_ToInt32(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToInt32E(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToInt32E(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToInt32SliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToInt32SliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToInt64(args []value.Value) value.Value {
@@ -223,7 +231,7 @@ func direct_github_com_spf13_cast_ToInt64(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToInt64E(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToInt64E(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToInt64Slice(args []value.Value) value.Value {
@@ -234,7 +242,7 @@ func direct_github_com_spf13_cast_ToInt64Slice(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToInt64SliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToInt64SliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToInt8(args []value.Value) value.Value {
@@ -245,19 +253,19 @@ func direct_github_com_spf13_cast_ToInt8(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToInt8E(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToInt8E(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToInt8SliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToInt8SliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToIntE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToIntE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToIntSlice(args []value.Value) value.Value {
@@ -268,7 +276,7 @@ func direct_github_com_spf13_cast_ToIntSlice(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToIntSliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToIntSliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToSlice(args []value.Value) value.Value {
@@ -279,7 +287,7 @@ func direct_github_com_spf13_cast_ToSlice(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToSliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToSliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToString(args []value.Value) value.Value {
@@ -290,7 +298,7 @@ func direct_github_com_spf13_cast_ToString(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToStringE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToStringE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToStringMap(args []value.Value) value.Value {
@@ -306,13 +314,13 @@ func direct_github_com_spf13_cast_ToStringMapBool(args []value.Value) value.Valu
 func direct_github_com_spf13_cast_ToStringMapBoolE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToStringMapBoolE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToStringMapE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToStringMapE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToStringMapInt(args []value.Value) value.Value {
@@ -328,13 +336,13 @@ func direct_github_com_spf13_cast_ToStringMapInt64(args []value.Value) value.Val
 func direct_github_com_spf13_cast_ToStringMapInt64E(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToStringMapInt64E(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToStringMapIntE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToStringMapIntE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToStringMapString(args []value.Value) value.Value {
@@ -345,7 +353,7 @@ func direct_github_com_spf13_cast_ToStringMapString(args []value.Value) value.Va
 func direct_github_com_spf13_cast_ToStringMapStringE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToStringMapStringE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToStringMapStringSlice(args []value.Value) value.Value {
@@ -356,7 +364,7 @@ func direct_github_com_spf13_cast_ToStringMapStringSlice(args []value.Value) val
 func direct_github_com_spf13_cast_ToStringMapStringSliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToStringMapStringSliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToStringSlice(args []value.Value) value.Value {
@@ -367,7 +375,7 @@ func direct_github_com_spf13_cast_ToStringSlice(args []value.Value) value.Value 
 func direct_github_com_spf13_cast_ToStringSliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToStringSliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToTime(args []value.Value) value.Value {
@@ -378,7 +386,20 @@ func direct_github_com_spf13_cast_ToTime(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToTimeE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToTimeE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+}
+
+func direct_github_com_spf13_cast_ToTimeInDefaultLocation(args []value.Value) value.Value {
+	a0 := args[0].Interface()
+	a1 := args[1].Interface().(*time.Location)
+	return value.FromInterface(github_com_spf13_cast.ToTimeInDefaultLocation(a0, a1))
+}
+
+func direct_github_com_spf13_cast_ToTimeInDefaultLocationE(args []value.Value) value.Value {
+	a0 := args[0].Interface()
+	a1 := args[1].Interface().(*time.Location)
+	r0, r1 := github_com_spf13_cast.ToTimeInDefaultLocationE(a0, a1)
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToUint(args []value.Value) value.Value {
@@ -394,13 +415,13 @@ func direct_github_com_spf13_cast_ToUint16(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToUint16E(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToUint16E(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToUint16SliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToUint16SliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToUint32(args []value.Value) value.Value {
@@ -411,13 +432,13 @@ func direct_github_com_spf13_cast_ToUint32(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToUint32E(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToUint32E(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToUint32SliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToUint32SliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToUint64(args []value.Value) value.Value {
@@ -428,13 +449,13 @@ func direct_github_com_spf13_cast_ToUint64(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToUint64E(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToUint64E(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToUint64SliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToUint64SliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToUint8(args []value.Value) value.Value {
@@ -445,19 +466,19 @@ func direct_github_com_spf13_cast_ToUint8(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToUint8E(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToUint8E(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToUint8SliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToUint8SliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToUintE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToUintE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToUintSlice(args []value.Value) value.Value {
@@ -468,5 +489,5 @@ func direct_github_com_spf13_cast_ToUintSlice(args []value.Value) value.Value {
 func direct_github_com_spf13_cast_ToUintSliceE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToUintSliceE(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
