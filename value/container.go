@@ -3,7 +3,14 @@ package value
 import (
 	"fmt"
 	"reflect"
+	"unsafe"
 )
+
+// UnsafeAddrOf returns the unsafe.Pointer for a reflect.Value that is addressable.
+// This is used internally by the VM to obtain settable pointers to unexported struct fields.
+func UnsafeAddrOf(v reflect.Value) unsafe.Pointer {
+	return v.Addr().UnsafePointer()
+}
 
 // Len returns the length of string, slice, array, map, or chan.
 func (v Value) Len() int {
@@ -204,7 +211,17 @@ func (v Value) Elem() Value {
 	if ptr, ok := v.obj.(*int64); ok {
 		return MakeInt(*ptr)
 	}
+	// Fast path: *Value pointer (from OpGlobal / OpAddr on value.Value locals)
+	if ptr, ok := v.obj.(*Value); ok {
+		return *ptr
+	}
 	if rv, ok := v.obj.(reflect.Value); ok {
+		// If the reflect.Value points to a value.Value struct, unwrap it directly.
+		if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+			if vp, ok2 := rv.Interface().(*Value); ok2 {
+				return *vp
+			}
+		}
 		return MakeFromReflect(rv.Elem())
 	}
 	panic("invalid reflect.Value in Elem()")

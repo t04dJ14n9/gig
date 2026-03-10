@@ -620,7 +620,10 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			if s.Kind() == reflect.Struct {
 				field := s.Field(int(fieldIdx))
 				if field.CanAddr() {
-					vm.push(value.MakeFromReflect(field.Addr()))
+					// Use reflect.NewAt to get a settable pointer even for unexported fields.
+					// This allows the VM to mutate unexported struct fields (pointer-receiver methods).
+					fieldPtr := reflect.NewAt(field.Type(), value.UnsafeAddrOf(field))
+					vm.push(value.MakeFromReflect(fieldPtr))
 				} else {
 					vm.push(value.MakeFromReflect(field))
 				}
@@ -682,6 +685,13 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		case value.KindReflect:
 			if rv, ok := ptr.ReflectValue(); ok && rv.Kind() == reflect.Ptr {
 				if !rv.IsNil() {
+					// Fast path: *value.Value pointer — unwrap directly.
+					if rv.CanInterface() {
+						if vp, ok2 := rv.Interface().(*value.Value); ok2 {
+							vm.push(*vp)
+							break
+						}
+					}
 					vm.push(value.MakeFromReflect(rv.Elem()))
 				} else {
 					vm.push(value.MakeNil())
@@ -782,6 +792,12 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					vm.push(value.MakeString(string(byte(val.Uint()))))
 				case value.KindString:
 					vm.push(val)
+				case value.KindBytes:
+					if b, ok := val.Bytes(); ok {
+						vm.push(value.MakeString(string(b)))
+					} else {
+						vm.push(value.MakeString(""))
+					}
 				default:
 					// Use reflection for other types
 					vm.push(value.MakeString(fmt.Sprintf("%v", val.Interface())))
@@ -1087,7 +1103,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	case bytecode.OpRange:
 		// Create an iterator for the collection
 		collection := vm.pop()
-		vm.push(value.FromInterface(&iterator{collection: collection, index: -1}))
+		vm.push(value.FromInterface(&iterator{collection: collection, index: 0}))
 
 	case bytecode.OpRangeNext:
 		// Advance iterator and push a tuple (ok, key, value)
@@ -1099,10 +1115,9 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			vm.push(value.FromInterface(tuple))
 			return nil
 		}
-		iter.index++
-		key, val, ok := iter.next()
+		key, val, iterOk := iter.next()
 		// SSA Next returns (ok, key, value) as a tuple
-		tuple := []value.Value{value.MakeBool(ok), key, val}
+		tuple := []value.Value{value.MakeBool(iterOk), key, val}
 		vm.push(value.FromInterface(tuple))
 
 	// Builtins
@@ -1190,9 +1205,10 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					vm.push(value.MakeFromReflect(newSlice))
 				}
 			}
-		} else if slice.IsNil() {
-			// Nil slice: check if elem is a []value.Value (function slice)
-			if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice {
+		} else if slice.IsNil() || slice.Kind() == value.KindInvalid {
+			// Nil slice: create a new slice and append the element.
+			elemRV, ok2 := elem.ReflectValue()
+			if ok2 && elemRV.Kind() == reflect.Slice {
 				if elemRV.Type().Elem() == reflect.TypeOf(value.Value{}) {
 					// Create new []value.Value from the element slice
 					newSlice := make([]value.Value, 0)
@@ -1200,14 +1216,24 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					result := reflect.AppendSlice(newRV, elemRV)
 					vm.push(value.MakeFromReflect(result))
 				} else {
-					// Create new slice of the element's type
+					// Create new slice of the element's type and spread-append
 					sliceType := reflect.SliceOf(elemRV.Type().Elem())
 					newSlice := reflect.MakeSlice(sliceType, 0, 0)
 					result := reflect.AppendSlice(newSlice, elemRV)
 					vm.push(value.MakeFromReflect(result))
 				}
 			} else {
-				vm.push(slice)
+				// Single-element append to a nil slice: infer element type from the value.
+				elemIface := elem.Interface()
+				if elemIface != nil {
+					elemRV2 := reflect.ValueOf(elemIface)
+					sliceType := reflect.SliceOf(elemRV2.Type())
+					newSlice := reflect.MakeSlice(sliceType, 0, 0)
+					result := reflect.Append(newSlice, elemRV2)
+					vm.push(value.MakeFromReflect(result))
+				} else {
+					vm.push(slice)
+				}
 			}
 		} else {
 			vm.push(slice)

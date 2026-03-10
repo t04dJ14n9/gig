@@ -102,4 +102,9 @@ type Program struct {
 
 	// FuncIndex maps SSA functions to their indices for call instructions.
 	FuncIndex map[*ssa.Function]int
+
+	// InitialGlobals holds the global variable state after init() has run.
+	// New VMs copy this slice as their starting globals so each call sees a
+	// fully-initialised package state.  Nil when there is no init() function.
+	InitialGlobals []value.Value
 }
