@@ -116,13 +116,17 @@ type extCallCacheEntry struct {
 // New creates a new VM for executing the given program.
 // The VM is created with an empty stack and call frame array.
 func New(program *bytecode.Program) *VM {
+	globals := make([]value.Value, len(program.Globals))
+	if len(program.InitialGlobals) == len(globals) {
+		copy(globals, program.InitialGlobals)
+	}
 	return &VM{
 		program: program,
 		stack:   make([]value.Value, 1024), // initial stack size
 		sp:      0,
 		frames:  make([]*Frame, 64), // max call depth
 		fp:      0,
-		globals: make([]value.Value, len(program.Globals)),
+		globals: globals,
 		extCallCache: &externalCallCache{
 			cache: make([]*extCallCacheEntry, len(program.Constants)),
 		},
@@ -138,10 +142,20 @@ func (vm *VM) Reset() {
 	vm.panicVal = value.MakeNil()
 	vm.ctx = nil
 	vm.globalsPtr = nil
-	// Clear globals to zero values (prevent stale state between runs)
-	for i := range vm.globals {
-		vm.globals[i] = value.Value{}
+	// Restore globals to post-init snapshot, or zero them if there was no init().
+	if len(vm.program.InitialGlobals) == len(vm.globals) {
+		copy(vm.globals, vm.program.InitialGlobals)
+	} else {
+		for i := range vm.globals {
+			vm.globals[i] = value.Value{}
+		}
 	}
+}
+
+// Globals returns the VM's global variable slice.
+// Used to snapshot global state after init() has run.
+func (vm *VM) Globals() []value.Value {
+	return vm.globals
 }
 
 // VMPool is a pool of VMs for a given program, eliminating per-call allocation overhead.

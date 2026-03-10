@@ -19,6 +19,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/edgecases"
 	"github.com/t04dJ14n9/gig/tests/testdata/external"
 	"github.com/t04dJ14n9/gig/tests/testdata/functions"
+	"github.com/t04dJ14n9/gig/tests/testdata/known_issues"
 	"github.com/t04dJ14n9/gig/tests/testdata/leetcode_hard"
 	"github.com/t04dJ14n9/gig/tests/testdata/mapadvanced"
 	"github.com/t04dJ14n9/gig/tests/testdata/maps"
@@ -111,6 +112,9 @@ var typeconvSrc string
 
 //go:embed testdata/variables/main.go
 var variablesSrc string
+
+//go:embed testdata/known_issues/main.go
+var knownIssuesSrc string
 
 // toMainPackage converts a source file to package main for interpretation
 func toMainPackage(src string) string {
@@ -410,6 +414,25 @@ var allTests = map[string]testCase{
 	"variables/ZeroValues":      {variablesSrc, "ZeroValues", func() any { return variables.ZeroValues() }},
 	"variables/StringZeroValue": {variablesSrc, "StringZeroValue", func() any { return variables.StringZeroValue() }},
 	"variables/Shadowing":       {variablesSrc, "Shadowing", func() any { return variables.Shadowing() }},
+
+	// known_issues — byte-to-string conversion
+	"known_issues/BytesToStringHi":     {knownIssuesSrc, "BytesToStringHi", func() any { return known_issues.BytesToStringHi() }},
+	"known_issues/BytesToStringGo":     {knownIssuesSrc, "BytesToStringGo", func() any { return known_issues.BytesToStringGo() }},
+	"known_issues/BytesToStringSingle": {knownIssuesSrc, "BytesToStringSingle", func() any { return known_issues.BytesToStringSingle() }},
+	"known_issues/BytesToStringEmpty":  {knownIssuesSrc, "BytesToStringEmpty", func() any { return known_issues.BytesToStringEmpty() }},
+
+	// known_issues — range-over-string rune values
+	"known_issues/RangeStringRune":      {knownIssuesSrc, "RangeStringRune", func() any { return known_issues.RangeStringRune() }},
+	"known_issues/RangeStringIndex":     {knownIssuesSrc, "RangeStringIndex", func() any { return known_issues.RangeStringIndex() }},
+	"known_issues/RangeStringMultibyte": {knownIssuesSrc, "RangeStringMultibyte", func() any { return known_issues.RangeStringMultibyte() }},
+
+	// known_issues — init() execution
+	"known_issues/InitFuncResult": {knownIssuesSrc, "InitFuncResult", func() any { return known_issues.InitFuncResult() }},
+	"known_issues/InitSliceLen":   {knownIssuesSrc, "InitSliceLen", func() any { return known_issues.InitSliceLen() }},
+
+	// known_issues — pointer-receiver mutation
+	"known_issues/PointerReceiverMutation": {knownIssuesSrc, "PointerReceiverMutation", func() any { return known_issues.PointerReceiverMutation() }},
+	"known_issues/PointerReceiverSetGet":   {knownIssuesSrc, "PointerReceiverSetGet", func() any { return known_issues.PointerReceiverSetGet() }},
 }
 
 // TestAllStdlib runs all stdlib tests

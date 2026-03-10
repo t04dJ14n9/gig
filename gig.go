@@ -84,6 +84,9 @@ type Program struct {
 	vmPool  *vm.VMPool        // reusable VM pool (eliminates 32KB alloc per Run)
 }
 
+// InternalProgram exposes the compiled bytecode program for testing/debugging.
+func (p *Program) InternalProgram() *bytecode.Program { return p.program }
+
 // Build compiles Go source code into a Program.
 //
 // The source must define a function that can be called via Run/RunWithContext.
@@ -179,6 +182,20 @@ func Build(sourceCode string, packages ...string) (*Program, error) {
 	compiled, err := compiler.Compile(lookup, ssaPkg)
 	if err != nil {
 		return nil, fmt.Errorf("compile error: %w", err)
+	}
+
+	// If the program defines an init() function, run it once and snapshot the
+	// resulting globals so every subsequent VM starts with initialised state.
+	if _, hasInit := compiled.Functions["init#1"]; hasInit {
+		initVM := vm.New(compiled)
+		initCtx, initCancel := context.WithTimeout(context.Background(), DefaultTimeout)
+		defer initCancel()
+		if _, err := initVM.Execute("init", initCtx); err != nil {
+			return nil, fmt.Errorf("executing init(): %w", err)
+		}
+		snap := make([]value.Value, len(initVM.Globals()))
+		copy(snap, initVM.Globals())
+		compiled.InitialGlobals = snap
 	}
 
 	return &Program{

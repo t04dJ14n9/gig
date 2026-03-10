@@ -721,7 +721,7 @@ func Compute() int {
 				panicked = true
 			}
 		}()
-		prog.Run("Compute") //nolint — intentional panic test
+		prog.Run("Compute") //nolint:errcheck // intentional panic test
 	}()
 
 	if !panicked {
@@ -778,7 +778,7 @@ func Compute() int {
 				panicked = true
 			}
 		}()
-		prog.Run("Compute") //nolint — intentional panic test
+		prog.Run("Compute") //nolint:errcheck // intentional panic test
 	}()
 
 	if !panicked {

@@ -64,9 +64,10 @@ func (c *compiler) compileConst(cnst *ssa.Const) {
 	switch t := cnst.Type().(type) {
 	case *types.Basic:
 		switch t.Kind() { //nolint:exhaustive
-		case types.Bool:
+		case types.Bool, types.UntypedBool:
 			v = cnst.Value != nil && cnst.Value.Kind() == constant.Bool && constant.BoolVal(cnst.Value)
-		case types.Int, types.Int8, types.Int16, types.Int32, types.Int64:
+		case types.Int, types.Int8, types.Int16, types.Int32, types.Int64,
+			types.UntypedInt, types.UntypedRune:
 			if cnst.Value != nil {
 				i, exact := constant.Int64Val(cnst.Value)
 				if exact {
@@ -83,14 +84,14 @@ func (c *compiler) compileConst(cnst *ssa.Const) {
 			} else {
 				v = uint64(0)
 			}
-		case types.Float32, types.Float64:
+		case types.Float32, types.Float64, types.UntypedFloat:
 			if cnst.Value != nil {
 				f, _ := constant.Float64Val(cnst.Value)
 				v = f
 			} else {
 				v = 0.0
 			}
-		case types.String:
+		case types.String, types.UntypedString:
 			if cnst.Value != nil {
 				v = constant.StringVal(cnst.Value)
 			} else {

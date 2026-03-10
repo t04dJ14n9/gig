@@ -129,10 +129,15 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 		FuncIndex: make(map[*ssa.Function]int),
 	}
 
-	// Collect all functions (including anonymous/nested)
+	// Collect all functions (including anonymous/nested and methods)
 	var allFuncs []*ssa.Function
+	seen := make(map[*ssa.Function]bool)
 	var collectFuncs func(fn *ssa.Function)
 	collectFuncs = func(fn *ssa.Function) {
+		if seen[fn] {
+			return
+		}
+		seen[fn] = true
 		allFuncs = append(allFuncs, fn)
 		for _, anon := range fn.AnonFuncs {
 			collectFuncs(anon)
@@ -141,6 +146,23 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 	for _, member := range mainPkg.Members {
 		if fn, ok := member.(*ssa.Function); ok {
 			collectFuncs(fn)
+		}
+	}
+	// Also collect methods defined on types in the package.
+	// Methods are not package members in SSA — they hang off the type's method set.
+	for _, member := range mainPkg.Members {
+		t, ok := member.(*ssa.Type)
+		if !ok {
+			continue
+		}
+		// Collect methods on both value and pointer receiver types.
+		for _, recv := range []types.Type{t.Type(), types.NewPointer(t.Type())} {
+			mset := mainPkg.Prog.MethodSets.MethodSet(recv)
+			for i := 0; i < mset.Len(); i++ {
+				if fn := mainPkg.Prog.MethodValue(mset.At(i)); fn != nil && fn.Package() == mainPkg {
+					collectFuncs(fn)
+				}
+			}
 		}
 	}
 
