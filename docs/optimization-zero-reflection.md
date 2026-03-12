@@ -342,25 +342,25 @@ allocation.
 
 ## Benchmark Results
 
-All benchmarks run on AMD EPYC 9754 128-Core, Go 1.23.1, linux/amd64, `-benchtime=3s`.
+All benchmarks run on AMD EPYC 9754 128-Core, Go 1.23, linux/amd64, `-benchtime=1s`.
 
 ### Entry Point: `Run` vs `RunWithValues`
 
 | Benchmark                  |     ns/op |   B/op | allocs/op |      Speedup |
 | -------------------------- | --------: | -----: | --------: | -----------: |
-| `Run` — int args           |     132.6 |     64 |         1 |     baseline |
-| `RunWithValues` — int args |  **74.2** |  **0** |     **0** | **🟢 1.79×** |
-| `Run` — bool+int args      |     157.2 |     64 |         1 |     baseline |
-| `RunWithValues` — bool+int | **100.6** |  **0** |     **0** | **🟢 1.56×** |
-| `Run` — string arg         |     271.7 |     96 |         6 |     baseline |
-| `RunWithValues` — string   | **216.0** | **64** |     **4** | **🟢 1.26×** |
+| `Run` — int args           |     130.5 |     64 |         1 |     baseline |
+| `RunWithValues` — int args | **76.06** |  **0** |     **0** | **🟢 1.71×** |
+| `Run` — bool+int args      |     154.8 |     64 |         1 |     baseline |
+| `RunWithValues` — bool+int | **102.8** |  **0** |     **0** | **🟢 1.51×** |
+| `Run` — string arg         |     270.9 |     96 |         6 |     baseline |
+| `RunWithValues` — string   | **210.6** | **64** |     **4** | **🟢 1.29×** |
 
 ### DirectCall vs Reflection for Custom Operators
 
 | Benchmark            |     ns/op | allocs/op |             Speedup |
 | -------------------- | --------: | --------: | ------------------: |
-| DirectCall wrapper   | **152.3** |         1 |            baseline |
-| `reflect.Value.Call` |     532.4 |         6 | **🔴 3.50× slower** |
+| DirectCall wrapper   | **149.7** |         1 |            baseline |
+| `reflect.Value.Call` |     545.2 |         6 | **🔴 3.64× slower** |
 
 ### `MakeBytes` vs `FromInterface`
 
@@ -373,8 +373,8 @@ All benchmarks run on AMD EPYC 9754 128-Core, Go 1.23.1, linux/amd64, `-benchtim
 
 | Benchmark          |     ns/op | allocs/op |             Speedup |
 | ------------------ | --------: | --------: | ------------------: |
-| `RunWithValues`    | **1,171** |        13 |            baseline |
-| `Run` (reflection) |     1,440 |        19 | **🔴 1.23× slower** |
+| `RunWithValues`    | **1,187** |        13 |            baseline |
+| `Run` (reflection) |     1,442 |        19 | **🔴 1.21× slower** |
 
 ---
 

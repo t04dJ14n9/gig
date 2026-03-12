@@ -227,7 +227,12 @@ func (c *compiler) compileMakeClosure(i *ssa.MakeClosure) {
 	for _, binding := range i.Bindings {
 		if alloc, ok := binding.(*ssa.Alloc); ok {
 			if slotIdx, ok := c.symbolTable.GetLocal(alloc); ok {
-				c.emit(bytecode.OpAddr, uint16(slotIdx))
+				// For *ssa.Alloc (which is already a pointer type), we need to
+				// get the pointer value itself (OpLocal), not the address of the slot (OpAddr).
+				// Each Alloc creates a new pointer in heap/stack, and closures should
+				// capture this pointer value, not the slot address which gets overwritten
+				// in loop iterations.
+				c.emit(bytecode.OpLocal, uint16(slotIdx))
 				continue
 			}
 		}

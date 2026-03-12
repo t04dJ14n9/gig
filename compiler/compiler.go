@@ -76,7 +76,6 @@ type jumpInfo struct {
 	targetBlock *ssa.BasicBlock
 }
 
-// SymbolTable
 // SymbolTable tracks SSA values to local slots.
 type SymbolTable struct {
 	locals    map[ssa.Value]int

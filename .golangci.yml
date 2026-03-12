@@ -483,6 +483,10 @@ linters:
       - path: importer/.*\.go$
         linters:
           - gochecknoinits
+      # Exclude gochecknoinits for peephole patterns (auto-registration)
+      - path: compiler/peephole/.*\.go$
+        linters:
+          - gochecknoinits
       # Exclude gocritic for specific checks
       - linters:
           - gocritic

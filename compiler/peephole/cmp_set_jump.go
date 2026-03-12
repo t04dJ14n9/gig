@@ -11,6 +11,25 @@ type cmpSetJumpPattern struct {
 	fused  bytecode.OpCode
 }
 
+func init() {
+	Register(
+		// LOCAL(A) CONST(B) LESSEQ  SETLOCAL(X) LOCAL(X) JUMPFALSE(off)
+		cmpSetJumpPattern{bytecode.OpConst, bytecode.OpLessEq, bytecode.OpJumpFalse, bytecode.OpLessEqLocalConstJumpFalse},
+		// LOCAL(A) CONST(B) LESSEQ  SETLOCAL(X) LOCAL(X) JUMPTRUE(off)
+		cmpSetJumpPattern{bytecode.OpConst, bytecode.OpLessEq, bytecode.OpJumpTrue, bytecode.OpLessEqLocalConstJumpTrue},
+		// LOCAL(A) CONST(B) LESS    SETLOCAL(X) LOCAL(X) JUMPFALSE(off)
+		cmpSetJumpPattern{bytecode.OpConst, bytecode.OpLess, bytecode.OpJumpFalse, bytecode.OpLessLocalConstJumpFalse},
+		// LOCAL(A) CONST(B) LESS    SETLOCAL(X) LOCAL(X) JUMPTRUE(off)
+		cmpSetJumpPattern{bytecode.OpConst, bytecode.OpLess, bytecode.OpJumpTrue, bytecode.OpLessLocalConstJumpTrue},
+		// LOCAL(A) LOCAL(B) LESS    SETLOCAL(X) LOCAL(X) JUMPFALSE(off)
+		cmpSetJumpPattern{bytecode.OpLocal, bytecode.OpLess, bytecode.OpJumpFalse, bytecode.OpLessLocalLocalJumpFalse},
+		// LOCAL(A) LOCAL(B) LESS    SETLOCAL(X) LOCAL(X) JUMPTRUE(off)
+		cmpSetJumpPattern{bytecode.OpLocal, bytecode.OpLess, bytecode.OpJumpTrue, bytecode.OpLessLocalLocalJumpTrue},
+		// LOCAL(A) LOCAL(B) GREATER SETLOCAL(X) LOCAL(X) JUMPTRUE(off)
+		cmpSetJumpPattern{bytecode.OpLocal, bytecode.OpGreater, bytecode.OpJumpTrue, bytecode.OpGreaterLocalLocalJumpTrue},
+	)
+}
+
 func (p cmpSetJumpPattern) Match(code []byte, i int) (int, []byte, bool) {
 	const size = 16
 	if !MatchOp(code, i, bytecode.OpLocal) || i+size > len(code) {
@@ -32,23 +51,4 @@ func (p cmpSetJumpPattern) Match(code []byte, i int) (int, []byte, bool) {
 	b := ReadU16(code, i+4)
 	off := ReadU16(code, i+14)
 	return size, Make3Op(p.fused, a, b, off), true
-}
-
-func init() {
-	Register(
-		// LOCAL(A) CONST(B) LESSEQ  SETLOCAL(X) LOCAL(X) JUMPFALSE(off)
-		cmpSetJumpPattern{bytecode.OpConst, bytecode.OpLessEq, bytecode.OpJumpFalse, bytecode.OpLessEqLocalConstJumpFalse},
-		// LOCAL(A) CONST(B) LESSEQ  SETLOCAL(X) LOCAL(X) JUMPTRUE(off)
-		cmpSetJumpPattern{bytecode.OpConst, bytecode.OpLessEq, bytecode.OpJumpTrue, bytecode.OpLessEqLocalConstJumpTrue},
-		// LOCAL(A) CONST(B) LESS    SETLOCAL(X) LOCAL(X) JUMPFALSE(off)
-		cmpSetJumpPattern{bytecode.OpConst, bytecode.OpLess, bytecode.OpJumpFalse, bytecode.OpLessLocalConstJumpFalse},
-		// LOCAL(A) CONST(B) LESS    SETLOCAL(X) LOCAL(X) JUMPTRUE(off)
-		cmpSetJumpPattern{bytecode.OpConst, bytecode.OpLess, bytecode.OpJumpTrue, bytecode.OpLessLocalConstJumpTrue},
-		// LOCAL(A) LOCAL(B) LESS    SETLOCAL(X) LOCAL(X) JUMPFALSE(off)
-		cmpSetJumpPattern{bytecode.OpLocal, bytecode.OpLess, bytecode.OpJumpFalse, bytecode.OpLessLocalLocalJumpFalse},
-		// LOCAL(A) LOCAL(B) LESS    SETLOCAL(X) LOCAL(X) JUMPTRUE(off)
-		cmpSetJumpPattern{bytecode.OpLocal, bytecode.OpLess, bytecode.OpJumpTrue, bytecode.OpLessLocalLocalJumpTrue},
-		// LOCAL(A) LOCAL(B) GREATER SETLOCAL(X) LOCAL(X) JUMPTRUE(off)
-		cmpSetJumpPattern{bytecode.OpLocal, bytecode.OpGreater, bytecode.OpJumpTrue, bytecode.OpGreaterLocalLocalJumpTrue},
-	)
 }

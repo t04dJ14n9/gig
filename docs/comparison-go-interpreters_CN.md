@@ -279,44 +279,44 @@ flowchart TB
 - **线程数**: 32
 - **OS**: Linux amd64
 - **Go 版本**: 1.23.1
-- **基准测试参数**: `-benchtime=3s -benchmem`
-- **最后更新**: 2026-03-05
+- **基准测试参数**: `-benchtime=1s -benchmem`
+- **最后更新**: 2026-03-10
 
 ### 核心工作负载对比
 
 | 工作负载               | 原生 Go | Gig          | gofun       | Yaegi    | Gopher-Lua | 规则引擎  | 备注                   |
 | ---------------------- | ------- | ------------ | ----------- | -------- | ---------- | --------- | ---------------------- |
-| **Fibonacci(25)** 递归 | 453 μs  | **19.4 ms**  | ❌ 不支持   | 102.4 ms | 21.4 ms    | ❌ 不支持 | gofun 不支持递归       |
-| **Fibonacci(25)** 迭代 | 453 μs  | **19.4 ms**  | **15.9 ms** | -        | -          | ❌ 不支持 | gofun 迭代版本         |
-| **ArithmeticLoop(1K)** | 664 ns  | **56.5 μs**  | 315 μs      | 42.1 μs  | 39.2 μs    | ❌ 不支持 | Gig 快 5.6 倍 vs gofun |
-| **ExternalCall(100)**  | 54 ns   | **27.8 μs**  | 195 μs      | N/A      | N/A        | ❌ 不支持 | Gig 快 7.0 倍 vs gofun |
-| **Closure(100)**       | 658 ns  | **305.4 μs** | 175.9 μs    | 971.3 μs | 138.5 μs   | ❌ 不支持 | Gig 快 3.2 倍 vs Yaegi |
-| **SliceOps(100)**      | 101 ns  | **12.9 μs**  | 75.1 μs     | -        | -          | ❌ 不支持 | Gig 快 5.8 倍 vs gofun |
-| **MapOps(100)**        | 8.4 μs  | **93.1 μs**  | 134.5 μs    | -        | -          | ❌ 不支持 | Gig 快 1.4 倍 vs gofun |
-| **简单条件判断**       | 0.33 ns | **621 ns**   | 2.85 μs     | ~1.5 μs  | N/A        | ~1.6 μs   | Gig 快 4.6 倍 vs gofun |
-| **解析性能**           | -       | 110 μs       | **12.6 μs** | -        | -          | -         | gofun 解析更快         |
+| **Fibonacci(25)** 递归 | 3.6 μs  | **151.4 μs** | ❌ 不支持   | 102.4 ms | 21.4 ms    | ❌ 不支持 | gofun 不支持递归       |
+| **Fibonacci(25)** 迭代 | 18 ns   | **4.06 μs**  | **15.9 ms** | -        | -          | ❌ 不支持 | gofun 迭代版本         |
+| **ArithmeticLoop(1K)** | 343 ns  | **57.6 μs**  | 315 μs      | 42.1 μs  | 39.2 μs    | ❌ 不支持 | Gig 快 5.5 倍 vs gofun |
+| **ExternalCall(100)**  | 28.8 ns | **0.91 μs**  | 195 μs      | N/A      | N/A        | ❌ 不支持 | Gig 快 217 倍 vs gofun |
+| **Closure(100)**       | 657 ns  | **317.6 μs** | 175.9 μs    | 971.3 μs | 138.5 μs   | ❌ 不支持 | Gig 快 3.0 倍 vs Yaegi |
+| **SliceOps(100)**      | 991 ns  | **186.7 μs** | 75.1 μs     | -        | -          | ❌ 不支持 | Gig 快 6.5 倍 vs gofun |
+| **MapOps(100)**        | 8.1 μs  | **94.5 μs**  | 134.5 μs    | -        | -          | ❌ 不支持 | Gig 快 1.4 倍 vs gofun |
+| **简单条件判断**       | 0.33 ns | **636 ns**   | 2.85 μs     | ~1.5 μs  | N/A        | ~1.6 μs   | Gig 快 4.5 倍 vs gofun |
+| **解析性能**           | -       | 5.67 ms      | **12.6 μs** | -        | -          | -         | gofun 解析更快         |
 
 ### gofun vs Gig 详细性能对比
 
-| 测试场景               | 原生 Go | Gig     | gofun    | Gig/gofun 比值 | Gig 优势             |
-| ---------------------- | ------- | ------- | -------- | -------------- | -------------------- |
-| **Fibonacci(25)** 迭代 | 449 μs  | 20.0 ms | 15.9 ms  | 0.79x          | gofun 快（迭代优化） |
-| **ArithmeticLoop(1K)** | 664 ns  | 57.1 μs | 315 μs   | **5.5x**       | ✅ Gig 显著领先      |
-| **ExternalCall(100)**  | 54 ns   | 27.8 μs | 195 μs   | **7.0x**       | ✅ Gig 显著领先      |
-| **Closure(100)**       | 67 ns   | 31.4 μs | 175.9 μs | **5.6x**       | ✅ Gig 显著领先      |
-| **Condition**          | 0.33 ns | 709 ns  | 2.85 μs  | **4.0x**       | ✅ Gig 显著领先      |
-| **VariableOps**        | 0.33 ns | 613 ns  | 2.57 μs  | **4.2x**       | ✅ Gig 显著领先      |
-| **SliceOps(100)**      | 101 ns  | 12.9 μs | 75.1 μs  | **5.8x**       | ✅ Gig 显著领先      |
-| **MapOps(100)**        | 8.4 μs  | 93.7 μs | 134.5 μs | **1.4x**       | ✅ Gig 领先          |
-| **ParseOnly**          | -       | 110 μs  | 12.6 μs  | 0.11x          | gofun 解析更快       |
+| 测试场景               | 原生 Go | Gig      | gofun    | Gig/gofun 比值 | Gig 优势        |
+| ---------------------- | ------- | -------- | -------- | -------------- | --------------- |
+| **Fibonacci(25)** 迭代 | 18 ns   | 4.06 μs  | 15.9 ms  | **3.9x**       | ✅ Gig 显著领先 |
+| **ArithmeticLoop(1K)** | 343 ns  | 57.6 μs  | 315 μs   | **5.5x**       | ✅ Gig 显著领先 |
+| **ExternalCall(100)**  | 28.8 ns | 0.91 μs  | 195 μs   | **217x**       | ✅ Gig 显著领先 |
+| **Closure(100)**       | 657 ns  | 317.6 μs | 175.9 μs | **1.8x**       | ✅ Gig 领先     |
+| **Condition**          | 0.33 ns | 636 ns   | 2.85 μs  | **4.5x**       | ✅ Gig 显著领先 |
+| **VariableOps**        | 0.33 ns | 633 ns   | 2.57 μs  | **4.0x**       | ✅ Gig 显著领先 |
+| **SliceOps(100)**      | 991 ns  | 186.7 μs | 75.1 μs  | **6.5x**       | ✅ Gig 显著领先 |
+| **MapOps(100)**        | 8.1 μs  | 94.5 μs  | 134.5 μs | **1.4x**       | ✅ Gig 领先     |
+| **ParseOnly**          | -       | 110 μs   | 12.6 μs  | 0.11x          | gofun 解析更快  |
 
 ### 内存分配对比 (Gig vs gofun)
 
 | 测试场景       | Gig allocs/op | gofun allocs/op | Gig 优势    |
 | -------------- | ------------- | --------------- | ----------- |
 | ArithmeticLoop | **6**         | 6,751           | 少 1,125 倍 |
-| ExternalCall   | **305**       | 1,567           | 少 5.1 倍   |
-| Closure        | **194**       | 2,010           | 少 10.4 倍  |
+| ExternalCall   | **8**         | 1,567           | 少 196 倍   |
+| Closure        | **1,994**     | 2,010           | 少 1.01 倍  |
 | SliceOps       | **10**        | 1,421           | 少 142 倍   |
 | MapOps         | **1,225**     | 1,645           | 少 1.3 倍   |
 
@@ -333,18 +333,18 @@ flowchart TB
 
 | 基准测试                      |     ns/op | allocs/op | 对比基准         |
 | ----------------------------- | --------: | --------: | ---------------- |
-| `Run` — int 参数              |     132.6 |         1 | 基准             |
-| `RunWithValues` — int 参数    |  **74.2** |     **0** | **🟢 1.8× 更快** |
-| `Run` — bool+int 参数         |     157.2 |         1 | 基准             |
-| `RunWithValues` — bool+int    | **100.6** |     **0** | **🟢 1.6× 更快** |
-| `Run` — string 参数           |     271.7 |         6 | 基准             |
-| `RunWithValues` — string      | **216.0** |         4 | **🟢 1.3× 更快** |
-| DirectCall 自定义操作符       | **152.3** |         1 | 基准             |
-| 无 DirectCall 自定义操作符    |     532.4 |         6 | **🔴 3.5× 更慢** |
+| `Run` — int 参数              |     128.0 |         1 | 基准             |
+| `RunWithValues` — int 参数    | **73.51** |     **0** | **🟢 1.7× 更快** |
+| `Run` — bool+int 参数         |     152.6 |         1 | 基准             |
+| `RunWithValues` — bool+int    | **102.2** |     **0** | **🟢 1.5× 更快** |
+| `Run` — string 参数           |     262.5 |         6 | 基准             |
+| `RunWithValues` — string      | **210.3** |     **4** | **🟢 1.3× 更快** |
+| DirectCall 自定义操作符       | **147.7** |         1 | 基准             |
+| 无 DirectCall 自定义操作符    |     518.0 |         6 | **🔴 3.5× 更慢** |
 | `value.MakeBytes`             |  **0.33** |         0 | 基准             |
-| `value.FromInterface([]byte)` |      90.6 |         3 | **🔴 275× 更慢** |
-| 可变参数 DirectCall           | **1,171** |        13 | 基准             |
-| 可变参数 via Run              |     1,440 |        19 | **🔴 1.2× 更慢** |
+| `value.FromInterface([]byte)` |      85.9 |         3 | **🔴 260× 更慢** |
+| 可变参数 DirectCall           | **1,186** |        13 | 基准             |
+| 可变参数 via Run              |     1,464 |        19 | **🔴 1.2× 更慢** |
 
 ### 外部函数调用对比
 
@@ -367,9 +367,9 @@ flowchart TB
 | ClosureCalls(100) | **1,994**    | 13,018         | ❌ 不支持        | Gig 少 6.5 倍     |
 | 简单规则判断      | ~5 allocs    | ~50 allocs     | **~17 allocs**   | 规则引擎中等      |
 | 嵌套条件判断      | ~6 allocs    | ~100 allocs    | **~39 allocs**   | 规则引擎中等      |
-| 外部函数调用      | ~305 allocs  | ~17,920 allocs | **~17 allocs**   | 规则引擎更优      |
+| 外部函数调用      | ~8 allocs    | ~17,920 allocs | **~17 allocs**   | Gig 更优          |
 
-> **测试环境更新**：AMD EPYC 9754 128-Core, Go 1.23.1, linux/amd64, `-benchtime=3s -benchmem`，最后更新 2026-03-05
+> **测试环境更新**：AMD EPYC 9754 128-Core, Go 1.23, linux/amd64, `-benchtime=1s -benchmem`，最后更新 2026-03-10
 
 > **数据来源**：`tests/robustness_comparison_test.go` 和 `benchmarks/bench_test.go`
 
@@ -898,12 +898,12 @@ result, _ := sdk.RunRule(ctx, *dslCopy)
 
 | 测试场景              | Native Go | Gig         | 规则引擎  | 数据来源                              |
 | --------------------- | --------- | ----------- | --------- | ------------------------------------- |
-| 简单条件判断          | 0.33 ns   | **621 ns**  | ~1.6 μs   | `tests/robustness_comparison_test.go` |
-| 嵌套条件判断          | 0.33 ns   | **738 ns**  | ~4.0 μs   | `tests/robustness_comparison_test.go` |
-| 变量访问              | 0.33 ns   | **618 ns**  | N/A       | `tests/robustness_comparison_test.go` |
-| 算术循环(1K)          | 333 ns    | **57.1 μs** | ❌ 不支持 | `tests/robustness_comparison_test.go` |
-| 外部函数调用(strconv) | 30.7 ns   | **921 ns**  | ~1.6 μs   | `tests/robustness_comparison_test.go` |
-| 外部函数调用(JSON)    | 1.33 μs   | **3.82 μs** | N/A       | `tests/robustness_comparison_test.go` |
+| 简单条件判断          | 0.33 ns   | **636 ns**  | ~1.6 μs   | `tests/robustness_comparison_test.go` |
+| 嵌套条件判断          | 0.33 ns   | **756 ns**  | ~4.0 μs   | `tests/robustness_comparison_test.go` |
+| 变量访问              | 0.33 ns   | **633 ns**  | N/A       | `tests/robustness_comparison_test.go` |
+| 算术循环(1K)          | 343 ns    | **57.6 μs** | ❌ 不支持 | `tests/robustness_comparison_test.go` |
+| 外部函数调用(strconv) | 28.8 ns   | **906 ns**  | ~1.6 μs   | `tests/robustness_comparison_test.go` |
+| 外部函数调用(JSON)    | 1.29 μs   | **3.13 μs** | N/A       | `tests/robustness_comparison_test.go` |
 
 ### GC 压力对比
 

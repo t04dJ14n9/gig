@@ -807,25 +807,25 @@ func categorize(name string) string {
 }
 
 // getHardcodedResults returns fallback benchmark data.
-// Last measured: AMD EPYC 9754 128-Core Processor, Go 1.23, linux/amd64, -benchtime=3s
+// Last measured: AMD EPYC 9754 128-Core Processor, Go 1.23, linux/amd64, -benchtime=1s
 func getHardcodedResults() []benchmarkResult {
 	return []benchmarkResult{
-		{"ArithmeticSum", 56633, 335.6},
-		{"FibRecursive", 153321, 3642},
-		{"FibIterative", 4036, 18.13},
-		{"Factorial", 1562, 12.08},
-		{"SliceAppend", 548003, 8726},
-		{"SliceSum", 116557, 669.4},
-		{"MapOps", 93123, 8356},
-		{"StringConcat", 37622, 21991},
-		{"ClosureCalls", 300486, 339.5},
-		{"NestedLoops", 67174, 436.0},
-		{"BubbleSort", 205365, 1951},
-		{"GCD", 60235, 914.2},
-		{"Sieve", 206280, 4920},
-		{"HigherOrder", 18351, 68.13},
-		{"ExternalSprintf", 91763, 5455},
-		{"ExternalStrings", 25490, 10514},
-		{"CallOverhead", 103037, 332.6},
+		{"ArithmeticSum", 57701, 679.3},
+		{"FibRecursive", 151438, 3642},
+		{"FibIterative", 4059, 18.06},
+		{"Factorial", 1548, 10.96},
+		{"SliceAppend", 563924, 8430},
+		{"SliceSum", 186693, 991.1},
+		{"MapOps", 94522, 8131},
+		{"StringConcat", 36217, 22241},
+		{"ClosureCalls", 317624, 657.3},
+		{"NestedLoops", 68703, 449.3},
+		{"BubbleSort", 211895, 1940},
+		{"GCD", 56207, 912.3},
+		{"Sieve", 203747, 4657},
+		{"HigherOrder", 18181, 102.4},
+		{"ExternalSprintf", 91723, 5446},
+		{"ExternalStrings", 24136, 9065},
+		{"CallOverhead", 106235, 657.6},
 	}
 }

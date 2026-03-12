@@ -37,14 +37,3 @@ func (p cmpJumpPattern) Match(code []byte, i int) (int, []byte, bool) {
 	off := ReadU16(code, i+8)
 	return size, Make3Op(p.fused, a, b, off), true
 }
-
-func init() {
-	Register(
-		cmpJumpPattern{bytecode.OpLocal, bytecode.OpLess, bytecode.OpJumpTrue, bytecode.OpLessLocalLocalJumpTrue},
-		cmpJumpPattern{bytecode.OpLocal, bytecode.OpLess, bytecode.OpJumpFalse, bytecode.OpLessLocalLocalJumpFalse},
-		cmpJumpPattern{bytecode.OpConst, bytecode.OpLess, bytecode.OpJumpTrue, bytecode.OpLessLocalConstJumpTrue},
-		cmpJumpPattern{bytecode.OpConst, bytecode.OpLess, bytecode.OpJumpFalse, bytecode.OpLessLocalConstJumpFalse},
-		cmpJumpPattern{bytecode.OpConst, bytecode.OpLessEq, bytecode.OpJumpTrue, bytecode.OpLessEqLocalConstJumpTrue},
-		cmpJumpPattern{bytecode.OpLocal, bytecode.OpGreater, bytecode.OpJumpTrue, bytecode.OpGreaterLocalLocalJumpTrue},
-	)
-}

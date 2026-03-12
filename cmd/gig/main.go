@@ -317,7 +317,6 @@ func runGen() {
 	fmt.Printf("  import _ %q\n", pkgName+"/packages")
 }
 
-// parsePkgsGo
 // parsePkgsGo reads a pkgs.go file and extracts the package name and import paths.
 func parsePkgsGo(path string) ([]string, string, error) {
 	// Use gentool's parser for imports
