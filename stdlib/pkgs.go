@@ -32,7 +32,7 @@
 //
 // Import the stdlib packages before building interpreted code:
 //
-//	import _ "git.woa.com/youngjin/gig/stdlib/packages"
+//	import _ "github.com/t04dJ14n9/gig/stdlib/packages"
 //
 //	func main() {
 //	    prog, err := gig.Build(`

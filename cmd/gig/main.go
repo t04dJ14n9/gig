@@ -47,8 +47,8 @@
 //
 // You can run gig directly without installing (Go 1.21+):
 //
-//	go run git.woa.com/youngjin/gig/cmd/gig@latest init -package mydep
-//	go run git.woa.com/youngjin/gig/cmd/gig@latest gen ./mydep
+//	go run github.com/t04dJ14n9/gig/cmd/gig@latest init -package mydep
+//	go run github.com/t04dJ14n9/gig/cmd/gig@latest gen ./mydep
 package main
 
 import (
@@ -59,7 +59,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"git.woa.com/youngjin/gig/gentool"
+	"github.com/t04dJ14n9/gig/gentool"
 )
 
 // Command structure for subcommands

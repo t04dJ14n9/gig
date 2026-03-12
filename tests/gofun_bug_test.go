@@ -6,9 +6,9 @@ package tests
 import (
 	"testing"
 
-	"git.woa.com/youngjin/gig"
-	_ "git.woa.com/youngjin/gig/stdlib/packages"
-	"git.woa.com/youngjin/gig/value"
+	"github.com/t04dJ14n9/gig"
+	_ "github.com/t04dJ14n9/gig/stdlib/packages"
+	"github.com/t04dJ14n9/gig/value"
 
 	// 导入 gofun 解释器
 	gofun "git.code.oa.com/datacenter/faas/languages/golang/old/gofun/interpreter"

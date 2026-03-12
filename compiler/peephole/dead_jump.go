@@ -1,6 +1,6 @@
 package peephole
 
-import "git.woa.com/youngjin/gig/bytecode"
+import "github.com/t04dJ14n9/gig/bytecode"
 
 // deadJumpPattern eliminates OpJump(off) where off == next instruction.
 type deadJumpPattern struct{}

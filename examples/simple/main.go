@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"git.woa.com/youngjin/gig"
-	_ "git.woa.com/youngjin/gig/stdlib/packages" // Import gig's built-in stdlib (40+ packages)
+	"github.com/t04dJ14n9/gig"
+	_ "github.com/t04dJ14n9/gig/stdlib/packages" // Import gig's built-in stdlib (40+ packages)
 )
 
 func main() {

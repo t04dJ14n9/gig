@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"git.woa.com/youngjin/gig"
-	_ "git.woa.com/youngjin/gig/stdlib/packages"
+	"github.com/t04dJ14n9/gig"
+	_ "github.com/t04dJ14n9/gig/stdlib/packages"
 
 	// 使用 replace 指令后的导入路径
 	gofun "git.code.oa.com/datacenter/faas/languages/golang/old/gofun/interpreter"

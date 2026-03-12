@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"git.woa.com/youngjin/gig/bytecode"
+	"github.com/t04dJ14n9/gig/bytecode"
 )
 
 // compileExternalStaticCall compiles a call to an external package function.

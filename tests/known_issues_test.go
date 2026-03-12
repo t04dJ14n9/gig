@@ -10,7 +10,7 @@ package tests
 import (
 	"testing"
 
-	gig "git.woa.com/youngjin/gig"
+	gig "github.com/t04dJ14n9/gig"
 )
 
 // ── helper ────────────────────────────────────────────────────────────────────

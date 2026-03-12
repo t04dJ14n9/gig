@@ -5,8 +5,8 @@ import (
 	"go/types"
 	"reflect"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // executeOp executes a single bytecode instruction.

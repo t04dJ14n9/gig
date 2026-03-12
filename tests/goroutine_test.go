@@ -4,9 +4,9 @@ import (
 	_ "embed"
 	"testing"
 
-	"git.woa.com/youngjin/gig"
-	_ "git.woa.com/youngjin/gig/stdlib/packages"
-	"git.woa.com/youngjin/gig/tests/testdata/goroutine"
+	"github.com/t04dJ14n9/gig"
+	_ "github.com/t04dJ14n9/gig/stdlib/packages"
+	"github.com/t04dJ14n9/gig/tests/testdata/goroutine"
 )
 
 //go:embed testdata/goroutine/main.go

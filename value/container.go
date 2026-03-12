@@ -244,7 +244,7 @@ func (v Value) SetElem(val Value) {
 				rv.Elem().Set(reflect.ValueOf(val))
 				return
 			}
-			if elemType.Name() == "Value" && elemType.PkgPath() == "git.woa.com/youngjin/gig/value" {
+			if elemType.Name() == "Value" && elemType.PkgPath() == "github.com/t04dJ14n9/gig/value" {
 				ptr := rv.Interface().(*Value)
 				*ptr = val
 				return

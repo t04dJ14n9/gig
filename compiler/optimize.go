@@ -1,8 +1,8 @@
 package compiler
 
 import (
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/compiler/peephole"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/compiler/peephole"
 )
 
 // rewrite represents a bytecode rewrite from an old range to new bytes.

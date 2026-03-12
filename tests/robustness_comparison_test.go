@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"git.woa.com/youngjin/gig"
-	"git.woa.com/youngjin/gig/importer"
-	_ "git.woa.com/youngjin/gig/stdlib/packages"
-	"git.woa.com/youngjin/gig/value"
+	"github.com/t04dJ14n9/gig"
+	"github.com/t04dJ14n9/gig/importer"
+	_ "github.com/t04dJ14n9/gig/stdlib/packages"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // ============================================================================
@@ -29,7 +29,7 @@ import (
 // init registers a custom "myops" package with a DirectCall wrapper for
 // filterJSONField — exactly imitating the Rule Engine's operator registration.
 func init() {
-	pkg := importer.RegisterPackage("git.woa.com/youngjin/gig/tests/myops", "myops")
+	pkg := importer.RegisterPackage("github.com/t04dJ14n9/gig/tests/myops", "myops")
 
 	// Register filterJSONField with a hand-written DirectCall wrapper.
 	// This wrapper is structurally identical to the generated wrappers in
@@ -970,7 +970,7 @@ func BenchmarkGig_CustomOperator_DirectCall(b *testing.B) {
 	source := `
 package main
 
-import "git.woa.com/youngjin/gig/tests/myops"
+import "github.com/t04dJ14n9/gig/tests/myops"
 
 // CheckVIP mirrors the Rule Engine's:
 //   .userInfo|filterJson "vip"|eq "true"
@@ -996,13 +996,13 @@ func CheckVIP(data []byte) bool {
 // This demonstrates the value of the DirectCall optimization.
 func BenchmarkGig_CustomOperator_NoDirectCall(b *testing.B) {
 	// Register a second package without DirectCall to force reflection path.
-	pkg := importer.RegisterPackage("git.woa.com/youngjin/gig/tests/myops_reflect", "myops_reflect")
+	pkg := importer.RegisterPackage("github.com/t04dJ14n9/gig/tests/myops_reflect", "myops_reflect")
 	pkg.AddFunction("FilterJSON", filterJSONField, "", nil) // nil = use reflection
 
 	source := `
 package main
 
-import "git.woa.com/youngjin/gig/tests/myops_reflect"
+import "github.com/t04dJ14n9/gig/tests/myops_reflect"
 
 func CheckVIP(data []byte) bool {
 	return myops_reflect.FilterJSON(data, "vip") == "true"
