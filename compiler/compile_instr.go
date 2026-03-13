@@ -183,6 +183,29 @@ func (c *compiler) compileUnOp(i *ssa.UnOp) {
 func (c *compiler) compileCall(i *ssa.Call) {
 	resultIdx := c.symbolTable.AllocLocal(i)
 
+	// Handle interface method invocation (e.g., iface.Method())
+	// SSA represents this with IsInvoke() == true, where Call.Value is the interface value
+	// and Call.Method is the method being invoked.
+	if i.Call.IsInvoke() {
+		// Push the receiver (interface value) as the first argument
+		c.compileValue(i.Call.Value)
+		// Push remaining arguments
+		for _, arg := range i.Call.Args {
+			c.compileValue(arg)
+		}
+		methodInfo := &bytecode.ExternalMethodInfo{
+			MethodName: i.Call.Method.Name(),
+		}
+		funcIdx := c.addConstant(methodInfo)
+		numArgs := len(i.Call.Args) + 1 // +1 for receiver
+		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+			byte(bytecode.OpCallExternal),
+			byte(funcIdx>>8), byte(funcIdx),
+			byte(numArgs))
+		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+		return
+	}
+
 	if builtin, ok := i.Call.Value.(*ssa.Builtin); ok {
 		c.compileBuiltinCall(builtin, i.Call.Args, resultIdx)
 		return
@@ -263,6 +286,11 @@ func (c *compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, re
 		c.compileValue(args[0])
 		c.emit(bytecode.OpClose)
 		return
+	case "ssa:wrapnilchk":
+		// ssa:wrapnilchk checks that its argument is non-nil.
+		// In our VM, we simply pass through the value (the nil check
+		// is an optimization/safety check that we skip).
+		c.compileValue(args[0])
 	default:
 		c.emit(bytecode.OpNil)
 	}

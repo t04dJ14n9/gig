@@ -933,12 +933,19 @@ func (vm *VM) run() (value.Value, error) {
 		case bytecode.OpCallExternal:
 			funcIdx := readU16()
 			numArgs := int(frame.readByte())
+			prevFP := vm.fp
 			vm.sp = sp
 			if err := vm.callExternal(int(funcIdx), numArgs); err != nil {
 				return value.MakeNil(), err
 			}
 			sp = vm.sp
 			stack = vm.stack
+			// If callExternal pushed a new compiled frame (e.g., compiled method
+			// dispatch for invoke calls), reload frame state so the main loop
+			// executes the new frame before continuing.
+			if vm.fp != prevFP {
+				loadFrame()
+			}
 			continue
 
 		case bytecode.OpCallIndirect:
