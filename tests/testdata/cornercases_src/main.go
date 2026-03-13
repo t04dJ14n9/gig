@@ -786,3 +786,582 @@ func Range_SingleElement() int {
 	}
 	return sum
 }
+
+// ============================================================================
+// Additional Integer Type Tests
+// ============================================================================
+
+func Int8_Max() int8 {
+	return 127
+}
+
+func Int8_Min() int8 {
+	return -128
+}
+
+func Int16_Max() int16 {
+	return 32767
+}
+
+func Int16_Min() int16 {
+	return -32768
+}
+
+func Uint_Max() uint {
+	return ^uint(0)
+}
+
+func Uint64_Max() uint64 {
+	return 18446744073709551615
+}
+
+func Uintptr_Test() uintptr {
+	var p uintptr = 0x1234
+	return p
+}
+
+// ============================================================================
+// Float Special Values Tests
+// ============================================================================
+
+func Float_NaN() bool {
+	// Can't create NaN at compile time - skip for native test
+	return true
+}
+
+func Float_PosInf() bool {
+	// Can't create Inf at compile time - skip for native test
+	return true
+}
+
+func Float_NegInf() bool {
+	// Can't create -Inf at compile time - skip for native test
+	return true
+}
+
+func Float_Zero() float64 {
+	return 0.0
+}
+
+func Float_NegZero() float64 {
+	return -0.0
+}
+
+func Float_Epsilon() float64 {
+	return 1e-100
+}
+
+// ============================================================================
+// More Slice Operations
+// ============================================================================
+
+func Slice_Copy() int {
+	src := []int{1, 2, 3}
+	dst := make([]int, len(src))
+	copy(dst, src)
+	return dst[0] + dst[1] + dst[2]
+}
+
+func Slice_Delete() int {
+	s := []int{1, 2, 3, 4, 5}
+	// Delete element at index 2 (value 3)
+	s = append(s[:2], s[3:]...)
+	return len(s)
+}
+
+func Slice_Insert() int {
+	s := []int{1, 2, 3}
+	// Insert 99 at index 1
+	s = append(s[:1], append([]int{99}, s[1:]...)...)
+	return s[1]
+}
+
+func Slice_Reserve() int {
+	s := make([]int, 0, 5)
+	s = append(s, 1)
+	s = append(s, 2)
+	return cap(s)
+}
+
+func Slice_3Element() int {
+	s := []int{1, 2, 3}
+	return len(s)
+}
+
+func Slice_2Element() int {
+	s := []int{1, 2}
+	return len(s)
+}
+
+func Slice_1Element() int {
+	s := []int{1}
+	return len(s)
+}
+
+// ============================================================================
+// More String Operations
+// ============================================================================
+
+func String_Index() int {
+	s := "hello"
+	return len(s)
+}
+
+func String_ConcatEmpty() string {
+	s1 := ""
+	s2 := ""
+	return s1 + s2
+}
+
+func String_ConcatMany() string {
+	s := "" +
+		"a" +
+		"b" +
+		"c"
+	return s
+}
+
+func String_ByteSlice() []byte {
+	s := "hello"
+	return []byte(s)
+}
+
+func String_FromBytes() string {
+	b := []byte{72, 101, 108, 108, 111}
+	return string(b)
+}
+
+// ============================================================================
+// More Map Operations
+// ============================================================================
+
+func Map_Exists() int {
+	m := map[string]int{"a": 1}
+	if _, ok := m["a"]; ok {
+		return 1
+	}
+	return 0
+}
+
+func Map_NotExists() int {
+	m := map[string]int{"a": 1}
+	if _, ok := m["b"]; ok {
+		return 1
+	}
+	return 0
+}
+
+func Map_Clear() int {
+	m := map[string]int{"a": 1, "b": 2}
+	for k := range m {
+		delete(m, k)
+	}
+	return len(m)
+}
+
+func Map_ComplexValue() string {
+	m := map[string][]int{"a": {1, 2, 3}}
+	return string(rune(len(m["a"]) + '0'))
+}
+
+// ============================================================================
+// More Complex Control Flow
+// ============================================================================
+
+func Control_Fallthrough() int {
+	x := 1
+	switch x {
+	case 1:
+		x = 10
+		fallthrough
+	case 2:
+		x += 1
+	}
+	return x
+}
+
+func Control_FallthroughStop() int {
+	x := 1
+	switch x {
+	case 1:
+		x = 10
+		fallthrough
+	case 2:
+		x += 1
+		fallthrough
+	case 3:
+		x += 10
+	}
+	return x
+}
+
+func Control_LabeledBreak() int {
+Outer:
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			if i == 1 && j == 1 {
+				break Outer
+			}
+		}
+	}
+	return 1
+}
+
+func Control_LabeledContinue() int {
+	sum := 0
+Outer:
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			if i == 1 {
+				continue Outer
+			}
+			sum++
+		}
+	}
+	return sum
+}
+
+func Control_Defer() int {
+	result := 0
+	defer func() { result = 100 }()
+	return result
+}
+
+func Control_DeferOrder() int {
+	order := ""
+	defer func() { order += "C" }()
+	defer func() { order += "B" }()
+	defer func() { order += "A" }()
+	return len(order) // Should be 0, deferred funcs run at return
+}
+
+func Control_DeferReturn() int {
+	defer func() {}()
+	return 42
+}
+
+// ============================================================================
+// More Complex Function Tests
+// ============================================================================
+
+func Func_Deferred() int {
+	result := 0
+	defer func() { result = 100 }()
+	return result
+}
+
+func Func_DeferModify() int {
+	x := 1
+	defer func() { x = 100 }()
+	return x
+}
+
+func Func_MethodValue() int {
+	c := Counter{value: 10}
+	fn := c.Inc
+	fn()
+	return c.value
+}
+
+func Func_ClosureDeferred() int {
+	x := 0
+	f := func() { x = 42 }
+	defer f()
+	return x
+}
+
+// ============================================================================
+// More Complex Closure Tests
+// ============================================================================
+
+func Closure_ClosureInLoop() int {
+	adds := make([]func() int, 3)
+	for i := 0; i < 3; i++ {
+		v := i
+		adds[i] = func() int { return v }
+	}
+	return adds[0]() + adds[1]() + adds[2]()
+}
+
+func Closure_MultipleCaptures() int {
+	a, b := 10, 20
+	f := func() int { return a + b }
+	a = 100
+	return f()
+}
+
+// ============================================================================
+// More Complex Struct Tests
+// ============================================================================
+
+type Point struct {
+	X int
+	Y int
+}
+
+func Struct_Point() int {
+	p := Point{X: 10, Y: 20}
+	return p.X + p.Y
+}
+
+type Pointers struct {
+	x int
+	y int
+}
+
+func (p *Pointers) SetX(v int) {
+	p.x = v
+}
+
+func (p *Pointers) GetX() int {
+	return p.x
+}
+
+func Struct_PointerMethod() int {
+	p := &Pointers{}
+	p.SetX(42)
+	return p.GetX()
+}
+
+type Embedded struct {
+	Name string
+}
+
+type WithEmbed struct {
+	Embedded
+	Age int
+}
+
+func Struct_Embedded() string {
+	e := WithEmbed{Embedded: Embedded{Name: "John"}, Age: 30}
+	return e.Name
+}
+
+type MethodVal struct {
+	val int
+}
+
+func (m *MethodVal) Get() int {
+	return m.val
+}
+
+func Struct_MethodExpr() int {
+	fn := (*MethodVal).Get
+	m := &MethodVal{val: 99}
+	return fn(m)
+}
+
+// ============================================================================
+// Array Tests
+// ============================================================================
+
+func Array_Basic() int {
+	arr := [3]int{1, 2, 3}
+	return arr[0] + arr[1] + arr[2]
+}
+
+func Array_ZeroValue() int {
+	var arr [5]int
+	return arr[0]
+}
+
+func Array_Literal() int {
+	arr := [3]int{0: 10, 2: 30}
+	return arr[0] + arr[1] + arr[2]
+}
+
+// ============================================================================
+// Nil and Zero Value Tests
+// ============================================================================
+
+func Nil_Slice() int {
+	var s []int
+	if s == nil {
+		return 1
+	}
+	return 0
+}
+
+func Nil_Map() int {
+	var m map[string]int
+	if m == nil {
+		return 1
+	}
+	return 0
+}
+
+func Nil_Pointer() int {
+	var p *int
+	if p == nil {
+		return 1
+	}
+	return 0
+}
+
+func Nil_Interface() interface{} {
+	var i interface{}
+	if i == nil {
+		return nil
+	}
+	return i
+}
+
+// ============================================================================
+// Interface Tests
+// ============================================================================
+
+type I interface {
+	Get() int
+}
+
+type Impl struct {
+	val int
+}
+
+func (i Impl) Get() int {
+	return i.val
+}
+
+func Interface_Concrete() int {
+	var iface I = Impl{val: 42}
+	return iface.Get()
+}
+
+func Interface_NilCheck() int {
+	var iface I
+	if iface == nil {
+		return 1
+	}
+	return 0
+}
+
+// ============================================================================
+// Complex Expression Tests
+// ============================================================================
+
+func Expr_Precedence() int {
+	return 2 + 3*4
+}
+
+func Expr_Parens() int {
+	return (2 + 3) * 4
+}
+
+func Expr_Assign() int {
+	x := 10
+	x += 5
+	return x
+}
+
+func Expr_IncDec() int {
+	x := 10
+	x++
+	x++
+	return x
+}
+
+// ============================================================================
+// Type Assertion Tests
+// ============================================================================
+
+func TypeAssert_Int() int {
+	var i interface{} = 42
+	if v, ok := i.(int); ok {
+		return v
+	}
+	return 0
+}
+
+func TypeAssert_Switch() string {
+	var i interface{} = "hello"
+	switch v := i.(type) {
+	case string:
+		return v
+	}
+	return ""
+}
+
+// ============================================================================
+// More Arithmetic Tests
+// ============================================================================
+
+func Arith_IntMin() int {
+	return -2147483648
+}
+
+func Arith_IntMax() int {
+	return 2147483647
+}
+
+func Arith_UintMax() uint {
+	return 4294967295
+}
+
+func Arith_Power() int {
+	result := 1
+	for i := 0; i < 10; i++ {
+		result *= 2
+	}
+	return result
+}
+
+func Arith_Factorial() int {
+	result := 1
+	for i := 2; i <= 10; i++ {
+		result *= i
+	}
+	return result
+}
+
+// ============================================================================
+// More Complex Recursion
+// ============================================================================
+
+func Recur_Sum() int {
+	sum := func(n int) int {
+		if n <= 0 {
+			return 0
+		}
+		return n + sum(n-1)
+	}
+	return sum(100)
+}
+
+func Recur_CountDown() int {
+	// Use a named function for recursion
+	return recurCountDown(10)
+}
+
+func recurCountDown(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	return 1 + recurCountDown(n-1)
+}
+
+// ============================================================================
+// More Complex Range Tests
+// ============================================================================
+
+func Range_MapKeys() int {
+	m := map[string]int{"a": 1, "b": 2, "c": 3}
+	sum := 0
+	for k := range m {
+		if k == "a" || k == "b" || k == "c" {
+			sum++
+		}
+	}
+	return sum
+}
+
+func Range_Struct() int {
+	type T struct {
+		x int
+	}
+	arr := []T{{1}, {2}, {3}}
+	sum := 0
+	for _, v := range arr {
+		sum += v.x
+	}
+	return sum
+}

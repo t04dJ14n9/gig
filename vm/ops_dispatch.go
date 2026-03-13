@@ -1350,7 +1350,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			return err
 		}
 
-	// Indirect call (closures, function values)
+	// Indirect call (closures, function values, method expressions)
 	case bytecode.OpCallIndirect:
 		numArgs := frame.readByte()
 		// Pop arguments using stack-allocated buffer
@@ -1366,10 +1366,14 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		}
 		// Pop the callee
 		callee := vm.pop()
-		if fn, ok := callee.RawObj().(*Closure); ok {
+		switch fn := callee.RawObj().(type) {
+		case *Closure:
 			// Call closure: create new frame with free vars
 			vm.callFunction(fn.Fn, args, fn.FreeVars)
-		} else {
+		case *bytecode.CompiledFunction:
+			// Call compiled function
+			vm.callFunction(fn, args, nil)
+		default:
 			// Not a known callable — push nil
 			vm.push(value.MakeNil())
 		}

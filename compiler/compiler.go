@@ -160,13 +160,51 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 		}
 	}
 
+	// Collect synthetic wrapper functions ($bound, $thunk) referenced by compiled code.
+	// SSA generates these for method values (e.g., obj.Method → $bound) and method
+	// expressions (e.g., (*Type).Method → $thunk). They have Pkg==nil but reference
+	// methods from the main package. We scan all collected functions' instructions
+	// to discover them.
+	changed := true
+	for changed {
+		changed = false
+		for _, fn := range allFuncs {
+			if fn.Blocks == nil {
+				continue
+			}
+			for _, block := range fn.Blocks {
+				for _, instr := range block.Instrs {
+					// MakeClosure references the wrapper function directly
+					if mc, ok := instr.(*ssa.MakeClosure); ok {
+						if wrapperFn, ok := mc.Fn.(*ssa.Function); ok && !seen[wrapperFn] {
+							if wrapperFn.Blocks != nil {
+								collectFuncs(wrapperFn)
+								changed = true
+							}
+						}
+					}
+					// Direct calls to $thunk functions
+					if call, ok := instr.(*ssa.Call); ok {
+						if calledFn, ok := call.Call.Value.(*ssa.Function); ok && !seen[calledFn] {
+							if calledFn.Blocks != nil {
+								collectFuncs(calledFn)
+								changed = true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// First pass: assign indices to all functions
 	for idx, fn := range allFuncs {
 		c.funcIndex[fn] = idx
 		c.program.FuncIndex[fn] = idx
 	}
 
-	// Second pass: compile each function
+	// Second pass: compile each function and build direct-index lookup table
+	c.program.FuncByIndex = make([]*bytecode.CompiledFunction, len(allFuncs))
 	for _, fn := range allFuncs {
 		compiled, err := c.compileFunction(fn)
 		if err != nil {
@@ -174,13 +212,10 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 		}
 		c.funcs[fn.Name()] = compiled
 		c.program.Functions[fn.Name()] = compiled
-	}
-
-	// Build direct-index lookup table for O(1) function calls
-	c.program.FuncByIndex = make([]*bytecode.CompiledFunction, len(allFuncs))
-	for _, fn := range allFuncs {
+		// Use the SSA-pointer-based index to avoid name collisions
+		// (e.g., two methods named "Get" on different types).
 		idx := c.funcIndex[fn]
-		c.program.FuncByIndex[idx] = c.funcs[fn.Name()]
+		c.program.FuncByIndex[idx] = compiled
 	}
 
 	c.program.Constants = c.constants

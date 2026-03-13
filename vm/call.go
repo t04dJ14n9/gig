@@ -196,9 +196,12 @@ func (vm *VM) resolveExternalFunc(funcIdx int) *extCallCacheEntry {
 			entry.directCall = extInfo.DirectCall
 			if extInfo.Func != nil {
 				entry.fn = reflect.ValueOf(extInfo.Func)
-				entry.fnType = entry.fn.Type()
-				entry.isVariadic = entry.fnType.IsVariadic()
-				entry.numIn = entry.fnType.NumIn()
+				// Check if it's actually a function (not an *ssa.Function or other type)
+				if entry.fn.Kind() == reflect.Func {
+					entry.fnType = entry.fn.Type()
+					entry.isVariadic = entry.fnType.IsVariadic()
+					entry.numIn = entry.fnType.NumIn()
+				}
 			}
 			return entry
 		}
@@ -336,12 +339,27 @@ func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo,
 	if reflectVal, ok := receiver.ReflectValue(); ok {
 		rv = reflectVal
 	} else {
-		rv = reflect.ValueOf(receiver.Interface())
+		iface := receiver.Interface()
+		if iface == nil {
+			vm.push(value.MakeNil())
+			return nil
+		}
+		rv = reflect.ValueOf(iface)
 	}
 
 	if !rv.IsValid() {
 		vm.push(value.MakeNil())
 		return nil
+	}
+
+	// For interface method dispatch: if the receiver is an interface, unwrap it
+	// to get the concrete type, then look up the method on the concrete type.
+	if rv.Kind() == reflect.Interface {
+		if rv.IsNil() {
+			vm.push(value.MakeNil())
+			return nil
+		}
+		rv = rv.Elem()
 	}
 
 	// Look up the method by name
@@ -352,8 +370,10 @@ func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo,
 			method = rv.Addr().MethodByName(methodInfo.MethodName)
 		}
 		if !method.IsValid() {
-			vm.push(value.MakeNil())
-			return nil
+			// Reflection-based lookup failed. This happens when typeToReflect
+			// strips named types to anonymous structs (e.g., Impl → struct{val int}).
+			// Fall back to calling a compiled method from the function table.
+			return vm.callCompiledMethod(methodInfo.MethodName, args)
 		}
 	}
 
@@ -428,5 +448,39 @@ func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo,
 		}
 		vm.push(value.FromInterface(results))
 	}
+	return nil
+}
+
+// callCompiledMethod searches the compiled function table for a method with the
+// given name and calls it. This is the fallback path for invoke (interface method)
+// calls when reflection-based MethodByName fails — typically because typeToReflect
+// converts named types to anonymous struct types that lack the named type's methods.
+//
+// args[0] is the receiver, args[1:] are the method arguments.
+func (vm *VM) callCompiledMethod(methodName string, args []value.Value) error {
+	// Search for a compiled function whose SSA name matches the method name
+	// and that has a receiver (i.e., is actually a method, not a plain function).
+	for _, fn := range vm.program.FuncByIndex {
+		if fn == nil || fn.Source == nil {
+			continue
+		}
+		if fn.Source.Name() != methodName {
+			continue
+		}
+		sig := fn.Source.Signature
+		if sig.Recv() == nil {
+			continue
+		}
+		// Found a matching compiled method — call it with args as a compiled function.
+		// Push args onto the stack (receiver first, then method args).
+		for _, arg := range args {
+			vm.push(arg)
+		}
+		vm.callCompiledFunction(vm.program.FuncIndex[fn.Source], len(args))
+		return nil
+	}
+
+	// No compiled method found — push nil
+	vm.push(value.MakeNil())
 	return nil
 }
