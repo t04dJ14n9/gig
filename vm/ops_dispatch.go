@@ -297,14 +297,8 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 						made = true
 					}
 				}
-				// Function slice special case
-				if !made {
-					if _, isFunc := elemType.(*types.Signature); isFunc {
-						slice := make([]value.Value, int(lenVal.Int()), int(capVal.Int()))
-						vm.push(value.FromInterface(slice))
-						made = true
-					}
-				}
+				// Function slice: use reflect path to create proper typed slice (e.g. []func() int)
+				// instead of []value.Value, so it can be assigned to typed struct fields.
 			}
 			if !made {
 				if rt := typeToReflect(typ); rt != nil {
@@ -692,7 +686,17 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 							break
 						}
 					}
-					vm.push(value.MakeFromReflect(rv.Elem()))
+					elem := rv.Elem()
+					// When dereferencing a pointer-to-pointer (e.g. **int from FieldAddr),
+					// the inner pointer value is addressable and references the struct field
+					// directly. We must create an independent copy so that subsequent Store
+					// operations on the struct field don't silently mutate this loaded value
+					// (critical for swap patterns like p.a, p.b = p.b, p.a).
+					if elem.Kind() == reflect.Ptr && elem.CanSet() {
+						vm.push(value.MakeFromReflect(reflect.ValueOf(elem.Interface())))
+					} else {
+						vm.push(value.MakeFromReflect(elem))
+					}
 				} else {
 					vm.push(value.MakeNil())
 				}
@@ -1438,27 +1442,17 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				newPtr := reflect.ValueOf(&nilVal)
 				vm.push(value.MakeFromReflect(newPtr))
 			case *types.Slice:
-				// Check if slice element type is function
-				if _, isFunc := t.Elem().(*types.Signature); isFunc {
-					// Create []value.Value for function slices
-					var slice []value.Value
-					newPtr := reflect.ValueOf(&slice)
-					vm.push(value.MakeFromReflect(newPtr))
-				} else if rt := typeToReflect(typ); rt != nil {
+				// Use typeToReflect for proper typed slices (including function slices).
+				// This avoids creating []value.Value which can't be assigned to typed fields.
+				if rt := typeToReflect(typ); rt != nil {
 					newPtr := reflect.New(rt)
 					vm.push(value.MakeFromReflect(newPtr))
 				} else {
 					vm.push(value.MakeNil())
 				}
 			case *types.Array:
-				// Check if array element type is function
-				if _, isFunc := t.Elem().(*types.Signature); isFunc {
-					// Create array of value.Value for function arrays
-					arrLen := int(t.Len())
-					array := make([]value.Value, arrLen)
-					newPtr := reflect.ValueOf(&array)
-					vm.push(value.MakeFromReflect(newPtr))
-				} else if rt := typeToReflect(typ); rt != nil {
+				// Use typeToReflect for proper typed arrays (including function arrays).
+				if rt := typeToReflect(typ); rt != nil {
 					newPtr := reflect.New(rt)
 					vm.push(value.MakeFromReflect(newPtr))
 				} else {

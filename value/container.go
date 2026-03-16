@@ -123,9 +123,10 @@ func (v Value) SetIndex(i int, val Value) {
 	}
 	if rv, ok := v.obj.(reflect.Value); ok {
 		elemType := rv.Type().Elem()
-		// For function element types, store the Value directly (closures are *Closure)
+		// For function element types, convert via ToReflectValue to wrap closures
+		// with reflect.MakeFunc (ClosureCaller) for proper typed function values.
 		if elemType.Kind() == reflect.Func {
-			rv.Index(i).Set(reflect.ValueOf(val))
+			rv.Index(i).Set(val.ToReflectValue(elemType))
 			return
 		}
 		// For []value.Value slices (used for function slices)

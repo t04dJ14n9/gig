@@ -163,6 +163,15 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 			}
 			return target
 		}
+		// []value.Value → typed slice conversion (e.g. []func() int)
+		if s, ok := v.obj.([]Value); ok && typ.Kind() == reflect.Slice {
+			target := reflect.MakeSlice(typ, len(s), cap(s))
+			elemType := typ.Elem()
+			for i, elem := range s {
+				target.Index(i).Set(elem.ToReflectValue(elemType))
+			}
+			return target
+		}
 		if rv, ok := v.obj.(reflect.Value); ok {
 			return rv
 		}

@@ -199,3 +199,96 @@ func StructSelfRef() int {
 	n2 := &node{value: 2, next: n1}
 	return n2.value + n2.next.value
 }
+
+// ── Resolved Issue 11: Defer in closure with argument ────────────────────────
+
+// DeferInClosureWithArg tests defer in closure with argument.
+// Previously returned 1 because compileDefer pushed args before the closure,
+// causing OpDeferIndirect to pop them in the wrong order.
+// Expected: 11 (1 + 10 from defer)
+func DeferInClosureWithArg() int {
+	result := 0
+	f := func() {
+		defer func(v int) {
+			result += v
+		}(10)
+		result = 1
+	}
+	f()
+	return result
+}
+
+// ── Resolved Issue 12: Pointer swap in struct ────────────────────────────────
+
+// PtrPair is a pair of int pointers for swap testing.
+type PtrPair struct {
+	a, b *int
+}
+
+// PointerSwapInStruct tests swapping pointer fields in struct.
+// Previously returned 22 because OpDeref returned a reference to the struct
+// field instead of an independent copy, causing the swap to alias.
+// Expected: 21 (2*10 + 1)
+func PointerSwapInStruct() int {
+	x, y := 1, 2
+	p := PtrPair{a: &x, b: &y}
+	p.a, p.b = p.b, p.a
+	return *p.a*10 + *p.b
+}
+
+// ── Resolved Issue 13: Struct with function slice ────────────────────────────
+
+// StructWithFuncSlice tests struct with slice of functions.
+// Previously panicked: []value.Value is not assignable to []func() int.
+// Fixed by using typeToReflect for proper typed arrays/slices in OpNew.
+// Expected: 3
+func StructWithFuncSlice() int {
+	type FuncSliceHolder struct {
+		funcs []func() int
+	}
+	h := FuncSliceHolder{
+		funcs: []func() int{
+			func() int { return 1 },
+			func() int { return 2 },
+		},
+	}
+	return h.funcs[0]() + h.funcs[1]()
+}
+
+// ── Resolved Issue 14: Struct with anonymous field ───────────────────────────
+
+// StructAnonymousField tests struct with anonymous embedded field.
+// Previously panicked: reflect.StructOf field "int" is unexported but missing PkgPath.
+// Fixed by demoting anonymous unexported fields in typeToReflect (reflect.StructOf limitation).
+// Expected: 42
+func StructAnonymousField() int {
+	type AnonField struct {
+		int
+		name string
+	}
+	s := AnonField{int: 42, name: "test"}
+	return s.int
+}
+
+// ── Resolved Issue 15: Struct with embedded interface ────────────────────────
+// NOTE: StructEmbeddedInterface types and test function are defined inline
+// in resolved_issue_test.go to avoid type collision with other struct types
+// in this file (reflect.StructOf creates anonymous types that can conflict).
+
+// ── Resolved Issue 16: Map range with break ──────────────────────────────────
+
+// MapRangeWithBreak tests breaking from map range.
+// Map iteration order is non-deterministic by Go spec.
+// The result varies but should be a valid partial sum.
+// Expected: varies (sum of some values from {10, 20, 30} until sum > 25)
+func MapRangeWithBreak() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	sum := 0
+	for _, v := range m {
+		sum += v
+		if sum > 25 {
+			break
+		}
+	}
+	return sum
+}

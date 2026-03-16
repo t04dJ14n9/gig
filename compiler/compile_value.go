@@ -388,10 +388,7 @@ func (c *compiler) compileDefer(i *ssa.Defer) {
 	case *ssa.Function:
 		// If the function has free variables, we need to create a closure
 		if len(val.FreeVars) > 0 {
-			// Push arguments first
-			for _, arg := range i.Call.Args {
-				c.compileValue(arg)
-			}
+			// First create the closure (OpDeferIndirect expects: closure, args... on stack)
 			// Push the free variable bindings
 			for _, fv := range val.FreeVars {
 				c.compileValue(fv)
@@ -402,6 +399,10 @@ func (c *compiler) compileDefer(i *ssa.Defer) {
 				byte(bytecode.OpClosure),
 				byte(fnIdx>>8), byte(fnIdx),
 				byte(len(val.FreeVars)))
+			// Push arguments AFTER closure
+			for _, arg := range i.Call.Args {
+				c.compileValue(arg)
+			}
 			numArgs := len(i.Call.Args)
 			c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
 			return
@@ -416,19 +417,17 @@ func (c *compiler) compileDefer(i *ssa.Defer) {
 	case *ssa.MakeClosure:
 		// Check if this MakeClosure was already compiled (has a local slot)
 		if idx, ok := c.symbolTable.GetLocal(val); ok {
-			// Already compiled - just load the closure from local
+			// Already compiled - load the closure from local FIRST
+			c.emit(bytecode.OpLocal, uint16(idx))
+			// Then push arguments
 			for _, arg := range i.Call.Args {
 				c.compileValue(arg)
 			}
-			c.emit(bytecode.OpLocal, uint16(idx))
 			numArgs := len(i.Call.Args)
 			c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
 			return
 		}
-		// Not yet compiled - create the closure now
-		for _, arg := range i.Call.Args {
-			c.compileValue(arg)
-		}
+		// Not yet compiled - create the closure now FIRST
 		// Compile bindings - need to handle FreeVar specially
 		for _, binding := range val.Bindings {
 			// Check if binding is a FreeVar (captured from enclosing function)
@@ -453,6 +452,10 @@ func (c *compiler) compileDefer(i *ssa.Defer) {
 			byte(bytecode.OpClosure),
 			byte(fnIdx>>8), byte(fnIdx),
 			byte(len(val.Bindings)))
+		// Push arguments AFTER closure
+		for _, arg := range i.Call.Args {
+			c.compileValue(arg)
+		}
 		numArgs := len(i.Call.Args)
 		c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
 

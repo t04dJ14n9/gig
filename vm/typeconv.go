@@ -136,14 +136,15 @@ func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type) ref
 				Type:      ft,
 				Anonymous: f.Anonymous(),
 			}
-			// For unexported fields, we must set PkgPath
-			// Check if the field is exported (starts with uppercase)
-			if len(f.Name()) > 0 && f.Name()[0] >= 'a' && f.Name()[0] <= 'z' {
-				// Unexported field - need to use package path
-				// Use empty string for anonymous unexported, or the package path
-				if !f.Anonymous() {
-					sf.PkgPath = f.Pkg().Path()
+			// For unexported fields, we must set PkgPath (required by reflect.StructOf).
+			// reflect.StructOf does NOT support anonymous unexported fields (it panics
+			// with "is anonymous but has PkgPath set" or "is unexported but missing PkgPath").
+			// Workaround: demote anonymous unexported fields to regular unexported fields.
+			if !f.Exported() {
+				if sf.Anonymous {
+					sf.Anonymous = false
 				}
+				sf.PkgPath = f.Pkg().Path()
 			}
 			if tag := tt.Tag(i); tag != "" {
 				sf.Tag = reflect.StructTag(tag)
