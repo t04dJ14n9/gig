@@ -404,6 +404,16 @@ const (
 	// Operands: [func_idx:2]
 	OpDefer
 
+	// OpDeferIndirect defers a closure call.
+	// Operands: [num_args:1]
+	// Stack: [... closure args...] -> [...]
+	OpDeferIndirect
+
+	// OpRunDefers executes all pending deferred calls synchronously.
+	// This is used for named return values where defers may modify return values
+	// before the function actually returns.
+	OpRunDefers
+
 	// OpRecover recovers from a panic.
 	OpRecover
 
@@ -695,6 +705,7 @@ func buildOperandWidthTable() [256]int {
 	t[OpMethod] = 2
 	t[OpMethodCall] = 3 // method_idx(2) + num_args(1)
 	t[OpDefer] = 2
+	t[OpDeferIndirect] = 2  // num_args(2)
 	t[OpCallExternal] = 3   // func_idx(2) + num_args(1)
 	t[OpCallIndirect] = 1   // num_args(1)
 	t[OpGoCall] = 3         // func_idx(2) + num_args(1)
@@ -899,6 +910,10 @@ func (op OpCode) String() string {
 		return "SELECT"
 	case OpDefer:
 		return "DEFER"
+	case OpDeferIndirect:
+		return "DEFERINDIRECT"
+	case OpRunDefers:
+		return "RUNDEFERS"
 	case OpRecover:
 		return "RECOVER"
 	case OpRange:
@@ -1025,7 +1040,7 @@ var OperandWidths = map[OpCode]int{
 	OpFree: 1, OpSetFree: 1, OpJump: 2, OpJumpTrue: 2, OpJumpFalse: 2,
 	OpCall: 3, OpMakeArray: 2, OpMakeStruct: 2, OpField: 2, OpSetField: 2,
 	OpAddr: 2, OpFieldAddr: 2, OpAssert: 2, OpConvert: 2, OpClosure: 3,
-	OpMethod: 2, OpMethodCall: 3, OpDefer: 2, OpCallExternal: 3,
+	OpMethod: 2, OpMethodCall: 3, OpDefer: 2, OpDeferIndirect: 2, OpCallExternal: 3,
 	OpCallIndirect: 1, OpGoCall: 3, OpGoCallIndirect: 1, OpSelect: 2,
 	OpPack: 2, OpNew: 2, OpMake: 4, OpPrint: 1, OpPrintln: 1,
 	OpAddLocalLocal: 4, OpSubLocalLocal: 4, OpMulLocalLocal: 4,

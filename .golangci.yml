@@ -537,10 +537,7 @@ linters:
       - path: (.+)\.go$
         linters:
           - unparam
-      # Exclude unused
-      - path: (.+)\.go$
-        linters:
-          - unused
+
       # Exclude gochecknoglobals for interpreter
       - path: (gig\.go|vm/.*\.go|importer/.*\.go|stdlib/.*\.go)
         linters:

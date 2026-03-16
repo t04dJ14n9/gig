@@ -73,7 +73,7 @@ func (c *compiler) compileInstruction(instr ssa.Instruction) {
 	case *ssa.Return:
 		c.compileReturn(i)
 	case *ssa.RunDefers:
-		c.emit(bytecode.OpRecover)
+		c.emit(bytecode.OpRunDefers)
 	case *ssa.Send:
 		c.compileSend(i)
 	case *ssa.Store:
