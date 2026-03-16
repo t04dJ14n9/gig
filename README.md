@@ -18,7 +18,7 @@ Gig is a high-performance Go interpreter written in Go, featuring SSA-to-bytecod
 ## Installation
 
 ```bash
-go get git.woa.com/youngjin/gig
+go get github.com/t04dJ14n9/gig
 ```
 
 ## Quick Start
@@ -32,8 +32,8 @@ package main
 
 import (
     "fmt"
-    _ "git.woa.com/youngjin/gig/stdlib/packages" // Import gig's built-in stdlib
-    "git.woa.com/youngjin/gig"
+    _ "github.com/t04dJ14n9/gig/stdlib/packages" // Import gig's built-in stdlib
+    "github.com/t04dJ14n9/gig"
 )
 
 func main() {
@@ -72,10 +72,10 @@ If you need third-party libraries or a subset of standard library, use the `gig`
 
 ```bash
 # Install the CLI tool
-go install git.woa.com/youngjin/gig/cmd/gig@latest
+go install github.com/t04dJ14n9/gig/cmd/gig@latest
 
 # Or run directly (Go 1.21+)
-go run git.woa.com/youngjin/gig/cmd/gig@latest --help
+go run github.com/t04dJ14n9/gig/cmd/gig@latest --help
 ```
 
 #### Step 2: Initialize a dependency package
@@ -136,7 +136,7 @@ package main
 import (
     "fmt"
     _ "myapp/mydep/packages" // Your custom dependency package
-    "git.woa.com/youngjin/gig"
+    "github.com/t04dJ14n9/gig"
 )
 
 func main() {
@@ -174,7 +174,7 @@ result, err := prog.RunWithContext(ctx context.Context, funcName string, args ..
 ### Registering Packages (Advanced)
 
 ```go
-import "git.woa.com/youngjin/gig/register"
+import "github.com/t04dJ14n9/gig/register"
 
 // Register a package manually (usually done via generated code)
 pkg := register.RegisterPackage("mypkg", "mypkg")

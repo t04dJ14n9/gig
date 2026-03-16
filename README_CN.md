@@ -18,7 +18,7 @@ Gig 是一个用 Go 语言编写的高性能 Go 解释器，采用 SSA 到字节
 ## 安装
 
 ```bash
-go get git.woa.com/youngjin/gig
+go get github.com/t04dJ14n9/gig
 ```
 
 ## 快速开始
@@ -32,8 +32,8 @@ package main
 
 import (
     "fmt"
-    _ "git.woa.com/youngjin/gig/stdlib/packages" // 导入 gig 的内置标准库
-    "git.woa.com/youngjin/gig"
+    _ "github.com/t04dJ14n9/gig/stdlib/packages" // 导入 gig 的内置标准库
+    "github.com/t04dJ14n9/gig"
 )
 
 func main() {
@@ -72,10 +72,10 @@ func Greet(name string) string {
 
 ```bash
 # 安装 CLI 工具
-go install git.woa.com/youngjin/gig/cmd/gig@latest
+go install github.com/t04dJ14n9/gig/cmd/gig@latest
 
 # 或直接运行（Go 1.21+）
-go run git.woa.com/youngjin/gig/cmd/gig@latest --help
+go run github.com/t04dJ14n9/gig/cmd/gig@latest --help
 ```
 
 #### 步骤 2：初始化依赖包
@@ -136,7 +136,7 @@ package main
 import (
     "fmt"
     _ "myapp/mydep/packages" // 你的自定义依赖包
-    "git.woa.com/youngjin/gig"
+    "github.com/t04dJ14n9/gig"
 )
 
 func main() {
@@ -174,7 +174,7 @@ result, err := prog.RunWithContext(ctx context.Context, funcName string, args ..
 ### 注册包（高级）
 
 ```go
-import "git.woa.com/youngjin/gig/register"
+import "github.com/t04dJ14n9/gig/register"
 
 // 手动注册包（通常通过生成的代码完成）
 pkg := register.RegisterPackage("mypkg", "mypkg")

@@ -575,7 +575,7 @@ if lowVal < 0 || highVal > xVal.Len() {
 **方式一：使用内置标准库**
 
 ```go
-import _ "git.woa.com/youngjin/gig/stdlib/packages"
+import _ "github.com/t04dJ14n9/gig/stdlib/packages"
 
 source := `
 import "fmt"

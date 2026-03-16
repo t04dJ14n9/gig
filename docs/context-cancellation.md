@@ -21,8 +21,8 @@ package main
 import (
     "context"
     "time"
-    "git.woa.com/youngjin/gig"
-    _ "git.woa.com/youngjin/gig/stdlib/packages"
+    "github.com/t04dJ14n9/gig"
+    _ "github.com/t04dJ14n9/gig/stdlib/packages"
 )
 
 func main() {
@@ -58,8 +58,8 @@ package main
 
 import (
     "context"
-    "git.woa.com/youngjin/gig"
-    _ "git.woa.com/youngjin/gig/stdlib/packages"
+    "github.com/t04dJ14n9/gig"
+    _ "github.com/t04dJ14n9/gig/stdlib/packages"
 )
 
 func main() {
@@ -99,8 +99,8 @@ package main
 import (
     "context"
     "time"
-    "git.woa.com/youngjin/gig"
-    _ "git.woa.com/youngjin/gig/stdlib/packages"
+    "github.com/t04dJ14n9/gig"
+    _ "github.com/t04dJ14n9/gig/stdlib/packages"
 )
 
 func main() {
@@ -223,8 +223,8 @@ import (
     "context"
     "net/http"
     "time"
-    "git.woa.com/youngjin/gig"
-    _ "git.woa.com/youngjin/gig/stdlib/packages"
+    "github.com/t04dJ14n9/gig"
+    _ "github.com/t04dJ14n9/gig/stdlib/packages"
 )
 
 var prog *gig.Program
