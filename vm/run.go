@@ -2,6 +2,7 @@ package vm
 
 import (
 	"fmt"
+	"reflect"
 
 	"git.woa.com/youngjin/gig/bytecode"
 	"git.woa.com/youngjin/gig/value"
@@ -974,6 +975,23 @@ func (vm *VM) run() (value.Value, error) {
 				sp = vm.sp
 				stack = vm.stack
 				loadFrame()
+			} else if rv, ok := callee.ReflectValue(); ok && rv.Kind() == reflect.Func {
+				// Reflect-based function (e.g., closure wrapped via reflect.MakeFunc
+				// and retrieved from a typed container like map[int]func() int)
+				in := make([]reflect.Value, numArgs)
+				fnType := rv.Type()
+				for i := 0; i < numArgs; i++ {
+					if i < fnType.NumIn() {
+						in[i] = args[i].ToReflectValue(fnType.In(i))
+					}
+				}
+				out := rv.Call(in)
+				if len(out) == 0 {
+					stack[sp] = value.MakeNil()
+				} else {
+					stack[sp] = value.MakeFromReflect(out[0])
+				}
+				sp++
 			} else {
 				stack[sp] = value.MakeNil()
 				sp++

@@ -246,7 +246,7 @@ func (v Value) SetElem(val Value) {
 			// Handle pointer case
 			elemType := rv.Type().Elem()
 			if elemType.Kind() == reflect.Func {
-				rv.Elem().Set(reflect.ValueOf(val))
+				rv.Elem().Set(val.ToReflectValue(elemType))
 				return
 			}
 			if elemType.Name() == "Value" && elemType.PkgPath() == "git.woa.com/youngjin/gig/value" {

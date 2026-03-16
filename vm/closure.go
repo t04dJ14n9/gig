@@ -16,6 +16,10 @@ type Closure struct {
 	// FreeVars are pointers to captured variables.
 	// They are stored as pointers to allow shared state between closures.
 	FreeVars []*value.Value
+
+	// Program is a reference to the compiled program, needed when the closure
+	// is wrapped as a real Go function (via reflect.MakeFunc) for typed containers.
+	Program *bytecode.Program
 }
 
 // closurePool pools Closure objects to reduce heap allocations.

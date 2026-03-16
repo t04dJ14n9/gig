@@ -6,6 +6,22 @@ import (
 	"reflect"
 )
 
+// ClosureCaller is a callback registered by the vm package to execute a closure.
+// It receives the raw closure object and reflect.Value arguments, and returns
+// reflect.Value results matching the target function signature.
+// This breaks the circular dependency between value and vm packages.
+type ClosureCaller func(closure any, args []reflect.Value) []reflect.Value
+
+// closureCaller is the registered callback for executing closures.
+// It is set by the vm package during initialization.
+var closureCaller ClosureCaller //nolint:gochecknoglobals // cross-package callback, must be global
+
+// RegisterClosureCaller registers the closure execution callback.
+// This must be called by the vm package before any closure-to-func conversion occurs.
+func RegisterClosureCaller(caller ClosureCaller) {
+	closureCaller = caller
+}
+
 // Bool returns the bool value. Panics if not KindBool.
 func (v Value) Bool() bool {
 	if v.kind != KindBool {
@@ -106,6 +122,35 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 	case KindComplex:
 		return reflect.ValueOf(v.obj.(complex128))
 	case KindFunc:
+		// If the target type is a function type, wrap the closure in a real Go function
+		// using reflect.MakeFunc. This allows closures to be stored in typed containers
+		// (maps, struct fields) that expect concrete function types like func() int.
+		if typ.Kind() == reflect.Func && closureCaller != nil {
+			closure := v.obj
+			numOut := typ.NumOut()
+			outTypes := make([]reflect.Type, numOut)
+			for i := 0; i < numOut; i++ {
+				outTypes[i] = typ.Out(i)
+			}
+			fn := reflect.MakeFunc(typ, func(args []reflect.Value) []reflect.Value {
+				results := closureCaller(closure, args)
+				// Convert results to match the expected return types
+				out := make([]reflect.Value, numOut)
+				for i := 0; i < numOut; i++ {
+					if i < len(results) && results[i].IsValid() {
+						if results[i].Type().ConvertibleTo(outTypes[i]) {
+							out[i] = results[i].Convert(outTypes[i])
+						} else {
+							out[i] = results[i]
+						}
+					} else {
+						out[i] = reflect.Zero(outTypes[i])
+					}
+				}
+				return out
+			})
+			return fn
+		}
 		return reflect.ValueOf(v.obj)
 	case KindBytes:
 		return reflect.ValueOf(v.obj.([]byte))

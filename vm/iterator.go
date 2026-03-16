@@ -27,6 +27,10 @@ type iterator struct {
 // For slices/arrays: key is the element index, value is the element.
 // For strings: key is the byte offset, value is the rune (Unicode code point).
 // For maps: key is the map key, value is the map value.
+//
+// For maps, reflect.MapRange().Next() is used, which correctly observes keys
+// added during iteration (matching native Go range behavior where new keys
+// "may or may not" be visited).
 func (it *iterator) next() (key, val value.Value, ok bool) {
 	switch it.collection.Kind() {
 	case value.KindString:

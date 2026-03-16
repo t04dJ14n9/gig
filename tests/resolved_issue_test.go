@@ -1,0 +1,265 @@
+package tests
+
+import (
+	_ "embed"
+	"strings"
+	"testing"
+
+	gig "git.woa.com/youngjin/gig"
+	_ "git.woa.com/youngjin/gig/stdlib/packages"
+	"git.woa.com/youngjin/gig/tests/testdata/resolved_issue"
+)
+
+//go:embed testdata/resolved_issue/main.go
+var resolvedSrc string
+
+// toMainPackageResolved converts a source file to package main
+func toMainPackageResolved(src string) string {
+	lines := strings.Split(src, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(line, "package ") {
+			lines[i] = "package main"
+			break
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// runResolvedTest runs a function from the resolved_issue test file
+func runResolvedTest(t *testing.T, funcName string) any {
+	t.Helper()
+	src := toMainPackageResolved(resolvedSrc)
+	prog, err := gig.Build(src)
+	if err != nil {
+		t.Fatalf("Build error: %v", err)
+	}
+	result, err := prog.Run(funcName)
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	return result
+}
+
+// Resolved issue tests - these verify bugs have been fixed
+// Each test compares interpreted execution with native Go execution
+
+func TestResolved_BytesToString(t *testing.T) {
+	expected := resolved_issue.BytesToString()
+	result := runResolvedTest(t, "BytesToString")
+
+	s, ok := result.(string)
+	if !ok {
+		t.Fatalf("expected string, got %T", result)
+	}
+	if s != expected {
+		t.Errorf("got %q, want %q", s, expected)
+	}
+}
+
+func TestResolved_BytesToStringHi(t *testing.T) {
+	expected := resolved_issue.BytesToStringHi()
+	result := runResolvedTest(t, "BytesToStringHi")
+
+	s, ok := result.(string)
+	if !ok {
+		t.Fatalf("expected string, got %T", result)
+	}
+	if s != expected {
+		t.Errorf("got %q, want %q", s, expected)
+	}
+}
+
+func TestResolved_BytesToStringGo(t *testing.T) {
+	expected := resolved_issue.BytesToStringGo()
+	result := runResolvedTest(t, "BytesToStringGo")
+
+	s, ok := result.(string)
+	if !ok {
+		t.Fatalf("expected string, got %T", result)
+	}
+	if s != expected {
+		t.Errorf("got %q, want %q", s, expected)
+	}
+}
+
+func TestResolved_BytesToStringEmpty(t *testing.T) {
+	expected := resolved_issue.BytesToStringEmpty()
+	result := runResolvedTest(t, "BytesToStringEmpty")
+
+	s, ok := result.(string)
+	if !ok {
+		t.Fatalf("expected string, got %T", result)
+	}
+	if s != expected {
+		t.Errorf("got %q, want %q", s, expected)
+	}
+}
+
+func TestResolved_BytesToStringSingle(t *testing.T) {
+	expected := resolved_issue.BytesToStringSingle()
+	result := runResolvedTest(t, "BytesToStringSingle")
+
+	s, ok := result.(string)
+	if !ok {
+		t.Fatalf("expected string, got %T", result)
+	}
+	if s != expected {
+		t.Errorf("got %q, want %q", s, expected)
+	}
+}
+
+func TestResolved_PointerReceiverMutation(t *testing.T) {
+	expected := resolved_issue.PointerReceiverMutation()
+	result := runResolvedTest(t, "PointerReceiverMutation")
+
+	n := toInt64(t, result)
+	if n != int64(expected) {
+		t.Errorf("got %d, want %d", n, expected)
+	}
+}
+
+func TestResolved_PointerReceiverMutationReturnValue(t *testing.T) {
+	expected := resolved_issue.PointerReceiverMutationReturnValue()
+	result := runResolvedTest(t, "PointerReceiverMutationReturnValue")
+
+	n := toInt64(t, result)
+	if n != int64(expected) {
+		t.Errorf("got %d, want %d", n, expected)
+	}
+}
+
+func TestResolved_InitFuncExecuted(t *testing.T) {
+	expected := resolved_issue.InitFuncExecuted()
+	result := runResolvedTest(t, "InitFuncExecuted")
+
+	n := toInt64(t, result)
+	if n != int64(expected) {
+		t.Errorf("got %d, want %d", n, expected)
+	}
+}
+
+func TestResolved_InitFuncSideEffect(t *testing.T) {
+	expected := resolved_issue.InitFuncSideEffect()
+	result := runResolvedTest(t, "InitFuncSideEffect")
+
+	n := toInt64(t, result)
+	if n != int64(expected) {
+		t.Errorf("got %d, want %d", n, expected)
+	}
+}
+
+func TestResolved_RangeStringRuneValue(t *testing.T) {
+	expected := resolved_issue.RangeStringRuneValue()
+	result := runResolvedTest(t, "RangeStringRuneValue")
+
+	n := toInt64(t, result)
+	if n != int64(expected) {
+		t.Errorf("got %d, want %d", n, expected)
+	}
+}
+
+func TestResolved_RangeStringIndexValue(t *testing.T) {
+	expected := resolved_issue.RangeStringIndexValue()
+	result := runResolvedTest(t, "RangeStringIndexValue")
+
+	n := toInt64(t, result)
+	if n != int64(expected) {
+		t.Errorf("got %d, want %d", n, expected)
+	}
+}
+
+func TestResolved_RangeStringMultibyte(t *testing.T) {
+	expected := resolved_issue.RangeStringMultibyte()
+	result := runResolvedTest(t, "RangeStringMultibyte")
+
+	n := toInt64(t, result)
+	if n != int64(expected) {
+		t.Errorf("got %d, want %d", n, expected)
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Resolved Issue 5: Map with function value type
+// ═══════════════════════════════════════════════════════════════════════════════
+
+func TestResolved_MapWithFuncValue(t *testing.T) {
+	expected := resolved_issue.MapWithFuncValue()
+	result := runResolvedTest(t, "MapWithFuncValue")
+
+	n := toInt64(t, result)
+	if n != int64(expected) {
+		t.Errorf("map with func value: got %d, want %d", n, expected)
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Resolved Issue 6: Type switch on interface values in slice
+// ═══════════════════════════════════════════════════════════════════════════════
+
+func TestResolved_InterfaceSliceTypeSwitch(t *testing.T) {
+	expected := resolved_issue.InterfaceSliceTypeSwitch()
+	result := runResolvedTest(t, "InterfaceSliceTypeSwitch")
+
+	n := toInt64(t, result)
+	if n != int64(expected) {
+		t.Errorf("interface slice type switch: got %d, want %d", n, expected)
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Resolved Issue 7: Struct with function field
+// ═══════════════════════════════════════════════════════════════════════════════
+
+func TestResolved_StructWithFuncField(t *testing.T) {
+	expected := resolved_issue.StructWithFuncField()
+	result := runResolvedTest(t, "StructWithFuncField")
+
+	n := toInt64(t, result)
+	if n != int64(expected) {
+		t.Errorf("struct with func field: got %d, want %d", n, expected)
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Resolved Issue 8: Slice append with spread operator
+// ═══════════════════════════════════════════════════════════════════════════════
+
+func TestResolved_SliceFlatten(t *testing.T) {
+	expected := resolved_issue.SliceFlatten()
+	result := runResolvedTest(t, "SliceFlatten")
+
+	n := toInt64(t, result)
+	if n != int64(expected) {
+		t.Errorf("slice flatten: got %d, want %d", n, expected)
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Resolved Issue 9: Map update during range
+// ═══════════════════════════════════════════════════════════════════════════════
+
+func TestResolved_MapUpdateDuringRange(t *testing.T) {
+	result := runResolvedTest(t, "MapUpdateDuringRange")
+
+	n := toInt64(t, result)
+	// The initial map has 2 keys. Each visited key adds one new key.
+	// At minimum, only the 2 original keys are visited → 4 total.
+	// The result should be at least 4 (2 original + 2 added).
+	if n < 4 {
+		t.Errorf("map update during range: got %d, want >= 4", n)
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Resolved Issue 10: Self-referencing struct type
+// ═══════════════════════════════════════════════════════════════════════════════
+
+func TestResolved_StructSelfRef(t *testing.T) {
+	expected := resolved_issue.StructSelfRef()
+	result := runResolvedTest(t, "StructSelfRef")
+
+	n := toInt64(t, result)
+	if n != int64(expected) {
+		t.Errorf("struct self-ref: got %d, want %d", n, expected)
+	}
+}

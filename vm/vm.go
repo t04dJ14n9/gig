@@ -39,6 +39,58 @@ import (
 	"git.woa.com/youngjin/gig/value"
 )
 
+func init() { //nolint:gochecknoinits // registers cross-package callback, must run before any VM usage
+	// Register the closure caller so that value.ToReflectValue can wrap
+	// *vm.Closure objects into real Go functions via reflect.MakeFunc.
+	value.RegisterClosureCaller(func(closure any, args []reflect.Value) []reflect.Value {
+		c, ok := closure.(*Closure)
+		if !ok {
+			return nil
+		}
+		prog := c.Program
+		if prog == nil {
+			return nil
+		}
+		// Create a temporary VM to execute the closure
+		closureVM := &VM{
+			program: prog,
+			stack:   make([]value.Value, 256),
+			sp:      0,
+			frames:  make([]*Frame, 64),
+			fp:      0,
+			globals: make([]value.Value, len(prog.Globals)),
+			ctx:     context.Background(),
+			extCallCache: &externalCallCache{
+				cache: make([]*extCallCacheEntry, len(prog.Constants)),
+			},
+		}
+		if len(prog.InitialGlobals) == len(closureVM.globals) {
+			copy(closureVM.globals, prog.InitialGlobals)
+		}
+		// Convert reflect.Value args to value.Value args
+		valArgs := make([]value.Value, len(args))
+		for i, arg := range args {
+			valArgs[i] = value.MakeFromReflect(arg)
+		}
+		// Call the closure function with its captured free variables
+		closureVM.callFunction(c.Fn, valArgs, c.FreeVars)
+		result, _ := closureVM.run()
+		// Return the result as an interface{} wrapped in reflect.Value.
+		// reflect.MakeFunc will handle the type conversion from the returned
+		// reflect.Value to the expected function signature return type.
+		if result.Kind() == value.KindNil {
+			return []reflect.Value{}
+		}
+		// Use reflect.ValueOf + Convert to match the expected return type.
+		// This handles int64 → int conversion etc.
+		iface := result.Interface()
+		if iface == nil {
+			return []reflect.Value{}
+		}
+		return []reflect.Value{reflect.ValueOf(iface)}
+	})
+}
+
 // Executor executes compiled bytecode programs.
 type Executor interface {
 	Execute(funcName string, ctx context.Context, args ...value.Value) (value.Value, error)

@@ -8,9 +8,24 @@ import (
 // typeToReflect converts a go/types.Type to reflect.Type.
 // This is used for runtime type operations like allocations and type assertions.
 // It handles basic types, slices, arrays, maps, channels, pointers, structs, and functions.
+// It is safe for self-referencing struct types (e.g., type node struct { next *node }).
 func typeToReflect(t types.Type) reflect.Type {
+	return typeToReflectWithCache(t, make(map[types.Type]reflect.Type))
+}
+
+// typeToReflectWithCache is the internal recursive helper that carries a cache
+// to detect and break cycles caused by self-referencing types.
+// When a *types.Named is encountered a second time (cycle), the pointer field
+// that caused the recursion is replaced with unsafe.Pointer, which has the same
+// size and alignment as any Go pointer.
+func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type) reflect.Type {
 	if t == nil {
 		return nil
+	}
+
+	// Check cache first to break cycles
+	if cached, ok := cache[t]; ok {
+		return cached
 	}
 
 	switch tt := t.(type) {
@@ -54,53 +69,67 @@ func typeToReflect(t types.Type) reflect.Type {
 			return nil
 		}
 	case *types.Slice:
-		elem := typeToReflect(tt.Elem())
+		elem := typeToReflectWithCache(tt.Elem(), cache)
 		if elem != nil {
 			return reflect.SliceOf(elem)
 		}
 		return nil
 	case *types.Array:
-		elem := typeToReflect(tt.Elem())
+		elem := typeToReflectWithCache(tt.Elem(), cache)
 		if elem != nil {
 			return reflect.ArrayOf(int(tt.Len()), elem)
 		}
 		return nil
 	case *types.Map:
-		key := typeToReflect(tt.Key())
-		val := typeToReflect(tt.Elem())
+		key := typeToReflectWithCache(tt.Key(), cache)
+		val := typeToReflectWithCache(tt.Elem(), cache)
 		if key != nil && val != nil {
 			return reflect.MapOf(key, val)
 		}
 		return nil
 	case *types.Chan:
-		elem := typeToReflect(tt.Elem())
+		elem := typeToReflectWithCache(tt.Elem(), cache)
 		if elem != nil {
 			return reflect.ChanOf(reflect.BothDir, elem)
 		}
 		return nil
 	case *types.Pointer:
-		elem := typeToReflect(tt.Elem())
+		elem := typeToReflectWithCache(tt.Elem(), cache)
 		if elem != nil {
 			return reflect.PointerTo(elem)
 		}
-		return nil
+		// If elem is nil due to a cycle (self-referencing struct pointer),
+		// use interface{} as a placeholder. The VM stores such values as
+		// reflect.Value internally, and interface{} can hold any pointer value.
+		var emptyIface any
+		return reflect.TypeOf(&emptyIface).Elem()
 	case *types.Interface:
 		// Interface type — use the empty interface (any) type
 		// For the VM, all interfaces are represented as interface{}
 		var emptyIface any
 		return reflect.TypeOf(&emptyIface).Elem()
 	case *types.Named:
-		// For named types, try to get the underlying type
-		return typeToReflect(tt.Underlying())
+		// Mark this named type as being processed BEFORE recursing into the
+		// underlying type. If we encounter it again via a pointer field, the
+		// cache check at the top returns nil, and the *types.Pointer case
+		// falls back to unsafe.Pointer.
+		cache[tt] = nil
+		result := typeToReflectWithCache(tt.Underlying(), cache)
+		if result != nil {
+			cache[tt] = result
+		}
+		return result
 	case *types.Struct:
 		// Build struct type dynamically using reflect
 		numFields := tt.NumFields()
 		fields := make([]reflect.StructField, 0, numFields)
 		for i := 0; i < numFields; i++ {
 			f := tt.Field(i)
-			ft := typeToReflect(f.Type())
+			ft := typeToReflectWithCache(f.Type(), cache)
 			if ft == nil {
-				return nil
+				// Skip fields that could not be converted (shouldn't normally happen
+				// unless there's a deep cycle on a non-pointer path).
+				continue
 			}
 			sf := reflect.StructField{
 				Name:      f.Name(),
@@ -131,7 +160,7 @@ func typeToReflect(t types.Type) reflect.Type {
 		params := tt.Params()
 		paramTypes := make([]reflect.Type, params.Len())
 		for i := 0; i < params.Len(); i++ {
-			pt := typeToReflect(params.At(i).Type())
+			pt := typeToReflectWithCache(params.At(i).Type(), cache)
 			if pt == nil {
 				return nil
 			}
@@ -141,7 +170,7 @@ func typeToReflect(t types.Type) reflect.Type {
 		results := tt.Results()
 		resultTypes := make([]reflect.Type, results.Len())
 		for i := 0; i < results.Len(); i++ {
-			rt := typeToReflect(results.At(i).Type())
+			rt := typeToReflectWithCache(results.At(i).Type(), cache)
 			if rt == nil {
 				return nil
 			}

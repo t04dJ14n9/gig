@@ -34,10 +34,8 @@ func Compute() int {
 }
 
 // TestCompiler_TypeAssertionCommaOk verifies the comma-ok idiom where the type
-// assertion SUCCEEDS. (Gig currently treats any type assertion as ok=true.)
+// assertion FAILS (string is not int).
 func TestCompiler_TypeAssertionCommaOk(t *testing.T) {
-	// Note: Gig always returns ok=true for type assertions (current limitation).
-	// We assert the actual behavior so the test remains stable.
 	source := `
 func Compute() int {
 	var i interface{} = "hello"
@@ -46,8 +44,8 @@ func Compute() int {
 	return 0
 }
 `
-	// Gig currently returns 1 (ok=true) even when the assertion should fail.
-	runInt(t, source, 1)
+	// Correct Go behaviour: "hello" is a string, not an int, so ok=false → return 0.
+	runInt(t, source, 0)
 }
 
 // TestCompiler_TypeSwitch verifies that a type switch dispatches on the dynamic type.

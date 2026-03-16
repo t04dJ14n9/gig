@@ -607,6 +607,16 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			if s.Kind() == reflect.Ptr {
 				s = s.Elem()
 			}
+			// For self-referencing struct types, the recursive pointer field is
+			// stored as interface{} by typeToReflect. When we later access fields
+			// through this pointer, the reflect.Value will be an interface wrapping
+			// the actual struct pointer. Unwrap it here.
+			if s.Kind() == reflect.Interface && !s.IsNil() {
+				s = s.Elem()
+				if s.Kind() == reflect.Ptr {
+					s = s.Elem()
+				}
+			}
 			if s.Kind() == reflect.Struct {
 				field := s.Field(int(fieldIdx))
 				if field.CanAddr() {
@@ -737,11 +747,23 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				assertionOk = true
 			}
 		} else if obj.Kind() == value.KindReflect {
-			// Already a reflect value
+			// Already a reflect value — may be an interface wrapping a concrete type
 			if rv, isReflect := obj.ReflectValue(); isReflect {
+				// If the reflect value is an interface, unwrap it to the concrete type
+				concreteRV := rv
+				if rv.Kind() == reflect.Interface && !rv.IsNil() {
+					concreteRV = rv.Elem()
+				}
 				targetReflectType := typeToReflect(targetType)
-				if targetReflectType != nil && rv.Type().AssignableTo(targetReflectType) {
-					result = obj
+				if targetReflectType != nil && concreteRV.Type().AssignableTo(targetReflectType) {
+					result = value.MakeFromReflect(concreteRV)
+					assertionOk = true
+				} else if targetReflectType != nil && sameReflectKindFamily(concreteRV.Type(), targetReflectType) {
+					// Gig stores numeric values with internal types (int64 for int, float64 for float32, etc.).
+					// When these are stored in interface{}, the concrete type may differ from what Go
+					// would use (e.g., int64 instead of int). For type switch correctness, we match
+					// by reflect.Kind family and convert to the target type.
+					result = value.MakeFromReflect(concreteRV.Convert(targetReflectType))
 					assertionOk = true
 				} else {
 					result = value.MakeNil()
@@ -752,9 +774,15 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				assertionOk = false
 			}
 		} else {
-			// For other kinds, assume success
-			result = obj
-			assertionOk = true
+			// For primitive kinds (KindInt, KindString, KindBool, KindFloat, etc.),
+			// check whether the concrete value kind actually matches the target type.
+			// This is critical for type switches on interface slice elements.
+			assertionOk = kindMatchesType(obj.Kind(), targetType)
+			if assertionOk {
+				result = obj
+			} else {
+				result = value.MakeNil()
+			}
 		}
 
 		// Push result as a tuple [result, ok]
@@ -847,6 +875,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		}
 		if fn != nil {
 			closure := getClosure(fn, int(numFree))
+			closure.Program = vm.program
 			// Get free variables (popped in reverse order)
 			for i := int(numFree) - 1; i >= 0; i-- {
 				v := vm.pop()
@@ -1229,6 +1258,13 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		if s, ok := slice.IntSlice(); ok {
 			if es, ok2 := elem.IntSlice(); ok2 {
 				vm.push(value.MakeIntSlice(append(s, es...)))
+			} else if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice {
+				// elem is a reflect-based integer slice (e.g. []int from a [][]int range).
+				// Convert each element to int64 and spread-append.
+				for i := 0; i < elemRV.Len(); i++ {
+					s = append(s, elemRV.Index(i).Int())
+				}
+				vm.push(value.MakeIntSlice(s))
 			} else {
 				vm.push(value.MakeIntSlice(append(s, elem.RawInt())))
 			}
@@ -1478,8 +1514,25 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			// Call compiled function
 			vm.callFunction(fn, args, nil)
 		default:
-			// Not a known callable — push nil
-			vm.push(value.MakeNil())
+			// Check if callee is a reflect-based function (e.g., from a typed container)
+			if rv, ok := callee.ReflectValue(); ok && rv.Kind() == reflect.Func {
+				in := make([]reflect.Value, numArgs)
+				fnType := rv.Type()
+				for i := 0; i < int(numArgs); i++ {
+					if i < fnType.NumIn() {
+						in[i] = args[i].ToReflectValue(fnType.In(i))
+					}
+				}
+				out := rv.Call(in)
+				if len(out) == 0 {
+					vm.push(value.MakeNil())
+				} else {
+					vm.push(value.MakeFromReflect(out[0]))
+				}
+			} else {
+				// Not a known callable — push nil
+				vm.push(value.MakeNil())
+			}
 		}
 
 	case bytecode.OpPack:
@@ -1517,4 +1570,126 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	}
 
 	return nil
+}
+
+// kindMatchesType checks whether a value.Kind matches a go/types.Type.
+// This is used by OpAssert (type switch) to correctly match primitive values
+// against target types, rather than blindly assuming success.
+func kindMatchesType(k value.Kind, t types.Type) bool {
+	// Unwrap named types to get the underlying type
+	t = t.Underlying()
+
+	switch k {
+	case value.KindInt:
+		if basic, ok := t.(*types.Basic); ok {
+			switch basic.Kind() {
+			case types.Int, types.Int8, types.Int16, types.Int32, types.Int64:
+				return true
+			}
+		}
+		return false
+	case value.KindUint:
+		if basic, ok := t.(*types.Basic); ok {
+			switch basic.Kind() {
+			case types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64, types.Uintptr:
+				return true
+			}
+		}
+		return false
+	case value.KindFloat:
+		if basic, ok := t.(*types.Basic); ok {
+			switch basic.Kind() {
+			case types.Float32, types.Float64:
+				return true
+			}
+		}
+		return false
+	case value.KindBool:
+		if basic, ok := t.(*types.Basic); ok {
+			return basic.Kind() == types.Bool
+		}
+		return false
+	case value.KindString:
+		if basic, ok := t.(*types.Basic); ok {
+			return basic.Kind() == types.String
+		}
+		return false
+	case value.KindComplex:
+		if basic, ok := t.(*types.Basic); ok {
+			switch basic.Kind() {
+			case types.Complex64, types.Complex128:
+				return true
+			}
+		}
+		return false
+	case value.KindSlice:
+		_, ok := t.(*types.Slice)
+		return ok
+	case value.KindMap:
+		_, ok := t.(*types.Map)
+		return ok
+	case value.KindFunc:
+		_, ok := t.(*types.Signature)
+		return ok
+	case value.KindBytes:
+		// []byte is a slice of uint8
+		if s, ok := t.(*types.Slice); ok {
+			if basic, ok2 := s.Elem().(*types.Basic); ok2 {
+				return basic.Kind() == types.Uint8 || basic.Kind() == types.Byte
+			}
+		}
+		return false
+	case value.KindNil:
+		return false
+	case value.KindInterface:
+		_, ok := t.(*types.Interface)
+		return ok
+	default:
+		// For KindReflect, KindPointer, KindStruct, etc., fall through to true
+		// (these should normally be handled by the reflect path above).
+		return true
+	}
+}
+
+// sameReflectKindFamily checks whether two reflect.Types belong to the same
+// numeric kind family. This is needed because Gig internally stores all integers
+// as int64 and all floats as float64. When these values are stored in interface{},
+// the concrete reflect type may be int64 instead of int. A Go type switch
+// "case int:" should still match the value even though its reflect type is int64.
+//
+// This function returns true only for numeric types within the same family:
+//   - Signed integers: int, int8, int16, int32, int64
+//   - Unsigned integers: uint, uint8, uint16, uint32, uint64, uintptr
+//   - Floats: float32, float64
+//   - Complex: complex64, complex128
+func sameReflectKindFamily(a, b reflect.Type) bool {
+	ak, bk := a.Kind(), b.Kind()
+	switch {
+	case isSignedInt(ak) && isSignedInt(bk):
+		return true
+	case isUnsignedInt(ak) && isUnsignedInt(bk):
+		return true
+	case isFloat(ak) && isFloat(bk):
+		return true
+	case isComplex(ak) && isComplex(bk):
+		return true
+	default:
+		return false
+	}
+}
+
+func isSignedInt(k reflect.Kind) bool {
+	return k >= reflect.Int && k <= reflect.Int64
+}
+
+func isUnsignedInt(k reflect.Kind) bool {
+	return k >= reflect.Uint && k <= reflect.Uintptr
+}
+
+func isFloat(k reflect.Kind) bool {
+	return k == reflect.Float32 || k == reflect.Float64
+}
+
+func isComplex(k reflect.Kind) bool {
+	return k == reflect.Complex64 || k == reflect.Complex128
 }
