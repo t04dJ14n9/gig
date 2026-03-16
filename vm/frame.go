@@ -52,6 +52,9 @@ type DeferInfo struct {
 
 	// external is the external function to call (if not nil).
 	external any
+
+	// closure is the closure to call (for OpDeferIndirect).
+	closure *Closure
 }
 
 // newFrame creates a new call frame for a function.

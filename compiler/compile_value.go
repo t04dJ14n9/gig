@@ -384,13 +384,86 @@ func (c *compiler) compileSend(i *ssa.Send) {
 
 // compileDefer compiles a Defer instruction.
 func (c *compiler) compileDefer(i *ssa.Defer) {
-	for _, arg := range i.Call.Args {
-		c.compileValue(arg)
-	}
-
-	if fn, ok := i.Call.Value.(*ssa.Function); ok {
-		fnIdx := c.funcIndex[fn]
+	switch val := i.Call.Value.(type) {
+	case *ssa.Function:
+		// If the function has free variables, we need to create a closure
+		if len(val.FreeVars) > 0 {
+			// Push arguments first
+			for _, arg := range i.Call.Args {
+				c.compileValue(arg)
+			}
+			// Push the free variable bindings
+			for _, fv := range val.FreeVars {
+				c.compileValue(fv)
+			}
+			// Create the closure (leaves it on stack, no SETLOCAL)
+			fnIdx := c.funcIndex[val]
+			c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+				byte(bytecode.OpClosure),
+				byte(fnIdx>>8), byte(fnIdx),
+				byte(len(val.FreeVars)))
+			numArgs := len(i.Call.Args)
+			c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
+			return
+		}
+		// No free variables - push args then use OpDefer directly
+		for _, arg := range i.Call.Args {
+			c.compileValue(arg)
+		}
+		fnIdx := c.funcIndex[val]
 		c.emit(bytecode.OpDefer, uint16(fnIdx))
+
+	case *ssa.MakeClosure:
+		// Check if this MakeClosure was already compiled (has a local slot)
+		if idx, ok := c.symbolTable.GetLocal(val); ok {
+			// Already compiled - just load the closure from local
+			for _, arg := range i.Call.Args {
+				c.compileValue(arg)
+			}
+			c.emit(bytecode.OpLocal, uint16(idx))
+			numArgs := len(i.Call.Args)
+			c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
+			return
+		}
+		// Not yet compiled - create the closure now
+		for _, arg := range i.Call.Args {
+			c.compileValue(arg)
+		}
+		// Compile bindings - need to handle FreeVar specially
+		for _, binding := range val.Bindings {
+			// Check if binding is a FreeVar (captured from enclosing function)
+			if fv, ok := binding.(*ssa.FreeVar); ok {
+				if idx, ok := c.symbolTable.freeVars[fv]; ok {
+					c.emit(bytecode.OpFree, uint16(idx))
+					continue
+				}
+			}
+			// Handle Alloc (pointer variable)
+			if alloc, ok := binding.(*ssa.Alloc); ok {
+				if slotIdx, ok := c.symbolTable.GetLocal(alloc); ok {
+					c.emit(bytecode.OpLocal, uint16(slotIdx))
+					continue
+				}
+			}
+			c.compileValue(binding)
+		}
+		// Create closure (on stack, no SETLOCAL)
+		fnIdx := c.funcIndex[val.Fn.(*ssa.Function)]
+		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+			byte(bytecode.OpClosure),
+			byte(fnIdx>>8), byte(fnIdx),
+			byte(len(val.Bindings)))
+		numArgs := len(i.Call.Args)
+		c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
+
+	default:
+		// Other cases - first compile the callable, then push args
+		c.compileValue(i.Call.Value)
+		for _, arg := range i.Call.Args {
+			c.compileValue(arg)
+		}
+		numArgs := len(i.Call.Args)
+		c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
 	}
 }
 

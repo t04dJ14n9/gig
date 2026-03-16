@@ -211,7 +211,7 @@ func (v Value) Elem() Value {
 	if ptr, ok := v.obj.(*int64); ok {
 		return MakeInt(*ptr)
 	}
-	// Fast path: *Value pointer (from OpGlobal / OpAddr on value.Value locals)
+	// Fast path: *Value pointer (from OpGlobal / OpAddr on value.Value locals / OpFree)
 	if ptr, ok := v.obj.(*Value); ok {
 		return *ptr
 	}
@@ -234,6 +234,11 @@ func (v Value) SetElem(val Value) {
 		*ptr = val.num
 		return
 	}
+	// Fast path: *Value pointer (from OpFree for closure free vars)
+	if ptr, ok := v.obj.(*Value); ok {
+		*ptr = val
+		return
+	}
 	if rv, ok := v.obj.(reflect.Value); ok {
 		// Handle different reflect.Value kinds
 		kind := rv.Kind()
@@ -248,6 +253,16 @@ func (v Value) SetElem(val Value) {
 				ptr := rv.Interface().(*Value)
 				*ptr = val
 				return
+			}
+			// If val contains a pointer type and elemType is not, unwrap it
+			if val.Kind() == KindReflect {
+				if valRV, ok := val.obj.(reflect.Value); ok && valRV.Kind() == reflect.Ptr {
+					// val is a pointer, check if it points to elemType
+					if valRV.Type().Elem() == elemType {
+						rv.Elem().Set(valRV.Elem())
+						return
+					}
+				}
 			}
 			targetRV := rv.Elem()
 			if targetRV.CanSet() {

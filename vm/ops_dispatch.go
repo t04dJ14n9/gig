@@ -77,23 +77,13 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	case bytecode.OpFree:
 		idx := frame.readByte()
 		if int(idx) < len(frame.freeVars) && frame.freeVars[idx] != nil {
-			val := *frame.freeVars[idx]
-			// If the value is a Value containing a Closure, return it directly for indirect calls
-			if val.Kind() == value.KindFunc {
-				vm.push(val)
-				return nil
-			}
-			// Legacy: check KindReflect for backward compatibility
-			if val.Kind() == value.KindReflect {
-				if _, ok := val.RawObj().(reflect.Value); ok {
-					iface := val.Interface()
-					if closure, ok := iface.(*Closure); ok {
-						vm.push(value.MakeFunc(closure))
-						return nil
-					}
-				}
-			}
-			vm.push(val)
+			// Push the actual value stored in the free variable slot.
+			// The freeVars[idx] is a *value.Value pointer to the slot;
+			// dereferencing it gives the captured value (e.g., a reflect *int pointer
+			// for named return values, or any other captured variable).
+			vm.push(*frame.freeVars[idx])
+		} else {
+			vm.push(value.MakeNil())
 		}
 
 	case bytecode.OpSetFree:
@@ -860,20 +850,13 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			// Get free variables (popped in reverse order)
 			for i := int(numFree) - 1; i >= 0; i-- {
 				v := vm.pop()
-				// Check if this is a slot reference (pointer to a Value)
-				// This happens when OpAddr is used for closure capture
-				if v.Kind() == value.KindReflect {
-					// The obj field contains the actual pointer
-					iface := v.Interface()
-					// OpAddr creates a *value.Value pointing to a local slot
-					if ptr, ok := iface.(*value.Value); ok && ptr != nil {
-						closure.FreeVars[i] = ptr
-						continue
-					}
-				}
-				// Otherwise, take address of the value (copy)
-				// This is the old behavior for non-reference captures
-				closure.FreeVars[i] = &v
+				// Create a new *value.Value slot holding the captured value.
+				// This allows the closure to read/write the slot via OpFree/OpSetFree.
+				// If the captured value is a reflect pointer (e.g., *int from Alloc),
+				// all closures sharing that pointer will see each other's modifications.
+				slot := new(value.Value)
+				*slot = v
+				closure.FreeVars[i] = slot
 			}
 			vm.push(value.MakeFunc(closure))
 		} else {
@@ -1086,8 +1069,81 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	// Defer/recover
 	case bytecode.OpDefer:
 		funcIdx := frame.readUint16()
-		// Would capture function and add to defer list
-		_ = funcIdx
+		// Look up the function by index
+		var fn *bytecode.CompiledFunction
+		if int(funcIdx) < len(vm.program.FuncByIndex) {
+			fn = vm.program.FuncByIndex[funcIdx]
+		}
+		if fn == nil {
+			return fmt.Errorf("defer: function index %d not found", funcIdx)
+		}
+		// Pop arguments from stack (they were pushed before OpDefer)
+		args := make([]value.Value, fn.NumParams)
+		for i := fn.NumParams - 1; i >= 0; i-- {
+			args[i] = vm.pop()
+		}
+		// Add to defer list (will be executed in LIFO order)
+		frame.defers = append(frame.defers, DeferInfo{
+			fn:   fn,
+			args: args,
+		})
+
+	case bytecode.OpDeferIndirect:
+		numArgs := int(frame.readUint16())
+		// The closure is on the stack after the arguments
+		// Stack layout: [... args... closure]
+		// Pop closure first (it was pushed last)
+		closureVal := vm.pop()
+		closure, ok := closureVal.Interface().(*Closure)
+		if !ok {
+			return fmt.Errorf("defer indirect: expected closure, got %v", closureVal.Kind())
+		}
+		// Pop arguments
+		args := make([]value.Value, numArgs)
+		for i := numArgs - 1; i >= 0; i-- {
+			args[i] = vm.pop()
+		}
+		// Add to defer list with closure info
+		frame.defers = append(frame.defers, DeferInfo{
+			fn:      closure.Fn,
+			args:    args,
+			closure: closure,
+		})
+
+	case bytecode.OpRunDefers:
+		// Execute all pending deferred calls synchronously in LIFO order.
+		// This is critical for named return values: the code after RunDefers
+		// reads the (potentially modified) return values.
+		for len(frame.defers) > 0 {
+			// Pop the last defer (LIFO)
+			d := frame.defers[len(frame.defers)-1]
+			frame.defers = frame.defers[:len(frame.defers)-1]
+
+			// Get free variables from closure if present
+			var freeVars []*value.Value
+			if d.closure != nil {
+				freeVars = d.closure.FreeVars
+			}
+
+			// Execute the deferred function synchronously using a child VM
+			// that shares the same globals/context/program. This avoids
+			// interference with the parent frame stack.
+			childVM := &VM{
+				program:      vm.program,
+				stack:        make([]value.Value, 256),
+				sp:           0,
+				frames:       make([]*Frame, 64),
+				fp:           0,
+				globals:      vm.globals,
+				globalsPtr:   vm.globalsPtr,
+				ctx:          vm.ctx,
+				extCallCache: vm.extCallCache,
+			}
+			deferFrame := newFrame(d.fn, 0, d.args, freeVars)
+			childVM.frames[0] = deferFrame
+			childVM.fp = 1
+			_, _ = childVM.run()
+		}
 
 	case bytecode.OpRecover:
 		// Recover from panic
@@ -1181,6 +1237,27 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			}
 			break
 		}
+		// Nil slice with native int element: create []int64
+		if slice.IsNil() || slice.Kind() == value.KindInvalid {
+			if elem.Kind() == value.KindInt {
+				// Single int append to nil → create native []int64
+				intReflectSlice := reflect.MakeSlice(reflect.TypeOf([]int{}), 0, 1)
+				intReflectSlice = reflect.Append(intReflectSlice, reflect.ValueOf(int(elem.RawInt())))
+				vm.push(value.MakeFromReflect(intReflectSlice))
+				break
+			}
+			if elem.Kind() == value.KindSlice {
+				if es, ok2 := elem.IntSlice(); ok2 {
+					// Spread-append native []int64 to nil
+					intReflectSlice := reflect.MakeSlice(reflect.TypeOf([]int{}), len(es), cap(es))
+					for i, v := range es {
+						intReflectSlice.Index(i).SetInt(v)
+					}
+					vm.push(value.MakeFromReflect(intReflectSlice))
+					break
+				}
+			}
+		}
 		// Append element to slice
 		if rv, ok := slice.ReflectValue(); ok {
 			sliceElemType := rv.Type().Elem()
@@ -1195,8 +1272,19 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					vm.push(value.MakeFromReflect(newSlice))
 				}
 			} else {
+				// Check if elem is a native []int64 that needs spread-append
+				if elem.Kind() == value.KindSlice {
+					if elemIntSlice, ok2 := elem.IntSlice(); ok2 {
+						// Element is []int64, spread append each element
+						for _, v := range elemIntSlice {
+							rv = reflect.Append(rv, reflect.ValueOf(int(v)))
+						}
+						vm.push(value.MakeFromReflect(rv))
+						break
+					}
+				}
 				// Check if SSA packed variadic args into a slice (e.g., append(s, elems...))
-				if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice && elemRV.Type().Elem() == sliceElemType {
+				if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice {
 					// The element is a slice of the same element type — spread it
 					newSlice := reflect.AppendSlice(rv, elemRV)
 					vm.push(value.MakeFromReflect(newSlice))
@@ -1207,6 +1295,11 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			}
 		} else if slice.IsNil() || slice.Kind() == value.KindInvalid {
 			// Nil slice: create a new slice and append the element.
+			// Fast path: elem is a native []int64 (spread-append to create new []int64).
+			if es, ok2 := elem.IntSlice(); ok2 {
+				vm.push(value.MakeIntSlice(append([]int64(nil), es...)))
+				break
+			}
 			elemRV, ok2 := elem.ReflectValue()
 			if ok2 && elemRV.Kind() == reflect.Slice {
 				if elemRV.Type().Elem() == reflect.TypeOf(value.Value{}) {
