@@ -705,8 +705,8 @@ func buildOperandWidthTable() [256]int {
 	t[OpMethod] = 2
 	t[OpMethodCall] = 3 // method_idx(2) + num_args(1)
 	t[OpDefer] = 2
-	t[OpDeferIndirect] = 2 // num_args(2)
-	t[OpCallExternal] = 3  // func_idx(2) + num_args(1)
+	t[OpDeferIndirect] = 2  // num_args(2)
+	t[OpCallExternal] = 3   // func_idx(2) + num_args(1)
 	t[OpCallIndirect] = 1   // num_args(1)
 	t[OpGoCall] = 3         // func_idx(2) + num_args(1)
 	t[OpGoCallIndirect] = 1 // num_args(1)
