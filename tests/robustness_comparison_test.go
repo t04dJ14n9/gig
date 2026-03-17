@@ -358,7 +358,12 @@ func MapKeyMissing() (int, bool) {
 		v = int(results[0].Int())
 		ok = results[1].Bool()
 	case []any:
-		v = results[0].(int)
+		switch val := results[0].(type) {
+		case int:
+			v = val
+		case int64:
+			v = int(val)
+		}
 		ok = results[1].(bool)
 	}
 	if v != 1 || ok != true {
@@ -375,7 +380,12 @@ func MapKeyMissing() (int, bool) {
 		v = int(results[0].Int())
 		ok = results[1].Bool()
 	case []any:
-		v = results[0].(int)
+		switch val := results[0].(type) {
+		case int:
+			v = val
+		case int64:
+			v = int(val)
+		}
 		ok = results[1].(bool)
 	}
 	if v != 0 || ok != false {

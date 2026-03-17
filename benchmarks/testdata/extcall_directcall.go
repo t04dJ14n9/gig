@@ -1,9 +1,9 @@
 package main
 
 import (
-	"strings"
-	"strconv"
 	"math"
+	"strconv"
+	"strings"
 )
 
 // ExtCallDirectCall benchmarks external function calls that HAVE DirectCall wrappers.

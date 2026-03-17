@@ -193,7 +193,29 @@ func (v Value) Equal(other Value) bool {
 	case KindComplex:
 		return v.obj.(complex128) == other.obj.(complex128)
 	default:
-		// For complex types, use reflect.DeepEqual
+		// For pointer types, compare by identity (address), not by value.
+		// Go's == on pointers checks whether they point to the same location.
+		if vp, ok := v.obj.(*Value); ok {
+			if op, ok2 := other.obj.(*Value); ok2 {
+				return vp == op // pointer identity
+			}
+			return false
+		}
+		if rv, ok := v.obj.(reflect.Value); ok {
+			if rv.Kind() == reflect.Ptr {
+				if orv, ok2 := other.obj.(reflect.Value); ok2 && orv.Kind() == reflect.Ptr {
+					if rv.IsNil() && orv.IsNil() {
+						return true
+					}
+					if rv.IsNil() || orv.IsNil() {
+						return false
+					}
+					return rv.Pointer() == orv.Pointer()
+				}
+				return false
+			}
+		}
+		// For other complex types, use reflect.DeepEqual
 		return reflect.DeepEqual(v.Interface(), other.Interface())
 	}
 }

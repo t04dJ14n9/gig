@@ -407,15 +407,15 @@ func TestGofunVerify_Bug5_SliceBoundsCheck(t *testing.T) {
 	t.Log("")
 	t.Log("--- 原生 Go 切片边界 ---")
 	s := []int{1, 2, 3, 4, 5}
-	
+
 	// 正常切片
 	sub := s[1:3]
 	t.Logf("原生 Go: s[1:3] = %v, len=%d", sub, len(sub))
-	
+
 	// low == high (合法)
 	empty := s[2:2]
 	t.Logf("原生 Go: s[2:2] = %v, len=%d", empty, len(empty))
-	
+
 	// low > high (应该 panic)
 	var panicCount int
 	func() {
@@ -426,7 +426,7 @@ func TestGofunVerify_Bug5_SliceBoundsCheck(t *testing.T) {
 			}
 		}()
 		low, high := 5, 3
-		_ = s[low:high]  // 使用变量，运行时检查
+		_ = s[low:high] // 使用变量，运行时检查
 	}()
 	t.Logf("原生 Go panic 次数: %d (期望: 1)", panicCount)
 

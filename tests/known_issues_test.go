@@ -23,7 +23,14 @@ var knownIssuesSrc string
 var knownIssueTests = []struct {
 	name string
 }{
-	// All known issues have been resolved!
+	// All known issues have been resolved and migrated to resolved_issue_test.go.
+	// Issues 22-27 resolved in 2026-03-17:
+	//   22: StructWithFuncPtrTest — fixed ToReflectValue *func(...) handling
+	//   23: PointerCompareDiffTest — fixed Equal() pointer identity comparison
+	//   24: DeferModifyMultipleNamedTest — fixed []value.Value unwrapping in Run()
+	//   25: DeferNamedReturnNilTest — correct behavior (unnamed returns)
+	//   26: DeferNamedReturnNilPtrTest — correct behavior (pointer to local)
+	//   27: DeferNamedReturnMultiTest — fixed []value.Value unwrapping in Run()
 }
 
 // TestKnownIssues runs all known issue tests

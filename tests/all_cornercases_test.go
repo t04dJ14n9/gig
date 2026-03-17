@@ -263,6 +263,8 @@ func compareCornerCaseResults(t *testing.T, result, expected any) {
 	case uint32:
 		var got uint64
 		switch v := result.(type) {
+		case uint32:
+			got = uint64(v)
 		case uint64:
 			got = v
 		case int64:
@@ -277,6 +279,8 @@ func compareCornerCaseResults(t *testing.T, result, expected any) {
 	case uint8:
 		var got uint64
 		switch v := result.(type) {
+		case uint8:
+			got = uint64(v)
 		case uint64:
 			got = v
 		case int64:
@@ -332,6 +336,30 @@ func compareCornerCaseResults(t *testing.T, result, expected any) {
 					got = int(val)
 				default:
 					t.Errorf("expected [%d]=int, got %T", i, v)
+					continue
+				}
+				if got != exp[i] {
+					t.Errorf("expected [%d]=%d, got %d", i, exp[i], got)
+				}
+			}
+			return
+		}
+
+		// Handle unwrapped multi-return: []any (from RunWithContext unwrapping)
+		if anyVals, ok := result.([]any); ok {
+			if len(anyVals) != len(exp) {
+				t.Errorf("expected len %d, got %d", len(exp), len(anyVals))
+				return
+			}
+			for i := range exp {
+				var got int
+				switch val := anyVals[i].(type) {
+				case int:
+					got = val
+				case int64:
+					got = int(val)
+				default:
+					t.Errorf("expected [%d]=int, got %T", i, anyVals[i])
 					continue
 				}
 				if got != exp[i] {

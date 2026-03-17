@@ -328,3 +328,110 @@ func PointerToSliceElemModify() int {
 	}
 	return s[0] + s[1] + s[2]
 }
+
+// ── Resolved Issue 22: Struct with function pointer field ───────────────────
+
+// StructWithFuncPtrTest tests storing and calling a function through a pointer
+// field in a struct. Previously panicked:
+//
+//	reflect.Set: value of type *value.Value is not assignable to type *func(int) int
+//
+// Root cause: OpNew for *types.Signature created a *value.Value instead of
+// using typeToReflect. Fixed by adding *func(...) handling in ToReflectValue's
+// KindReflect branch to convert *value.Value (containing a closure) to a real
+// Go function pointer via reflect.MakeFunc.
+// Expected: 42
+func StructWithFuncPtrTest() int {
+	type S struct {
+		fn *func(int) int
+	}
+	f := func(x int) int { return x * 2 }
+	s := S{fn: &f}
+	return (*s.fn)(21)
+}
+
+// ── Resolved Issue 23: Pointer comparison by identity ───────────────────────
+
+// PointerCompareDiffTest tests that pointers from different allocations compare
+// as not-equal. Previously returned 0 because Equal() used reflect.DeepEqual
+// which compared pointed-to values (both 1) instead of addresses.
+// Fix: Added pointer identity comparison in Equal()'s default branch.
+// Expected: 1
+func PointerCompareDiffTest() int {
+	a, b := 1, 1
+	pa, pb := &a, &b
+	if pa != pb {
+		return 1
+	}
+	return 0
+}
+
+// ── Resolved Issue 24: Defer with unnamed multi-return (swap) ───────────────
+
+// DeferModifyMultipleNamedTest tests defer modifying locals with unnamed returns.
+// The function uses unnamed return parameters, so `return x, y` copies values
+// to the return slot before defer runs. Defer swaps local x, y but this does
+// not affect the already-copied return values.
+// Previously returned []value.Value instead of unwrapped (int, int).
+// Fix: Added []value.Value → []any unwrapping in gig.RunWithContext().
+// Expected: (1, 2)
+func DeferModifyMultipleNamedTest() (int, int) {
+	x, y := 10, 20
+	defer func() {
+		x, y = y, x
+	}()
+	x, y = 1, 2
+	return x, y
+}
+
+// ── Resolved Issue 25: Defer with unnamed return nil pointer ────────────────
+
+// DeferNamedReturnNilTest tests defer with unnamed return and nil pointer.
+// The function uses unnamed return parameter, so `return result` copies nil
+// to the return slot before defer runs. Defer sets result = &v but this does
+// not affect the already-copied nil return value.
+// Expected: nil
+func DeferNamedReturnNilTest() *int {
+	var result *int
+	defer func() {
+		if result == nil {
+			v := 42
+			result = &v
+		}
+	}()
+	return result
+}
+
+// ── Resolved Issue 26: Defer modifying local through shared pointer ─────────
+
+// DeferNamedReturnNilPtrTest tests defer modifying a local variable whose
+// address is returned. The function uses unnamed return parameter, but
+// `return &result` copies the pointer to result's memory. Defer modifies
+// result = 42, and since the returned pointer shares memory with the local,
+// the caller sees the modification.
+// Expected: *int pointing to 42
+func DeferNamedReturnNilPtrTest() *int {
+	result := 10
+	defer func() {
+		result = 42
+	}()
+	return &result
+}
+
+// ── Resolved Issue 27: Defer with unnamed multi-return (add) ────────────────
+
+// DeferNamedReturnMultiTest tests defer modifying locals with unnamed returns.
+// The function uses unnamed return parameters, so `return a, b` copies values
+// to the return slot before defer runs. Defer adds to local a, b but this
+// does not affect the already-copied return values.
+// Previously returned []value.Value instead of unwrapped (int, int).
+// Fix: Added []value.Value → []any unwrapping in gig.RunWithContext().
+// Expected: (10, 20)
+func DeferNamedReturnMultiTest() (int, int) {
+	a, b := 10, 20
+	defer func() {
+		a += 5
+		b += 10
+	}()
+	return a, b
+}

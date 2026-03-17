@@ -669,7 +669,7 @@ func Convert_Int32ToInt64() int64 {
 // ------------------------------------------------------------------------
 
 func Expr_ComplexArithmetic() int {
-	return (1 + 2)*3 - 4/2
+	return (1+2)*3 - 4/2
 }
 
 func Expr_NestedTernaryLike() int {

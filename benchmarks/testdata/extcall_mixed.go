@@ -1,8 +1,8 @@
 package main
 
 import (
-	"strings"
 	"strconv"
+	"strings"
 )
 
 // ExtCallMixed benchmarks a realistic mix of external calls:

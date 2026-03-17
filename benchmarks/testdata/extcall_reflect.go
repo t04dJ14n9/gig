@@ -1,8 +1,8 @@
 package main
 
 import (
-	"strings"
 	"strconv"
+	"strings"
 )
 
 // ExtCallReflect benchmarks external function calls that use reflect.Call (no DirectCall).

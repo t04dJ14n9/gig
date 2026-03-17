@@ -179,6 +179,21 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 		return reflect.ValueOf(v.obj)
 	case KindReflect:
 		if rv, ok := v.obj.(reflect.Value); ok {
+			// Handle *func(...) target type: when the value is a *value.Value pointer
+			// (created by OpNew for Signature types) containing a closure, convert
+			// to a real Go function pointer via reflect.MakeFunc.
+			if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Func {
+				if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+					if vp, ok2 := rv.Interface().(*Value); ok2 {
+						// Convert the inner closure to a real function
+						funcRV := vp.ToReflectValue(typ.Elem())
+						// Allocate a new pointer to hold the function
+						ptr := reflect.New(typ.Elem())
+						ptr.Elem().Set(funcRV)
+						return ptr
+					}
+				}
+			}
 			return rv
 		}
 		return reflect.ValueOf(v.obj)

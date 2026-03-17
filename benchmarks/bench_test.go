@@ -221,10 +221,12 @@ func BenchmarkGig_Sieve(b *testing.B)        { benchGig(b, goSieveSrc, "Sieve") 
 func BenchmarkGig_ClosureCalls(b *testing.B) { benchGig(b, goClosureSrc, "ClosureCalls") }
 
 // Gig: External call benchmarks
-func BenchmarkGig_ExtCallDirectCall(b *testing.B) { benchGig(b, goExtCallDirectCallSrc, "ExtCallDirectCall") }
-func BenchmarkGig_ExtCallReflect(b *testing.B)    { benchGig(b, goExtCallReflectSrc, "ExtCallReflect") }
-func BenchmarkGig_ExtCallMethod(b *testing.B)     { benchGig(b, goExtCallMethodSrc, "ExtCallMethod") }
-func BenchmarkGig_ExtCallMixed(b *testing.B)      { benchGig(b, goExtCallMixedSrc, "ExtCallMixed") }
+func BenchmarkGig_ExtCallDirectCall(b *testing.B) {
+	benchGig(b, goExtCallDirectCallSrc, "ExtCallDirectCall")
+}
+func BenchmarkGig_ExtCallReflect(b *testing.B) { benchGig(b, goExtCallReflectSrc, "ExtCallReflect") }
+func BenchmarkGig_ExtCallMethod(b *testing.B)  { benchGig(b, goExtCallMethodSrc, "ExtCallMethod") }
+func BenchmarkGig_ExtCallMixed(b *testing.B)   { benchGig(b, goExtCallMixedSrc, "ExtCallMixed") }
 
 // ============================================================================
 // Yaegi Benchmarks
@@ -256,10 +258,14 @@ func BenchmarkYaegi_Sieve(b *testing.B)        { benchYaegi(b, goSieveSrc, "Siev
 func BenchmarkYaegi_ClosureCalls(b *testing.B) { benchYaegi(b, goClosureSrc, "ClosureCalls") }
 
 // Yaegi: External call benchmarks
-func BenchmarkYaegi_ExtCallDirectCall(b *testing.B) { benchYaegi(b, goExtCallDirectCallSrc, "ExtCallDirectCall") }
-func BenchmarkYaegi_ExtCallReflect(b *testing.B)    { benchYaegi(b, goExtCallReflectSrc, "ExtCallReflect") }
-func BenchmarkYaegi_ExtCallMethod(b *testing.B)     { benchYaegi(b, goExtCallMethodSrc, "ExtCallMethod") }
-func BenchmarkYaegi_ExtCallMixed(b *testing.B)      { benchYaegi(b, goExtCallMixedSrc, "ExtCallMixed") }
+func BenchmarkYaegi_ExtCallDirectCall(b *testing.B) {
+	benchYaegi(b, goExtCallDirectCallSrc, "ExtCallDirectCall")
+}
+func BenchmarkYaegi_ExtCallReflect(b *testing.B) {
+	benchYaegi(b, goExtCallReflectSrc, "ExtCallReflect")
+}
+func BenchmarkYaegi_ExtCallMethod(b *testing.B) { benchYaegi(b, goExtCallMethodSrc, "ExtCallMethod") }
+func BenchmarkYaegi_ExtCallMixed(b *testing.B)  { benchYaegi(b, goExtCallMixedSrc, "ExtCallMixed") }
 
 // ============================================================================
 // GopherLua Benchmarks

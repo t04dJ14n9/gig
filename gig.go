@@ -58,6 +58,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"reflect"
 	"strings"
 	"time"
 
@@ -242,7 +243,43 @@ func (p *Program) RunWithContext(ctx context.Context, funcName string, params ..
 		return nil, err
 	}
 
-	return result.Interface(), nil
+	// Look up the function's SSA signature to recover declared return types.
+	// This ensures the caller sees the exact Go types from the source code
+	// (e.g. int, not int64) rather than the internal Value representation.
+	fn := p.program.Functions[funcName]
+	var retTypes []reflect.Type
+	if fn != nil && fn.Source != nil {
+		sig := fn.Source.Signature
+		results := sig.Results()
+		if results.Len() > 0 {
+			retTypes = make([]reflect.Type, results.Len())
+			for i := 0; i < results.Len(); i++ {
+				retTypes[i] = vm.TypeToReflect(results.At(i).Type())
+			}
+		}
+	}
+
+	// Unwrap multi-return values: OpPack produces a []value.Value stored as
+	// a KindReflect reflect.Value. Convert to []any so the caller sees plain
+	// Go values instead of internal value.Value structs.
+	iface := result.Interface()
+	if vals, ok := iface.([]value.Value); ok {
+		out := make([]any, len(vals))
+		for i, v := range vals {
+			if i < len(retTypes) && retTypes[i] != nil {
+				out[i] = v.ToReflectValue(retTypes[i]).Interface()
+			} else {
+				out[i] = v.Interface()
+			}
+		}
+		return out, nil
+	}
+
+	// Single return value: convert using the declared return type.
+	if len(retTypes) == 1 && retTypes[0] != nil {
+		return result.ToReflectValue(retTypes[0]).Interface(), nil
+	}
+	return iface, nil
 }
 
 // RunWithValues executes a function with pre-converted Value arguments.

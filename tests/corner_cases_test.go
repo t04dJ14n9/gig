@@ -509,6 +509,8 @@ func compareCornerCaseResult(t *testing.T, result, expected any) {
 	case uint32:
 		var got uint64
 		switch v := result.(type) {
+		case uint32:
+			got = uint64(v)
 		case uint64:
 			got = v
 		case int64:
@@ -573,6 +575,8 @@ func compareCornerCaseResult(t *testing.T, result, expected any) {
 	case uint8:
 		var got uint64
 		switch v := result.(type) {
+		case uint8:
+			got = uint64(v)
 		case uint64:
 			got = v
 		case int64:
