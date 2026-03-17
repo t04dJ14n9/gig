@@ -41,7 +41,6 @@ import (
 	"git.woa.com/youngjin/gig/tests/testdata/tricky"
 	"git.woa.com/youngjin/gig/tests/testdata/typeconv"
 	"git.woa.com/youngjin/gig/tests/testdata/variables"
-	"git.woa.com/youngjin/gig/value"
 )
 
 // ============================================================================
@@ -170,27 +169,7 @@ func compareCorrectnessResults(t *testing.T, got, expected any) {
 		return
 	}
 
-	// Handle value.Value types
-	if v, ok := got.(value.Value); ok {
-		got = v.Interface()
-	}
-
-	// Handle []value.Value (multiple return values)
-	if gotSlice, ok := got.([]value.Value); ok {
-		if expSlice, ok := expected.([]any); ok && len(gotSlice) == len(expSlice) {
-			for i := range gotSlice {
-				compareCorrectnessResults(t, gotSlice[i].Interface(), expSlice[i])
-			}
-			return
-		}
-		// Single value in slice
-		if len(gotSlice) == 1 {
-			compareCorrectnessResults(t, gotSlice[0].Interface(), expected)
-			return
-		}
-	}
-
-	// Handle []any (multiple return values from native)
+	// Handle []any (multiple return values)
 	if expSlice, ok := expected.([]any); ok {
 		if gotSlice, ok := got.([]any); ok && len(gotSlice) == len(expSlice) {
 			for i := range gotSlice {
@@ -466,6 +445,21 @@ var allCorrectnessTests = map[string]testCase{
 	"functions/HigherOrderMap":       {functionsSrc, "HigherOrderMap", func() any { return functions.HigherOrderMap() }},
 	"functions/HigherOrderFilter":    {functionsSrc, "HigherOrderFilter", func() any { return functions.HigherOrderFilter() }},
 	"functions/HigherOrderReduce":    {functionsSrc, "HigherOrderReduce", func() any { return functions.HigherOrderReduce() }},
+
+	// Multi-return value tests - these functions THEMSELVES return multiple values
+	"functions/ThreeReturnValues":          {functionsSrc, "ThreeReturnValues", func() any { a, b, c := functions.ThreeReturnValues(); return []any{a, b, c} }},
+	"functions/FourReturnValues":           {functionsSrc, "FourReturnValues", func() any { a, b, c, d := functions.FourReturnValues(); return []any{a, b, c, d} }},
+	"functions/FiveReturnValues":           {functionsSrc, "FiveReturnValues", func() any { a, b, c, d, e := functions.FiveReturnValues(); return []any{a, b, c, d, e} }},
+	"functions/MixedTypeReturn":            {functionsSrc, "MixedTypeReturn", func() any { n, s, ok := functions.MixedTypeReturn(); return []any{n, s, ok} }},
+	"functions/PassMultiReturnToFunc":      {functionsSrc, "PassMultiReturnToFunc", func() any { return functions.PassMultiReturnToFunc() }},
+	"functions/ChainMultiReturn":           {functionsSrc, "ChainMultiReturn", func() any { return functions.ChainMultiReturn() }},
+	"functions/NestedMultiReturn":          {functionsSrc, "NestedMultiReturn", func() any { return functions.NestedMultiReturn() }},
+	"functions/MultiReturnAsSliceIndex":    {functionsSrc, "MultiReturnAsSliceIndex", func() any { return functions.MultiReturnAsSliceIndex() }},
+	"functions/MultiReturnToMap":           {functionsSrc, "MultiReturnToMap", func() any { return functions.MultiReturnToMap() }},
+	"functions/MultiReturnAsCondition":     {functionsSrc, "MultiReturnAsCondition", func() any { return functions.MultiReturnAsCondition() }},
+	"functions/MultiReturnComplexTypes":    {functionsSrc, "MultiReturnComplexTypes", func() any { return functions.MultiReturnComplexTypes() }},
+	"functions/MultiReturnInClosure":       {functionsSrc, "MultiReturnInClosure", func() any { return functions.MultiReturnInClosure() }},
+	"functions/AssignMultiReturnToExistingVars": {functionsSrc, "AssignMultiReturnToExistingVars", func() any { return functions.AssignMultiReturnToExistingVars() }},
 
 	// ============================================================================
 	// initialize - Complex initialization tests
