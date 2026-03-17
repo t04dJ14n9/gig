@@ -8,8 +8,8 @@ import (
 
 // --- Arithmetic Operations ---
 
-// makeIntSized creates an int value preserving the given size tag.
-func makeIntSized(i int64, s Size) Value {
+// MakeIntSized creates an int value preserving the given size tag.
+func MakeIntSized(i int64, s Size) Value {
 	return Value{kind: KindInt, size: s, num: i}
 }
 
@@ -27,7 +27,7 @@ func makeFloatSized(f float64, s Size) Value {
 func (v Value) Add(other Value) Value {
 	switch v.kind { //nolint:exhaustive
 	case KindInt:
-		return makeIntSized(v.num+other.Int(), v.size)
+		return MakeIntSized(v.num+other.Int(), v.size)
 	case KindUint:
 		return makeUintSized(uint64(v.num)+other.Uint(), v.size)
 	case KindFloat:
@@ -47,7 +47,7 @@ func (v Value) Add(other Value) Value {
 func (v Value) Sub(other Value) Value {
 	switch v.kind { //nolint:exhaustive
 	case KindInt:
-		return makeIntSized(v.num-other.Int(), v.size)
+		return MakeIntSized(v.num-other.Int(), v.size)
 	case KindUint:
 		return makeUintSized(uint64(v.num)-other.Uint(), v.size)
 	case KindFloat:
@@ -65,7 +65,7 @@ func (v Value) Sub(other Value) Value {
 func (v Value) Mul(other Value) Value {
 	switch v.kind { //nolint:exhaustive
 	case KindInt:
-		return makeIntSized(v.num*other.Int(), v.size)
+		return MakeIntSized(v.num*other.Int(), v.size)
 	case KindUint:
 		return makeUintSized(uint64(v.num)*other.Uint(), v.size)
 	case KindFloat:
@@ -83,7 +83,7 @@ func (v Value) Mul(other Value) Value {
 func (v Value) Div(other Value) Value {
 	switch v.kind { //nolint:exhaustive
 	case KindInt:
-		return makeIntSized(v.num/other.Int(), v.size)
+		return MakeIntSized(v.num/other.Int(), v.size)
 	case KindUint:
 		return makeUintSized(uint64(v.num)/other.Uint(), v.size)
 	case KindFloat:
@@ -102,7 +102,7 @@ func (v Value) Div(other Value) Value {
 func (v Value) Mod(other Value) Value {
 	switch v.kind { //nolint:exhaustive
 	case KindInt:
-		return makeIntSized(v.num%other.Int(), v.size)
+		return MakeIntSized(v.num%other.Int(), v.size)
 	case KindUint:
 		return makeUintSized(uint64(v.num)%other.Uint(), v.size)
 	case KindFloat:
@@ -116,7 +116,7 @@ func (v Value) Mod(other Value) Value {
 func (v Value) Neg() Value {
 	switch v.kind { //nolint:exhaustive
 	case KindInt:
-		return makeIntSized(-v.num, v.size)
+		return MakeIntSized(-v.num, v.size)
 	case KindFloat:
 		return makeFloatSized(-v.Float(), v.size)
 	case KindComplex:
@@ -241,7 +241,7 @@ func (v Value) Equal(other Value) bool {
 func (v Value) And(other Value) Value {
 	switch v.kind {
 	case KindInt:
-		return makeIntSized(v.num&other.Int(), v.size)
+		return MakeIntSized(v.num&other.Int(), v.size)
 	case KindUint:
 		return makeUintSized(uint64(v.num)&other.Uint(), v.size)
 	default:
@@ -253,7 +253,7 @@ func (v Value) And(other Value) Value {
 func (v Value) Or(other Value) Value {
 	switch v.kind {
 	case KindInt:
-		return makeIntSized(v.num|other.Int(), v.size)
+		return MakeIntSized(v.num|other.Int(), v.size)
 	case KindUint:
 		return makeUintSized(uint64(v.num)|other.Uint(), v.size)
 	default:
@@ -265,7 +265,7 @@ func (v Value) Or(other Value) Value {
 func (v Value) Xor(other Value) Value {
 	switch v.kind {
 	case KindInt:
-		return makeIntSized(v.num^other.Int(), v.size)
+		return MakeIntSized(v.num^other.Int(), v.size)
 	case KindUint:
 		return makeUintSized(uint64(v.num)^other.Uint(), v.size)
 	default:
@@ -277,7 +277,7 @@ func (v Value) Xor(other Value) Value {
 func (v Value) AndNot(other Value) Value {
 	switch v.kind {
 	case KindInt:
-		return makeIntSized(v.num&^other.Int(), v.size)
+		return MakeIntSized(v.num&^other.Int(), v.size)
 	case KindUint:
 		return makeUintSized(uint64(v.num)&^other.Uint(), v.size)
 	default:
@@ -289,7 +289,7 @@ func (v Value) AndNot(other Value) Value {
 func (v Value) Lsh(n uint) Value {
 	switch v.kind {
 	case KindInt:
-		return makeIntSized(v.num<<n, v.size)
+		return MakeIntSized(v.num<<n, v.size)
 	case KindUint:
 		return makeUintSized(uint64(v.num)<<n, v.size)
 	default:
@@ -301,7 +301,7 @@ func (v Value) Lsh(n uint) Value {
 func (v Value) Rsh(n uint) Value {
 	switch v.kind {
 	case KindInt:
-		return makeIntSized(v.num>>n, v.size)
+		return MakeIntSized(v.num>>n, v.size)
 	case KindUint:
 		return makeUintSized(uint64(v.num)>>n, v.size)
 	default:

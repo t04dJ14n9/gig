@@ -122,7 +122,7 @@ func (vm *VM) run() (value.Value, error) {
 			sp--
 			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				stack[sp] = value.MakeInt(a.RawInt() + b.RawInt())
+				stack[sp] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
 			} else {
 				stack[sp] = a.Add(b)
 			}
@@ -135,7 +135,7 @@ func (vm *VM) run() (value.Value, error) {
 			sp--
 			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				stack[sp] = value.MakeInt(a.RawInt() - b.RawInt())
+				stack[sp] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
 			} else {
 				stack[sp] = a.Sub(b)
 			}
@@ -148,7 +148,7 @@ func (vm *VM) run() (value.Value, error) {
 			sp--
 			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				stack[sp] = value.MakeInt(a.RawInt() * b.RawInt())
+				stack[sp] = value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize())
 			} else {
 				stack[sp] = a.Mul(b)
 			}
@@ -425,7 +425,7 @@ func (vm *VM) run() (value.Value, error) {
 			a := locals[idxA]
 			b := locals[idxB]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				stack[sp] = value.MakeInt(a.RawInt() + b.RawInt())
+				stack[sp] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
 			} else {
 				stack[sp] = a.Add(b)
 			}
@@ -438,7 +438,7 @@ func (vm *VM) run() (value.Value, error) {
 			a := locals[idxA]
 			b := locals[idxB]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				stack[sp] = value.MakeInt(a.RawInt() - b.RawInt())
+				stack[sp] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
 			} else {
 				stack[sp] = a.Sub(b)
 			}
@@ -451,7 +451,7 @@ func (vm *VM) run() (value.Value, error) {
 			a := locals[idxA]
 			b := locals[idxB]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				stack[sp] = value.MakeInt(a.RawInt() * b.RawInt())
+				stack[sp] = value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize())
 			} else {
 				stack[sp] = a.Mul(b)
 			}
@@ -464,7 +464,7 @@ func (vm *VM) run() (value.Value, error) {
 			a := locals[idxA]
 			b := prebaked[idxB]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				stack[sp] = value.MakeInt(a.RawInt() + b.RawInt())
+				stack[sp] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
 			} else {
 				stack[sp] = a.Add(b)
 			}
@@ -477,7 +477,7 @@ func (vm *VM) run() (value.Value, error) {
 			a := locals[idxA]
 			b := prebaked[idxB]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				stack[sp] = value.MakeInt(a.RawInt() - b.RawInt())
+				stack[sp] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
 			} else {
 				stack[sp] = a.Sub(b)
 			}
@@ -611,7 +611,7 @@ func (vm *VM) run() (value.Value, error) {
 			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
 				r := a.RawInt() + b.RawInt()
-				locals[idx] = value.MakeInt(r)
+				locals[idx] = value.MakeIntSized(r, a.RawSize())
 				if intLocals != nil {
 					intLocals[idx] = r
 				}
@@ -628,7 +628,7 @@ func (vm *VM) run() (value.Value, error) {
 			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
 				r := a.RawInt() - b.RawInt()
-				locals[idx] = value.MakeInt(r)
+				locals[idx] = value.MakeIntSized(r, a.RawSize())
 				if intLocals != nil {
 					intLocals[idx] = r
 				}
@@ -644,7 +644,7 @@ func (vm *VM) run() (value.Value, error) {
 			a := locals[idxA]
 			b := locals[idxB]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idxC] = value.MakeInt(a.RawInt() + b.RawInt())
+				locals[idxC] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
 			} else {
 				locals[idxC] = a.Add(b)
 			}
@@ -657,7 +657,7 @@ func (vm *VM) run() (value.Value, error) {
 			a := locals[idxA]
 			b := prebaked[idxB]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idxC] = value.MakeInt(a.RawInt() + b.RawInt())
+				locals[idxC] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
 			} else {
 				locals[idxC] = a.Add(b)
 			}
@@ -670,7 +670,7 @@ func (vm *VM) run() (value.Value, error) {
 			a := locals[idxA]
 			b := prebaked[idxB]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idxC] = value.MakeInt(a.RawInt() - b.RawInt())
+				locals[idxC] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
 			} else {
 				locals[idxC] = a.Sub(b)
 			}
@@ -683,7 +683,7 @@ func (vm *VM) run() (value.Value, error) {
 			a := locals[idxA]
 			b := locals[idxB]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idxC] = value.MakeInt(a.RawInt() - b.RawInt())
+				locals[idxC] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
 			} else {
 				locals[idxC] = a.Sub(b)
 			}
@@ -696,7 +696,7 @@ func (vm *VM) run() (value.Value, error) {
 			a := locals[idxA]
 			b := locals[idxB]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idxC] = value.MakeInt(a.RawInt() * b.RawInt())
+				locals[idxC] = value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize())
 			} else {
 				locals[idxC] = a.Mul(b)
 			}
@@ -709,7 +709,7 @@ func (vm *VM) run() (value.Value, error) {
 			a := locals[idxA]
 			b := prebaked[idxB]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idxC] = value.MakeInt(a.RawInt() * b.RawInt())
+				locals[idxC] = value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize())
 			} else {
 				locals[idxC] = a.Mul(b)
 			}

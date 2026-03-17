@@ -99,7 +99,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		a := vm.pop()
 		// Fast path for int+int (most common case in loops)
 		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			vm.push(value.MakeInt(a.RawInt() + b.RawInt()))
+			vm.push(value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize()))
 		} else {
 			vm.push(a.Add(b))
 		}
@@ -108,7 +108,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		b := vm.pop()
 		a := vm.pop()
 		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			vm.push(value.MakeInt(a.RawInt() - b.RawInt()))
+			vm.push(value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize()))
 		} else {
 			vm.push(a.Sub(b))
 		}
@@ -117,7 +117,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		b := vm.pop()
 		a := vm.pop()
 		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			vm.push(value.MakeInt(a.RawInt() * b.RawInt()))
+			vm.push(value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize()))
 		} else {
 			vm.push(a.Mul(b))
 		}

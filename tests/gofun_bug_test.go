@@ -11,8 +11,8 @@ import (
 	"git.woa.com/youngjin/gig/value"
 
 	// 导入 gofun 解释器
-	gofun "git.code.oa.com/datacenter/faas/languages/golang/old/gofun/interpreter"
-	_ "git.code.oa.com/datacenter/faas/languages/golang/old/gofun/interpreter/imports"
+	gofun "git.code.oa.com/datacenter/onefun/gofun"
+	_ "git.code.oa.com/datacenter/onefun/gofun/interpreter/imports"
 )
 
 // ============================================================================
