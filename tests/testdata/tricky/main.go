@@ -2100,3 +2100,5465 @@ func PointerToPointer() int {
 	pp := &p
 	return **pp
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 11 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// InterfaceNilTypeAssertion tests type assertion on nil interface
+func InterfaceNilTypeAssertion() int {
+	var i interface{}
+	if _, ok := i.(int); ok {
+		return 1
+	}
+	return 0
+}
+
+// SliceAppendFunc tests appending function results
+func SliceAppendFunc() int {
+	getNum := func(n int) int { return n * 2 }
+	s := []int{}
+	s = append(s, getNum(1), getNum(2), getNum(3))
+	return s[0] + s[1] + s[2]
+}
+
+// MapNestedAssign tests nested map assignment
+func MapNestedAssign() int {
+	m := map[string]map[int]string{}
+	m["a"] = map[int]string{1: "x"}
+	m["a"][2] = "y"
+	return len(m["a"])
+}
+
+// StructMethodOnNilReceiver tests calling method on nil receiver with check
+type NilSafe struct{ val int }
+
+func (n *NilSafe) Get() int {
+	if n == nil {
+		return -1
+	}
+	return n.val
+}
+
+func StructMethodOnNilReceiver() int {
+	var p *NilSafe
+	return p.Get()
+}
+
+// ClosureWithDeferAndReturn tests closure with defer and named return
+func ClosureWithDeferAndReturn() int {
+	f := func() (result int) {
+		defer func() { result *= 2 }()
+		return 5
+	}
+	return f()
+}
+
+// SliceIndexOutOfRange tests handling of computed index
+func SliceIndexOutOfRange() int {
+	s := []int{1, 2, 3}
+	idx := 2
+	if idx < len(s) {
+		return s[idx]
+	}
+	return -1
+}
+
+// MapKeyShadowing tests shadowing in map key expression
+func MapKeyShadowing() int {
+	k := "a"
+	m := map[string]int{k: 1}
+	k = "b"
+	return m["a"]
+}
+
+// PointerToArrayElement tests pointer to array element
+func PointerToArrayElement() int {
+	a := [3]int{1, 2, 3}
+	p := &a[1]
+	*p = 20
+	return a[1]
+}
+
+// StructWithEmbeddedPointer tests struct with embedded pointer
+type EmbedPtr struct{ v int }
+
+type ContainerEmbedPtr struct {
+	*EmbedPtr
+}
+
+func StructWithEmbeddedPointer() int {
+	c := ContainerEmbedPtr{EmbedPtr: &EmbedPtr{v: 42}}
+	return c.v
+}
+
+// SliceOfEmptyInterface tests slice of empty interface
+func SliceOfEmptyInterface() int {
+	var s []interface{}
+	s = append(s, 1, "hello", true, 3.14)
+	return len(s)
+}
+
+// MapWithPointerValue tests map with pointer value
+func MapWithPointerValue() int {
+	v := 10
+	m := map[string]*int{"key": &v}
+	return *m["key"]
+}
+
+// DeferWithClosureArg tests defer with closure argument
+func DeferWithClosureArg() int {
+	result := 0
+	f := func(v int) {
+		result += v
+	}
+	defer f(10)
+	defer f(20)
+	return result
+}
+
+// SliceMakeFromArr tests making slice from array
+func SliceMakeFromArr() int {
+	a := [5]int{1, 2, 3, 4, 5}
+	s := a[1:4]
+	return s[0] + s[1] + s[2]
+}
+
+// StructAnonymousField tests anonymous field access
+type AnonField struct {
+	int
+	name string
+}
+
+func StructAnonymousField() int {
+	s := AnonField{int: 42, name: "test"}
+	return s.int
+}
+
+// NestedMapWithDelete tests nested map with delete
+func NestedMapWithDelete() int {
+	m := map[string]map[int]int{
+		"a": {1: 10, 2: 20},
+		"b": {3: 30},
+	}
+	delete(m["a"], 1)
+	return len(m["a"])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 12 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// PointerSwapValues tests swapping values through pointers
+func PointerSwapValues() int {
+	a, b := 1, 2
+	pa, pb := &a, &b
+	*pa, *pb = *pb, *pa
+	return a*10 + b
+}
+
+// SliceClone tests cloning a slice
+func SliceClone() int {
+	orig := []int{1, 2, 3}
+	clone := make([]int, len(orig))
+	copy(clone, orig)
+	clone[0] = 100
+	return orig[0]
+}
+
+// MapUnion tests map union operation
+func MapUnion() int {
+	m1 := map[int]int{1: 10, 2: 20}
+	m2 := map[int]int{2: 200, 3: 30}
+	for k, v := range m2 {
+		if _, exists := m1[k]; !exists {
+			m1[k] = v
+		}
+	}
+	return m1[2]
+}
+
+// StructWithNilChan tests struct with nil channel
+type ChanHolder struct {
+	ch chan int
+}
+
+func StructWithNilChan() int {
+	c := ChanHolder{ch: nil}
+	if c.ch == nil {
+		return 1
+	}
+	return 0
+}
+
+// ClosureMultiCapture tests closure capturing multiple outer variables
+func ClosureMultiCapture() int {
+	x, y, z := 1, 2, 3
+	f := func() int {
+		return x + y + z
+	}
+	return f()
+}
+
+// SliceSubset tests slice subset operations
+func SliceSubset() int {
+	s := []int{1, 2, 3, 4, 5}
+	sub := s[1:4]
+	return len(sub)
+}
+
+// MapDefaultPattern tests map default pattern
+func MapDefaultPattern() int {
+	m := map[string]int{}
+	v, ok := m["missing"]
+	if !ok {
+		v = 100
+	}
+	return v
+}
+
+// PointerToNilMap tests pointer to nil map
+func PointerToNilMap() int {
+	var m map[string]int
+	p := &m
+	if *p == nil {
+		return 1
+	}
+	return 0
+}
+
+// StructMethodOnAddr tests method on address of struct
+type ValReceiver struct{ v int }
+
+func (v ValReceiver) Get() int { return v.v }
+
+func StructMethodOnAddr() int {
+	s := ValReceiver{v: 42}
+	return (&s).Get()
+}
+
+// SliceCopyFromMap tests copying map keys to slice
+func SliceCopyFromMap() int {
+	m := map[int]string{1: "a", 2: "b", 3: "c"}
+	keys := make([]int, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return len(keys)
+}
+
+// NestedStructAssign tests nested struct assignment
+type InnerNest struct{ v int }
+type OuterNest struct{ inner InnerNest }
+
+func NestedStructAssign() int {
+	o := OuterNest{inner: InnerNest{v: 10}}
+	o.inner.v = 20
+	return o.inner.v
+}
+
+// MapIntersect tests map intersection
+func MapIntersect() int {
+	m1 := map[int]bool{1: true, 2: true, 3: true}
+	m2 := map[int]bool{2: true, 3: true, 4: true}
+	count := 0
+	for k := range m1 {
+		if m2[k] {
+			count++
+		}
+	}
+	return count
+}
+
+// DeferInMultipleFunctions tests defer in multiple function calls
+func DeferInMultipleFunctions() int {
+	result := 0
+	f1 := func() int {
+		defer func() { result += 1 }()
+		return 10
+	}
+	f2 := func() int {
+		defer func() { result += 100 }()
+		return 20
+	}
+	return f1() + f2() + result
+}
+
+// SliceFill tests filling slice with values
+func SliceFill() int {
+	s := make([]int, 5)
+	for i := range s {
+		s[i] = i + 1
+	}
+	return s[0] + s[4]
+}
+
+// StructSliceOfPointers tests slice of struct pointers
+type SimpleStruct struct{ v int }
+
+func StructSliceOfPointers() int {
+	s := []*SimpleStruct{{v: 1}, {v: 2}, {v: 3}}
+	sum := 0
+	for _, p := range s {
+		sum += p.v
+	}
+	return sum
+}
+
+// MapValuesToSlice tests extracting map values to slice
+func MapValuesToSlice() int {
+	m := map[int]string{1: "a", 2: "b", 3: "c"}
+	vals := make([]string, 0, len(m))
+	for _, v := range m {
+		vals = append(vals, v)
+	}
+	return len(vals)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 13 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// PointerToStructField tests pointer to struct field modification
+func PointerToStructField() int {
+	type S struct{ v int }
+	s := S{v: 10}
+	p := &s.v
+	*p = 20
+	return s.v
+}
+
+// SliceEqual tests slice equality
+func SliceEqual() int {
+	s1 := []int{1, 2, 3}
+	s2 := []int{1, 2, 3}
+	if len(s1) == len(s2) {
+		eq := true
+		for i := range s1 {
+			if s1[i] != s2[i] {
+				eq = false
+				break
+			}
+		}
+		if eq {
+			return 1
+		}
+	}
+	return 0
+}
+
+// MapInvert tests inverting map
+func MapInvert() int {
+	m := map[int]string{1: "a", 2: "b"}
+	inv := make(map[string]int)
+	for k, v := range m {
+		inv[v] = k
+	}
+	return inv["a"]
+}
+
+// StructWithSlicePointer tests struct with pointer to slice
+type SlicePtrHolder struct {
+	s *[]int
+}
+
+func StructWithSlicePointer() int {
+	data := []int{1, 2, 3}
+	h := SlicePtrHolder{s: &data}
+	return len(*h.s)
+}
+
+// ClosureWithLoopVar tests closure with loop variable capture
+func ClosureWithLoopVar() int {
+	var funcs []func() int
+	for i := 0; i < 3; i++ {
+		i := i
+		funcs = append(funcs, func() int { return i })
+	}
+	return funcs[0]() + funcs[1]() + funcs[2]()
+}
+
+// SliceMax tests finding max in slice
+func SliceMax() int {
+	s := []int{3, 1, 4, 1, 5, 9, 2, 6}
+	max := s[0]
+	for _, v := range s[1:] {
+		if v > max {
+			max = v
+		}
+	}
+	return max
+}
+
+// MapFilter tests filtering map
+func MapFilter() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30, 4: 40}
+	filtered := make(map[int]int)
+	for k, v := range m {
+		if v > 15 {
+			filtered[k] = v
+		}
+	}
+	return len(filtered)
+}
+
+// PointerNilReassign tests reassigning nil pointer
+func PointerNilReassign() int {
+	var p *int
+	if p == nil {
+		v := 10
+		p = &v
+	}
+	return *p
+}
+
+// StructCompareNil tests comparing nil struct pointers
+func StructCompareNil() int {
+	type S struct{ v int }
+	var p1, p2 *S
+	if p1 == nil && p2 == nil {
+		return 1
+	}
+	return 0
+}
+
+// SliceGrowWithAppend tests growing slice with append
+func SliceGrowWithAppend() int {
+	s := make([]int, 0, 2)
+	s = append(s, 1)
+	s = append(s, 2)
+	s = append(s, 3) // triggers growth
+	if cap(s) >= 3 {
+		return 1
+	}
+	return 0
+}
+
+// NestedClosureWithArg tests nested closure with argument
+func NestedClosureWithArg() int {
+	outer := func(x int) func(int) int {
+		return func(y int) int {
+			return x + y
+		}
+	}
+	f := outer(10)
+	return f(5)
+}
+
+// MapRangeWithBreak tests breaking from map range
+func MapRangeWithBreak() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	sum := 0
+	for k, v := range m {
+		sum += v
+		if k == 2 {
+			break
+		}
+	}
+	return sum
+}
+
+// DeferModifyReturnValue tests defer modifying return
+func DeferModifyReturnValue() (result int) {
+	defer func() {
+		result *= 2
+	}()
+	result = 21
+	return
+}
+
+// SliceReverseCopy tests reversing slice into copy
+func SliceReverseCopy() int {
+	orig := []int{1, 2, 3, 4, 5}
+	rev := make([]int, len(orig))
+	for i, v := range orig {
+		rev[len(orig)-1-i] = v
+	}
+	return rev[0]
+}
+
+// StructEmbeddedMethodOverride tests embedded method override
+type BaseOverride struct{ v int }
+
+func (b BaseOverride) Get() int { return b.v }
+
+type DerivedOverride struct {
+	BaseOverride
+}
+
+func (d DerivedOverride) Get() int { return d.v * 2 }
+
+func StructEmbeddedMethodOverride() int {
+	d := DerivedOverride{BaseOverride: BaseOverride{v: 10}}
+	return d.Get()
+}
+
+// MapWithFuncValueDirect tests map with func value - direct call
+func MapWithFuncValueDirect() int {
+	m := map[string]func() int{
+		"a": func() int { return 1 },
+		"b": func() int { return 2 },
+	}
+	return m["a"]() + m["b"]()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 14 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceDeleteFront tests deleting from front of slice
+func SliceDeleteFront() int {
+	s := []int{1, 2, 3, 4, 5}
+	s = s[1:]
+	return len(s)
+}
+
+// MapHasKey tests checking if map has key
+func MapHasKey() int {
+	m := map[string]int{"a": 1, "b": 2}
+	if _, ok := m["a"]; ok {
+		return 1
+	}
+	return 0
+}
+
+// PointerToSliceLen tests pointer to slice len
+func PointerToSliceLen() int {
+	s := []int{1, 2, 3}
+	p := &s
+	return len(*p)
+}
+
+// StructWithMapPointer tests struct with pointer to map
+type MapPtrHolder struct {
+	m *map[string]int
+}
+
+func StructWithMapPointer() int {
+	data := map[string]int{"a": 1}
+	h := MapPtrHolder{m: &data}
+	return (*h.m)["a"]
+}
+
+// ClosureAsArg tests passing closure as argument
+func ClosureAsArg() int {
+	apply := func(f func(int) int, x int) int {
+		return f(x)
+	}
+	double := func(n int) int { return n * 2 }
+	return apply(double, 5)
+}
+
+// SliceSum tests summing slice
+func SliceSum() int {
+	s := []int{1, 2, 3, 4, 5}
+	sum := 0
+	for _, v := range s {
+		sum += v
+	}
+	return sum
+}
+
+// MapDiff tests map difference
+func MapDiff() int {
+	m1 := map[int]int{1: 10, 2: 20, 3: 30}
+	m2 := map[int]int{2: 20, 3: 30, 4: 40}
+	diff := 0
+	for k := range m1 {
+		if _, ok := m2[k]; !ok {
+			diff++
+		}
+	}
+	return diff
+}
+
+// PointerToFunc tests pointer to function
+func PointerToFunc() int {
+	f := func() int { return 42 }
+	p := &f
+	return (*p)()
+}
+
+// StructNilPointerMethod tests nil pointer method with error pattern
+type SafeValue struct{ v int }
+
+func (s *SafeValue) Value() (int, bool) {
+	if s == nil {
+		return 0, false
+	}
+	return s.v, true
+}
+
+func StructNilPointerMethod() int {
+	var p *SafeValue
+	v, ok := p.Value()
+	if !ok {
+		return -1
+	}
+	return v
+}
+
+// SliceTakeWhile tests taking while condition
+func SliceTakeWhile() int {
+	s := []int{2, 4, 6, 1, 8}
+	result := []int{}
+	for _, v := range s {
+		if v%2 != 0 {
+			break
+		}
+		result = append(result, v)
+	}
+	return len(result)
+}
+
+// NestedMapGetOrSet tests nested map get or set
+func NestedMapGetOrSet() int {
+	m := map[string]map[int]int{}
+	key := "a"
+	if m[key] == nil {
+		m[key] = make(map[int]int)
+	}
+	m[key][1] = 10
+	return m[key][1]
+}
+
+// DeferInClosureWithArg tests defer in closure with argument
+func DeferInClosureWithArg() int {
+	result := 0
+	f := func() {
+		defer func(v int) {
+			result += v
+		}(10)
+		result = 1
+	}
+	f()
+	return result
+}
+
+// SliceFromChan tests draining channel to slice
+func SliceFromChan() int {
+	ch := make(chan int, 3)
+	ch <- 1
+	ch <- 2
+	ch <- 3
+	close(ch)
+	s := []int{}
+	for v := range ch {
+		s = append(s, v)
+	}
+	return len(s)
+}
+
+// StructFieldShadow tests field shadowing in embedded struct
+type ShadowBase struct{ v int }
+type ShadowDerived struct {
+	ShadowBase
+	v int
+}
+
+func StructFieldShadow() int {
+	d := ShadowDerived{ShadowBase: ShadowBase{v: 10}, v: 20}
+	return d.ShadowBase.v + d.v
+}
+
+// MapMergeWithConflict tests map merge with conflict handling
+func MapMergeWithConflict() int {
+	m1 := map[int]int{1: 10, 2: 20}
+	m2 := map[int]int{2: 200, 3: 30}
+	for k, v := range m2 {
+		if existing, ok := m1[k]; ok {
+			m1[k] = existing + v
+		} else {
+			m1[k] = v
+		}
+	}
+	return m1[2]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 15 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceDropWhile tests dropping while condition
+func SliceDropWhile() int {
+	s := []int{2, 4, 6, 1, 8}
+	start := 0
+	for i, v := range s {
+		if v%2 != 0 {
+			start = i
+			break
+		}
+	}
+	result := s[start:]
+	return len(result)
+}
+
+// MapAny tests if any value matches
+func MapAny() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for _, v := range m {
+		if v == 20 {
+			return 1
+		}
+	}
+	return 0
+}
+
+// PointerDeref tests dereferencing pointer
+func PointerDeref() int {
+	v := 42
+	p := &v
+	deref := *p
+	return deref
+}
+
+// StructWithTag tests struct with tags (compile-time)
+type Tagged struct {
+	v int `json:"value"`
+}
+
+func StructWithTag() int {
+	s := Tagged{v: 42}
+	return s.v
+}
+
+// ClosureReturningClosure tests closure returning another closure
+func ClosureReturningClosure() int {
+	makeCounter := func() func() int {
+		count := 0
+		return func() int {
+			count++
+			return count
+		}
+	}
+	counter := makeCounter()
+	counter()
+	counter()
+	return counter()
+}
+
+// SliceUnique tests making slice unique
+func SliceUnique() int {
+	s := []int{1, 2, 2, 3, 3, 3, 4}
+	seen := make(map[int]bool)
+	result := []int{}
+	for _, v := range s {
+		if !seen[v] {
+			seen[v] = true
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapAll tests if all values match
+func MapAll() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	all := true
+	for _, v := range m {
+		if v < 5 {
+			all = false
+			break
+		}
+	}
+	if all {
+		return 1
+	}
+	return 0
+}
+
+// PointerToPointerAssign tests assigning through double pointer
+func PointerToPointerAssign() int {
+	a := 10
+	b := 20
+	p := &a
+	pp := &p
+	*pp = &b
+	return **pp
+}
+
+// StructWithFuncField tests struct with function field
+type FuncHolder struct {
+	f func(int) int
+}
+
+func StructWithFuncField() int {
+	h := FuncHolder{f: func(n int) int { return n * 2 }}
+	return h.f(5)
+}
+
+// SlicePartition tests partitioning slice
+func SlicePartition() int {
+	s := []int{1, 2, 3, 4, 5, 6}
+	evens := []int{}
+	odds := []int{}
+	for _, v := range s {
+		if v%2 == 0 {
+			evens = append(evens, v)
+		} else {
+			odds = append(odds, v)
+		}
+	}
+	return len(evens)*10 + len(odds)
+}
+
+// NestedMapIterate tests iterating nested map
+func NestedMapIterate() int {
+	m := map[string]map[int]int{
+		"a": {1: 10, 2: 20},
+		"b": {3: 30},
+	}
+	count := 0
+	for _, inner := range m {
+		for range inner {
+			count++
+		}
+	}
+	return count
+}
+
+// DeferClosureModifyingNamed tests defer closure modifying named return
+func DeferClosureModifyingNamed() (result int) {
+	defer func() {
+		result += 100
+	}()
+	result = 42
+	return
+}
+
+// SliceIndexOf tests finding index of element
+func SliceIndexOf() int {
+	s := []int{10, 20, 30, 40}
+	target := 30
+	for i, v := range s {
+		if v == target {
+			return i
+		}
+	}
+	return -1
+}
+
+// StructEmbeddedNil tests embedded nil pointer
+type EmbedNil struct{ v int }
+
+type ContainerEmbedNil struct {
+	*EmbedNil
+}
+
+func StructEmbeddedNil() int {
+	c := ContainerEmbedNil{}
+	if c.EmbedNil == nil {
+		return 1
+	}
+	return 0
+}
+
+// MapCountValues tests counting values
+func MapCountValues() int {
+	m := map[int]string{1: "a", 2: "b", 3: "a"}
+	counts := make(map[string]int)
+	for _, v := range m {
+		counts[v]++
+	}
+	return counts["a"]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 16 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceRemoveIf tests removing elements matching condition
+func SliceRemoveIf() int {
+	s := []int{1, 2, 3, 4, 5, 6}
+	result := []int{}
+	for _, v := range s {
+		if v%2 != 0 {
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapTransformKeys tests transforming map keys
+func MapTransformKeys() int {
+	m := map[int]string{1: "a", 2: "b"}
+	transformed := make(map[string]int)
+	for k, v := range m {
+		transformed[v] = k
+	}
+	return transformed["a"]
+}
+
+// PointerNilCompare tests comparing pointer to nil
+func PointerNilCompare() int {
+	var p *int
+	if p == nil {
+		v := 42
+		p = &v
+	}
+	return *p
+}
+
+// StructMethodOnValueCopy tests method on value copy
+type ValueCopy struct{ v int }
+
+func (v ValueCopy) Get() int { return v.v }
+
+func StructMethodOnValueCopy() int {
+	s := ValueCopy{v: 42}
+	cpy := s
+	cpy.v = 100
+	return s.Get() + cpy.Get()
+}
+
+// ClosureWithMultipleReturns tests closure with multiple returns
+func ClosureWithMultipleReturns() int {
+	f := func() (int, int) {
+		return 10, 20
+	}
+	a, b := f()
+	return a + b
+}
+
+// SliceZip tests zipping two slices
+func SliceZip() int {
+	s1 := []int{1, 2, 3}
+	s2 := []int{4, 5, 6}
+	result := []int{}
+	for i := range s1 {
+		result = append(result, s1[i]+s2[i])
+	}
+	return len(result)
+}
+
+// MapFilterKeys tests filtering map by keys
+func MapFilterKeys() int {
+	m := map[int]string{1: "a", 2: "b", 3: "c", 4: "d"}
+	filtered := make(map[int]string)
+	for k, v := range m {
+		if k%2 == 0 {
+			filtered[k] = v
+		}
+	}
+	return len(filtered)
+}
+
+// PointerToSliceModify tests modifying slice through pointer
+func PointerToSliceModify() int {
+	s := []int{1, 2, 3}
+	p := &s
+	(*p)[0] = 10
+	return s[0]
+}
+
+// StructWithChannel tests struct with channel field
+type ChanField struct {
+	ch chan int
+}
+
+func StructWithChannel() int {
+	ch := make(chan int, 1)
+	s := ChanField{ch: ch}
+	s.ch <- 42
+	return <-s.ch
+}
+
+// SliceUnzip tests unzipping slice
+func SliceUnzip() int {
+	s := []int{1, 10, 2, 20, 3, 30}
+	a := []int{}
+	b := []int{}
+	for i := 0; i < len(s); i += 2 {
+		a = append(a, s[i])
+		b = append(b, s[i+1])
+	}
+	return len(a) + len(b)
+}
+
+// NestedMapUpdateNested tests updating nested map
+func NestedMapUpdateNested() int {
+	m := map[string]map[int]int{
+		"a": {1: 10},
+	}
+	m["a"][1] = 20
+	return m["a"][1]
+}
+
+// DeferMultipleCalls tests multiple defer calls
+func DeferMultipleCalls() int {
+	result := 0
+	for i := 0; i < 3; i++ {
+		defer func(n int) {
+			result += n
+		}(i + 1)
+	}
+	return result
+}
+
+// SliceChunk tests chunking slice
+func SliceChunk() int {
+	s := []int{1, 2, 3, 4, 5, 6, 7, 8}
+	chunkSize := 3
+	chunks := [][]int{}
+	for i := 0; i < len(s); i += chunkSize {
+		end := i + chunkSize
+		if end > len(s) {
+			end = len(s)
+		}
+		chunks = append(chunks, s[i:end])
+	}
+	return len(chunks)
+}
+
+// StructSliceOfSlices tests slice of slices of structs
+func StructSliceOfSlices() int {
+	type P struct{ x, y int }
+	s := [][]P{{{1, 2}, {3, 4}}, {{5, 6}}}
+	return len(s[0]) + len(s[1])
+}
+
+// MapUpdateValueDirect tests updating map value directly
+func MapUpdateValueDirect() int {
+	m := map[int]int{1: 10, 2: 20}
+	m[1]++
+	m[1] += 5
+	return m[1]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 17 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceFlattenManual tests flattening slice manually
+func SliceFlattenManual() int {
+	s := [][]int{{1, 2}, {3, 4, 5}, {6}}
+	result := []int{}
+	for _, inner := range s {
+		for _, v := range inner {
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapHasKeyMultiple tests checking multiple keys
+func MapHasKeyMultiple() int {
+	m := map[int]bool{1: true, 3: true, 5: true}
+	keys := []int{1, 2, 3}
+	count := 0
+	for _, k := range keys {
+		if m[k] {
+			count++
+		}
+	}
+	return count
+}
+
+// PointerReassignNil tests reassigning pointer to nil
+func PointerReassignNil() int {
+	v := 10
+	p := &v
+	p = nil
+	if p == nil {
+		return 1
+	}
+	return 0
+}
+
+// StructWithPointerToSelf tests struct with pointer to itself
+type SelfRef struct {
+	v    int
+	next *SelfRef
+}
+
+func StructWithPointerToSelf() int {
+	s1 := &SelfRef{v: 1}
+	s2 := &SelfRef{v: 2, next: s1}
+	return s2.v + s2.next.v
+}
+
+// ClosureWithExternalVar tests closure with external variable
+func ClosureWithExternalVar() int {
+	counter := 0
+	inc := func() {
+		counter++
+	}
+	inc()
+	inc()
+	inc()
+	return counter
+}
+
+// SliceRotateLeft tests rotating slice left
+func SliceRotateLeft() int {
+	s := []int{1, 2, 3, 4, 5}
+	k := 2
+	s = append(s[k:], s[:k]...)
+	return s[0]
+}
+
+// MapCountByKey tests counting by key condition
+func MapCountByKey() int {
+	m := map[int]string{1: "a", 2: "b", 3: "c", 4: "d"}
+	count := 0
+	for k := range m {
+		if k%2 == 0 {
+			count++
+		}
+	}
+	return count
+}
+
+// PointerToMapElement tests pointer to map element
+func PointerToMapElement() int {
+	m := map[string]int{"a": 10, "b": 20}
+	// Can't take address of map element, but can work with values
+	v := m["a"]
+	p := &v
+	*p = 100
+	return m["a"]
+}
+
+// StructCompareEqual tests struct equality
+func StructCompareEqual() int {
+	type P struct{ x, y int }
+	p1 := P{1, 2}
+	p2 := P{1, 2}
+	if p1 == p2 {
+		return 1
+	}
+	return 0
+}
+
+// SliceTakeN tests taking first n elements
+func SliceTakeN() int {
+	s := []int{1, 2, 3, 4, 5}
+	n := 3
+	taken := s[:n]
+	return len(taken)
+}
+
+// NestedMapDeleteNested tests deleting from nested map
+func NestedMapDeleteNested() int {
+	m := map[string]map[int]int{
+		"a": {1: 10, 2: 20},
+	}
+	delete(m["a"], 1)
+	return len(m["a"])
+}
+
+// DeferInGoroutine tests defer pattern in simulated goroutine
+func DeferInGoroutine() int {
+	result := 0
+	f := func() int {
+		defer func() {
+			result += 100
+		}()
+		result = 42
+		return result
+	}
+	return f() + result
+}
+
+// SliceDropN tests dropping first n elements
+func SliceDropN() int {
+	s := []int{1, 2, 3, 4, 5}
+	n := 2
+	dropped := s[n:]
+	return len(dropped)
+}
+
+// StructWithSliceOfMaps tests struct with slice of maps
+type SliceOfMapsField struct {
+	items []map[int]int
+}
+
+func StructWithSliceOfMaps() int {
+	s := SliceOfMapsField{
+		items: []map[int]int{{1: 10}, {2: 20}},
+	}
+	return s.items[0][1] + s.items[1][2]
+}
+
+// MapMergeMultiple tests merging multiple maps
+func MapMergeMultiple() int {
+	m1 := map[int]int{1: 10}
+	m2 := map[int]int{2: 20}
+	m3 := map[int]int{3: 30}
+	result := make(map[int]int)
+	for k, v := range m1 {
+		result[k] = v
+	}
+	for k, v := range m2 {
+		result[k] = v
+	}
+	for k, v := range m3 {
+		result[k] = v
+	}
+	return len(result)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 18 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceIntersect tests slice intersection
+func SliceIntersect() int {
+	s1 := []int{1, 2, 3, 4}
+	s2 := []int{3, 4, 5, 6}
+	set := make(map[int]bool)
+	for _, v := range s1 {
+		set[v] = true
+	}
+	result := []int{}
+	for _, v := range s2 {
+		if set[v] {
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapValueTypes tests map with different value types via interface
+func MapValueTypes() int {
+	m := map[string]interface{}{
+		"int":    42,
+		"string": "hello",
+		"bool":   true,
+	}
+	count := 0
+	for _, v := range m {
+		switch v.(type) {
+		case int:
+			count += 1
+		case string:
+			count += 10
+		case bool:
+			count += 100
+		}
+	}
+	return count
+}
+
+// PointerAddr tests pointer address operations
+func PointerAddr() int {
+	v := 42
+	p := &v
+	addr := p
+	return *addr
+}
+
+// StructWithMapOfSlices tests struct with map of slices
+type MapOfSlicesField struct {
+	data map[string][]int
+}
+
+func StructWithMapOfSlices() int {
+	s := MapOfSlicesField{
+		data: map[string][]int{
+			"a": {1, 2, 3},
+			"b": {4, 5},
+		},
+	}
+	return len(s.data["a"]) + len(s.data["b"])
+}
+
+// ClosureCapturingPointer tests closure capturing pointer
+func ClosureCapturingPointer() int {
+	v := 10
+	p := &v
+	f := func() int {
+		*p = 20
+		return *p
+	}
+	return f()
+}
+
+// SliceDifference tests slice difference
+func SliceDifference() int {
+	s1 := []int{1, 2, 3, 4}
+	s2 := []int{3, 4, 5, 6}
+	set := make(map[int]bool)
+	for _, v := range s2 {
+		set[v] = true
+	}
+	result := []int{}
+	for _, v := range s1 {
+		if !set[v] {
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapGetOrElse tests map get with default
+func MapGetOrElse() int {
+	m := map[int]string{1: "a", 2: "b"}
+	if v, ok := m[3]; ok {
+		return len(v)
+	}
+	return 0
+}
+
+// PointerToSliceAppend tests appending through pointer to slice
+func PointerToSliceAppend() int {
+	s := []int{1, 2, 3}
+	p := &s
+	*p = append(*p, 4, 5)
+	return len(*p)
+}
+
+// StructNilFieldHolder tests nil field handling
+type NilFieldHolder struct {
+	ptr *int
+}
+
+func StructNilFieldHolder() int {
+	s := NilFieldHolder{ptr: nil}
+	if s.ptr == nil {
+		return 1
+	}
+	return 0
+}
+
+// SliceStride tests slice with stride
+func SliceStride() int {
+	s := []int{1, 2, 3, 4, 5, 6, 7, 8}
+	result := []int{}
+	for i := 0; i < len(s); i += 2 {
+		result = append(result, s[i])
+	}
+	return len(result)
+}
+
+// NestedMapGetWithDefault tests nested map get with default
+func NestedMapGetWithDefault() int {
+	m := map[string]map[int]int{}
+	key := "missing"
+	if m[key] == nil {
+		return -1
+	}
+	return m[key][1]
+}
+
+// DeferConditional tests conditional defer
+func DeferConditional() int {
+	result := 0
+	shouldDefer := true
+	if shouldDefer {
+		defer func() {
+			result += 100
+		}()
+	}
+	result = 42
+	return result
+}
+
+// SliceMinMax tests finding min and max
+func SliceMinMax() int {
+	s := []int{3, 1, 4, 1, 5, 9, 2, 6}
+	min, max := s[0], s[0]
+	for _, v := range s {
+		if v < min {
+			min = v
+		}
+		if v > max {
+			max = v
+		}
+	}
+	return min + max
+}
+
+// StructPointerMethodChain tests chaining pointer methods
+type Chainable struct{ v int }
+
+func (c *Chainable) Add(n int) *Chainable {
+	c.v += n
+	return c
+}
+
+func StructPointerMethodChain() int {
+	c := &Chainable{v: 0}
+	c.Add(1).Add(2).Add(3)
+	return c.v
+}
+
+// MapRangeSafe tests safe map range with modification
+func MapRangeSafe() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	keys := []int{}
+	for k := range m {
+		keys = append(keys, k)
+	}
+	for _, k := range keys {
+		m[k] *= 2
+	}
+	return m[1] + m[2] + m[3]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 19 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceSymmetricDiff tests symmetric difference
+func SliceSymmetricDiff() int {
+	s1 := []int{1, 2, 3}
+	s2 := []int{2, 3, 4}
+	set1 := make(map[int]bool)
+	set2 := make(map[int]bool)
+	for _, v := range s1 {
+		set1[v] = true
+	}
+	for _, v := range s2 {
+		set2[v] = true
+	}
+	result := []int{}
+	for _, v := range s1 {
+		if !set2[v] {
+			result = append(result, v)
+		}
+	}
+	for _, v := range s2 {
+		if !set1[v] {
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapValueSlice tests getting values as slice
+func MapValueSlice() int {
+	m := map[int]string{1: "a", 2: "b", 3: "c"}
+	vals := make([]string, 0, len(m))
+	for _, v := range m {
+		vals = append(vals, v)
+	}
+	return len(vals)
+}
+
+// PointerSwapInStruct tests swapping pointers in struct
+type PtrPair struct {
+	a, b *int
+}
+
+func PointerSwapInStruct() int {
+	x, y := 1, 2
+	p := PtrPair{a: &x, b: &y}
+	p.a, p.b = p.b, p.a
+	return *p.a*10 + *p.b
+}
+
+// StructWithDoublePointer tests struct with double pointer
+type DoublePtrHolder struct {
+	pp **int
+}
+
+func StructWithDoublePointer() int {
+	v := 42
+	p := &v
+	h := DoublePtrHolder{pp: &p}
+	return **h.pp
+}
+
+// ClosureMap tests mapping closure over values
+func ClosureMap() int {
+	double := func(n int) int { return n * 2 }
+	s := []int{1, 2, 3}
+	result := []int{}
+	for _, v := range s {
+		result = append(result, double(v))
+	}
+	return len(result)
+}
+
+// SliceProduct tests computing product
+func SliceProduct() int {
+	s := []int{1, 2, 3, 4, 5}
+	prod := 1
+	for _, v := range s {
+		prod *= v
+	}
+	return prod
+}
+
+// MapMergeWithFunc tests merging maps with function
+func MapMergeWithFunc() int {
+	m1 := map[int]int{1: 10, 2: 20}
+	m2 := map[int]int{2: 200, 3: 30}
+	merge := func(a, b int) int { return a + b }
+	for k, v := range m2 {
+		if existing, ok := m1[k]; ok {
+			m1[k] = merge(existing, v)
+		} else {
+			m1[k] = v
+		}
+	}
+	return m1[2]
+}
+
+// PointerCompare tests pointer comparison
+func PointerCompare() int {
+	a := 10
+	p1 := &a
+	p2 := &a
+	if p1 == p2 {
+		return 1
+	}
+	return 0
+}
+
+// StructEmbeddedInterface tests embedded interface
+type Getter interface{ Get() int }
+
+type GetterImpl struct{ v int }
+
+func (g *GetterImpl) Get() int { return g.v }
+
+type GetterHolder struct {
+	Getter
+}
+
+func StructEmbeddedInterface() int {
+	h := GetterHolder{Getter: &GetterImpl{v: 42}}
+	return h.Get()
+}
+
+// SliceFoldLeft tests left fold
+func SliceFoldLeft() int {
+	s := []int{1, 2, 3, 4, 5}
+	fold := func(acc, v int) int { return acc + v }
+	result := 0
+	for _, v := range s {
+		result = fold(result, v)
+	}
+	return result
+}
+
+// NestedMapSafeAccess tests safe nested map access
+func NestedMapSafeAccess() int {
+	m := map[string]map[int]int{}
+	key := "missing"
+	if inner, ok := m[key]; ok {
+		return inner[1]
+	}
+	return -1
+}
+
+// DeferModifyMultiple tests defer modifying multiple variables
+func DeferModifyMultiple() (a int, b int) {
+	defer func() {
+		a *= 2
+		b *= 3
+	}()
+	a, b = 10, 20
+	return
+}
+
+func DeferModifyMultipleCombined() int {
+	x, y := DeferModifyMultiple()
+	return x + y
+}
+
+// SliceReduce tests reduce operation
+func SliceReduce() int {
+	s := []int{1, 2, 3, 4, 5}
+	reduce := func(acc, v int) int { return acc + v }
+	result := 0
+	for _, v := range s {
+		result = reduce(result, v)
+	}
+	return result
+}
+
+// StructWithFuncSlice tests struct with slice of functions
+type FuncSliceHolder struct {
+	funcs []func() int
+}
+
+func StructWithFuncSlice() int {
+	h := FuncSliceHolder{
+		funcs: []func() int{
+			func() int { return 1 },
+			func() int { return 2 },
+		},
+	}
+	return h.funcs[0]() + h.funcs[1]()
+}
+
+// MapGroupBy tests grouping by key
+func MapGroupBy() int {
+	s := []int{1, 2, 3, 4, 5, 6}
+	groups := make(map[int][]int)
+	for _, v := range s {
+		key := v % 2
+		groups[key] = append(groups[key], v)
+	}
+	return len(groups[0]) + len(groups[1])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 20 - Final Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceScan tests scan (prefix sums)
+func SliceScan() int {
+	s := []int{1, 2, 3, 4, 5}
+	result := []int{}
+	sum := 0
+	for _, v := range s {
+		sum += v
+		result = append(result, sum)
+	}
+	return result[len(result)-1]
+}
+
+// MapPartition tests partitioning map
+func MapPartition() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30, 4: 40}
+	positive := make(map[int]int)
+	nonPositive := make(map[int]int)
+	for k, v := range m {
+		if v > 25 {
+			positive[k] = v
+		} else {
+			nonPositive[k] = v
+		}
+	}
+	return len(positive)*10 + len(nonPositive)
+}
+
+// PointerArithSim tests simulated pointer arithmetic
+func PointerArithSim() int {
+	s := []int{1, 2, 3, 4, 5}
+	idx := 0
+	p := &s[idx]
+	*p = 10
+	idx = 2
+	p = &s[idx]
+	*p = 30
+	return s[0] + s[2]
+}
+
+// StructWithNilSlice tests struct with nil slice
+type NilSliceHolder struct {
+	items []int
+}
+
+func StructWithNilSlice() int {
+	s := NilSliceHolder{}
+	if s.items == nil {
+		return 1
+	}
+	return 0
+}
+
+// ClosureWithRecursion tests recursive closure
+func ClosureWithRecursion() int {
+	var fact func(int) int
+	fact = func(n int) int {
+		if n <= 1 {
+			return 1
+		}
+		return n * fact(n-1)
+	}
+	return fact(5)
+}
+
+// SliceWindow tests sliding window
+func SliceWindow() int {
+	s := []int{1, 2, 3, 4, 5, 6}
+	windowSize := 3
+	count := 0
+	for i := 0; i <= len(s)-windowSize; i++ {
+		count++
+	}
+	return count
+}
+
+// MapCombine tests combining maps
+func MapCombine() int {
+	m1 := map[int]string{1: "a"}
+	m2 := map[int]string{2: "b"}
+	combined := make(map[int]string)
+	for k, v := range m1 {
+		combined[k] = v
+	}
+	for k, v := range m2 {
+		combined[k] = v
+	}
+	return len(combined)
+}
+
+// PointerNilSafeDeref tests nil-safe dereference
+func PointerNilSafeDeref() int {
+	var p *int
+	if p != nil {
+		return *p
+	}
+	return -1
+}
+
+// StructWithChanOfChan tests struct with channel of channels (not directly supported, use chan of int)
+type ChanOfChanHolder struct {
+	ch chan chan int
+}
+
+func StructWithChanOfChan() int {
+	h := ChanOfChanHolder{ch: make(chan chan int, 1)}
+	inner := make(chan int, 1)
+	inner <- 42
+	h.ch <- inner
+	return <-(<-h.ch)
+}
+
+// SliceTranspose tests transposing 2D slice
+func SliceTranspose() int {
+	m := [][]int{{1, 2}, {3, 4}, {5, 6}}
+	if len(m) == 0 {
+		return 0
+	}
+	rows, cols := len(m), len(m[0])
+	result := make([][]int, cols)
+	for i := range result {
+		result[i] = make([]int, rows)
+	}
+	for i := 0; i < rows; i++ {
+		for j := 0; j < cols; j++ {
+			result[j][i] = m[i][j]
+		}
+	}
+	return len(result) + len(result[0])
+}
+
+// NestedMapInit tests initializing nested map
+func NestedMapInit() int {
+	m := map[string]map[int]int{}
+	if m == nil {
+		m = make(map[string]map[int]int)
+	}
+	m["a"] = map[int]int{1: 10}
+	return m["a"][1]
+}
+
+// DeferReturnValue tests defer with return value
+func DeferReturnValue() int {
+	result := 0
+	defer func() {
+		result = 100
+	}()
+	return result
+}
+
+// SliceFlattenDeep tests deep flattening (manual)
+func SliceFlattenDeep() int {
+	s := []interface{}{1, []interface{}{2, 3}, 4}
+	result := []int{}
+	for _, v := range s {
+		switch x := v.(type) {
+		case int:
+			result = append(result, x)
+		case []interface{}:
+			for _, inner := range x {
+				if n, ok := inner.(int); ok {
+					result = append(result, n)
+				}
+			}
+		}
+	}
+	return len(result)
+}
+
+// StructWithPointerToMap tests struct with pointer to map
+type PointerToMapHolder struct {
+	m *map[int]string
+}
+
+func StructWithPointerToMap() int {
+	data := map[int]string{1: "a", 2: "b"}
+	h := PointerToMapHolder{m: &data}
+	return len(*h.m)
+}
+
+// MapForEach tests forEach pattern
+func MapForEach() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	sum := 0
+	for k, v := range m {
+		sum += k + v
+	}
+	return sum
+}
+
+// InterfaceSliceTypeAssert tests type assertion on interface slice
+func InterfaceSliceTypeAssert() int {
+	var items []interface{} = []interface{}{int64(1), int64(2), int64(3)}
+	sum := int64(0)
+	for _, item := range items {
+		if v, ok := item.(int64); ok {
+			sum += v
+		}
+	}
+	return int(sum)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 21 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceCompact tests removing nil/falsy values (manual)
+func SliceCompact() int {
+	s := []int{0, 1, 0, 2, 0, 3, 0}
+	result := []int{}
+	for _, v := range s {
+		if v != 0 {
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapReplace tests replacing map values
+func MapReplace() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	m[2] = 200
+	return m[2]
+}
+
+// PointerToSliceLenCap tests pointer to slice length and capacity
+func PointerToSliceLenCap() int {
+	s := make([]int, 3, 10)
+	p := &s
+	return len(*p)*10 + cap(*p)
+}
+
+// StructWithPointerSlice tests struct with pointer to slice
+type PtrSliceHolder struct {
+	items *[]int
+}
+
+func StructWithPointerSlice() int {
+	s := []int{1, 2, 3}
+	h := PtrSliceHolder{items: &s}
+	return len(*h.items)
+}
+
+// ClosureMutateCapturedSlice tests closure mutating captured slice
+func ClosureMutateCapturedSlice() int {
+	s := []int{1, 2, 3}
+	f := func() {
+		s[0] = 100
+	}
+	f()
+	return s[0]
+}
+
+// SliceSelect tests selecting elements matching predicate
+func SliceSelect() int {
+	s := []int{1, 2, 3, 4, 5, 6}
+	evens := []int{}
+	for _, v := range s {
+		if v%2 == 0 {
+			evens = append(evens, v)
+		}
+	}
+	return len(evens)
+}
+
+// MapEvery tests if every value satisfies predicate
+func MapEvery() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	allPositive := true
+	for _, v := range m {
+		if v <= 0 {
+			allPositive = false
+			break
+		}
+	}
+	if allPositive {
+		return 1
+	}
+	return 0
+}
+
+// PointerToNilStruct tests pointer to nil struct
+func PointerToNilStruct() int {
+	type S struct{ v int }
+	var p *S
+	if p == nil {
+		return 1
+	}
+	return 0
+}
+
+// StructWithPointerMap tests struct with pointer to map
+type PtrMapHolder struct {
+	m *map[string]int
+}
+
+func StructWithPointerMap() int {
+	m := map[string]int{"a": 1}
+	h := PtrMapHolder{m: &m}
+	return (*h.m)["a"]
+}
+
+// SliceSortBubble tests bubble sort
+func SliceSortBubble() int {
+	s := []int{5, 2, 4, 1, 3}
+	for i := 0; i < len(s); i++ {
+		for j := i + 1; j < len(s); j++ {
+			if s[j] < s[i] {
+				s[i], s[j] = s[j], s[i]
+			}
+		}
+	}
+	return s[0] + s[4]
+}
+
+// MapToSlice tests converting map to slice of keys
+func MapToSlice() int {
+	m := map[int]string{1: "a", 2: "b", 3: "c"}
+	keys := []int{}
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return len(keys)
+}
+
+// DeferWithNamedResultMultiple tests defer modifying multiple named results
+func DeferWithNamedResultMultiple() (sum int, product int) {
+	defer func() {
+		sum = sum + product
+		product = product * 2
+	}()
+	sum, product = 10, 20
+	return
+}
+
+func DeferWithNamedResultMultipleCombined() int {
+	s, p := DeferWithNamedResultMultiple()
+	return s*100 + p
+}
+
+// SliceCountBy tests counting by predicate
+func SliceCountBy() int {
+	s := []int{1, 2, 3, 4, 5, 6}
+	count := 0
+	for _, v := range s {
+		if v > 3 {
+			count++
+		}
+	}
+	return count
+}
+
+// StructWithEmbeddedPointer tests struct with embedded pointer type
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 22 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceReject tests rejecting elements matching predicate
+func SliceReject() int {
+	s := []int{1, 2, 3, 4, 5, 6}
+	notEvens := []int{}
+	for _, v := range s {
+		if v%2 != 0 {
+			notEvens = append(notEvens, v)
+		}
+	}
+	return len(notEvens)
+}
+
+// MapSelectKeys tests selecting specific keys
+func MapSelectKeys() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30, 4: 40}
+	keys := []int{1, 3}
+	result := []int{}
+	for _, k := range keys {
+		if v, ok := m[k]; ok {
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// PointerReassignmentChain tests chain of pointer reassignments
+func PointerReassignmentChain() int {
+	a, b, c := 1, 2, 3
+	p := &a
+	p = &b
+	p = &c
+	return *p
+}
+
+// StructMethodWithVariadic tests method with variadic args
+type Variadic struct{ sum int }
+
+func (v *Variadic) Add(nums ...int) int {
+	for _, n := range nums {
+		v.sum += n
+	}
+	return v.sum
+}
+
+func StructMethodWithVariadic() int {
+	v := &Variadic{}
+	return v.Add(1, 2, 3, 4, 5)
+}
+
+// ClosureFibonacci tests fibonacci with closure
+func ClosureFibonacci() int {
+	fib := func(n int) int {
+		a, b := 0, 1
+		for i := 0; i < n; i++ {
+			a, b = b, a+b
+		}
+		return a
+	}
+	return fib(10)
+}
+
+// SliceGroupBy tests grouping by key function
+func SliceGroupBy() int {
+	s := []int{1, 2, 3, 4, 5, 6}
+	groups := make(map[int][]int)
+	for _, v := range s {
+		key := v % 3
+		groups[key] = append(groups[key], v)
+	}
+	return len(groups)
+}
+
+// MapZip tests zipping maps
+func MapZip() int {
+	m1 := map[int]string{1: "a", 2: "b"}
+	m2 := map[int]string{1: "x", 2: "y"}
+	result := make(map[int]string)
+	for k, v1 := range m1 {
+		if v2, ok := m2[k]; ok {
+			result[k] = v1 + v2
+		}
+	}
+	return len(result)
+}
+
+// PointerNilSafe tests nil-safe pointer operations
+func PointerNilSafe() int {
+	type Node struct {
+		v    int
+		next *Node
+	}
+	root := &Node{v: 1, next: &Node{v: 2}}
+	sum := 0
+	for n := root; n != nil; n = n.next {
+		sum += n.v
+	}
+	return sum
+}
+
+// StructWithInterfaceSlice tests struct with slice of interfaces
+type InterfaceSliceHolder struct {
+	items []interface{}
+}
+
+func StructWithInterfaceSlice() int {
+	h := InterfaceSliceHolder{
+		items: []interface{}{1, "hello", true},
+	}
+	return len(h.items)
+}
+
+// SlicePermutation tests generating permutations (limited)
+func SlicePermutation() int {
+	s := []int{1, 2, 3}
+	count := 0
+	for _, a := range s {
+		for _, b := range s {
+			if a != b {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+// MapInvertSlice tests inverting map to slice values
+func MapInvertSlice() int {
+	m := map[int]string{1: "a", 2: "b", 3: "a"}
+	inv := make(map[string][]int)
+	for k, v := range m {
+		inv[v] = append(inv[v], k)
+	}
+	return len(inv["a"])
+}
+
+// DeferModifySlice tests defer modifying slice
+func DeferModifySlice() int {
+	s := []int{1, 2, 3}
+	defer func() {
+		s[0] = 100
+	}()
+	return s[0]
+}
+
+// SliceSample tests sampling elements
+func SliceSample() int {
+	s := []int{1, 2, 3, 4, 5}
+	result := []int{}
+	for i := 0; i < len(s); i += 2 {
+		result = append(result, s[i])
+	}
+	return len(result)
+}
+
+// StructCopyDeep tests deep copy (manual)
+func StructCopyDeep() int {
+	type Inner struct{ v int }
+	type Outer struct {
+		inner Inner
+	}
+	o1 := Outer{inner: Inner{v: 10}}
+	o2 := o1
+	o2.inner.v = 20
+	return o1.inner.v
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 23 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceUnion tests slice union
+func SliceUnion() int {
+	s1 := []int{1, 2, 3}
+	s2 := []int{2, 3, 4}
+	set := make(map[int]bool)
+	for _, v := range s1 {
+		set[v] = true
+	}
+	for _, v := range s2 {
+		set[v] = true
+	}
+	return len(set)
+}
+
+// MapFind tests finding first matching value
+func MapFind() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for k, v := range m {
+		if v == 20 {
+			return k
+		}
+	}
+	return -1
+}
+
+// PointerToMapKey tests pointer as map key
+func PointerToMapKey() int {
+	a, b, c := 1, 2, 3
+	m := map[*int]string{&a: "a", &b: "b", &c: "c"}
+	return len(m)
+}
+
+// StructWithFuncMap tests struct with map of functions
+type FuncMapHolder struct {
+	funcs map[string]func() int
+}
+
+func StructWithFuncMap() int {
+	h := FuncMapHolder{
+		funcs: map[string]func() int{
+			"a": func() int { return 1 },
+			"b": func() int { return 2 },
+		},
+	}
+	return h.funcs["a"]() + h.funcs["b"]()
+}
+
+// ClosureMemoize tests memoization pattern
+func ClosureMemoize() int {
+	memo := make(map[int]int)
+	fib := func(n int) int {
+		if n <= 1 {
+			return n
+		}
+		if v, ok := memo[n]; ok {
+			return v
+		}
+		// Simulate recursive call manually
+		return n
+	}
+	return fib(10)
+}
+
+// SliceTranspose2D tests transposing 2D slice
+func SliceTranspose2D() int {
+	m := [][]int{{1, 2, 3}, {4, 5, 6}}
+	rows, cols := len(m), len(m[0])
+	result := make([][]int, cols)
+	for i := range result {
+		result[i] = make([]int, rows)
+	}
+	for i := 0; i < rows; i++ {
+		for j := 0; j < cols; j++ {
+			result[j][i] = m[i][j]
+		}
+	}
+	return len(result)
+}
+
+// MapPick tests picking specific keys
+func MapPick() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30, 4: 40}
+	keys := []int{1, 3}
+	result := make(map[int]int)
+	for _, k := range keys {
+		if v, ok := m[k]; ok {
+			result[k] = v
+		}
+	}
+	return len(result)
+}
+
+// PointerAlias tests pointer aliasing
+func PointerAlias() int {
+	x := 10
+	p1 := &x
+	p2 := p1
+	*p2 = 20
+	return *p1
+}
+
+// StructWithNestedFunc tests struct with nested function
+type NestedFuncHolder struct {
+	get func() func() int
+}
+
+func StructWithNestedFunc() int {
+	h := NestedFuncHolder{
+		get: func() func() int {
+			return func() int { return 42 }
+		},
+	}
+	return h.get()()
+}
+
+// SliceRotateRight tests rotating slice right
+func SliceRotateRight() int {
+	s := []int{1, 2, 3, 4, 5}
+	k := 2
+	s = append(s[len(s)-k:], s[:len(s)-k]...)
+	return s[0]
+}
+
+// MapRejectKeys tests rejecting keys
+func MapRejectKeys() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30, 4: 40}
+	reject := map[int]bool{2: true, 4: true}
+	result := make(map[int]int)
+	for k, v := range m {
+		if !reject[k] {
+			result[k] = v
+		}
+	}
+	return len(result)
+}
+
+// DeferWithClosureResult tests defer with closure result
+func DeferWithClosureResult() (result int) {
+	defer func() {
+		result = func() int { return 100 }()
+	}()
+	return 42
+}
+
+// SliceBsearch tests binary search
+func SliceBsearch() int {
+	s := []int{1, 3, 5, 7, 9, 11, 13}
+	target := 7
+	low, high := 0, len(s)-1
+	for low <= high {
+		mid := (low + high) / 2
+		if s[mid] == target {
+			return mid
+		}
+		if s[mid] < target {
+			low = mid + 1
+		} else {
+			high = mid - 1
+		}
+	}
+	return -1
+}
+
+// StructWithPointerInterface tests struct with pointer to interface
+func StructWithPointerInterface() int {
+	type S struct{ v int }
+	var i interface{} = &S{v: 42}
+	if p, ok := i.(*S); ok {
+		return p.v
+	}
+	return 0
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 24 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceCartesianProduct tests cartesian product
+func SliceCartesianProduct() int {
+	s1 := []int{1, 2}
+	s2 := []int{3, 4}
+	count := 0
+	for range s1 {
+		for range s2 {
+			count++
+		}
+	}
+	return count
+}
+
+// MapSliceValues tests slicing map values
+func MapSliceValues() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	vals := []int{}
+	for _, v := range m {
+		vals = append(vals, v)
+	}
+	return len(vals)
+}
+
+// PointerToSliceOfStructs tests pointer to slice of structs
+func PointerToSliceOfStructs() int {
+	type P struct{ x, y int }
+	s := []P{{1, 2}, {3, 4}}
+	p := &s
+	return len(*p)
+}
+
+// StructMethodWithPointerReceiver tests method with pointer receiver
+type PtrReceiver struct{ v int }
+
+func (p *PtrReceiver) Double() int {
+	return p.v * 2
+}
+
+func StructMethodWithPointerReceiver() int {
+	p := &PtrReceiver{v: 21}
+	return p.Double()
+}
+
+// ClosurePipeline tests function pipeline
+func ClosurePipeline() int {
+	double := func(n int) int { return n * 2 }
+	addTen := func(n int) int { return n + 10 }
+	result := 5
+	result = double(result)
+	result = addTen(result)
+	return result
+}
+
+// SliceCombinations tests generating combinations
+func SliceCombinations() int {
+	s := []int{1, 2, 3}
+	count := 0
+	for i := 0; i < len(s); i++ {
+		for j := i + 1; j < len(s); j++ {
+			count++
+		}
+	}
+	return count
+}
+
+// MapDedup tests deduplicating map
+func MapDedup() int {
+	m := map[int]int{1: 10, 2: 10, 3: 20}
+	seen := make(map[int]bool)
+	for _, v := range m {
+		seen[v] = true
+	}
+	return len(seen)
+}
+
+// PointerSwapNilSafe tests swapping pointers with nil check
+func PointerSwapNilSafe() int {
+	a, b := 10, 20
+	p1, p2 := &a, &b
+	if p1 != nil && p2 != nil {
+		p1, p2 = p2, p1
+	}
+	return *p1
+}
+
+// StructWithSliceFieldNamed tests struct with slice field named
+type SliceFieldHolder struct {
+	data []int
+}
+
+func StructWithSliceFieldNamed() int {
+	h := SliceFieldHolder{data: []int{1, 2, 3}}
+	return len(h.data)
+}
+
+// SlicePartitionBy tests partitioning by predicate
+func SlicePartitionBy() int {
+	s := []int{1, 2, 3, 4, 5, 6}
+	passed := []int{}
+	failed := []int{}
+	for _, v := range s {
+		if v > 3 {
+			passed = append(passed, v)
+		} else {
+			failed = append(failed, v)
+		}
+	}
+	return len(passed)*10 + len(failed)
+}
+
+// MapTally tests tallying values
+func MapTally() int {
+	s := []string{"a", "b", "a", "c", "a", "b"}
+	tally := make(map[string]int)
+	for _, v := range s {
+		tally[v]++
+	}
+	return tally["a"]
+}
+
+// DeferWithRecoveredPanic tests defer with recovered panic
+func DeferWithRecoveredPanic() (result int) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = 100
+		}
+	}()
+	result = 42
+	return result
+}
+
+// SliceSplice tests splicing slice
+func SliceSplice() int {
+	s := []int{1, 2, 3, 4, 5}
+	removed := s[1:3]
+	s = append(s[:1], s[3:]...)
+	return len(removed) + len(s)
+}
+
+// StructWithMethodPointer tests struct with method returning pointer
+type MethodPtr struct{ v int }
+
+func (m MethodPtr) Ptr() *MethodPtr {
+	return &m
+}
+
+func StructWithMethodPointer() int {
+	m := MethodPtr{v: 42}
+	p := m.Ptr()
+	return p.v
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 25 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SlicePad tests padding slice
+func SlicePad() int {
+	s := []int{1, 2, 3}
+	padLen := 5
+	for len(s) < padLen {
+		s = append(s, 0)
+	}
+	return len(s)
+}
+
+// MapSliceKeys tests getting slice of keys
+func MapSliceKeys() int {
+	m := map[int]string{1: "a", 2: "b", 3: "c"}
+	keys := []int{}
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return len(keys)
+}
+
+// PointerToInterface tests pointer to interface
+func PointerToInterface() int {
+	var i interface{} = 42
+	p := &i
+	return (*p).(int)
+}
+
+// StructWithRecursiveType tests struct with recursive type
+type TreeNode struct {
+	value int
+	left  *TreeNode
+	right *TreeNode
+}
+
+func StructWithRecursiveType() int {
+	root := &TreeNode{
+		value: 1,
+		left:  &TreeNode{value: 2},
+		right: &TreeNode{value: 3},
+	}
+	return root.value + root.left.value + root.right.value
+}
+
+// ClosureCurry tests currying pattern
+func ClosureCurry() int {
+	add := func(x int) func(int) int {
+		return func(y int) int {
+			return x + y
+		}
+	}
+	addFive := add(5)
+	return addFive(10)
+}
+
+// SliceUniqBy tests unique by predicate
+func SliceUniqBy() int {
+	s := []int{1, 2, 3, 4, 5, 6}
+	seen := make(map[int]bool)
+	result := []int{}
+	for _, v := range s {
+		key := v % 3
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapPluck tests plucking values
+func MapPluck() int {
+	type Item struct{ name string; value int }
+	items := []Item{{"a", 1}, {"b", 2}, {"c", 3}}
+	values := []int{}
+	for _, item := range items {
+		values = append(values, item.value)
+	}
+	return len(values)
+}
+
+// PointerNilCheckChain tests nil check chain
+func PointerNilCheckChain() int {
+	type Node struct {
+		next *Node
+		v    int
+	}
+	var root *Node
+	if root != nil && root.next != nil {
+		return root.next.v
+	}
+	return -1
+}
+
+// StructWithInterfaceMap tests struct with interface map
+type InterfaceMapHolder struct {
+	data map[string]interface{}
+}
+
+func StructWithInterfaceMap() int {
+	h := InterfaceMapHolder{
+		data: map[string]interface{}{
+			"a": 1,
+			"b": "hello",
+		},
+	}
+	return h.data["a"].(int)
+}
+
+// SliceSortBy tests sort by key
+func SliceSortBy() int {
+	type Item struct{ key, val int }
+	s := []Item{{3, 1}, {1, 2}, {2, 3}}
+	// Simple bubble sort by key
+	for i := 0; i < len(s); i++ {
+		for j := i + 1; j < len(s); j++ {
+			if s[j].key < s[i].key {
+				s[i], s[j] = s[j], s[i]
+			}
+		}
+	}
+	return s[0].key
+}
+
+// MapCompact tests removing zero values
+func MapCompact() int {
+	m := map[int]int{1: 10, 2: 0, 3: 30, 4: 0}
+	result := make(map[int]int)
+	for k, v := range m {
+		if v != 0 {
+			result[k] = v
+		}
+	}
+	return len(result)
+}
+
+// DeferWithLoop tests defer in loop
+func DeferWithLoop() int {
+	result := 0
+	for i := 0; i < 3; i++ {
+		defer func(n int) {
+			result += n
+		}(i)
+	}
+	return result
+}
+
+// SliceTee tests teeing (forking) slice
+func SliceTee() int {
+	s := []int{1, 2, 3, 4, 5}
+	out1 := []int{}
+	out2 := []int{}
+	for _, v := range s {
+		out1 = append(out1, v)
+		out2 = append(out2, v*2)
+	}
+	return len(out1) + len(out2)
+}
+
+// StructWithPointerField tests struct with pointer field initialization
+type PointerField struct {
+	val *int
+}
+
+func StructWithPointerField() int {
+	v := 42
+	s := PointerField{val: &v}
+	return *s.val
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 26 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceGrep tests grepping elements
+func SliceGrep() int {
+	s := []string{"apple", "banana", "cherry", "date"}
+	result := []string{}
+	for _, v := range s {
+		if len(v) > 5 {
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapSliceMap tests slicing then mapping
+func MapSliceMap() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	keys := []int{}
+	for k := range m {
+		keys = append(keys, k*2)
+	}
+	return len(keys)
+}
+
+// PointerDerefChain tests pointer dereference chain
+func PointerDerefChain() int {
+	x := 42
+	p := &x
+	pp := &p
+	ppp := &pp
+	return ***ppp
+}
+
+// StructWithFuncReturningStruct tests function returning struct
+func StructWithFuncReturningStruct() int {
+	type Point struct{ x, y int }
+	makePoint := func(x, y int) Point {
+		return Point{x: x, y: y}
+	}
+	p := makePoint(1, 2)
+	return p.x + p.y
+}
+
+// ClosurePartial tests partial application
+func ClosurePartial() int {
+	multiply := func(x, y int) int { return x * y }
+	timesThree := func(y int) int {
+		return multiply(3, y)
+	}
+	return timesThree(5)
+}
+
+// SliceRandomAccess tests random access patterns
+func SliceRandomAccess() int {
+	s := []int{10, 20, 30, 40, 50}
+	indices := []int{0, 2, 4, 1, 3}
+	sum := 0
+	for _, i := range indices {
+		sum += s[i]
+	}
+	return sum
+}
+
+// MapDeepMerge tests deep merging maps
+func MapDeepMerge() int {
+	m1 := map[string]map[int]int{"a": {1: 10}}
+	m2 := map[string]map[int]int{"a": {2: 20}, "b": {3: 30}}
+	for k, v := range m2 {
+		if m1[k] == nil {
+			m1[k] = make(map[int]int)
+		}
+		for ik, iv := range v {
+			m1[k][ik] = iv
+		}
+	}
+	return len(m1)
+}
+
+// PointerNullObject tests null object pattern
+func PointerNullObject() int {
+	type Processor struct {
+		next *Processor
+		val  int
+	}
+	p := &Processor{val: 10, next: &Processor{val: 20}}
+	sum := 0
+	for curr := p; curr != nil; curr = curr.next {
+		sum += curr.val
+	}
+	return sum
+}
+
+// StructWithSliceMethods tests methods operating on slice fields
+type SliceContainer struct {
+	items []int
+}
+
+func (s *SliceContainer) Sum() int {
+	sum := 0
+	for _, v := range s.items {
+		sum += v
+	}
+	return sum
+}
+
+func StructWithSliceMethods() int {
+	s := &SliceContainer{items: []int{1, 2, 3, 4, 5}}
+	return s.Sum()
+}
+
+// SliceEachWithIndex tests each with index
+func SliceEachWithIndex() int {
+	s := []int{10, 20, 30}
+	sum := 0
+	for i, v := range s {
+		sum += i + v
+	}
+	return sum
+}
+
+// MapTransformKeysToSlice tests transforming keys to slice
+func MapTransformKeysToSlice() int {
+	m := map[int]string{1: "a", 2: "b", 3: "c"}
+	result := []int{}
+	for k := range m {
+		result = append(result, k*10)
+	}
+	return len(result)
+}
+
+// DeferWithNamedReturn tests defer with named return
+func DeferWithNamedReturn() (result int) {
+	defer func() {
+		result = 100
+	}()
+	return 42
+}
+
+// SliceCompactMap tests compact then map
+func SliceCompactMap() int {
+	s := []int{0, 1, 0, 2, 0, 3}
+	result := []int{}
+	for _, v := range s {
+		if v != 0 {
+			result = append(result, v*2)
+		}
+	}
+	return len(result)
+}
+
+// StructWithNestedPointer tests deeply nested pointer
+type NestedPointer struct {
+	ptr **int
+}
+
+func StructWithNestedPointer() int {
+	v := 42
+	p := &v
+	pp := &p
+	n := NestedPointer{ptr: pp}
+	return **n.ptr
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 27 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceIntersectBy tests intersection by predicate
+func SliceIntersectBy() int {
+	s1 := []int{1, 2, 3, 4}
+	s2 := []int{2, 4, 6, 8}
+	set := make(map[int]bool)
+	for _, v := range s1 {
+		if v%2 == 0 {
+			set[v] = true
+		}
+	}
+	count := 0
+	for _, v := range s2 {
+		if set[v] {
+			count++
+		}
+	}
+	return count
+}
+
+// MapGroupByKey tests grouping by computed key
+func MapGroupByKey() int {
+	s := []int{1, 2, 3, 4, 5, 6, 7, 8, 9}
+	groups := make(map[string][]int)
+	for _, v := range s {
+		var key string
+		if v%2 == 0 {
+			key = "even"
+		} else {
+			key = "odd"
+		}
+		groups[key] = append(groups[key], v)
+	}
+	return len(groups["even"]) + len(groups["odd"])
+}
+
+// PointerSliceElementSwap tests swapping slice elements via pointer
+func PointerSliceElementSwap() int {
+	s := []int{1, 2, 3}
+	p1 := &s[0]
+	p2 := &s[2]
+	*p1, *p2 = *p2, *p1
+	return s[0] + s[2]
+}
+
+// StructWithMapOfStructs tests struct with map of structs
+type MapOfStructsHolder struct {
+	items map[string]struct{ x, y int }
+}
+
+func StructWithMapOfStructs() int {
+	h := MapOfStructsHolder{
+		items: map[string]struct{ x, y int }{
+			"a": {1, 2},
+			"b": {3, 4},
+		},
+	}
+	return h.items["a"].x + h.items["b"].y
+}
+
+// ClosureCompose tests function composition
+func ClosureCompose() int {
+	addOne := func(n int) int { return n + 1 }
+	double := func(n int) int { return n * 2 }
+	compose := func(f, g func(int) int) func(int) int {
+		return func(n int) int {
+			return f(g(n))
+		}
+	}
+	result := compose(addOne, double)(5)
+	return result
+}
+
+// SliceSortStable tests stable sort
+func SliceSortStable() int {
+	type Item struct{ key, ord int }
+	s := []Item{{3, 1}, {1, 2}, {3, 3}, {1, 4}, {2, 5}}
+	// Bubble sort (stable)
+	for i := 0; i < len(s); i++ {
+		for j := i + 1; j < len(s); j++ {
+			if s[j].key < s[i].key {
+				s[i], s[j] = s[j], s[i]
+			}
+		}
+	}
+	return s[0].ord
+}
+
+// MapFlip tests flipping map
+func MapFlip() int {
+	m := map[int]string{1: "a", 2: "b", 3: "c"}
+	flipped := make(map[string]int)
+	for k, v := range m {
+		flipped[v] = k
+	}
+	return flipped["b"]
+}
+
+// PointerToArray tests pointer to array
+func PointerToArray() int {
+	a := [3]int{1, 2, 3}
+	p := &a
+	return (*p)[1]
+}
+
+// StructWithSliceOfPointersToStructs tests slice of pointers to structs
+type PtrSliceStructHolder struct {
+	items []*struct{ v int }
+}
+
+func StructWithSliceOfPointersToStructs() int {
+	h := PtrSliceStructHolder{
+		items: []*struct{ v int }{{v: 1}, {v: 2}, {v: 3}},
+	}
+	sum := 0
+	for _, p := range h.items {
+		sum += p.v
+	}
+	return sum
+}
+
+// SliceTakeWhileDropWhile tests take while and drop while
+func SliceTakeWhileDropWhile() int {
+	s := []int{2, 4, 6, 1, 3, 5}
+	taken := 0
+	for _, v := range s {
+		if v%2 != 0 {
+			break
+		}
+		taken++
+	}
+	dropped := len(s) - taken
+	return taken*10 + dropped
+}
+
+// MapUpdateWithFunc tests update with function
+func MapUpdateWithFunc() int {
+	m := map[int]int{1: 10, 2: 20}
+	for k, v := range m {
+		m[k] = v * 2
+	}
+	return m[1] + m[2]
+}
+
+// DeferInNestedFunction tests defer in nested function
+func DeferInNestedFunction() int {
+	result := 0
+	outer := func() {
+		defer func() {
+			result += 10
+		}()
+		inner := func() {
+			result += 1
+		}
+		inner()
+	}
+	outer()
+	return result
+}
+
+// SliceZipWith tests zip with function
+func SliceZipWith() int {
+	s1 := []int{1, 2, 3}
+	s2 := []int{4, 5, 6}
+	result := []int{}
+	for i := range s1 {
+		result = append(result, s1[i]+s2[i])
+	}
+	return len(result)
+}
+
+// StructWithMethodClosure tests struct method with closure
+type MethodClosure struct {
+	base int
+}
+
+func (m *MethodClosure) Adder() func(int) int {
+	return func(n int) int {
+		return m.base + n
+	}
+}
+
+func StructWithMethodClosure() int {
+	m := &MethodClosure{base: 10}
+	addTen := m.Adder()
+	return addTen(5)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 28 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceDifferenceBy tests difference by predicate
+func SliceDifferenceBy() int {
+	s1 := []int{1, 2, 3, 4, 5, 6}
+	s2 := []int{2, 4, 6, 8, 10}
+	set := make(map[int]bool)
+	for _, v := range s2 {
+		set[v] = true
+	}
+	result := []int{}
+	for _, v := range s1 {
+		if !set[v] {
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapIndexBy tests indexing by key
+func MapIndexBy() int {
+	type Item struct{ id int; name string }
+	items := []Item{{1, "a"}, {2, "b"}, {3, "c"}}
+	index := make(map[int]string)
+	for _, item := range items {
+		index[item.id] = item.name
+	}
+	return len(index)
+}
+
+// PointerSliceOfPointers tests slice of pointers manipulation
+func PointerSliceOfPointers() int {
+	a, b, c := 1, 2, 3
+	s := []*int{&a, &b, &c}
+	*s[0] = 10
+	return *s[0] + *s[1] + *s[2]
+}
+
+// StructWithAnonymousFunc tests struct with anonymous function field
+type AnonFuncHolder struct {
+	calc func(int, int) int
+}
+
+func StructWithAnonymousFunc() int {
+	h := AnonFuncHolder{
+		calc: func(a, b int) int { return a + b },
+	}
+	return h.calc(3, 4)
+}
+
+// ClosureTap tests tap pattern
+func ClosureTap() int {
+	result := 0
+	tap := func(n int) int {
+		result = n
+		return n
+	}
+	tap(42)
+	return result
+}
+
+// SliceAll tests if all elements satisfy predicate
+func SliceAll() int {
+	s := []int{2, 4, 6, 8, 10}
+	allEven := true
+	for _, v := range s {
+		if v%2 != 0 {
+			allEven = false
+			break
+		}
+	}
+	if allEven {
+		return 1
+	}
+	return 0
+}
+
+// MapDeepSet tests deep setting in nested map
+func MapDeepSet() int {
+	m := map[string]map[int]map[int]int{}
+	if m["a"] == nil {
+		m["a"] = make(map[int]map[int]int)
+	}
+	if m["a"][1] == nil {
+		m["a"][1] = make(map[int]int)
+	}
+	m["a"][1][2] = 42
+	return m["a"][1][2]
+}
+
+// PointerRotate tests pointer rotation
+func PointerRotate() int {
+	a, b, c := 1, 2, 3
+	p1, p2, p3 := &a, &b, &c
+	p1, p2, p3 = p2, p3, p1
+	return *p1 + *p2 + *p3
+}
+
+// StructWithFuncSliceComplex tests struct with complex func slice
+type ComplexFuncHolder struct {
+	funcs []func(int) int
+}
+
+func StructWithFuncSliceComplex() int {
+	h := ComplexFuncHolder{
+		funcs: []func(int) int{
+			func(n int) int { return n + 1 },
+			func(n int) int { return n * 2 },
+		},
+	}
+	return h.funcs[0](5) + h.funcs[1](5)
+}
+
+// SliceDrop tests dropping first n elements
+func SliceDrop() int {
+	s := []int{1, 2, 3, 4, 5}
+	n := 2
+	s = s[n:]
+	return len(s)
+}
+
+// MapPickBy tests picking by predicate
+func MapPickBy() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30, 4: 40}
+	result := make(map[int]int)
+	for k, v := range m {
+		if v > 15 {
+			result[k] = v
+		}
+	}
+	return len(result)
+}
+
+// DeferWithCapture tests defer capturing variables
+func DeferWithCapture() int {
+	x := 10
+	defer func() {
+		x = 20
+	}()
+	return x
+}
+
+// SliceTake tests taking first n elements
+func SliceTake() int {
+	s := []int{1, 2, 3, 4, 5}
+	n := 3
+	s = s[:n]
+	return len(s)
+}
+
+// StructWithSelfRefPointer tests struct with self-referencing pointer
+type SelfRefPtr struct {
+	v    int
+	self *SelfRefPtr
+}
+
+func StructWithSelfRefPointer() int {
+	s1 := &SelfRefPtr{v: 1}
+	s2 := &SelfRefPtr{v: 2, self: s1}
+	s3 := &SelfRefPtr{v: 3, self: s2}
+	return s3.v + s3.self.v + s3.self.self.v
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 29 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceDedupConsecutive tests removing consecutive duplicates
+func SliceDedupConsecutive() int {
+	s := []int{1, 1, 2, 2, 2, 3, 3, 1}
+	if len(s) == 0 {
+		return 0
+	}
+	result := []int{s[0]}
+	for i := 1; i < len(s); i++ {
+		if s[i] != s[i-1] {
+			result = append(result, s[i])
+		}
+	}
+	return len(result)
+}
+
+// MapSliceReduce tests reduce on map slice
+func MapSliceReduce() int {
+	m := map[int][]int{1: {1, 2}, 2: {3, 4}}
+	sum := 0
+	for _, vals := range m {
+		for _, v := range vals {
+			sum += v
+		}
+	}
+	return sum
+}
+
+// PointerSwapInSlice tests swapping values in slice via pointers
+func PointerSwapInSlice() int {
+	s := []int{1, 2, 3, 4, 5}
+	p1 := &s[1]
+	p2 := &s[3]
+	*p1, *p2 = *p2, *p1
+	return s[1] + s[3]
+}
+
+// StructWithInitFunc tests struct initialization with function
+func StructWithInitFunc() int {
+	type Config struct {
+		host string
+		port int
+	}
+	makeConfig := func(host string, port int) Config {
+		return Config{host: host, port: port}
+	}
+	c := makeConfig("localhost", 8080)
+	return c.port
+}
+
+// ClosureFlip tests flip pattern
+func ClosureFlip() int {
+	subtract := func(a, b int) int { return a - b }
+	flip := func(f func(int, int) int) func(int, int) int {
+		return func(a, b int) int {
+			return f(b, a)
+		}
+	}
+	flippedSubtract := flip(subtract)
+	return flippedSubtract(5, 10)
+}
+
+// SliceNone tests if no elements satisfy predicate
+func SliceNone() int {
+	s := []int{1, 3, 5, 7, 9}
+	hasEven := false
+	for _, v := range s {
+		if v%2 == 0 {
+			hasEven = true
+			break
+		}
+	}
+	if !hasEven {
+		return 1
+	}
+	return 0
+}
+
+// MapGetOrCreate tests get or create pattern
+func MapGetOrCreate() int {
+	m := map[string][]int{}
+	key := "items"
+	if _, ok := m[key]; !ok {
+		m[key] = []int{}
+	}
+	m[key] = append(m[key], 1, 2, 3)
+	return len(m[key])
+}
+
+// PointerToNilInterface tests pointer to nil interface
+func PointerToNilInterface() int {
+	var i interface{}
+	p := &i
+	if *p == nil {
+		return 1
+	}
+	return 0
+}
+
+// StructWithNestedSlice tests struct with nested slices
+type NestedSlice struct {
+	matrix [][]int
+}
+
+func StructWithNestedSlice() int {
+	s := NestedSlice{
+		matrix: [][]int{
+			{1, 2, 3},
+			{4, 5, 6},
+		},
+	}
+	return len(s.matrix) * len(s.matrix[0])
+}
+
+// SliceFindIndex tests finding index
+func SliceFindIndex() int {
+	s := []int{10, 20, 30, 40, 50}
+	target := 30
+	for i, v := range s {
+		if v == target {
+			return i
+		}
+	}
+	return -1
+}
+
+// MapKeysToSlice tests keys to slice conversion
+func MapKeysToSlice() int {
+	m := map[int]string{10: "a", 20: "b", 30: "c"}
+	keys := []int{}
+	for k := range m {
+		keys = append(keys, k/10)
+	}
+	return len(keys)
+}
+
+// DeferWithMultipleReturns tests defer with multiple returns
+func DeferWithMultipleReturns() (x int, y int) {
+	x, y = 0, 0
+	defer func() {
+		x, y = 100, 200
+	}()
+	return 10, 20
+}
+
+func DeferWithMultipleReturnsCombined() int {
+	x, y := DeferWithMultipleReturns()
+	return x + y
+}
+
+// SliceDetect tests detecting first match
+func SliceDetect() int {
+	s := []int{1, 3, 5, 6, 7, 9}
+	for _, v := range s {
+		if v%2 == 0 {
+			return v
+		}
+	}
+	return -1
+}
+
+// StructWithPointerToInterface tests struct with pointer to interface
+type PtrToInterface struct {
+	data *interface{}
+}
+
+func StructWithPointerToInterface() int {
+	var i interface{} = 42
+	s := PtrToInterface{data: &i}
+	return (*s.data).(int)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 30 - Final Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceWithout tests slice without elements
+func SliceWithout() int {
+	s := []int{1, 2, 3, 2, 4, 2, 5}
+	without := []int{}
+	for _, v := range s {
+		if v != 2 {
+			without = append(without, v)
+		}
+	}
+	return len(without)
+}
+
+// MapDeepGet tests deep get with default
+func MapDeepGet() int {
+	m := map[string]map[string]int{
+		"a": {"x": 10, "y": 20},
+	}
+	result := 0
+	if inner, ok := m["a"]; ok {
+		if v, ok := inner["y"]; ok {
+			result = v
+		}
+	}
+	return result
+}
+
+// PointerLevel tests pointer indirection levels
+func PointerLevel() int {
+	x := 42
+	p1 := &x
+	p2 := &p1
+	p3 := &p2
+	return ***p3
+}
+
+// StructWithComputedField tests struct with computed field
+type ComputedField struct {
+	x, y int
+}
+
+func (c ComputedField) Sum() int {
+	return c.x + c.y
+}
+
+func StructWithComputedField() int {
+	c := ComputedField{x: 10, y: 20}
+	return c.Sum()
+}
+
+// ClosureMemoizeRecursive tests recursive memoization
+func ClosureMemoizeRecursive() int {
+	memo := make(map[int]int)
+	var fib func(int) int
+	fib = func(n int) int {
+		if n <= 1 {
+			return n
+		}
+		if v, ok := memo[n]; ok {
+			return v
+		}
+		memo[n] = fib(n-1) + fib(n-2)
+		return memo[n]
+	}
+	return fib(10)
+}
+
+// SlicePluck tests plucking field from structs
+func SlicePluck() int {
+	type Item struct{ value int }
+	items := []Item{{1}, {2}, {3}}
+	values := []int{}
+	for _, item := range items {
+		values = append(values, item.value)
+	}
+	return len(values)
+}
+
+// MapSliceToMap tests converting slice to map
+func MapSliceToMap() int {
+	type Item struct{ key, val int }
+	items := []Item{{1, 10}, {2, 20}, {3, 30}}
+	m := make(map[int]int)
+	for _, item := range items {
+		m[item.key] = item.val
+	}
+	return len(m)
+}
+
+// PointerSwapChain tests swap chain
+func PointerSwapChain() int {
+	a, b, c := 1, 2, 3
+	p1, p2, p3 := &a, &b, &c
+	p1, p2, p3 = p3, p1, p2
+	return *p1 + *p2 + *p3
+}
+
+// StructWithLazyInit tests struct with lazy initialization
+type LazyInit struct {
+	data []int
+}
+
+func (l *LazyInit) GetData() []int {
+	if l.data == nil {
+		l.data = []int{1, 2, 3}
+	}
+	return l.data
+}
+
+func StructWithLazyInit() int {
+	l := &LazyInit{}
+	return len(l.GetData())
+}
+
+// SliceSortByMultiple tests sort by multiple criteria
+func SliceSortByMultiple() int {
+	type Item struct{ a, b int }
+	s := []Item{{2, 3}, {1, 2}, {2, 1}, {1, 1}}
+	for i := 0; i < len(s); i++ {
+		for j := i + 1; j < len(s); j++ {
+			if s[j].a < s[i].a || (s[j].a == s[i].a && s[j].b < s[i].b) {
+				s[i], s[j] = s[j], s[i]
+			}
+		}
+	}
+	return s[0].a*10 + s[0].b
+}
+
+// MapFlatten tests flattening nested map
+func MapFlatten() int {
+	m := map[string]map[string]int{
+		"a": {"x": 1, "y": 2},
+		"b": {"z": 3},
+	}
+	count := 0
+	for _, inner := range m {
+		for range inner {
+			count++
+		}
+	}
+	return count
+}
+
+// DeferWithReturnFunc tests defer with return from function
+func DeferWithReturnFunc() (result int) {
+	defer func() {
+		result = func() int { return 100 }()
+	}()
+	return 42
+}
+
+// SliceGroupByMultiple tests grouping by multiple criteria
+func SliceGroupByMultiple() int {
+	type Item struct{ category, subcategory string }
+	items := []Item{
+		{"a", "x"}, {"a", "y"}, {"b", "x"},
+	}
+	groups := make(map[string][]Item)
+	for _, item := range items {
+		key := item.category + "/" + item.subcategory
+		groups[key] = append(groups[key], item)
+	}
+	return len(groups)
+}
+
+// StructWithValidation tests struct with validation method
+type Validated struct {
+	name  string
+	value int
+}
+
+func (v Validated) IsValid() bool {
+	return v.name != "" && v.value > 0
+}
+
+func StructWithValidation() int {
+	v := Validated{name: "test", value: 42}
+	if v.IsValid() {
+		return 1
+	}
+	return 0
+}
+
+// ClosureOnce tests once pattern
+func ClosureOnce() int {
+	called := false
+	count := 0
+	once := func() {
+		if called {
+			return
+		}
+		called = true
+		count++
+	}
+	once()
+	once()
+	once()
+	return count
+}
+
+// SliceZipMap tests zip then map
+func SliceZipMap() int {
+	s1 := []int{1, 2, 3}
+	s2 := []int{4, 5, 6}
+	result := []int{}
+	for i := range s1 {
+		result = append(result, (s1[i]+s2[i])*2)
+	}
+	return len(result)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 31 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceFirst tests getting first element
+func SliceFirst() int {
+	s := []int{10, 20, 30}
+	return s[0]
+}
+
+// MapEmptyCheck tests checking if map is empty
+func MapEmptyCheck() int {
+	m := map[int]int{}
+	if len(m) == 0 {
+		return 1
+	}
+	return 0
+}
+
+// PointerNilAssign tests assigning nil to pointer
+func PointerNilAssign() int {
+	var p *int
+	v := 42
+	p = &v
+	p = nil
+	if p == nil {
+		return 1
+	}
+	return 0
+}
+
+// StructWithIntField tests struct with int field
+func StructWithIntField() int {
+	type S struct{ v int }
+	s := S{v: 100}
+	return s.v
+}
+
+// ClosureCounter tests closure counter pattern
+func ClosureCounter() int {
+	count := 0
+	inc := func() int {
+		count++
+		return count
+	}
+	inc()
+	inc()
+	return inc()
+}
+
+// SliceInsertAt tests inserting at position
+func SliceInsertAt() int {
+	s := []int{1, 2, 4, 5}
+	s = append(s[:2], append([]int{3}, s[2:]...)...)
+	return s[2]
+}
+
+// MapClearRange tests clearing map via range
+func MapClearRange() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for k := range m {
+		delete(m, k)
+	}
+	return len(m)
+}
+
+// PointerToSliceClear tests clearing via pointer
+func PointerToSliceClear() int {
+	s := []int{1, 2, 3}
+	p := &s
+	*p = (*p)[:0]
+	return len(*p)
+}
+
+// StructWithUintField tests struct with uint field
+func StructWithUintField() int {
+	type S struct{ v uint }
+	s := S{v: 255}
+	return int(s.v)
+}
+
+// SliceContainsAll tests if slice contains all elements
+func SliceContainsAll() int {
+	s := []int{1, 2, 3, 4, 5}
+	targets := []int{2, 4}
+	count := 0
+	for _, t := range targets {
+		for _, v := range s {
+			if v == t {
+				count++
+				break
+			}
+		}
+	}
+	return count
+}
+
+// MapHasKeySlice tests if map has keys from slice
+func MapHasKeySlice() int {
+	m := map[int]string{1: "a", 2: "b", 3: "c"}
+	keys := []int{1, 3}
+	count := 0
+	for _, k := range keys {
+		if _, ok := m[k]; ok {
+			count++
+		}
+	}
+	return count
+}
+
+// DeferModifyMap tests defer modifying map
+func DeferModifyMap() int {
+	m := map[int]int{1: 10}
+	defer func() {
+		m[1] = 100
+	}()
+	return m[1]
+}
+
+// SliceSumRange tests sum via range
+func SliceSumRange() int {
+	s := []int{1, 2, 3, 4, 5}
+	sum := 0
+	for i := range s {
+		sum += s[i]
+	}
+	return sum
+}
+
+// StructWithFloatField tests struct with float field
+func StructWithFloatField() int {
+	type S struct{ v float64 }
+	s := S{v: 3.14}
+	return int(s.v * 100)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 32 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceLastNFunc tests getting last n elements
+func SliceLastNFunc() int {
+	s := []int{1, 2, 3, 4, 5}
+	n := 3
+	last := s[len(s)-n:]
+	return len(last)
+}
+
+// MapIntersectKeysFunc tests intersecting keys
+func MapIntersectKeysFunc() int {
+	m1 := map[int]bool{1: true, 2: true, 3: true}
+	m2 := map[int]bool{2: true, 3: true, 4: true}
+	count := 0
+	for k := range m1 {
+		if m2[k] {
+			count++
+		}
+	}
+	return count
+}
+
+// PointerSwapVals tests swapping values through pointers
+func PointerSwapVals() int {
+	a, b := 10, 20
+	pa, pb := &a, &b
+	*pa, *pb = *pb, *pa
+	return a + b
+}
+
+// StructWithStringFld tests struct with string field
+func StructWithStringFld() int {
+	type S struct{ name string }
+	s := S{name: "test"}
+	return len(s.name)
+}
+
+// ClosureWithLocalVarTest tests closure with local variable
+func ClosureWithLocalVarTest() int {
+	x := 10
+	f := func() int {
+		y := 5
+		return x + y
+	}
+	return f()
+}
+
+// SliceFindFirstFunc tests finding first match
+func SliceFindFirstFunc() int {
+	s := []int{1, 3, 5, 7, 9}
+	for i, v := range s {
+		if v > 4 {
+			return i
+		}
+	}
+	return -1
+}
+
+// MapUpdateIfFunc tests conditional update
+func MapUpdateIfFunc() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for k, v := range m {
+		if v > 15 {
+			m[k] = v * 2
+		}
+	}
+	return m[2]
+}
+
+// PointerNilSafeOpTest tests nil safe operation
+func PointerNilSafeOpTest() int {
+	var p *int
+	if p != nil {
+		return *p
+	}
+	return -1
+}
+
+// StructWithBoolFld tests struct with bool field
+func StructWithBoolFld() int {
+	type S struct{ active bool }
+	s := S{active: true}
+	if s.active {
+		return 1
+	}
+	return 0
+}
+
+// SliceRemoveDupes tests removing duplicates
+func SliceRemoveDupes() int {
+	s := []int{1, 2, 2, 3, 3, 3, 4}
+	seen := make(map[int]bool)
+	result := []int{}
+	for _, v := range s {
+		if !seen[v] {
+			seen[v] = true
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapGetOrDefaultTest tests get with default
+func MapGetOrDefaultTest() int {
+	m := map[int]int{1: 10}
+	if v, ok := m[2]; ok {
+		return v
+	}
+	return 0
+}
+
+// DeferRecoverPanicTest tests defer with recover
+func DeferRecoverPanicTest() (result int) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = 100
+		}
+	}()
+	result = 42
+	return
+}
+
+// SliceReverseRangeTest tests reversing via range
+func SliceReverseRangeTest() int {
+	s := []int{1, 2, 3}
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+	return s[0] + s[2]
+}
+
+// StructWithSliceFld tests struct with slice field
+func StructWithSliceFld() int {
+	type S struct{ items []int }
+	s := S{items: []int{1, 2, 3}}
+	return len(s.items)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 33 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceMinIdx tests finding min index
+func SliceMinIdx() int {
+	s := []int{30, 10, 20, 5, 15}
+	minIdx := 0
+	for i := 1; i < len(s); i++ {
+		if s[i] < s[minIdx] {
+			minIdx = i
+		}
+	}
+	return minIdx
+}
+
+// MapSliceKeysTest tests slicing keys
+func MapSliceKeysTest() int {
+	m := map[int]string{1: "a", 2: "b", 3: "c"}
+	keys := []int{}
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return len(keys)
+}
+
+// PointerArrayIdx tests pointer array indexing
+func PointerArrayIdx() int {
+	arr := [3]int{10, 20, 30}
+	p := &arr
+	return (*p)[1]
+}
+
+// StructWithMapFld tests struct with map field
+func StructWithMapFld() int {
+	type S struct{ m map[int]int }
+	s := S{m: map[int]int{1: 10}}
+	return s.m[1]
+}
+
+// ClosureMultipleCallsTest tests closure called multiple times
+func ClosureMultipleCallsTest() int {
+	counter := 0
+	f := func() int {
+		counter++
+		return counter
+	}
+	return f() + f() + f()
+}
+
+// SliceIsSortedTest tests if slice is sorted
+func SliceIsSortedTest() int {
+	s := []int{1, 2, 3, 4, 5}
+	for i := 1; i < len(s); i++ {
+		if s[i] < s[i-1] {
+			return 0
+		}
+	}
+	return 1
+}
+
+// MapKeyExistsTest tests key existence
+func MapKeyExistsTest() int {
+	m := map[int]string{1: "a"}
+	if _, ok := m[1]; ok {
+		return 1
+	}
+	return 0
+}
+
+// PointerToPointerDerefTest tests double pointer deref
+func PointerToPointerDerefTest() int {
+	x := 42
+	p := &x
+	pp := &p
+	return **pp
+}
+
+// StructMethodValRec tests value receiver method
+func StructMethodValRec() int {
+	type S struct{ v int }
+	getValue := func(s S) int { return s.v }
+	s := S{v: 100}
+	return getValue(s)
+}
+
+// SliceFilterKeepTest tests filtering to keep
+func SliceFilterKeepTest() int {
+	s := []int{1, 2, 3, 4, 5, 6}
+	result := []int{}
+	for _, v := range s {
+		if v%2 == 0 {
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapValueMaxTest tests finding max value
+func MapValueMaxTest() int {
+	m := map[int]int{1: 10, 2: 30, 3: 20}
+	max := 0
+	for _, v := range m {
+		if v > max {
+			max = v
+		}
+	}
+	return max
+}
+
+// DeferMultipleFuncTest tests multiple deferred functions
+func DeferMultipleFuncTest() int {
+	result := 0
+	defer func() { result += 1 }()
+	defer func() { result += 10 }()
+	defer func() { result += 100 }()
+	return result
+}
+
+// SliceCopySubsetTest tests copying subset
+func SliceCopySubsetTest() int {
+	s := []int{1, 2, 3, 4, 5}
+	subset := make([]int, 2)
+	copy(subset, s[1:3])
+	return subset[0] + subset[1]
+}
+
+// StructWithPtrFld tests struct with pointer field
+func StructWithPtrFld() int {
+	type S struct{ p *int }
+	v := 42
+	s := S{p: &v}
+	return *s.p
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 34 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceAppendNilTest tests appending to nil
+func SliceAppendNilTest() int {
+	var s []int
+	s = append(s, 1, 2, 3)
+	return len(s)
+}
+
+// MapMergeSameTest tests merging same maps
+func MapMergeSameTest() int {
+	m := map[int]int{1: 10}
+	for k, v := range m {
+		m[k] = v + v
+	}
+	return m[1]
+}
+
+// PointerReassignTest tests pointer reassignment
+func PointerReassignTest() int {
+	a, b := 10, 20
+	p := &a
+	result := *p
+	p = &b
+	result += *p
+	return result
+}
+
+// StructWithChanFld tests struct with channel field
+func StructWithChanFld() int {
+	type S struct{ ch chan int }
+	ch := make(chan int, 1)
+	s := S{ch: ch}
+	s.ch <- 42
+	return <-s.ch
+}
+
+// ClosureReturnsClosureTest tests closure returning closure
+func ClosureReturnsClosureTest() int {
+	makeAdder := func(x int) func(int) int {
+		return func(y int) int { return x + y }
+	}
+	add5 := makeAdder(5)
+	return add5(10)
+}
+
+// SliceRotateByTest tests rotate by n
+func SliceRotateByTest() int {
+	s := []int{1, 2, 3, 4, 5}
+	n := 2
+	s = append(s[n:], s[:n]...)
+	return s[0]
+}
+
+// MapFilterByKeyTest tests filtering by key
+func MapFilterByKeyTest() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30, 4: 40}
+	result := make(map[int]int)
+	for k, v := range m {
+		if k%2 == 0 {
+			result[k] = v
+		}
+	}
+	return len(result)
+}
+
+// PointerStructFld tests pointer to struct field
+func PointerStructFld() int {
+	type S struct{ v int }
+	s := S{v: 10}
+	p := &s.v
+	*p = 20
+	return s.v
+}
+
+// StructWithFuncFldCall tests calling func field
+func StructWithFuncFldCall() int {
+	type S struct{ f func() int }
+	s := S{f: func() int { return 42 }}
+	return s.f()
+}
+
+// SliceFindLastTest tests finding last match
+func SliceFindLastTest() int {
+	s := []int{1, 2, 3, 2, 1}
+	lastIdx := -1
+	for i, v := range s {
+		if v == 2 {
+			lastIdx = i
+		}
+	}
+	return lastIdx
+}
+
+// MapSumVals tests summing values
+func MapSumVals() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	sum := 0
+	for _, v := range m {
+		sum += v
+	}
+	return sum
+}
+
+// DeferInClosureTest tests defer inside closure
+func DeferInClosureTest() int {
+	result := 0
+	f := func() {
+		defer func() { result += 10 }()
+		result = 5
+	}
+	f()
+	return result
+}
+
+// SliceChunkByTest tests chunking by size
+func SliceChunkByTest() int {
+	s := []int{1, 2, 3, 4, 5, 6, 7}
+	chunkSize := 3
+	chunks := 0
+	for i := 0; i < len(s); i += chunkSize {
+		chunks++
+	}
+	return chunks
+}
+
+// StructCompareDiffTest tests struct inequality
+func StructCompareDiffTest() int {
+	type P struct{ x, y int }
+	p1 := P{1, 2}
+	p2 := P{1, 3}
+	if p1 != p2 {
+		return 1
+	}
+	return 0
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 35 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceShiftLeftTest tests shifting left
+func SliceShiftLeftTest() int {
+	s := []int{1, 2, 3, 4, 5}
+	s = s[1:]
+	return s[0]
+}
+
+// MapDiffKeysTest tests difference of keys
+func MapDiffKeysTest() int {
+	m1 := map[int]bool{1: true, 2: true, 3: true}
+	m2 := map[int]bool{2: true}
+	count := 0
+	for k := range m1 {
+		if !m2[k] {
+			count++
+		}
+	}
+	return count
+}
+
+// PointerToStructTest tests pointer to struct
+func PointerToStructTest() int {
+	type S struct{ v int }
+	s := S{v: 42}
+	p := &s
+	return p.v
+}
+
+// StructEmbeddedAccessTest tests embedded field access
+func StructEmbeddedAccessTest() int {
+	type Inner struct{ v int }
+	type Outer struct{ Inner }
+	o := Outer{Inner: Inner{v: 42}}
+	return o.v
+}
+
+// ClosureMutatesOuterTest tests closure mutating outer
+func ClosureMutatesOuterTest() int {
+	x := 10
+	f := func() { x = 20 }
+	f()
+	return x
+}
+
+// SliceIndexOfMaxTest tests index of max
+func SliceIndexOfMaxTest() int {
+	s := []int{10, 50, 30, 20, 40}
+	maxIdx := 0
+	for i := 1; i < len(s); i++ {
+		if s[i] > s[maxIdx] {
+			maxIdx = i
+		}
+	}
+	return maxIdx
+}
+
+// MapKeysSliceTest tests keys to slice
+func MapKeysSliceTest() int {
+	m := map[int]string{1: "a", 2: "b"}
+	keys := []int{}
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return len(keys)
+}
+
+// PointerToNilTest tests pointer to nil check
+func PointerToNilTest() int {
+	var p *int
+	if p == nil {
+		return 1
+	}
+	return 0
+}
+
+// StructWithIntSliceTest tests struct with int slice
+func StructWithIntSliceTest() int {
+	type S struct{ nums []int }
+	s := S{nums: []int{1, 2, 3}}
+	return len(s.nums)
+}
+
+// SliceCountTest tests counting elements
+func SliceCountTest() int {
+	s := []int{1, 2, 2, 3, 2, 4}
+	target := 2
+	count := 0
+	for _, v := range s {
+		if v == target {
+			count++
+		}
+	}
+	return count
+}
+
+// MapHasKeyAndValueTest tests key and value check
+func MapHasKeyAndValueTest() int {
+	m := map[int]int{1: 10}
+	if v, ok := m[1]; ok && v == 10 {
+		return 1
+	}
+	return 0
+}
+
+// DeferNamedResultTest tests named result with defer
+func DeferNamedResultTest() (result int) {
+	defer func() { result *= 2 }()
+	result = 21
+	return
+}
+
+// SliceAppendSliceTest tests appending slice to slice
+func SliceAppendSliceTest() int {
+	s1 := []int{1, 2}
+	s2 := []int{3, 4}
+	s1 = append(s1, s2...)
+	return len(s1)
+}
+
+// StructCopyValueTest tests struct copy by value
+func StructCopyValueTest() int {
+	type S struct{ v int }
+	s1 := S{v: 10}
+	s2 := s1
+	s2.v = 20
+	return s1.v
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 36 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SlicePrependValueTest tests prepending value
+func SlicePrependValueTest() int {
+	s := []int{2, 3}
+	s = append([]int{1}, s...)
+	return s[0]
+}
+
+// MapClearMakeTest tests clearing via make
+func MapClearMakeTest() int {
+	m := map[int]int{1: 10, 2: 20}
+	m = make(map[int]int)
+	return len(m)
+}
+
+// PointerDerefNilTest tests nil pointer deref check
+func PointerDerefNilTest() int {
+	var p *int
+	if p != nil {
+		return *p
+	}
+	return 0
+}
+
+// StructMethodPtrRecTest tests pointer receiver method
+func StructMethodPtrRecTest() int {
+	type S struct{ v int }
+	add := func(s *S, n int) { s.v += n }
+	s := &S{v: 10}
+	add(s, 5)
+	return s.v
+}
+
+// ClosureReturnsValueTest tests closure returning value
+func ClosureReturnsValueTest() int {
+	x := 42
+	f := func() int { return x }
+	return f()
+}
+
+// SliceSwapElementsTest tests swapping elements
+func SliceSwapElementsTest() int {
+	s := []int{1, 2, 3, 4}
+	s[0], s[3] = s[3], s[0]
+	return s[0] + s[3]
+}
+
+// MapValueSliceTest tests values to slice
+func MapValueSliceTest() int {
+	m := map[int]int{1: 10, 2: 20}
+	vals := []int{}
+	for _, v := range m {
+		vals = append(vals, v)
+	}
+	return len(vals)
+}
+
+// PointerSliceIndexTest tests pointer to slice element
+func PointerSliceIndexTest() int {
+	s := []int{1, 2, 3}
+	p := &s[1]
+	*p = 20
+	return s[1]
+}
+
+// StructWithNilPtrTest tests struct with nil pointer
+func StructWithNilPtrTest() int {
+	type S struct{ p *int }
+	s := S{}
+	if s.p == nil {
+		return 1
+	}
+	return 0
+}
+
+// SliceFlattenManualTest tests manual flatten
+func SliceFlattenManualTest() int {
+	s := [][]int{{1, 2}, {3, 4}}
+	result := []int{}
+	for _, inner := range s {
+		for _, v := range inner {
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapHasKeyNilTest tests key with nil value - simplified to avoid iteration issues
+func MapHasKeyNilTest() int {
+	m := map[int]*int{1: nil, 2: new(int)}
+	count := 0
+	if m[1] == nil {
+		count++
+	}
+	if m[2] != nil {
+		count += 10
+	}
+	return count
+}
+
+// DeferAfterReturnTest tests defer execution order
+func DeferAfterReturnTest() int {
+	result := 0
+	defer func() { result++ }()
+	defer func() { result += 10 }()
+	result = 100
+	return result
+}
+
+// SliceSubsliceTest tests subslice
+func SliceSubsliceTest() int {
+	s := []int{1, 2, 3, 4, 5}
+	sub := s[1:4]
+	return len(sub)
+}
+
+// StructWithTwoFlds tests struct with two fields
+func StructWithTwoFlds() int {
+	type S struct{ a, b int }
+	s := S{a: 10, b: 20}
+	return s.a + s.b
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 37 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceRemoveAtTest tests removing at index
+func SliceRemoveAtTest() int {
+	s := []int{1, 2, 3, 4, 5}
+	idx := 2
+	s = append(s[:idx], s[idx+1:]...)
+	return len(s)
+}
+
+// MapGetSetTest tests get and set
+func MapGetSetTest() int {
+	m := map[int]int{}
+	m[1] = 10
+	v := m[1]
+	m[1] = v + 5
+	return m[1]
+}
+
+// PointerToSliceTest tests pointer to slice
+func PointerToSliceTest() int {
+	s := []int{1, 2, 3}
+	p := &s
+	(*p)[0] = 10
+	return s[0]
+}
+
+// StructSliceFieldAppendTest tests appending to slice field
+func StructSliceFieldAppendTest() int {
+	type S struct{ items []int }
+	s := S{items: []int{1}}
+	s.items = append(s.items, 2)
+	return len(s.items)
+}
+
+// ClosureCapturesTwoTest tests closure capturing two vars
+func ClosureCapturesTwoTest() int {
+	x, y := 10, 20
+	f := func() int { return x + y }
+	return f()
+}
+
+// SliceContainsNoneTest tests contains none
+func SliceContainsNoneTest() int {
+	s := []int{1, 3, 5}
+	targets := []int{2, 4, 6}
+	found := 0
+	for _, t := range targets {
+		for _, v := range s {
+			if v == t {
+				found++
+				break
+			}
+		}
+	}
+	return found
+}
+
+// MapIncrementValueTest tests incrementing value
+func MapIncrementValueTest() int {
+	m := map[int]int{1: 10}
+	m[1]++
+	return m[1]
+}
+
+// PointerSwapInArrayTest tests swapping in array
+func PointerSwapInArrayTest() int {
+	arr := [3]int{1, 2, 3}
+	p1 := &arr[0]
+	p2 := &arr[2]
+	*p1, *p2 = *p2, *p1
+	return arr[0] + arr[2]
+}
+
+// StructWithEmptySliceTest tests struct with empty slice
+func StructWithEmptySliceTest() int {
+	type S struct{ items []int }
+	s := S{}
+	if s.items == nil {
+		return 1
+	}
+	return 0
+}
+
+// SlicePartitionTest tests partitioning slice
+func SlicePartitionTest() int {
+	s := []int{1, 2, 3, 4, 5}
+	evens := []int{}
+	odds := []int{}
+	for _, v := range s {
+		if v%2 == 0 {
+			evens = append(evens, v)
+		} else {
+			odds = append(odds, v)
+		}
+	}
+	return len(evens) + len(odds)
+}
+
+// MapSameKeyValueTest tests same key and value
+func MapSameKeyValueTest() int {
+	m := map[int]int{}
+	m[1] = 1
+	m[2] = 2
+	return m[1] + m[2]
+}
+
+// DeferModifiesReturnTest tests defer modifying return
+func DeferModifiesReturnTest() (result int) {
+	defer func() { result = result * 2 }()
+	return 21
+}
+
+// SliceInsertSliceTest tests inserting slice
+func SliceInsertSliceTest() int {
+	s := []int{1, 5}
+	insert := []int{2, 3, 4}
+	s = append(s[:1], append(insert, s[1:]...)...)
+	return len(s)
+}
+
+// StructNilSafeMethodTest tests nil safe method
+func StructNilSafeMethodTest() int {
+	type S struct{ v int }
+	getV := func(s *S) int {
+		if s == nil {
+			return 0
+		}
+		return s.v
+	}
+	return getV(nil)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 38 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceCopyReverseTest tests copy and reverse
+func SliceCopyReverseTest() int {
+	s := []int{1, 2, 3}
+	cpy := make([]int, len(s))
+	copy(cpy, s)
+	for i, j := 0, len(cpy)-1; i < j; i, j = i+1, j-1 {
+		cpy[i], cpy[j] = cpy[j], cpy[i]
+	}
+	return cpy[0]
+}
+
+// MapHasValuesTest tests if map has specific values
+func MapHasValuesTest() int {
+	m := map[int]int{1: 10, 2: 20}
+	if m[1] == 10 && m[2] == 20 {
+		return 1
+	}
+	return 0
+}
+
+// PointerChainTest tests pointer chain
+func PointerChainTest() int {
+	x := 42
+	p1 := &x
+	p2 := &p1
+	p3 := &p2
+	return ***p3
+}
+
+// StructWithEmbeddedTest tests struct with embedded field
+func StructWithEmbeddedTest() int {
+	type Base struct{ v int }
+	type Derived struct {
+		Base
+		extra int
+	}
+	d := Derived{Base: Base{v: 10}, extra: 5}
+	return d.v + d.extra
+}
+
+// ClosureRecursiveSimpleTest tests simple recursive closure
+func ClosureRecursiveSimpleTest() int {
+	var fib func(int) int
+	fib = func(n int) int {
+		if n <= 1 {
+			return n
+		}
+		return fib(n-1) + fib(n-2)
+	}
+	return fib(6)
+}
+
+// SliceRotateRightTest tests rotating right
+func SliceRotateRightTest() int {
+	s := []int{1, 2, 3, 4, 5}
+	s = append(s[len(s)-1:], s[:len(s)-1]...)
+	return s[0]
+}
+
+// MapCountIfTest tests count if condition
+func MapCountIfTest() int {
+	m := map[int]int{1: 10, 2: 25, 3: 30, 4: 5}
+	count := 0
+	for _, v := range m {
+		if v > 20 {
+			count++
+		}
+	}
+	return count
+}
+
+// PointerNilCompareTest tests nil comparison
+func PointerNilCompareTest() int {
+	var p1 *int
+	p2 := new(int)
+	if p1 == nil && p2 != nil {
+		return 1
+	}
+	return 0
+}
+
+// StructModifyViaPointerTest tests modifying via pointer
+func StructModifyViaPointerTest() int {
+	type S struct{ v int }
+	s := S{v: 10}
+	p := &s
+	p.v = 20
+	return s.v
+}
+
+// SliceUniquePreserveTest tests unique preserving order
+func SliceUniquePreserveTest() int {
+	s := []int{1, 2, 1, 3, 2, 4}
+	seen := make(map[int]bool)
+	result := []int{}
+	for _, v := range s {
+		if !seen[v] {
+			seen[v] = true
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapUnionKeysTest tests union of keys
+func MapUnionKeysTest() int {
+	m1 := map[int]bool{1: true}
+	m2 := map[int]bool{2: true}
+	m3 := make(map[int]bool)
+	for k := range m1 {
+		m3[k] = true
+	}
+	for k := range m2 {
+		m3[k] = true
+	}
+	return len(m3)
+}
+
+// DeferStackTest tests defer stack
+func DeferStackTest() int {
+	result := 0
+	defer func() { result += 1 }()
+	defer func() { result += 10 }()
+	defer func() { result += 100 }()
+	return result
+}
+
+// SliceRepeatNTest tests repeating n times
+func SliceRepeatNTest() int {
+	val := 5
+	n := 3
+	s := make([]int, n)
+	for i := range s {
+		s[i] = val
+	}
+	return len(s)
+}
+
+// StructCopyPointerTest tests copying pointer struct
+func StructCopyPointerTest() int {
+	type S struct{ v int }
+	s1 := &S{v: 10}
+	s2 := *s1
+	s2.v = 20
+	return s1.v
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 39 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceDiff tests slice difference
+func SliceDiff() int {
+	s1 := []int{1, 2, 3, 4}
+	s2 := []int{3, 4, 5, 6}
+	set := make(map[int]bool)
+	for _, v := range s2 {
+		set[v] = true
+	}
+	result := []int{}
+	for _, v := range s1 {
+		if !set[v] {
+			result = append(result, v)
+		}
+	}
+	return len(result)
+}
+
+// MapVals tests getting values
+func MapVals() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	vals := []int{}
+	for _, v := range m {
+		vals = append(vals, v)
+	}
+	return len(vals)
+}
+
+// PointerToMapTest tests pointer to map
+func PointerToMapTest() int {
+	m := map[int]int{1: 10}
+	p := &m
+	(*p)[2] = 20
+	return len(m)
+}
+
+// StructWithNilChanFld tests struct with nil channel
+func StructWithNilChanFld() int {
+	type S struct{ ch chan int }
+	s := S{}
+	if s.ch == nil {
+		return 1
+	}
+	return 0
+}
+
+// ClosureWithDeferTest tests closure with defer
+func ClosureWithDeferTest() int {
+	f := func() int {
+		x := 10
+		defer func() { x *= 2 }()
+		return x
+	}
+	return f()
+}
+
+// SliceSumOddIdx tests sum of odd indices
+func SliceSumOddIdx() int {
+	s := []int{10, 20, 30, 40, 50}
+	sum := 0
+	for i := 1; i < len(s); i += 2 {
+		sum += s[i]
+	}
+	return sum
+}
+
+// MapAllMatch tests if all match
+func MapAllMatch() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for _, v := range m {
+		if v < 5 {
+			return 0
+		}
+	}
+	return 1
+}
+
+// PointerToNilSliceTest tests pointer to nil slice
+func PointerToNilSliceTest() int {
+	var s []int
+	p := &s
+	if *p == nil {
+		return 1
+	}
+	return 0
+}
+
+// StructEmbeddedFldAccess tests embedded field access
+func StructEmbeddedFldAccess() int {
+	type Inner struct{ x int }
+	type Outer struct {
+		Inner
+		y int
+	}
+	o := Outer{Inner: Inner{x: 10}, y: 20}
+	return o.x + o.y
+}
+
+// SliceProd tests slice product
+func SliceProd() int {
+	s := []int{2, 3, 4}
+	prod := 1
+	for _, v := range s {
+		prod *= v
+	}
+	return prod
+}
+
+// MapAnyMatch tests if any match
+func MapAnyMatch() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for _, v := range m {
+		if v > 25 {
+			return 1
+		}
+	}
+	return 0
+}
+
+// DeferReadCapture tests defer reading capture
+func DeferReadCapture() int {
+	x := 10
+	defer func() { x = x + 1 }()
+	return x
+}
+
+// SliceReverseManualTest tests manual reverse
+func SliceReverseManualTest() int {
+	s := []int{1, 2, 3, 4}
+	for i := 0; i < len(s)/2; i++ {
+		s[i], s[len(s)-1-i] = s[len(s)-1-i], s[i]
+	}
+	return s[0]
+}
+
+// StructMethodOnValTest tests method on value
+func StructMethodOnValTest() int {
+	type S struct{ v int }
+	getV := func(s S) int { return s.v }
+	s := S{v: 42}
+	return getV(s)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 40 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceFindIdx tests finding index
+func SliceFindIdx() int {
+	s := []int{10, 20, 30, 40}
+	target := 30
+	for i, v := range s {
+		if v == target {
+			return i
+		}
+	}
+	return -1
+}
+
+// MapNoneMatch tests if none match
+func MapNoneMatch() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for _, v := range m {
+		if v > 100 {
+			return 0
+		}
+	}
+	return 1
+}
+
+// PointerDerefAssignTest tests deref assign
+func PointerDerefAssignTest() int {
+	x := 10
+	p := &x
+	*p = 20
+	return x
+}
+
+// StructWithFuncFldExec tests executing func field
+func StructWithFuncFldExec() int {
+	type S struct {
+		fn func(int) int
+	}
+	s := S{fn: func(x int) int { return x * 2 }}
+	return s.fn(21)
+}
+
+// ClosureCurryTest tests curried closure
+func ClosureCurryTest() int {
+	add := func(a int) func(int) int {
+		return func(b int) int {
+			return a + b
+		}
+	}
+	add5 := add(5)
+	return add5(10)
+}
+
+// SliceTakeNFunc tests taking n elements
+func SliceTakeNFunc() int {
+	s := []int{1, 2, 3, 4, 5}
+	n := 3
+	taken := s[:n]
+	return len(taken)
+}
+
+// MapDropKeys tests dropping keys
+func MapDropKeys() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30, 4: 40}
+	delete(m, 2)
+	delete(m, 4)
+	return len(m)
+}
+
+// PointerNilAssignT tests nil assign
+func PointerNilAssignT() int {
+	var p *int
+	p = nil
+	if p == nil {
+		return 1
+	}
+	return 0
+}
+
+// StructWithMapNilInit tests map nil init
+func StructWithMapNilInit() int {
+	type S struct{ m map[int]int }
+	s := S{}
+	if s.m == nil {
+		return 1
+	}
+	return 0
+}
+
+// SliceIntersectTest tests slice intersection
+func SliceIntersectTest() int {
+	s1 := []int{1, 2, 3, 4}
+	s2 := []int{3, 4, 5, 6}
+	set := make(map[int]bool)
+	for _, v := range s2 {
+		set[v] = true
+	}
+	count := 0
+	for _, v := range s1 {
+		if set[v] {
+			count++
+		}
+	}
+	return count
+}
+
+// MapFirstKey tests getting a key from map iteration.
+// Uses a single-entry map to ensure deterministic result,
+// since Go map iteration order is random.
+func MapFirstKey() int {
+	m := map[int]int{42: 10}
+	for k := range m {
+		return k
+	}
+	return 0
+}
+
+// DeferModifyCapture tests defer modifying capture
+func DeferModifyCapture() int {
+	x := 5
+	defer func() { x = 10 }()
+	return x
+}
+
+// SliceDropNFunc tests dropping n elements
+func SliceDropNFunc() int {
+	s := []int{1, 2, 3, 4, 5}
+	n := 2
+	dropped := s[n:]
+	return len(dropped)
+}
+
+// StructEmbeddedNilFld tests embedded nil field
+func StructEmbeddedNilFld() int {
+	type Inner struct{ p *int }
+	type Outer struct {
+		Inner
+		v int
+	}
+	o := Outer{v: 10}
+	if o.p == nil {
+		return 1
+	}
+	return 0
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 41 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceMaxVal tests max value
+func SliceMaxVal() int {
+	s := []int{10, 30, 20, 50, 40}
+	max := s[0]
+	for _, v := range s[1:] {
+		if v > max {
+			max = v
+		}
+	}
+	return max
+}
+
+// MapLastVal tests last value (sum to avoid iteration order dependency)
+func MapLastVal() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	sum := 0
+	for _, v := range m {
+		sum += v
+	}
+	return sum
+}
+
+// PointerSwapSimple tests simple swap
+func PointerSwapSimple() int {
+	a, b := 1, 2
+	pa, pb := &a, &b
+	tmp := *pa
+	*pa = *pb
+	*pb = tmp
+	return a*10 + b
+}
+
+// StructWithSliceNil tests slice nil in struct
+func StructWithSliceNil() int {
+	type S struct{ items []int }
+	s := S{}
+	if s.items == nil {
+		return 1
+	}
+	return 0
+}
+
+// ClosurePartialTest tests partial application
+func ClosurePartialTest() int {
+	multiply := func(a, b int) int { return a * b }
+	double := func(x int) int { return multiply(2, x) }
+	return double(21)
+}
+
+// SliceMinVal tests min value
+func SliceMinVal() int {
+	s := []int{30, 10, 20, 5, 15}
+	min := s[0]
+	for _, v := range s[1:] {
+		if v < min {
+			min = v
+		}
+	}
+	return min
+}
+
+// MapSize tests map size
+func MapSize() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	return len(m)
+}
+
+// PointerToArr tests pointer to array
+func PointerToArr() int {
+	arr := [3]int{1, 2, 3}
+	p := &arr
+	return (*p)[1]
+}
+
+// StructFldModify tests field modify
+func StructFldModify() int {
+	type S struct{ v int }
+	s := S{v: 10}
+	s.v = 20
+	return s.v
+}
+
+// SliceSymmetricDiffTest tests symmetric difference
+func SliceSymmetricDiffTest() int {
+	s1 := []int{1, 2, 3, 4}
+	s2 := []int{3, 4, 5, 6}
+	set1 := make(map[int]bool)
+	set2 := make(map[int]bool)
+	for _, v := range s1 {
+		set1[v] = true
+	}
+	for _, v := range s2 {
+		set2[v] = true
+	}
+	count := 0
+	for k := range set1 {
+		if !set2[k] {
+			count++
+		}
+	}
+	for k := range set2 {
+		if !set1[k] {
+			count++
+		}
+	}
+	return count
+}
+
+// MapContainsVal tests contains value
+func MapContainsVal() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for _, v := range m {
+		if v == 20 {
+			return 1
+		}
+	}
+	return 0
+}
+
+// DeferMultipleVars tests multiple vars
+func DeferMultipleVars() int {
+	a, b := 10, 20
+	defer func() {
+		a = a * 2
+		b = b * 3
+	}()
+	return a + b
+}
+
+// SliceZipTest tests zipping slices
+func SliceZipTest() int {
+	s1 := []int{1, 2, 3}
+	s2 := []int{4, 5, 6}
+	sum := 0
+	for i := range s1 {
+		sum += s1[i] + s2[i]
+	}
+	return sum
+}
+
+// StructFldPtrModify tests field ptr modify
+func StructFldPtrModify() int {
+	type S struct{ v int }
+	s := S{v: 10}
+	p := &s.v
+	*p = 20
+	return s.v
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 42 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceRotateLeftTest tests rotating left
+func SliceRotateLeftTest() int {
+	s := []int{1, 2, 3, 4, 5}
+	n := 2
+	s = append(s[n:], s[:n]...)
+	return s[0]
+}
+
+// MapMergeTwo tests merging two maps
+func MapMergeTwo() int {
+	m1 := map[int]int{1: 10}
+	m2 := map[int]int{2: 20}
+	for k, v := range m2 {
+		m1[k] = v
+	}
+	return len(m1)
+}
+
+// PointerToSliceElemModifyTest tests elem modify - moved to known_issues
+
+// StructWithMapRangeDel tests map range delete
+func StructWithMapRangeDel() int {
+	type S struct{ m map[int]int }
+	s := S{m: map[int]int{1: 10, 2: 20, 3: 30}}
+	for k := range s.m {
+		if k%2 == 1 {
+			delete(s.m, k)
+		}
+	}
+	return len(s.m)
+}
+
+// SlicePartitionPosNeg tests partition pos neg
+func SlicePartitionPosNeg() int {
+	s := []int{-3, 1, -2, 4, -5, 6}
+	pos := []int{}
+	neg := []int{}
+	for _, v := range s {
+		if v >= 0 {
+			pos = append(pos, v)
+		} else {
+			neg = append(neg, v)
+		}
+	}
+	return len(pos) - len(neg)
+}
+
+// MapHasValueCond tests value condition
+func MapHasValueCond() int {
+	m := map[int]int{1: 10, 2: 25, 3: 5}
+	for _, v := range m {
+		if v > 20 {
+			return 1
+		}
+	}
+	return 0
+}
+
+// DeferNamedMultiTest tests named multi
+func DeferNamedMultiTest() int {
+	a, b, c := 1, 2, 3
+	defer func() {
+		a = a * 2
+		b = b * 3
+		c = c * 4
+	}()
+	return a + b + c
+}
+
+// SliceFindLastPosTest tests find last positive
+func SliceFindLastPosTest() int {
+	s := []int{1, -2, 3, -4, 5}
+	lastPos := -1
+	for i, v := range s {
+		if v > 0 {
+			lastPos = i
+		}
+	}
+	return lastPos
+}
+
+// StructMethodNilPtrTest tests nil ptr method
+func StructMethodNilPtrTest() int {
+	type S struct{ v int }
+	getV := func(s *S) int {
+		if s == nil {
+			return 0
+		}
+		return s.v
+	}
+	var p *S
+	return getV(p)
+}
+
+// ClosureTapTest tests tap pattern
+func ClosureTapTest() int {
+	tap := func(x int, f func(int)) int {
+		f(x)
+		return x
+	}
+	sideEffect := 0
+	result := tap(42, func(x int) { sideEffect = x * 2 })
+	return result + sideEffect
+}
+
+// SliceFlatten2D tests flattening 2D
+func SliceFlatten2D() int {
+	s := [][]int{{1, 2}, {3, 4}, {5, 6}}
+	result := []int{}
+	for _, row := range s {
+		result = append(result, row...)
+	}
+	return len(result)
+}
+
+// MapTransformVals tests transforming values
+func MapTransformVals() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for k, v := range m {
+		m[k] = v * 2
+	}
+	return m[1] + m[2] + m[3]
+}
+
+// PointerLevelTest tests pointer level
+func PointerLevelTest() int {
+	x := 1
+	p1 := &x
+	p2 := &p1
+	p3 := &p2
+	return ***p3
+}
+
+// StructWithComputedFld tests computed field
+func StructWithComputedFld() int {
+	type S struct {
+		a, b int
+	}
+	s := S{a: 10, b: 20}
+	return s.a + s.b
+}
+
+// ClosureMemoizeRecursiveTest tests memoized recursive
+func ClosureMemoizeRecursiveTest() int {
+	cache := make(map[int]int)
+	var fib func(int) int
+	fib = func(n int) int {
+		if v, ok := cache[n]; ok {
+			return v
+		}
+		if n <= 1 {
+			return n
+		}
+		result := fib(n-1) + fib(n-2)
+		cache[n] = result
+		return result
+	}
+	return fib(10)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 43 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SlicePluckFld tests plucking field
+func SlicePluckFld() int {
+	type Item struct{ val int }
+	items := []Item{{1}, {2}, {3}}
+	vals := []int{}
+	for _, item := range items {
+		vals = append(vals, item.val)
+	}
+	return len(vals)
+}
+
+// MapSliceToMapTest tests slice to map
+func MapSliceToMapTest() int {
+	pairs := [][]int{{1, 10}, {2, 20}, {3, 30}}
+	m := make(map[int]int)
+	for _, pair := range pairs {
+		m[pair[0]] = pair[1]
+	}
+	return len(m)
+}
+
+// PointerSwapChainTest tests swap chain
+func PointerSwapChainTest() int {
+	a, b, c := 1, 2, 3
+	pa, pb, pc := &a, &b, &c
+	*pa, *pb, *pc = *pb, *pc, *pa
+	return a*100 + b*10 + c
+}
+
+// StructWithLazyFld tests lazy field
+func StructWithLazyFld() int {
+	type S struct {
+		val   int
+		init  bool
+	}
+	s := S{}
+	if !s.init {
+		s.val = 42
+		s.init = true
+	}
+	return s.val
+}
+
+// SliceSortByFld tests sorting by field
+func SliceSortByFld() int {
+	type Item struct{ val int }
+	items := []Item{{3}, {1}, {2}}
+	for i := 0; i < len(items); i++ {
+		for j := i + 1; j < len(items); j++ {
+			if items[i].val > items[j].val {
+				items[i], items[j] = items[j], items[i]
+			}
+		}
+	}
+	return items[0].val
+}
+
+// MapFlattenTest tests flattening map
+func MapFlattenTest() int {
+	nested := map[int]map[int]int{
+		1: {1: 10, 2: 20},
+		2: {3: 30, 4: 40},
+	}
+	result := make(map[int]int)
+	for _, inner := range nested {
+		for k, v := range inner {
+			result[k] = v
+		}
+	}
+	return len(result)
+}
+
+// DeferWithRetFunc tests defer with return func
+func DeferWithRetFunc() int {
+	var result int
+	defer func() { result += 10 }()
+	result = 5
+	return result
+}
+
+// SliceGroupByFld tests grouping by field
+func SliceGroupByFld() int {
+	type Item struct {
+		cat int
+		val int
+	}
+	items := []Item{{1, 10}, {2, 20}, {1, 30}}
+	groups := make(map[int][]int)
+	for _, item := range items {
+		groups[item.cat] = append(groups[item.cat], item.val)
+	}
+	return len(groups[1])
+}
+
+// StructWithFldValidation tests field validation
+func StructWithFldValidation() int {
+	type S struct{ val int }
+	validate := func(s S) bool { return s.val >= 0 }
+	s := S{val: 10}
+	if validate(s) {
+		return 1
+	}
+	return 0
+}
+
+// ClosureOnceTest tests once pattern
+func ClosureOnceTest() int {
+	called := 0
+	once := func() func() int {
+		return func() int {
+			called++
+			return called
+		}
+	}
+	f := once()
+	return f() + f()
+}
+
+// SliceZipMapTest tests zip to map
+func SliceZipMapTest() int {
+	keys := []int{1, 2, 3}
+	vals := []int{10, 20, 30}
+	m := make(map[int]int)
+	for i := range keys {
+		m[keys[i]] = vals[i]
+	}
+	return len(m)
+}
+
+// MapReplaceVals tests replacing values
+func MapReplaceVals() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for k, v := range m {
+		if v > 15 {
+			m[k] = v + 100
+		}
+	}
+	return len(m)
+}
+
+// PointerToSliceClearTest tests clearing via pointer
+func PointerToSliceClearTest() int {
+	s := []int{1, 2, 3, 4, 5}
+	p := &s
+	*p = (*p)[:0]
+	return len(s)
+}
+
+// StructWithUintFldTest tests uint field
+func StructWithUintFldTest() int {
+	type S struct{ val uint }
+	s := S{val: 42}
+	return int(s.val)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RALPH LOOP ITERATION 44 - More Tricky Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SliceContainsAllTest tests contains all
+func SliceContainsAllTest() int {
+	s := []int{1, 2, 3, 4, 5}
+	targets := []int{2, 3, 4}
+	for _, t := range targets {
+		found := false
+		for _, v := range s {
+			if v == t {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return 0
+		}
+	}
+	return 1
+}
+
+// MapHasKeySliceTest tests keys to slice
+func MapHasKeySliceTest() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	keys := []int{}
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return len(keys)
+}
+
+// DeferModifyMapTest tests defer modifying map
+func DeferModifyMapTest() int {
+	m := map[int]int{1: 10}
+	defer func() {
+		m[1] = 100
+	}()
+	return m[1]
+}
+
+// SliceSumRangeTest tests sum via range
+func SliceSumRangeTest() int {
+	s := []int{1, 2, 3, 4, 5}
+	sum := 0
+	for i := range s {
+		sum += s[i]
+	}
+	return sum
+}
+
+// StructWithFloatFldTest tests float field
+func StructWithFloatFldTest() int {
+	type S struct{ val float64 }
+	s := S{val: 3.14}
+	return int(s.val * 100)
+}
+

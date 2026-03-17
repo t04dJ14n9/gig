@@ -369,3 +369,134 @@ func TestResolved_MapRangeWithBreak(t *testing.T) {
 		t.Errorf("map range with break: got %d, want >= 10", n)
 	}
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Resolved Issue 17: Pointer to interface type assertion
+// ═══════════════════════════════════════════════════════════════════════════════
+
+func TestResolved_PointerToInterface(t *testing.T) {
+	expected := resolved_issue.PointerToInterface()
+	result := runResolvedTest(t, "PointerToInterface")
+
+	n := toInt64(t, result)
+	if n != int64(expected) {
+		t.Errorf("pointer to interface: got %d, want %d", n, expected)
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Resolved Issue 18: Struct with pointer to interface
+// ═══════════════════════════════════════════════════════════════════════════════
+
+func TestResolved_StructWithPointerToInterface(t *testing.T) {
+	// Uses isolated inline source to avoid reflect.StructOf type collision
+	src := `package main
+
+type PtrToInterface struct {
+	data *interface{}
+}
+
+func StructWithPointerToInterface() int {
+	var i interface{} = 42
+	s := PtrToInterface{data: &i}
+	return (*s.data).(int)
+}
+`
+	prog, err := gig.Build(src)
+	if err != nil {
+		t.Fatalf("Build error: %v", err)
+	}
+	result, err := prog.Run("StructWithPointerToInterface")
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	n := toInt64(t, result)
+	if n != 42 {
+		t.Errorf("struct with pointer to interface: got %d, want 42", n)
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Resolved Issue 19: Struct with nested function field
+// ═══════════════════════════════════════════════════════════════════════════════
+
+func TestResolved_StructWithNestedFunc(t *testing.T) {
+	// Uses isolated inline source to avoid reflect.StructOf type collision
+	src := `package main
+
+type NestedFuncHolder struct {
+	get func() func() int
+}
+
+func StructWithNestedFunc() int {
+	h := NestedFuncHolder{
+		get: func() func() int {
+			return func() int { return 42 }
+		},
+	}
+	return h.get()()
+}
+`
+	prog, err := gig.Build(src)
+	if err != nil {
+		t.Fatalf("Build error: %v", err)
+	}
+	result, err := prog.Run("StructWithNestedFunc")
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	n := toInt64(t, result)
+	if n != 42 {
+		t.Errorf("struct with nested func: got %d, want 42", n)
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Resolved Issue 20: Struct with interface map
+// ═══════════════════════════════════════════════════════════════════════════════
+
+func TestResolved_StructWithInterfaceMap(t *testing.T) {
+	// Uses isolated inline source to avoid reflect.StructOf type collision
+	src := `package main
+
+type InterfaceMapHolder struct {
+	data map[string]interface{}
+}
+
+func StructWithInterfaceMap() int {
+	h := InterfaceMapHolder{
+		data: map[string]interface{}{
+			"a": 1,
+			"b": "hello",
+		},
+	}
+	return h.data["a"].(int)
+}
+`
+	prog, err := gig.Build(src)
+	if err != nil {
+		t.Fatalf("Build error: %v", err)
+	}
+	result, err := prog.Run("StructWithInterfaceMap")
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	n := toInt64(t, result)
+	if n != 1 {
+		t.Errorf("struct with interface map: got %d, want 1", n)
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Resolved Issue 21: Pointer to slice element modify in loop
+// ═══════════════════════════════════════════════════════════════════════════════
+
+func TestResolved_PointerToSliceElemModify(t *testing.T) {
+	expected := resolved_issue.PointerToSliceElemModify()
+	result := runResolvedTest(t, "PointerToSliceElemModify")
+
+	n := toInt64(t, result)
+	if n != int64(expected) {
+		t.Errorf("pointer to slice elem modify: got %d, want %d", n, expected)
+	}
+}

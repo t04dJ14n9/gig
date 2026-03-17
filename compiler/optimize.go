@@ -381,6 +381,34 @@ func safeIdx(idx int, flags []bool) bool {
 	return idx < len(flags) && flags[idx]
 }
 
+// localUsedOutside returns true if local variable `localIdx` is referenced
+// (via OpLocal or OpAddr) anywhere in `code` outside the range [skipStart, skipEnd).
+// This is used by fuseSliceOps to avoid fusing patterns when an intermediate
+// pointer temporary is still needed by later instructions.
+func localUsedOutside(code []byte, localIdx uint16, skipStart, skipEnd int) bool {
+	i := 0
+	for i < len(code) {
+		op := bytecode.OpCode(code[i])
+		width := opcodeWidth(op)
+		instrEnd := i + 1 + width
+		if instrEnd > len(code) {
+			break
+		}
+		if i >= skipStart && i < skipEnd {
+			i = instrEnd
+			continue
+		}
+		if (op == bytecode.OpLocal || op == bytecode.OpAddr) && width >= 2 {
+			idx := readU16(code, i+1)
+			if idx == localIdx {
+				return true
+			}
+		}
+		i = instrEnd
+	}
+	return false
+}
+
 // fuseSliceOps replaces common slice access patterns with fused superinstructions.
 // This must run after optimizeBytecode (which doesn't consume these patterns) and
 // before intSpecialize (which upgrades LOCAL→INTLOCAL).
@@ -425,8 +453,14 @@ func fuseSliceOps(code []byte, localIsInt, localIsIntSlice []bool) []byte {
 				if ptr == ptrGet {
 					op6 := bytecode.OpCode(code[i+13])
 
+					// Safety check: the ptr temporary must not be referenced outside
+					// the fused region [i, i+17). If ptr is used later (e.g. for a
+					// separate store like `*p = expr`), we cannot eliminate the
+					// SETLOCAL(ptr) instruction — fusing would leave ptr uninitialized.
+					ptrEscapes := localUsedOutside(code, ptr, i, i+17)
+
 					// Pattern 1: ... DEREF SETLOCAL(v) → OpIntSliceGet(s, j, v)
-					if op6 == bytecode.OpDeref && i+17 <= len(code) {
+					if !ptrEscapes && op6 == bytecode.OpDeref && i+17 <= len(code) {
 						op7 := bytecode.OpCode(code[i+14])
 						if op7 == bytecode.OpSetLocal {
 							v := readU16(code, i+15)
@@ -447,7 +481,7 @@ func fuseSliceOps(code []byte, localIsInt, localIsIntSlice []bool) []byte {
 					}
 
 					// Pattern 2: ... LOCAL(val) SETDEREF → OpIntSliceSet(s, j, val)
-					if op6 == bytecode.OpLocal && i+17 <= len(code) {
+					if !ptrEscapes && op6 == bytecode.OpLocal && i+17 <= len(code) {
 						op7 := bytecode.OpCode(code[i+16])
 						if op7 == bytecode.OpSetDeref {
 							val := readU16(code, i+14)
@@ -468,7 +502,7 @@ func fuseSliceOps(code []byte, localIsInt, localIsIntSlice []bool) []byte {
 					}
 
 					// Pattern 3: ... CONST(val) SETDEREF → OpIntSliceSetConst(s, j, const_idx)
-					if op6 == bytecode.OpConst && i+17 <= len(code) {
+					if !ptrEscapes && op6 == bytecode.OpConst && i+17 <= len(code) {
 						op7 := bytecode.OpCode(code[i+16])
 						if op7 == bytecode.OpSetDeref {
 							constIdx := readU16(code, i+14)

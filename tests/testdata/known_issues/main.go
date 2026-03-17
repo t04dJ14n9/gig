@@ -1,7 +1,8 @@
 package known_issues
 
 // ─────────────────────────────────────────────────────────────────────────────
-// KNOWN ISSUES - Tests that fail due to interpreter bugs
+// KNOWN ISSUES - Tests that STILL FAIL due to interpreter bugs
+// These are awaiting fixes.
 // ─────────────────────────────────────────────────────────────────────────────
-// All known issues have been resolved and migrated to resolved_issue.
-// This file is kept as a placeholder for future known issues.
+
+// All known issues have been resolved. This file is kept as a template.

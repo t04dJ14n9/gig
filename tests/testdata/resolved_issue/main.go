@@ -292,3 +292,39 @@ func MapRangeWithBreak() int {
 	}
 	return sum
 }
+
+// ── Resolved Issue 17: Pointer to interface type assertion ───────────────────
+
+// PointerToInterface tests dereferencing a pointer to interface and type-asserting.
+// Previously returned []value.Value (the raw [result, ok] tuple) instead of int
+// because compileTypeAssert didn't handle non-comma-ok assertions.
+// Expected: 42
+func PointerToInterface() int {
+	var i interface{} = 42
+	p := &i
+	return (*p).(int)
+}
+
+// ── Resolved Issue 18-20: see inline tests in resolved_issue_test.go ────────
+// StructWithPointerToInterface, StructWithNestedFunc, StructWithInterfaceMap
+// use package-level types that can cause reflect.StructOf type collision,
+// so their tests are defined inline in resolved_issue_test.go.
+
+// ── Resolved Issue 21: Pointer to slice element modify in loop ──────────────
+
+// PointerToSliceElemModify tests modifying slice elements via pointer in a loop.
+// Previously panicked with "invalid reflect.Value in SetElem()" because the
+// fuseSliceOps peephole optimizer fused the read pattern (IndexAddr+Deref→IntSliceGet)
+// but eliminated the SETLOCAL for the pointer temporary, leaving it uninitialized
+// when the subsequent store (*p = expr) tried to use it.
+// Fix: fuseSliceOps now checks localUsedOutside() to skip fusion when the pointer
+// temporary is referenced outside the fused region.
+// Expected: 120 (= 20 + 40 + 60)
+func PointerToSliceElemModify() int {
+	s := []int{10, 20, 30}
+	for i := range s {
+		p := &s[i]
+		*p = *p * 2
+	}
+	return s[0] + s[1] + s[2]
+}

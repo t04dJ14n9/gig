@@ -42,7 +42,7 @@ import (
 func init() { //nolint:gochecknoinits // registers cross-package callback, must run before any VM usage
 	// Register the closure caller so that value.ToReflectValue can wrap
 	// *vm.Closure objects into real Go functions via reflect.MakeFunc.
-	value.RegisterClosureCaller(func(closure any, args []reflect.Value) []reflect.Value {
+	value.RegisterClosureCaller(func(closure any, args []reflect.Value, outTypes []reflect.Type) []reflect.Value {
 		c, ok := closure.(*Closure)
 		if !ok {
 			return nil
@@ -81,7 +81,13 @@ func init() { //nolint:gochecknoinits // registers cross-package callback, must 
 		if result.Kind() == value.KindNil {
 			return []reflect.Value{}
 		}
-		// Use reflect.ValueOf + Convert to match the expected return type.
+		// If we have expected output types and the result is a closure (KindFunc),
+		// use ToReflectValue to properly wrap it as a real Go function.
+		// This handles nested closures like func() → func() int.
+		if len(outTypes) > 0 {
+			return []reflect.Value{result.ToReflectValue(outTypes[0])}
+		}
+		// Fallback: use reflect.ValueOf + Convert to match the expected return type.
 		// This handles int64 → int conversion etc.
 		iface := result.Interface()
 		if iface == nil {

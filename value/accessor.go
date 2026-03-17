@@ -7,10 +7,11 @@ import (
 )
 
 // ClosureCaller is a callback registered by the vm package to execute a closure.
-// It receives the raw closure object and reflect.Value arguments, and returns
-// reflect.Value results matching the target function signature.
+// It receives the raw closure object, reflect.Value arguments, and the expected
+// output types. It returns reflect.Value results matching the target function signature.
+// The outTypes parameter enables recursive wrapping of nested closures.
 // This breaks the circular dependency between value and vm packages.
-type ClosureCaller func(closure any, args []reflect.Value) []reflect.Value
+type ClosureCaller func(closure any, args []reflect.Value, outTypes []reflect.Type) []reflect.Value
 
 // closureCaller is the registered callback for executing closures.
 // It is set by the vm package during initialization.
@@ -133,7 +134,7 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 				outTypes[i] = typ.Out(i)
 			}
 			fn := reflect.MakeFunc(typ, func(args []reflect.Value) []reflect.Value {
-				results := closureCaller(closure, args)
+				results := closureCaller(closure, args, outTypes)
 				// Convert results to match the expected return types
 				out := make([]reflect.Value, numOut)
 				for i := 0; i < numOut; i++ {

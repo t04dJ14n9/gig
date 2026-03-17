@@ -339,6 +339,14 @@ func (c *compiler) compileTypeAssert(i *ssa.TypeAssert) {
 	c.compileValue(i.X)
 	c.emit(bytecode.OpAssert, uint16(typeIdx))
 
+	if !i.CommaOk {
+		// Non-comma-ok assertion: extract just the value from the [result, ok] tuple.
+		// SSA's `typeassert t.(T)` (without comma-ok) returns a single value and
+		// panics on failure. OpAssert always produces a tuple, so we extract #0.
+		c.emit(bytecode.OpConst, uint16(c.addConstant(0)))
+		c.emit(bytecode.OpIndex)
+	}
+
 	resultIdx := c.symbolTable.AllocLocal(i)
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
