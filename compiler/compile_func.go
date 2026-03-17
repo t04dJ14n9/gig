@@ -130,10 +130,11 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 	// Patch jump targets
 	c.patchJumps(blockOffsets)
 
-	// Build const-is-int map
+	// Build const-is-int map (must recognize all integer types stored by compileConst)
 	constIsInt := make([]bool, len(c.constants))
 	for i, k := range c.constants {
-		if _, ok := k.(int64); ok {
+		switch k.(type) {
+		case int, int8, int16, int32, int64:
 			constIsInt[i] = true
 		}
 	}

@@ -824,42 +824,32 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					// Use reflection for other types
 					vm.push(value.MakeString(fmt.Sprintf("%v", val.Interface())))
 				}
-			case types.Int, types.Int8, types.Int16, types.Int32, types.Int64:
-				// Handle conversion from various types to int
-				switch val.Kind() {
-				case value.KindInt:
-					vm.push(val)
-				case value.KindUint:
-					vm.push(value.MakeInt(int64(val.Uint())))
-				case value.KindFloat:
-					vm.push(value.MakeInt(int64(val.Float())))
-				default:
-					vm.push(value.MakeInt(val.Int()))
-				}
-			case types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64, types.Uintptr:
-				// Handle conversion from various types to uint
-				switch val.Kind() {
-				case value.KindInt:
-					vm.push(value.MakeUint(uint64(val.Int())))
-				case value.KindUint:
-					vm.push(val)
-				case value.KindFloat:
-					vm.push(value.MakeUint(uint64(val.Float())))
-				default:
-					vm.push(value.MakeUint(val.Uint()))
-				}
-			case types.Float32, types.Float64:
-				// Handle conversion from int/uint to float
-				switch val.Kind() {
-				case value.KindInt:
-					vm.push(value.MakeFloat(float64(val.Int())))
-				case value.KindUint:
-					vm.push(value.MakeFloat(float64(val.Uint())))
-				case value.KindFloat:
-					vm.push(val)
-				default:
-					vm.push(value.MakeFloat(val.Float()))
-				}
+			case types.Int:
+				vm.push(value.MakeInt(toInt64(val)))
+			case types.Int8:
+				vm.push(value.MakeInt8(int8(toInt64(val))))
+			case types.Int16:
+				vm.push(value.MakeInt16(int16(toInt64(val))))
+			case types.Int32:
+				vm.push(value.MakeInt32(int32(toInt64(val))))
+			case types.Int64:
+				vm.push(value.MakeInt64(toInt64(val)))
+			case types.Uint:
+				vm.push(value.MakeUint(toUint64(val)))
+			case types.Uint8:
+				vm.push(value.MakeUint8(uint8(toUint64(val))))
+			case types.Uint16:
+				vm.push(value.MakeUint16(uint16(toUint64(val))))
+			case types.Uint32:
+				vm.push(value.MakeUint32(uint32(toUint64(val))))
+			case types.Uint64:
+				vm.push(value.MakeUint64(toUint64(val)))
+			case types.Uintptr:
+				vm.push(value.MakeUint64(toUint64(val)))
+			case types.Float32:
+				vm.push(value.MakeFloat32(float32(toFloat64(val))))
+			case types.Float64:
+				vm.push(value.MakeFloat(toFloat64(val)))
 			default:
 				vm.push(val)
 			}
@@ -1564,6 +1554,48 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	}
 
 	return nil
+}
+
+// toInt64 extracts an int64 from a Value of any numeric kind.
+func toInt64(v value.Value) int64 {
+	switch v.Kind() {
+	case value.KindInt:
+		return v.Int()
+	case value.KindUint:
+		return int64(v.Uint())
+	case value.KindFloat:
+		return int64(v.Float())
+	default:
+		return v.Int()
+	}
+}
+
+// toUint64 extracts a uint64 from a Value of any numeric kind.
+func toUint64(v value.Value) uint64 {
+	switch v.Kind() {
+	case value.KindInt:
+		return uint64(v.Int())
+	case value.KindUint:
+		return v.Uint()
+	case value.KindFloat:
+		return uint64(v.Float())
+	default:
+		return v.Uint()
+	}
+}
+
+// toFloat64 extracts a float64 from a Value of any numeric kind.
+func toFloat64(v value.Value) float64 {
+	switch v.Kind() {
+	case value.KindInt:
+		return float64(v.Int())
+	case value.KindUint:
+		return float64(v.Uint())
+	case value.KindFloat:
+		return v.Float()
+	default:
+		return v.Float()
+	}
 }
 
 // kindMatchesType checks whether a value.Kind matches a go/types.Type.

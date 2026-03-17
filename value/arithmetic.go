@@ -8,15 +8,30 @@ import (
 
 // --- Arithmetic Operations ---
 
+// makeIntSized creates an int value preserving the given size tag.
+func makeIntSized(i int64, s Size) Value {
+	return Value{kind: KindInt, size: s, num: i}
+}
+
+// makeUintSized creates a uint value preserving the given size tag.
+func makeUintSized(u uint64, s Size) Value {
+	return Value{kind: KindUint, size: s, num: int64(u)}
+}
+
+// makeFloatSized creates a float value preserving the given size tag.
+func makeFloatSized(f float64, s Size) Value {
+	return Value{kind: KindFloat, size: s, num: int64(math.Float64bits(f))}
+}
+
 // Add returns v + other.
 func (v Value) Add(other Value) Value {
 	switch v.kind { //nolint:exhaustive
 	case KindInt:
-		return MakeInt(v.num + other.Int())
+		return makeIntSized(v.num+other.Int(), v.size)
 	case KindUint:
-		return MakeUint(uint64(v.num) + other.Uint())
+		return makeUintSized(uint64(v.num)+other.Uint(), v.size)
 	case KindFloat:
-		return MakeFloat(v.Float() + other.Float())
+		return makeFloatSized(v.Float()+other.Float(), v.size)
 	case KindString:
 		return MakeString(v.obj.(string) + other.obj.(string))
 	case KindComplex:
@@ -32,11 +47,11 @@ func (v Value) Add(other Value) Value {
 func (v Value) Sub(other Value) Value {
 	switch v.kind { //nolint:exhaustive
 	case KindInt:
-		return MakeInt(v.num - other.Int())
+		return makeIntSized(v.num-other.Int(), v.size)
 	case KindUint:
-		return MakeUint(uint64(v.num) - other.Uint())
+		return makeUintSized(uint64(v.num)-other.Uint(), v.size)
 	case KindFloat:
-		return MakeFloat(v.Float() - other.Float())
+		return makeFloatSized(v.Float()-other.Float(), v.size)
 	case KindComplex:
 		a := v.obj.(complex128)
 		b := other.obj.(complex128)
@@ -50,11 +65,11 @@ func (v Value) Sub(other Value) Value {
 func (v Value) Mul(other Value) Value {
 	switch v.kind { //nolint:exhaustive
 	case KindInt:
-		return MakeInt(v.num * other.Int())
+		return makeIntSized(v.num*other.Int(), v.size)
 	case KindUint:
-		return MakeUint(uint64(v.num) * other.Uint())
+		return makeUintSized(uint64(v.num)*other.Uint(), v.size)
 	case KindFloat:
-		return MakeFloat(v.Float() * other.Float())
+		return makeFloatSized(v.Float()*other.Float(), v.size)
 	case KindComplex:
 		a := v.obj.(complex128)
 		b := other.obj.(complex128)
@@ -68,11 +83,11 @@ func (v Value) Mul(other Value) Value {
 func (v Value) Div(other Value) Value {
 	switch v.kind { //nolint:exhaustive
 	case KindInt:
-		return MakeInt(v.num / other.Int())
+		return makeIntSized(v.num/other.Int(), v.size)
 	case KindUint:
-		return MakeUint(uint64(v.num) / other.Uint())
+		return makeUintSized(uint64(v.num)/other.Uint(), v.size)
 	case KindFloat:
-		return MakeFloat(v.Float() / other.Float())
+		return makeFloatSized(v.Float()/other.Float(), v.size)
 	case KindComplex:
 		a := v.obj.(complex128)
 		b := other.obj.(complex128)
@@ -87,11 +102,11 @@ func (v Value) Div(other Value) Value {
 func (v Value) Mod(other Value) Value {
 	switch v.kind { //nolint:exhaustive
 	case KindInt:
-		return MakeInt(v.num % other.Int())
+		return makeIntSized(v.num%other.Int(), v.size)
 	case KindUint:
-		return MakeUint(uint64(v.num) % other.Uint())
+		return makeUintSized(uint64(v.num)%other.Uint(), v.size)
 	case KindFloat:
-		return MakeFloat(math.Mod(v.Float(), other.Float()))
+		return makeFloatSized(math.Mod(v.Float(), other.Float()), v.size)
 	default:
 		panic(fmt.Sprintf("cannot mod %v", v.kind))
 	}
@@ -101,9 +116,9 @@ func (v Value) Mod(other Value) Value {
 func (v Value) Neg() Value {
 	switch v.kind { //nolint:exhaustive
 	case KindInt:
-		return MakeInt(-v.num)
+		return makeIntSized(-v.num, v.size)
 	case KindFloat:
-		return MakeFloat(-v.Float())
+		return makeFloatSized(-v.Float(), v.size)
 	case KindComplex:
 		c := v.obj.(complex128)
 		return MakeComplex(-real(c), -imag(c))
@@ -226,9 +241,9 @@ func (v Value) Equal(other Value) bool {
 func (v Value) And(other Value) Value {
 	switch v.kind {
 	case KindInt:
-		return MakeInt(v.num & other.Int())
+		return makeIntSized(v.num&other.Int(), v.size)
 	case KindUint:
-		return MakeUint(uint64(v.num) & other.Uint())
+		return makeUintSized(uint64(v.num)&other.Uint(), v.size)
 	default:
 		panic(fmt.Sprintf("cannot and %v", v.kind))
 	}
@@ -238,9 +253,9 @@ func (v Value) And(other Value) Value {
 func (v Value) Or(other Value) Value {
 	switch v.kind {
 	case KindInt:
-		return MakeInt(v.num | other.Int())
+		return makeIntSized(v.num|other.Int(), v.size)
 	case KindUint:
-		return MakeUint(uint64(v.num) | other.Uint())
+		return makeUintSized(uint64(v.num)|other.Uint(), v.size)
 	default:
 		panic(fmt.Sprintf("cannot or %v", v.kind))
 	}
@@ -250,9 +265,9 @@ func (v Value) Or(other Value) Value {
 func (v Value) Xor(other Value) Value {
 	switch v.kind {
 	case KindInt:
-		return MakeInt(v.num ^ other.Int())
+		return makeIntSized(v.num^other.Int(), v.size)
 	case KindUint:
-		return MakeUint(uint64(v.num) ^ other.Uint())
+		return makeUintSized(uint64(v.num)^other.Uint(), v.size)
 	default:
 		panic(fmt.Sprintf("cannot xor %v", v.kind))
 	}
@@ -262,9 +277,9 @@ func (v Value) Xor(other Value) Value {
 func (v Value) AndNot(other Value) Value {
 	switch v.kind {
 	case KindInt:
-		return MakeInt(v.num &^ other.Int())
+		return makeIntSized(v.num&^other.Int(), v.size)
 	case KindUint:
-		return MakeUint(uint64(v.num) &^ other.Uint())
+		return makeUintSized(uint64(v.num)&^other.Uint(), v.size)
 	default:
 		panic(fmt.Sprintf("cannot andnot %v", v.kind))
 	}
@@ -274,9 +289,9 @@ func (v Value) AndNot(other Value) Value {
 func (v Value) Lsh(n uint) Value {
 	switch v.kind {
 	case KindInt:
-		return MakeInt(v.num << n)
+		return makeIntSized(v.num<<n, v.size)
 	case KindUint:
-		return MakeUint(uint64(v.num) << n)
+		return makeUintSized(uint64(v.num)<<n, v.size)
 	default:
 		panic(fmt.Sprintf("cannot lsh %v", v.kind))
 	}
@@ -286,9 +301,9 @@ func (v Value) Lsh(n uint) Value {
 func (v Value) Rsh(n uint) Value {
 	switch v.kind {
 	case KindInt:
-		return MakeInt(v.num >> n)
+		return makeIntSized(v.num>>n, v.size)
 	case KindUint:
-		return MakeUint(uint64(v.num) >> n)
+		return makeUintSized(uint64(v.num)>>n, v.size)
 	default:
 		panic(fmt.Sprintf("cannot rsh %v", v.kind))
 	}

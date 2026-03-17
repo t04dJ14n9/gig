@@ -231,7 +231,16 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 	// Build int-specialized constant pool for OpInt* superinstructions
 	c.program.IntConstants = make([]int64, len(c.constants))
 	for i, k := range c.constants {
-		if v, ok := k.(int64); ok {
+		switch v := k.(type) {
+		case int:
+			c.program.IntConstants[i] = int64(v)
+		case int8:
+			c.program.IntConstants[i] = int64(v)
+		case int16:
+			c.program.IntConstants[i] = int64(v)
+		case int32:
+			c.program.IntConstants[i] = int64(v)
+		case int64:
 			c.program.IntConstants[i] = v
 		}
 	}

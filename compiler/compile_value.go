@@ -66,8 +66,39 @@ func (c *compiler) compileConst(cnst *ssa.Const) {
 		switch t.Kind() { //nolint:exhaustive
 		case types.Bool, types.UntypedBool:
 			v = cnst.Value != nil && cnst.Value.Kind() == constant.Bool && constant.BoolVal(cnst.Value)
-		case types.Int, types.Int8, types.Int16, types.Int32, types.Int64,
-			types.UntypedInt, types.UntypedRune:
+		case types.Int, types.UntypedInt, types.UntypedRune:
+			if cnst.Value != nil {
+				i, exact := constant.Int64Val(cnst.Value)
+				if exact {
+					v = int(i)
+				} else {
+					v = int(0)
+				}
+			} else {
+				v = int(0)
+			}
+		case types.Int8:
+			if cnst.Value != nil {
+				i, _ := constant.Int64Val(cnst.Value)
+				v = int8(i)
+			} else {
+				v = int8(0)
+			}
+		case types.Int16:
+			if cnst.Value != nil {
+				i, _ := constant.Int64Val(cnst.Value)
+				v = int16(i)
+			} else {
+				v = int16(0)
+			}
+		case types.Int32:
+			if cnst.Value != nil {
+				i, _ := constant.Int64Val(cnst.Value)
+				v = int32(i)
+			} else {
+				v = int32(0)
+			}
+		case types.Int64:
 			if cnst.Value != nil {
 				i, exact := constant.Int64Val(cnst.Value)
 				if exact {
@@ -78,13 +109,56 @@ func (c *compiler) compileConst(cnst *ssa.Const) {
 			} else {
 				v = int64(0)
 			}
-		case types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64, types.Uintptr:
+		case types.Uint:
 			if cnst.Value != nil {
-				v, _ = constant.Uint64Val(cnst.Value)
+				u, _ := constant.Uint64Val(cnst.Value)
+				v = uint(u)
+			} else {
+				v = uint(0)
+			}
+		case types.Uint8:
+			if cnst.Value != nil {
+				u, _ := constant.Uint64Val(cnst.Value)
+				v = uint8(u)
+			} else {
+				v = uint8(0)
+			}
+		case types.Uint16:
+			if cnst.Value != nil {
+				u, _ := constant.Uint64Val(cnst.Value)
+				v = uint16(u)
+			} else {
+				v = uint16(0)
+			}
+		case types.Uint32:
+			if cnst.Value != nil {
+				u, _ := constant.Uint64Val(cnst.Value)
+				v = uint32(u)
+			} else {
+				v = uint32(0)
+			}
+		case types.Uint64:
+			if cnst.Value != nil {
+				u, _ := constant.Uint64Val(cnst.Value)
+				v = u
 			} else {
 				v = uint64(0)
 			}
-		case types.Float32, types.Float64, types.UntypedFloat:
+		case types.Uintptr:
+			if cnst.Value != nil {
+				u, _ := constant.Uint64Val(cnst.Value)
+				v = uint64(u)
+			} else {
+				v = uint64(0)
+			}
+		case types.Float32:
+			if cnst.Value != nil {
+				f, _ := constant.Float64Val(cnst.Value)
+				v = float32(f)
+			} else {
+				v = float32(0)
+			}
+		case types.Float64, types.UntypedFloat:
 			if cnst.Value != nil {
 				f, _ := constant.Float64Val(cnst.Value)
 				v = f

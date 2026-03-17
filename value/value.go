@@ -15,11 +15,16 @@
 // # Memory Layout
 //
 // The Value struct is 32 bytes on 64-bit systems:
-//   - kind: 1 byte (type tag) + 7 bytes padding
+//   - kind: 1 byte (type tag)
+//   - size: 1 byte (original Go type bit-width for numeric kinds) + 6 bytes padding
 //   - num: 8 bytes (stores bool, int, uint bits, float bits)
 //   - obj: 16 bytes (interface for string, complex, reflect.Value, composite types)
 //
-// Primitives (int, float, bool, uint, nil) are stored entirely in kind+num with obj=nil,
+// The size field records the original Go type (e.g. int8 vs int32 vs int64) so that
+// Interface() can return the exact Go type declared in the user's source code.
+// It lives in the padding gap between kind and num, so it adds zero extra memory.
+//
+// Primitives (int, float, bool, uint, nil) are stored entirely in kind+size+num with obj=nil,
 // so they never cause GC pressure.
 //
 // # Kind Types
@@ -130,14 +135,28 @@ func (k Kind) String() string {
 	}
 }
 
+// Size records the original Go bit-width for numeric kinds.
+// It occupies 1 byte in the padding gap between kind and num (zero extra memory).
+type Size uint8
+
+const (
+	Size0   Size = 0  // default / unspecified (treated as widest: int64, uint64, float64)
+	Size8   Size = 8  // int8, uint8
+	Size16  Size = 16 // int16, uint16
+	Size32  Size = 32 // int32, uint32, float32
+	Size64  Size = 64 // int64, uint64, float64
+	SizePtr Size = 1  // int, uint (platform-dependent, but always 64-bit for Gig)
+)
+
 // Value is a tagged-union that stores Go values with minimal overhead.
 // For primitives (int, float, bool, uint, nil), operations are done directly
 // on the num field without touching obj. For complex types (string, complex,
 // reflect.Value, slices, maps, etc.), obj stores the value.
 //
-// Layout: 32 bytes (kind:1 + pad:7 + num:8 + obj:16)
+// Layout: 32 bytes (kind:1 + size:1 + pad:6 + num:8 + obj:16)
 type Value struct {
 	kind Kind
+	size Size  // original Go bit-width (lives in padding, zero extra memory)
 	num  int64 // Stores: bool (0/1), int, uint bits, float64 bits
 	obj  any   // string, complex128, reflect.Value, native Go composites, or nil for primitives
 }
@@ -195,20 +214,69 @@ func MakeBool(b bool) Value {
 	return Value{kind: KindBool, num: n}
 }
 
-// MakeInt creates an int value.
+// MakeInt creates an int value (platform-dependent, mapped to int64 internally).
 func MakeInt(i int64) Value {
-	return Value{kind: KindInt, num: i}
+	return Value{kind: KindInt, size: SizePtr, num: i}
 }
 
-// MakeUint creates a uint value.
+// MakeInt8 creates an int8 value.
+func MakeInt8(i int8) Value {
+	return Value{kind: KindInt, size: Size8, num: int64(i)}
+}
+
+// MakeInt16 creates an int16 value.
+func MakeInt16(i int16) Value {
+	return Value{kind: KindInt, size: Size16, num: int64(i)}
+}
+
+// MakeInt32 creates an int32 value.
+func MakeInt32(i int32) Value {
+	return Value{kind: KindInt, size: Size32, num: int64(i)}
+}
+
+// MakeInt64 creates an int64 value.
+func MakeInt64(i int64) Value {
+	return Value{kind: KindInt, size: Size64, num: i}
+}
+
+// MakeUint creates a uint value (platform-dependent, mapped to uint64 internally).
 func MakeUint(u uint64) Value {
-	return Value{kind: KindUint, num: int64(u)}
+	return Value{kind: KindUint, size: SizePtr, num: int64(u)}
 }
 
-// MakeFloat creates a float value.
-func MakeFloat(f float64) Value {
-	return Value{kind: KindFloat, num: int64(math.Float64bits(f))}
+// MakeUint8 creates a uint8 value.
+func MakeUint8(u uint8) Value {
+	return Value{kind: KindUint, size: Size8, num: int64(u)}
 }
+
+// MakeUint16 creates a uint16 value.
+func MakeUint16(u uint16) Value {
+	return Value{kind: KindUint, size: Size16, num: int64(u)}
+}
+
+// MakeUint32 creates a uint32 value.
+func MakeUint32(u uint32) Value {
+	return Value{kind: KindUint, size: Size32, num: int64(u)}
+}
+
+// MakeUint64 creates a uint64 value.
+func MakeUint64(u uint64) Value {
+	return Value{kind: KindUint, size: Size64, num: int64(u)}
+}
+
+// MakeFloat creates a float64 value.
+func MakeFloat(f float64) Value {
+	return Value{kind: KindFloat, size: Size64, num: int64(math.Float64bits(f))}
+}
+
+// MakeFloat32 creates a float32 value.
+func MakeFloat32(f float32) Value {
+	return Value{kind: KindFloat, size: Size32, num: int64(math.Float64bits(float64(f)))}
+}
+
+// RawSize returns the size tag of a Value. Used by arithmetic ops to propagate
+// the original type width through computations.
+func (v Value) RawSize() Size { return v.size }
 
 // MakeString creates a string value.
 func MakeString(s string) Value {
@@ -297,11 +365,29 @@ func MakeFromReflect(rv reflect.Value) Value {
 	switch kind {
 	case reflect.Bool:
 		return MakeBool(rv.Bool())
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+	case reflect.Int:
 		return MakeInt(rv.Int())
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+	case reflect.Int8:
+		return MakeInt8(int8(rv.Int()))
+	case reflect.Int16:
+		return MakeInt16(int16(rv.Int()))
+	case reflect.Int32:
+		return MakeInt32(int32(rv.Int()))
+	case reflect.Int64:
+		return MakeInt64(rv.Int())
+	case reflect.Uint:
 		return MakeUint(rv.Uint())
-	case reflect.Float32, reflect.Float64:
+	case reflect.Uint8:
+		return MakeUint8(uint8(rv.Uint()))
+	case reflect.Uint16:
+		return MakeUint16(uint16(rv.Uint()))
+	case reflect.Uint32:
+		return MakeUint32(uint32(rv.Uint()))
+	case reflect.Uint64, reflect.Uintptr:
+		return MakeUint64(rv.Uint())
+	case reflect.Float32:
+		return MakeFloat32(float32(rv.Float()))
+	case reflect.Float64:
 		return MakeFloat(rv.Float())
 	case reflect.String:
 		return MakeString(rv.String())
@@ -324,32 +410,33 @@ func FromInterface(v any) Value {
 	if v == nil {
 		return MakeNil()
 	}
-	// Fast path: detect []byte via type switch to avoid reflect.ValueOf
+	// Fast path: detect common types via type switch to avoid reflect.ValueOf.
+	// Each case uses the typed constructor to preserve the original Go type.
 	switch val := v.(type) {
 	case bool:
 		return MakeBool(val)
 	case int:
 		return MakeInt(int64(val))
 	case int8:
-		return MakeInt(int64(val))
+		return MakeInt8(val)
 	case int16:
-		return MakeInt(int64(val))
+		return MakeInt16(val)
 	case int32:
-		return MakeInt(int64(val))
+		return MakeInt32(val)
 	case int64:
-		return MakeInt(val)
+		return MakeInt64(val)
 	case uint:
 		return MakeUint(uint64(val))
 	case uint8:
-		return MakeUint(uint64(val))
+		return MakeUint8(val)
 	case uint16:
-		return MakeUint(uint64(val))
+		return MakeUint16(val)
 	case uint32:
-		return MakeUint(uint64(val))
+		return MakeUint32(val)
 	case uint64:
-		return MakeUint(val)
+		return MakeUint64(val)
 	case float32:
-		return MakeFloat(float64(val))
+		return MakeFloat32(val)
 	case float64:
 		return MakeFloat(val)
 	case string:

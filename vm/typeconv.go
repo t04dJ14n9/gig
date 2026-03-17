@@ -13,14 +13,6 @@ func typeToReflect(t types.Type) reflect.Type {
 	return typeToReflectWithCache(t, make(map[types.Type]reflect.Type))
 }
 
-// TypeToReflect is the exported form of typeToReflect.
-// It converts a go/types.Type to reflect.Type so the public API layer (gig.go)
-// can map internal Value representations back to the exact Go types declared in
-// the user's source code (e.g. int instead of int64).
-func TypeToReflect(t types.Type) reflect.Type {
-	return typeToReflect(t)
-}
-
 // typeToReflectWithCache is the internal recursive helper that carries a cache
 // to detect and break cycles caused by self-referencing types.
 // When a *types.Named is encountered a second time (cycle), the pointer field

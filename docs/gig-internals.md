@@ -48,12 +48,15 @@ Before we dive into compilation and execution, we must understand the most funda
 // value/value.go
 type Value struct {
     kind Kind    // 1 byte: type tag
+    size Size    // 1 byte: original Go bit-width (lives in padding, zero extra memory)
     num  int64   // 8 bytes: bool, int, uint bits, float64 bits
     obj  any     // 16 bytes: string, reflect.Value, *Closure, []int64, etc.
 }
 ```
 
 The total size is **32 bytes** on 64-bit systems. This is a tagged-union design, inspired by how Lua and other dynamic languages represent values, but adapted for Go's type system.
+
+The `size` field records the original Go type's bit-width (8, 16, 32, 64, or a special marker for platform-dependent `int`/`uint`). It occupies one byte of the 7-byte padding gap between `kind` and `num` — zero extra memory cost. The field is only inspected on the cold path (`Interface()`) when converting back to a Go `any` value; the hot path (arithmetic, comparison) only dispatches on `kind`, so there is no performance impact.
 
 The key insight is the **two-tier split** between primitive and composite types:
 

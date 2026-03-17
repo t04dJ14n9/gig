@@ -72,6 +72,8 @@ func (v Value) Complex() complex128 {
 }
 
 // Interface returns the value as an interface{}.
+// For numeric kinds, the returned type matches the original Go type recorded
+// by the size field (e.g. int8, int32, int64, float32, etc.).
 func (v Value) Interface() any {
 	switch v.kind {
 	case KindNil:
@@ -79,11 +81,37 @@ func (v Value) Interface() any {
 	case KindBool:
 		return v.Bool()
 	case KindInt:
-		return v.Int()
+		switch v.size {
+		case Size8:
+			return int8(v.num)
+		case Size16:
+			return int16(v.num)
+		case Size32:
+			return int32(v.num)
+		case Size64:
+			return v.num // int64
+		default:
+			return int(v.num) // SizePtr / Size0 → int
+		}
 	case KindUint:
-		return v.Uint()
+		switch v.size {
+		case Size8:
+			return uint8(v.num)
+		case Size16:
+			return uint16(v.num)
+		case Size32:
+			return uint32(v.num)
+		case Size64:
+			return uint64(v.num)
+		default:
+			return uint(v.num) // SizePtr / Size0 → uint
+		}
 	case KindFloat:
-		return v.Float()
+		f := math.Float64frombits(uint64(v.num))
+		if v.size == Size32 {
+			return float32(f)
+		}
+		return f // float64
 	case KindString:
 		return v.obj.(string)
 	case KindComplex:

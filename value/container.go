@@ -62,7 +62,7 @@ func (v Value) Index(i int) Value {
 	switch v.kind {
 	case KindString:
 		// s[i] returns a byte (uint8), not a string
-		return MakeUint(uint64(v.obj.(string)[i]))
+		return MakeUint8(v.obj.(string)[i])
 	case KindSlice:
 		// Native int slice fast path
 		if s, ok := v.obj.([]int64); ok {
