@@ -926,6 +926,29 @@ var allCorrectnessTests = map[string]testCase{
 	"tricky/MapTransform":      {trickySrc, "MapTransform", nil, tricky.MapTransform},
 	"tricky/SliceContains":     {trickySrc, "SliceContains", nil, tricky.SliceContains},
 	"tricky/MapKeys":           {trickySrc, "MapKeys", nil, tricky.MapKeys},
+	// Parameterized tricky tests - PASSING
+	"tricky/ModuloWithNegative":    {trickySrc, "ModuloWithNegative", []any{-17, 5}, tricky.ModuloWithNegative},
+	"tricky/PowerRecursive":        {trickySrc, "PowerRecursive", []any{2, 10}, tricky.PowerRecursive},
+	"tricky/GCD":                   {trickySrc, "GCD", []any{48, 18}, tricky.GCD},
+	"tricky/LCM":                   {trickySrc, "LCM", []any{4, 6}, tricky.LCM},
+	"tricky/SumOfDigits":           {trickySrc, "SumOfDigits", []any{12345}, tricky.SumOfDigits},
+	// "tricky/BinomialCoefficient":   {trickySrc, "BinomialCoefficient", []any{5, 2}, tricky.BinomialCoefficient}, // failing
+	"tricky/MapEqualParam":         {trickySrc, "MapEqualParam", []any{map[string]int{"a": 1, "b": 2}, map[string]int{"a": 1, "b": 2}}, tricky.MapEqualParam},
+	"tricky/StringJoinParam":       {trickySrc, "StringJoinParam", []any{[]string{"a", "b", "c"}, ","}, tricky.StringJoinParam},
+	"tricky/SliceEqualParam":       {trickySrc, "SliceEqualParam", []any{[]int{1, 2, 3}, []int{1, 2, 3}}, tricky.SliceEqualParam},
+	"tricky/MapInvertParam":        {trickySrc, "MapInvertParam", []any{map[string]int{"a": 1, "b": 2, "c": 3}}, tricky.MapInvertParam},
+	// KNOWN FAILING TESTS (bugs found!):
+	// "tricky/StringReverse":      {trickySrc, "StringReverse", []any{"hello"}, tricky.StringReverse}, // panic: invalid reflect.Value in SetElem()
+	// "tricky/Clamp":              {trickySrc, "Clamp", []any{150, 0, 100}, tricky.Clamp}, // returns 0 instead of 100
+	// "tricky/SliceUniqueParam":   {trickySrc, "SliceUniqueParam", []any{[]int{1, 2, 2, 3, 3, 3}}, tricky.SliceUniqueParam}, // type mismatch []int64 vs []int
+	// "tricky/SliceInterleave":    {trickySrc, "SliceInterleave", []any{[]int{1, 3, 5}, []int{2, 4, 6}}, tricky.SliceInterleave}, // type mismatch []int64 vs []int
+	// "tricky/SliceRotateLeftParam": {trickySrc, "SliceRotateLeftParam", []any{[]int{1, 2, 3, 4, 5}, 2}, tricky.SliceRotateLeftParam}, // type mismatch []int64 vs []int
+	// "tricky/MapDeepCopy":        {trickySrc, "MapDeepCopy", []any{map[int][]int{1: {1, 2}, 2: {3, 4}}}, tricky.MapDeepCopy}, // complex map with slice values
+	// "tricky/FibonacciNth":       {trickySrc, "FibonacciNth", []any{20}, tricky.FibonacciNth}, // mismatch
+	// "tricky/BitCountOnes":       {trickySrc, "BitCountOnes", []any{255}, tricky.BitCountOnes}, // panic: not an int: uint
+	// "tricky/IsPrime":            {trickySrc, "IsPrime", []any{17}, tricky.IsPrime}, // mismatch
+	// "tricky/FactorialIterative": {trickySrc, "FactorialIterative", []any{5}, tricky.FactorialIterative}, // mismatch
+	// "tricky/Sign":               {trickySrc, "Sign", []any{-42}, tricky.Sign}, // returns 0 instead of -1
 
 	// ============================================================================
 	// typeconv

@@ -10843,3 +10843,280 @@ func StructWithChanNilInitTest() int {
 	}
 	return <-s.ch
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PARAMETERIZED TRICKY TESTS - New tests with arguments
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ModuloWithNegative tests modulo with negative numbers
+func ModuloWithNegative(a, b int) int {
+	return a % b
+}
+
+// PowerRecursive computes base^exp recursively
+func PowerRecursive(base, exp int) int {
+	if exp == 0 {
+		return 1
+	}
+	if exp%2 == 0 {
+		half := PowerRecursive(base, exp/2)
+		return half * half
+	}
+	return base * PowerRecursive(base, exp-1)
+}
+
+// SliceRotateLeftParam rotates slice left by n positions
+func SliceRotateLeftParam(s []int, n int) []int {
+	if len(s) == 0 {
+		return s
+	}
+	n = n % len(s)
+	result := make([]int, len(s))
+	for i := 0; i < len(s); i++ {
+		newPos := (i - n + len(s)) % len(s)
+		result[newPos] = s[i]
+	}
+	return result
+}
+
+// MapInvertParam swaps keys and values (values must be unique)
+func MapInvertParam(m map[string]int) map[int]string {
+	result := make(map[int]string)
+	for k, v := range m {
+		result[v] = k
+	}
+	return result
+}
+
+// FibonacciNth returns the nth fibonacci number
+func FibonacciNth(n int) int {
+	if n <= 1 {
+		return n
+	}
+	a, b := 0, 1
+	for i := 2; i <= n; i++ {
+		a, b = b, a+b
+	}
+	return b
+}
+
+// BitCountOnes counts set bits in n
+func BitCountOnes(n int) int {
+	count := 0
+	for n != 0 {
+		count += n & 1
+		n >>= 1
+	}
+	return count
+}
+
+// StringReverse reverses a string
+func StringReverse(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
+}
+
+// GCD computes greatest common divisor
+func GCD(a, b int) int {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	return a
+}
+
+// LCM computes least common multiple
+func LCM(a, b int) int {
+	if a == 0 || b == 0 {
+		return 0
+	}
+	return (a * b) / GCD(a, b)
+}
+
+// IsPrime checks if n is prime
+func IsPrime(n int) bool {
+	if n <= 1 {
+		return false
+	}
+	if n <= 3 {
+		return true
+	}
+	if n%2 == 0 || n%3 == 0 {
+		return false
+	}
+	for i := 5; i*i <= n; i += 6 {
+		if n%i == 0 || n%(i+2) == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// SumOfDigits returns sum of decimal digits
+func SumOfDigits(n int) int {
+	if n < 0 {
+		n = -n
+	}
+	sum := 0
+	for n > 0 {
+		sum += n % 10
+		n /= 10
+	}
+	return sum
+}
+
+// SliceInterleave interleaves two slices
+func SliceInterleave(a, b []int) []int {
+	result := make([]int, 0, len(a)+len(b))
+	i, j := 0, 0
+	for i < len(a) || j < len(b) {
+		if i < len(a) {
+			result = append(result, a[i])
+			i++
+		}
+		if j < len(b) {
+			result = append(result, b[j])
+			j++
+		}
+	}
+	return result
+}
+
+// MapDeepCopy creates a deep copy of a nested structure
+func MapDeepCopy(m map[int][]int) map[int][]int {
+	result := make(map[int][]int)
+	for k, v := range m {
+		newSlice := make([]int, len(v))
+		copy(newSlice, v)
+		result[k] = newSlice
+	}
+	return result
+}
+
+// FactorialIterative computes factorial iteratively
+func FactorialIterative(n int) int {
+	if n < 0 {
+		return 0
+	}
+	result := 1
+	for i := 2; i <= n; i++ {
+		result *= i
+	}
+	return result
+}
+
+// BinomialCoefficient computes C(n, k)
+func BinomialCoefficient(n, k int) int {
+	if k < 0 || k > n {
+		return 0
+	}
+	if k == 0 || k == n {
+		return 1
+	}
+	result := 1
+	if k > n-k {
+		k = n - k
+	}
+	for i := 0; i < k; i++ {
+		result = result * (n - i) / (i + 1)
+	}
+	return result
+}
+
+// NextPermutation generates next lexicographic permutation
+func NextPermutation(s []int) bool {
+	// Find non-increasing suffix
+	i := len(s) - 2
+	for i >= 0 && s[i] >= s[i+1] {
+		i--
+	}
+	if i < 0 {
+		return false // Last permutation
+	}
+	// Find successor to pivot
+	j := len(s) - 1
+	for s[j] <= s[i] {
+		j--
+	}
+	s[i], s[j] = s[j], s[i]
+	// Reverse suffix
+	for left, right := i+1, len(s)-1; left < right; left, right = left+1, right-1 {
+		s[left], s[right] = s[right], s[left]
+	}
+	return true
+}
+
+// Sign returns -1, 0, or 1 based on sign of n
+func Sign(n int) int {
+	if n < 0 {
+		return -1
+	}
+	if n > 0 {
+		return 1
+	}
+	return 0
+}
+
+// Clamp restricts n to [min, max] range
+func Clamp(n, min, max int) int {
+	if n < min {
+		return min
+	}
+	if n > max {
+		return max
+	}
+	return n
+}
+
+// SliceUniqueParam returns unique elements preserving order
+func SliceUniqueParam(s []int) []int {
+	seen := make(map[int]bool)
+	result := make([]int, 0)
+	for _, v := range s {
+		if !seen[v] {
+			seen[v] = true
+			result = append(result, v)
+		}
+	}
+	return result
+}
+
+// MapEqualParam compares two maps for equality
+func MapEqualParam(a, b map[string]int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if bv, ok := b[k]; !ok || bv != v {
+			return false
+		}
+	}
+	return true
+}
+
+// StringJoinParam joins strings with separator
+func StringJoinParam(strs []string, sep string) string {
+	if len(strs) == 0 {
+		return ""
+	}
+	result := strs[0]
+	for i := 1; i < len(strs); i++ {
+		result += sep + strs[i]
+	}
+	return result
+}
+
+// SliceEqualParam compares two slices for equality
+func SliceEqualParam(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
