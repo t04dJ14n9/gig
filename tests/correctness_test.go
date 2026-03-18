@@ -1631,7 +1631,7 @@ var allCorrectnessTests = map[string]testCase{
 	"tricky/StructCopyValueTest":                {trickySrc, "StructCopyValueTest", nil, tricky.StructCopyValueTest},
 	"tricky/StructEmbeddedAccessTest":           {trickySrc, "StructEmbeddedAccessTest", nil, tricky.StructEmbeddedAccessTest},
 	"tricky/StructEmbeddedFldAccess":            {trickySrc, "StructEmbeddedFldAccess", nil, tricky.StructEmbeddedFldAccess},
-	// Note: tricky/StructEmbeddedInterface moved to known_issue_test.go - flaky when run with other tests
+	// Note: tricky/StructEmbeddedInterface moved to known_issue_test.go - complex interface/embedding issue
 	"tricky/StructEmbeddedMethodOverride":       {trickySrc, "StructEmbeddedMethodOverride", nil, tricky.StructEmbeddedMethodOverride},
 	"tricky/StructEmbeddedMethodOverrideTest":   {trickySrc, "StructEmbeddedMethodOverrideTest", nil, tricky.StructEmbeddedMethodOverrideTest},
 	"tricky/StructEmbeddedNil":                  {trickySrc, "StructEmbeddedNil", nil, tricky.StructEmbeddedNil},

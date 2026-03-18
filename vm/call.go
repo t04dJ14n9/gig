@@ -360,6 +360,8 @@ func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo,
 			return nil
 		}
 		rv = rv.Elem()
+		// Update args[0] with the unwrapped value for callCompiledMethod
+		args[0] = value.MakeFromReflect(rv)
 	}
 
 	// Look up the method by name

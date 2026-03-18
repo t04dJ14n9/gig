@@ -69,7 +69,7 @@ func TestKnownIssues_Tricky(t *testing.T) {
 			funcName: "StructEmbeddedInterface",
 			args:     nil,
 			native:   tricky.StructEmbeddedInterface,
-			issue:    "flaky: passes in isolation but fails when run with other tests - possible reflect.StructOf type collision",
+			issue:    "embedded interface field with struct pointer: reflect.StructOf type collision and interface method dispatch",
 		},
 	}
 

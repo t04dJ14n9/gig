@@ -10,7 +10,7 @@ import (
 // It handles basic types, slices, arrays, maps, channels, pointers, structs, and functions.
 // It is safe for self-referencing struct types (e.g., type node struct { next *node }).
 func typeToReflect(t types.Type) reflect.Type {
-	return typeToReflectWithCache(t, make(map[types.Type]reflect.Type))
+	return typeToReflectWithCache(t, make(map[types.Type]reflect.Type), "")
 }
 
 // typeToReflectWithCache is the internal recursive helper that carries a cache
@@ -18,7 +18,9 @@ func typeToReflect(t types.Type) reflect.Type {
 // When a *types.Named is encountered a second time (cycle), the pointer field
 // that caused the recursion is replaced with unsafe.Pointer, which has the same
 // size and alignment as any Go pointer.
-func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type) reflect.Type {
+// The uniqueSuffix parameter is used to create unique reflect.Types for named structs
+// to prevent reflect.StructOf from deduplicating different types with same field layout.
+func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type, uniqueSuffix string) reflect.Type {
 	if t == nil {
 		return nil
 	}
@@ -69,32 +71,32 @@ func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type) ref
 			return nil
 		}
 	case *types.Slice:
-		elem := typeToReflectWithCache(tt.Elem(), cache)
+		elem := typeToReflectWithCache(tt.Elem(), cache, "")
 		if elem != nil {
 			return reflect.SliceOf(elem)
 		}
 		return nil
 	case *types.Array:
-		elem := typeToReflectWithCache(tt.Elem(), cache)
+		elem := typeToReflectWithCache(tt.Elem(), cache, "")
 		if elem != nil {
 			return reflect.ArrayOf(int(tt.Len()), elem)
 		}
 		return nil
 	case *types.Map:
-		key := typeToReflectWithCache(tt.Key(), cache)
-		val := typeToReflectWithCache(tt.Elem(), cache)
+		key := typeToReflectWithCache(tt.Key(), cache, "")
+		val := typeToReflectWithCache(tt.Elem(), cache, "")
 		if key != nil && val != nil {
 			return reflect.MapOf(key, val)
 		}
 		return nil
 	case *types.Chan:
-		elem := typeToReflectWithCache(tt.Elem(), cache)
+		elem := typeToReflectWithCache(tt.Elem(), cache, "")
 		if elem != nil {
 			return reflect.ChanOf(reflect.BothDir, elem)
 		}
 		return nil
 	case *types.Pointer:
-		elem := typeToReflectWithCache(tt.Elem(), cache)
+		elem := typeToReflectWithCache(tt.Elem(), cache, "")
 		if elem != nil {
 			return reflect.PointerTo(elem)
 		}
@@ -114,7 +116,13 @@ func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type) ref
 		// cache check at the top returns nil, and the *types.Pointer case
 		// falls back to unsafe.Pointer.
 		cache[tt] = nil
-		result := typeToReflectWithCache(tt.Underlying(), cache)
+		// Pass a unique suffix based on the type name to prevent reflect.StructOf
+		// from deduplicating different named types with the same field layout.
+		// This is needed because reflect.StructOf caches types internally by
+		// (fields, PkgPath), so two structs like GetterImpl{v int} and AdderStruct{v int}
+		// would otherwise get the same reflect.Type.
+		typeName := tt.Obj().Name()
+		result := typeToReflectWithCache(tt.Underlying(), cache, "#"+typeName)
 		if result != nil {
 			cache[tt] = result
 		}
@@ -125,7 +133,13 @@ func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type) ref
 		fields := make([]reflect.StructField, 0, numFields)
 		for i := 0; i < numFields; i++ {
 			f := tt.Field(i)
-			ft := typeToReflectWithCache(f.Type(), cache)
+			// For named field types, use the type's own unique suffix
+			// This ensures embedded structs maintain their type identity
+			fieldSuffix := ""
+			if named, ok := f.Type().(*types.Named); ok {
+				fieldSuffix = "#" + named.Obj().Name()
+			}
+			ft := typeToReflectWithCache(f.Type(), cache, fieldSuffix)
 			if ft == nil {
 				// Skip fields that could not be converted (shouldn't normally happen
 				// unless there's a deep cycle on a non-pointer path).
@@ -140,11 +154,20 @@ func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type) ref
 			// reflect.StructOf does NOT support anonymous unexported fields (it panics
 			// with "is anonymous but has PkgPath set" or "is unexported but missing PkgPath").
 			// Workaround: demote anonymous unexported fields to regular unexported fields.
+			//
+			// CRITICAL: We append uniqueSuffix to PkgPath to prevent reflect.StructOf from
+			// deduplicating different named types with the same field layout.
+			// e.g., GetterImpl{v int} and AdderStruct{v int} should have different types.
+			// The uniqueSuffix is passed from the *types.Named case and contains "#TypeName".
 			if !f.Exported() {
 				if sf.Anonymous {
 					sf.Anonymous = false
 				}
-				sf.PkgPath = f.Pkg().Path()
+				pkgPath := f.Pkg().Path()
+				if uniqueSuffix != "" {
+					pkgPath = pkgPath + uniqueSuffix
+				}
+				sf.PkgPath = pkgPath
 			}
 			if tag := tt.Tag(i); tag != "" {
 				sf.Tag = reflect.StructTag(tag)
@@ -161,7 +184,7 @@ func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type) ref
 		params := tt.Params()
 		paramTypes := make([]reflect.Type, params.Len())
 		for i := 0; i < params.Len(); i++ {
-			pt := typeToReflectWithCache(params.At(i).Type(), cache)
+			pt := typeToReflectWithCache(params.At(i).Type(), cache, "")
 			if pt == nil {
 				return nil
 			}
@@ -171,7 +194,7 @@ func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type) ref
 		results := tt.Results()
 		resultTypes := make([]reflect.Type, results.Len())
 		for i := 0; i < results.Len(); i++ {
-			rt := typeToReflectWithCache(results.At(i).Type(), cache)
+			rt := typeToReflectWithCache(results.At(i).Type(), cache, "")
 			if rt == nil {
 				return nil
 			}

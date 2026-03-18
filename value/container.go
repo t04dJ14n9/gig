@@ -256,8 +256,14 @@ func (v Value) SetElem(val Value) {
 				return
 			}
 			// If val contains a pointer type and elemType is not, unwrap it
+			// But NOT if elemType is interface{} - interfaces can hold pointers
 			if val.Kind() == KindReflect {
 				if valRV, ok := val.obj.(reflect.Value); ok && valRV.Kind() == reflect.Ptr {
+					// Special case: if elemType is interface{}, we can assign any value to it
+					if elemType.Kind() == reflect.Interface {
+						rv.Elem().Set(valRV)
+						return
+					}
 					// val is a pointer, check if it points to elemType
 					if valRV.Type().Elem() == elemType {
 						rv.Elem().Set(valRV.Elem())
