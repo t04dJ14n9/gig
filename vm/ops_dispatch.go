@@ -158,12 +158,24 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		vm.push(a.AndNot(b))
 
 	case bytecode.OpLsh:
-		n := uint(vm.pop().Int())
+		shiftVal := vm.pop()
+		var n uint
+		if shiftVal.Kind() == value.KindUint {
+			n = uint(shiftVal.Uint())
+		} else {
+			n = uint(shiftVal.Int())
+		}
 		a := vm.pop()
 		vm.push(a.Lsh(n))
 
 	case bytecode.OpRsh:
-		n := uint(vm.pop().Int())
+		shiftVal := vm.pop()
+		var n uint
+		if shiftVal.Kind() == value.KindUint {
+			n = uint(shiftVal.Uint())
+		} else {
+			n = uint(shiftVal.Int())
+		}
 		a := vm.pop()
 		vm.push(a.Rsh(n))
 
@@ -820,6 +832,22 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					} else {
 						vm.push(value.MakeString(""))
 					}
+				case value.KindReflect:
+					// Handle string([]rune) / string([]int32)
+					if rv, ok := val.ReflectValue(); ok && rv.Kind() == reflect.Slice {
+						elemKind := rv.Type().Elem().Kind()
+						if elemKind == reflect.Int32 {
+							runes := make([]rune, rv.Len())
+							for i := 0; i < rv.Len(); i++ {
+								runes[i] = rune(rv.Index(i).Int())
+							}
+							vm.push(value.MakeString(string(runes)))
+						} else {
+							vm.push(value.MakeString(fmt.Sprintf("%v", val.Interface())))
+						}
+					} else {
+						vm.push(value.MakeString(fmt.Sprintf("%v", val.Interface())))
+					}
 				default:
 					// Use reflection for other types
 					vm.push(value.MakeString(fmt.Sprintf("%v", val.Interface())))
@@ -851,6 +879,34 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			case types.Float64:
 				vm.push(value.MakeFloat(toFloat64(val)))
 			default:
+				vm.push(val)
+			}
+		case *types.Slice:
+			// Handle string -> []rune or string -> []byte conversions
+			elem := t.Elem()
+			if basic, ok := elem.(*types.Basic); ok {
+				switch basic.Kind() {
+				case types.Int32: // []rune(string) or []int32(string)
+					if val.Kind() == value.KindString {
+						runes := []rune(val.String())
+						rs := reflect.MakeSlice(reflect.TypeOf([]int32{}), len(runes), len(runes))
+						for i, r := range runes {
+							rs.Index(i).SetInt(int64(r))
+						}
+						vm.push(value.MakeFromReflect(rs))
+					} else {
+						vm.push(val)
+					}
+				case types.Uint8: // []byte(string)
+					if val.Kind() == value.KindString {
+						vm.push(value.MakeBytes([]byte(val.String())))
+					} else {
+						vm.push(val)
+					}
+				default:
+					vm.push(val)
+				}
+			} else {
 				vm.push(val)
 			}
 		default:
@@ -1382,12 +1438,36 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				vm.push(value.MakeInt(int64(copy(ds, ss))))
 				break
 			}
+			// Cross-type: dst is native []int64, src is reflect slice (e.g. []int)
+			if srcRV, ok2 := src.ReflectValue(); ok2 && srcRV.Kind() == reflect.Slice {
+				n := len(ds)
+				if srcRV.Len() < n {
+					n = srcRV.Len()
+				}
+				for i := 0; i < n; i++ {
+					ds[i] = srcRV.Index(i).Int()
+				}
+				vm.push(value.MakeInt(int64(n)))
+				break
+			}
 		}
 		// Copy slice
 		if dstRV, ok := dst.ReflectValue(); ok {
 			if srcRV, ok := src.ReflectValue(); ok {
 				n := reflect.Copy(dstRV, srcRV)
 				vm.push(value.MakeInt(int64(n)))
+			} else if ss, ok2 := src.IntSlice(); ok2 {
+				// Cross-type: dst is reflect slice, src is native []int64
+				n := dstRV.Len()
+				if len(ss) < n {
+					n = len(ss)
+				}
+				for i := 0; i < n; i++ {
+					dstRV.Index(i).SetInt(ss[i])
+				}
+				vm.push(value.MakeInt(int64(n)))
+			} else {
+				vm.push(value.MakeInt(0))
 			}
 		} else {
 			vm.push(value.MakeInt(0))

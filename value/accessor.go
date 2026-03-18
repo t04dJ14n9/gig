@@ -120,6 +120,16 @@ func (v Value) Interface() any {
 		return v.obj
 	case KindBytes:
 		return v.obj.([]byte)
+	case KindSlice:
+		// Native int slice: convert []int64 to []int for Go-compatible return
+		if s, ok := v.obj.([]int64); ok {
+			result := make([]int, len(s))
+			for i, n := range s {
+				result[i] = int(n)
+			}
+			return result
+		}
+		return v.obj
 	case KindReflect:
 		if rv, ok := v.obj.(reflect.Value); ok {
 			return rv.Interface()

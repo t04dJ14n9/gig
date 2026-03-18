@@ -173,8 +173,23 @@ func (c *compiler) compileBlock(block *ssa.BasicBlock) {
 			c.emitJump(block.Succs[0])
 		case *ssa.If:
 			c.compileValue(term.Cond)
+			// Emit OpJumpTrue with a placeholder offset — we'll patch it after
+			// emitting the false-branch phi moves so they only execute when
+			// the condition is false.
+			jumpTrueOffset := len(c.currentFunc.Instructions)
+			c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+				byte(bytecode.OpJumpTrue), 0, 0)
+
+			// False branch: phi moves + jump (only reached when condition is false)
 			c.emitPhiMoves(block, block.Succs[1])
-			c.emitJumpFalse(block.Succs[1])
+			c.emitJump(block.Succs[1])
+
+			// Patch the OpJumpTrue to land here (true branch)
+			trueLandingOffset := len(c.currentFunc.Instructions)
+			c.currentFunc.Instructions[jumpTrueOffset+1] = byte(trueLandingOffset >> 8)
+			c.currentFunc.Instructions[jumpTrueOffset+2] = byte(trueLandingOffset)
+
+			// True branch: phi moves + jump (only reached when condition is true)
 			c.emitPhiMoves(block, block.Succs[0])
 			c.emitJump(block.Succs[0])
 		case *ssa.Panic:

@@ -264,6 +264,10 @@ func (vm *VM) Execute(funcName string, ctx context.Context, args ...value.Value)
 	for i, arg := range valArgs {
 		if i < fn.NumLocals {
 			frame.locals[i] = arg
+			// Mirror int parameters into intLocals for OpInt* opcodes
+			if frame.intLocals != nil {
+				frame.intLocals[i] = arg.RawInt()
+			}
 		}
 	}
 	vm.frames[0] = frame
@@ -290,6 +294,10 @@ func (vm *VM) ExecuteWithValues(funcName string, ctx context.Context, args []val
 	for i, arg := range args {
 		if i < fn.NumLocals {
 			frame.locals[i] = arg
+			// Mirror int parameters into intLocals for OpInt* opcodes
+			if frame.intLocals != nil {
+				frame.intLocals[i] = arg.RawInt()
+			}
 		}
 	}
 	vm.frames[0] = frame

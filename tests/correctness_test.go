@@ -936,7 +936,19 @@ var allCorrectnessTests = map[string]testCase{
 	"tricky/StringJoinParam":       {trickySrc, "StringJoinParam", []any{[]string{"a", "b", "c"}, ","}, tricky.StringJoinParam},
 	"tricky/SliceEqualParam":       {trickySrc, "SliceEqualParam", []any{[]int{1, 2, 3}, []int{1, 2, 3}}, tricky.SliceEqualParam},
 	"tricky/MapInvertParam":        {trickySrc, "MapInvertParam", []any{map[string]int{"a": 1, "b": 2, "c": 3}}, tricky.MapInvertParam},
-	// NOTE: Known failing tests moved to known_issue_test.go
+	// Previously known issues — now fixed
+	"tricky/StringReverse":         {trickySrc, "StringReverse", []any{"hello"}, tricky.StringReverse},
+	"tricky/Clamp":                 {trickySrc, "Clamp", []any{150, 0, 100}, tricky.Clamp},
+	"tricky/Sign":                  {trickySrc, "Sign", []any{-42}, tricky.Sign},
+	"tricky/SliceUniqueParam":      {trickySrc, "SliceUniqueParam", []any{[]int{1, 2, 2, 3, 3, 3}}, tricky.SliceUniqueParam},
+	"tricky/SliceInterleave":       {trickySrc, "SliceInterleave", []any{[]int{1, 3, 5}, []int{2, 4, 6}}, tricky.SliceInterleave},
+	"tricky/SliceRotateLeftParam":  {trickySrc, "SliceRotateLeftParam", []any{[]int{1, 2, 3, 4, 5}, 2}, tricky.SliceRotateLeftParam},
+	"tricky/BitCountOnes":          {trickySrc, "BitCountOnes", []any{255}, tricky.BitCountOnes},
+	"tricky/BinomialCoefficient":   {trickySrc, "BinomialCoefficient", []any{5, 2}, tricky.BinomialCoefficient},
+	"tricky/FibonacciNth":          {trickySrc, "FibonacciNth", []any{20}, tricky.FibonacciNth},
+	"tricky/IsPrime":               {trickySrc, "IsPrime", []any{17}, tricky.IsPrime},
+	"tricky/FactorialIterative":    {trickySrc, "FactorialIterative", []any{5}, tricky.FactorialIterative},
+	"tricky/MapDeepCopy":           {trickySrc, "MapDeepCopy", []any{map[int][]int{1: {1, 2}, 2: {3, 4}}}, tricky.MapDeepCopy},
 
 	// ============================================================================
 	// typeconv
