@@ -200,3 +200,22 @@ func collatzSteps(n int) int {
 	}
 	return steps
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// Reverse returns the reversed slice
+func Reverse(s []int) []int { return reverse(s) }
+
+// Power computes base^exp using fast exponentiation
+func Power(base, exp int) int { return power(base, exp) }
+
+// CountDigitsN returns the number of digits in n
+func CountDigitsN(n int) int { return countDigits(n) }
+
+// CollatzStepsN returns the number of steps to reach 1 from n
+func CollatzStepsN(n int) int { return collatzSteps(n) }
+
+// IsPalindromeInt returns 1 if s is a palindrome, 0 otherwise
+func IsPalindromeInt(s []int) int { return isPalindrome(s) }

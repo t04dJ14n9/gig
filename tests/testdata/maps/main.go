@@ -73,3 +73,10 @@ func sumValues(m map[string]int) int {
 	}
 	return total
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// SumValues returns the sum of all values in the map
+func SumValues(m map[string]int) int { return sumValues(m) }

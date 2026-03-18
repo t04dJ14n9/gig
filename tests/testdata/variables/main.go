@@ -48,3 +48,24 @@ func Shadowing() int {
 	}
 	return x
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// SumThree returns a + b + c
+func SumThree(a, b, c int) int { return a + b + c }
+
+// Multiply returns a * b
+func Multiply(a, b int) int { return a * b }
+
+// Max returns the maximum of a and b
+func Max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// IsPositive returns true if x > 0
+func IsPositive(x int) bool { return x > 0 }

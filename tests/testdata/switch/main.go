@@ -113,3 +113,19 @@ func Nested() int {
 		return 0
 	}
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// Classify returns 10, 20, 30, or -1 based on x
+func Classify(x int) int { return classify(x) }
+
+// Weekday returns 1 for weekdays, 0 for weekends, -1 for invalid
+func Weekday(d int) int { return weekday(d) }
+
+// Grade returns grade level 0-4 based on score
+func Grade(score int) int { return grade(score) }
+
+// ColorCode returns color code for name
+func ColorCode(name string) int { return colorCode(name) }

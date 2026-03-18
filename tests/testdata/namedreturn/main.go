@@ -20,6 +20,12 @@ func divmod(a, b int) (quotient int, remainder int) {
 	return quotient, remainder
 }
 
+func Divmod(a, b int) (quotient int, remainder int) {
+	quotient = a / b
+	remainder = a % b
+	return quotient, remainder
+}
+
 // ZeroValue tests named return zero value
 func ZeroValue() int {
 	return maybeDouble(10, 1) + maybeDouble(10, 0)

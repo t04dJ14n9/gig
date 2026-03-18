@@ -249,3 +249,34 @@ func AssignMultiReturnToExistingVars() int {
 	a, b = swap(100, 200)
 	return a + b
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// Add returns a + b
+func Add(a, b int) int { return add(a, b) }
+
+// Swap returns (b, a)
+func Swap(a, b int) (int, int) { return swap(a, b) }
+
+// Divmod returns (a/b, a%b)
+func Divmod(a, b int) (int, int) { return divmod(a, b) }
+
+// FactorialN returns n!
+func FactorialN(n int) int { return factorial(n) }
+
+// FibIterN returns the nth Fibonacci number iteratively
+func FibIterN(n int) int { return fibIter(n) }
+
+// FibRecN returns the nth Fibonacci number recursively
+func FibRecN(n int) int { return fibRec(n) }
+
+// IsEvenN returns true if n is even
+func IsEvenN(n int) bool { return isEven(n) }
+
+// IsOddN returns true if n is odd
+func IsOddN(n int) bool { return isOdd(n) }
+
+// SumVariadic returns the sum of all arguments
+func SumVariadic(nums ...int) int { return sum(nums...) }

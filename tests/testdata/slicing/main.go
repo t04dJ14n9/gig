@@ -75,3 +75,22 @@ func SubSliceModifiesOriginal() int {
 	sub[0] = 99
 	return s[1]
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// SliceLen returns len(s[from:to])
+func SliceLen(s []int, from, to int) int { return len(s[from:to]) }
+
+// SliceSumRange returns the sum of elements in s[from:to]
+func SliceSumRange(s []int, from, to int) int {
+	sum := 0
+	for _, v := range s[from:to] {
+		sum += v
+	}
+	return sum
+}
+
+// SliceFirstElement returns s[idx]
+func SliceFirstElement(s []int, idx int) int { return s[idx] }

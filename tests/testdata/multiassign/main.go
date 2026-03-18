@@ -42,3 +42,16 @@ func DiscardWithBlank() int {
 }
 
 func divmod(a, b int) (int, int) { return a / b, a % b }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// TwoVals returns (42, 58)
+func TwoVals() (int, int) { return twoVals() }
+
+// ThreeValsN returns (x, x*2, x*3)
+func ThreeValsN(x int) (int, int, int) { return threeVals(x) }
+
+// DivmodAB returns (a/b, a%b)
+func DivmodAB(a, b int) (int, int) { return divmod(a, b) }

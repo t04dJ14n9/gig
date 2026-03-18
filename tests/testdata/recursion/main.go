@@ -97,3 +97,19 @@ func bsearch(s []int, target, lo, hi int) int {
 	}
 	return bsearch(s, target, lo, mid-1)
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// SumTail returns sum from 1 to n using tail recursion
+func SumTail(n, acc int) int { return sumTail(n, acc) }
+
+// HanoiN returns the number of moves for n disks
+func HanoiN(n int) int { return hanoi(n) }
+
+// MaxVal returns the maximum value in s (first n elements)
+func MaxVal(s []int, n int) int { return maxVal(s, n) }
+
+// Ack returns the Ackermann function ack(m, n)
+func Ack(m, n int) int { return ack(m, n) }
