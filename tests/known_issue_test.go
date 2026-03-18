@@ -12,6 +12,7 @@ import (
 
 	"git.woa.com/youngjin/gig"
 	_ "git.woa.com/youngjin/gig/stdlib/packages"
+	"git.woa.com/youngjin/gig/tests/testdata/tricky"
 )
 
 // KnownIssue represents a test case for a known bug
@@ -63,12 +64,13 @@ func runKnownIssueTest(t *testing.T, name string, tc KnownIssue) {
 
 func TestKnownIssues_Tricky(t *testing.T) {
 	issues := map[string]KnownIssue{
-		// No known issues — all previously tracked issues have been fixed
-		// and moved to correctness_test.go.
-	}
-
-	if len(issues) == 0 {
-		t.Skip("No known issues remaining — all resolved")
+		"StructEmbeddedInterface": {
+			src:      trickySrc,
+			funcName: "StructEmbeddedInterface",
+			args:     nil,
+			native:   tricky.StructEmbeddedInterface,
+			issue:    "flaky: passes in isolation but fails when run with other tests - possible reflect.StructOf type collision",
+		},
 	}
 
 	for name, tc := range issues {
