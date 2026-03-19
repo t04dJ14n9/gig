@@ -39,13 +39,6 @@ func (c *compiler) emitJump(target *ssa.BasicBlock) {
 	c.jumps = append(c.jumps, jumpInfo{offset: offset, targetBlock: target})
 }
 
-// emitJumpFalse emits a conditional jump that executes if the top of stack is false.
-func (c *compiler) emitJumpFalse(target *ssa.BasicBlock) {
-	offset := len(c.currentFunc.Instructions)
-	c.currentFunc.Instructions = append(c.currentFunc.Instructions, byte(bytecode.OpJumpFalse), 0, 0)
-	c.jumps = append(c.jumps, jumpInfo{offset: offset, targetBlock: target})
-}
-
 // patchJumps resolves jump targets with actual bytecode offsets.
 func (c *compiler) patchJumps(blockOffsets map[*ssa.BasicBlock]int) {
 	for _, jump := range c.jumps {

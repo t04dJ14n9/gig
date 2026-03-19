@@ -7,7 +7,6 @@ package tests
 import (
 	_ "embed"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -89,25 +88,11 @@ func TestCorrectnessTrickyPointers(t *testing.T)    { runTestSet(t, testSetsMap[
 func TestCorrectnessTrickySlices(t *testing.T)      { runTestSet(t, testSetsMap["tricky/slices"]) }
 func TestCorrectnessTrickyStructs(t *testing.T)     { runTestSet(t, testSetsMap["tricky/structs"]) }
 
-func TestCornerCase(t *testing.T) {
-	runTestSet(t, testSetsMap["cornercases"])
-}
+func TestCornerCase(t *testing.T) { runTestSet(t, testSetsMap["cornercases"]) }
 
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-// toMainPackage converts a source file to package main for interpretation
-func toMainPackage(src string) string {
-	lines := strings.Split(src, "\n")
-	for i, line := range lines {
-		if strings.HasPrefix(line, "package ") {
-			lines[i] = "package main"
-			break
-		}
-	}
-	return strings.Join(lines, "\n")
-}
 
 // testCase defines a single test case
 type testCase struct {
@@ -161,6 +146,55 @@ func compareCorrectnessResults(t *testing.T, got, expected any) {
 	// Deep equality check
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("mismatch:\n  got:      %v (%T)\n  expected: %v (%T)", got, got, expected, expected)
+	}
+}
+
+// ============================================================================
+// Test Runner
+// ============================================================================
+
+// testSet represents a group of tests that share the same source file
+type testSet struct {
+	name  string
+	src   string
+	tests map[string]testCase // key is just funcName, not full path
+}
+
+// progCache caches compiled programs by source to avoid recompilation
+var progCache = make(map[string]*gig.Program)
+
+// runTestSet runs all tests in a test set, compiling the source once
+func runTestSet(t *testing.T, set testSet) {
+	t.Helper()
+	prog, ok := progCache[set.src]
+	if !ok {
+		var err error
+		prog, err = gig.Build(set.src)
+		if err != nil {
+			t.Fatalf("Build error: %v", err)
+		}
+		progCache[set.src] = prog
+	}
+
+	for fullKey, tc := range set.tests {
+		// Use fullKey for test name (includes package), tc.funcName for actual call
+		t.Run(fullKey, func(t *testing.T) {
+			startInterp := time.Now()
+			result, err := prog.Run(tc.funcName, tc.args...)
+			interpDuration := time.Since(startInterp)
+			if err != nil {
+				t.Fatalf("Run error: %v", err)
+			}
+
+			startNative := time.Now()
+			expected := callNative(tc.native, tc.args)
+			nativeDuration := time.Since(startNative)
+
+			compareCorrectnessResults(t, result, expected)
+
+			ratio := float64(interpDuration) / float64(nativeDuration)
+			t.Logf("interp: %v, native(using reflection): %v, ratio: %.1fx", interpDuration, nativeDuration, ratio)
+		})
 	}
 }
 
@@ -1742,52 +1776,4 @@ var testSetsMap = map[string]testSet{
 	"tricky/structs":     {name: "tricky/structs", src: trickySrc, tests: trickyStructsTests},
 	"typeconv":           {name: "typeconv", src: typeconvSrc, tests: typeconvTests},
 	"variables":          {name: "variables", src: variablesSrc, tests: variablesTests},
-}
-
-// ============================================================================
-// Test Runner
-// ============================================================================
-
-// testSet represents a group of tests that share the same source file
-type testSet struct {
-	name  string
-	src   string
-	tests map[string]testCase // key is just funcName, not full path
-}
-
-// progCache caches compiled programs by source to avoid recompilation
-var progCache = make(map[string]*gig.Program)
-
-// runTestSet runs all tests in a test set, compiling the source once
-func runTestSet(t *testing.T, set testSet) {
-	prog, ok := progCache[set.src]
-	if !ok {
-		var err error
-		prog, err = gig.Build(toMainPackage(set.src))
-		if err != nil {
-			t.Fatalf("Build error: %v", err)
-		}
-		progCache[set.src] = prog
-	}
-
-	for fullKey, tc := range set.tests {
-		// Use fullKey for test name (includes package), tc.funcName for actual call
-		t.Run(fullKey, func(t *testing.T) {
-			startInterp := time.Now()
-			result, err := prog.Run(tc.funcName, tc.args...)
-			interpDuration := time.Since(startInterp)
-			if err != nil {
-				t.Fatalf("Run error: %v", err)
-			}
-
-			startNative := time.Now()
-			expected := callNative(tc.native, tc.args)
-			nativeDuration := time.Since(startNative)
-
-			compareCorrectnessResults(t, result, expected)
-
-			ratio := float64(interpDuration) / float64(nativeDuration)
-			t.Logf("interp: %v, native(using reflection): %v, ratio: %.1fx", interpDuration, nativeDuration, ratio)
-		})
-	}
 }

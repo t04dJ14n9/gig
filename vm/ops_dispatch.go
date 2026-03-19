@@ -1552,12 +1552,12 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				} else {
 					vm.push(value.MakeNil())
 				}
-		default:
-			if rt := typeToReflect(typ, vm.program); rt != nil {
-				// Create a new pointer to zero value of the type
-				newPtr := reflect.New(rt)
-				vm.push(value.MakeFromReflect(newPtr))
-			} else {
+			default:
+				if rt := typeToReflect(typ, vm.program); rt != nil {
+					// Create a new pointer to zero value of the type
+					newPtr := reflect.New(rt)
+					vm.push(value.MakeFromReflect(newPtr))
+				} else {
 					vm.push(value.MakeNil())
 				}
 			}

@@ -26,6 +26,7 @@ type KnownIssue struct {
 // runKnownIssueTest runs a test that compares interpreter vs native.
 // This test FAILS to show the actual difference between interpreter and native.
 func runKnownIssueTest(t *testing.T, name string, tc KnownIssue) {
+	t.Helper()
 	t.Run(name, func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -33,8 +34,7 @@ func runKnownIssueTest(t *testing.T, name string, tc KnownIssue) {
 			}
 		}()
 
-		src := toMainPackage(tc.src)
-		prog, err := gig.Build(src)
+		prog, err := gig.Build(tc.src)
 		if err != nil {
 			t.Fatalf("Build error: %v", err)
 		}

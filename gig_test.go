@@ -196,8 +196,8 @@ func Increment() int {
 		if !ok {
 			t.Fatalf("Run %d: unexpected type %T", i, result)
 		}
-	if got != i {
-		t.Errorf("Run %d: got %d, want %d", i, got, i)
+		if got != i {
+			t.Errorf("Run %d: got %d, want %d", i, got, i)
 		}
 	}
 }
@@ -579,5 +579,3 @@ func GetCounter() int {
 		t.Errorf("GetCounter after increments: got %d, want 102", got3)
 	}
 }
-
-

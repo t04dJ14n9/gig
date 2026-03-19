@@ -142,8 +142,7 @@ var benchmarksSrc = getBenchmarksSrc()
 // benchGig builds the embedded benchmark source and runs the named function.
 func benchGig(b *testing.B, funcName string) {
 	b.Helper()
-	src := toMainPackage(benchmarksSrc)
-	prog, err := gig.Build(src)
+	prog, err := gig.Build(benchmarksSrc)
 	if err != nil {
 		b.Fatalf("Build error: %v", err)
 	}
@@ -403,9 +402,8 @@ func BenchmarkNative_CallOverhead(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_BuildAndRun(b *testing.B) {
-	src := toMainPackage(benchmarksSrc)
 	for i := 0; i < b.N; i++ {
-		prog, err := gig.Build(src)
+		prog, err := gig.Build(benchmarksSrc)
 		if err != nil {
 			b.Fatal(err)
 		}

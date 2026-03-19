@@ -197,7 +197,7 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 				}
 				pkgPath := f.Pkg().Path()
 				if uniqueSuffix != "" {
-					pkgPath = pkgPath + uniqueSuffix
+					pkgPath += uniqueSuffix
 				}
 				sf.PkgPath = pkgPath
 			}

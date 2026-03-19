@@ -107,9 +107,9 @@ type Program struct {
 	vmPool  *vm.VMPool        // reusable VM pool (eliminates 32KB alloc per Run)
 
 	// stateful mode fields (only used when WithStatefulGlobals is set)
-	stateful      bool           // whether stateful globals mode is enabled
-	sharedGlobals []value.Value  // program-owned globals shared across runs
-	runMu         sync.Mutex     // serializes top-level Run calls in stateful mode
+	stateful      bool          // whether stateful globals mode is enabled
+	sharedGlobals []value.Value // program-owned globals shared across runs
+	runMu         sync.Mutex    // serializes top-level Run calls in stateful mode
 }
 
 // InternalProgram exposes the compiled bytecode program for testing/debugging.
