@@ -389,7 +389,6 @@ func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo,
 							// Replace receiver with the concrete value and dispatch.
 							args[0] = value.MakeFromReflect(concrete)
 							method = m
-							rv = concrete
 							break
 						}
 						// Also try pointer receiver on the concrete value
@@ -398,7 +397,6 @@ func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo,
 							if m.IsValid() {
 								args[0] = value.MakeFromReflect(concrete.Addr())
 								method = m
-								rv = concrete.Addr()
 								break
 							}
 						}

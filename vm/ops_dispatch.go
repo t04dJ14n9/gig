@@ -921,7 +921,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					} else {
 						vm.push(val)
 					}
-				case types.Uint8: // []byte(string)
+				case types.Uint8:
 					if val.Kind() == value.KindString {
 						vm.push(value.MakeBytes([]byte(val.String())))
 					} else {
