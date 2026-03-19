@@ -51,11 +51,6 @@ func (vm *VM) run() (value.Value, error) {
 		return v
 	}
 
-	// backJumpCount throttles context checks: only check every 128 backward jumps.
-	// This replaces per-instruction counting — cheaper because backward jumps only
-	// occur in loops, and the counter increment is a single bitwise AND.
-	backJumpCount := 0
-
 	// instructionCount tracks total instructions executed for periodic context checks.
 	instructionCount := uint64(0)
 
@@ -235,17 +230,6 @@ func (vm *VM) run() (value.Value, error) {
 
 		case bytecode.OpJump:
 			offset := readU16()
-			if int(offset) < frame.ip {
-				backJumpCount++
-				if backJumpCount&0x7F == 0 {
-					vm.sp = sp
-					select {
-					case <-vm.ctx.Done():
-						return value.MakeNil(), vm.ctx.Err()
-					default:
-					}
-				}
-			}
 			frame.ip = int(offset)
 			continue
 

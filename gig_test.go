@@ -579,3 +579,5 @@ func GetCounter() int {
 		t.Errorf("GetCounter after increments: got %d, want 102", got3)
 	}
 }
+
+
