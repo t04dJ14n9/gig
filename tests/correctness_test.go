@@ -19,6 +19,7 @@ import (
 	"git.woa.com/youngjin/gig/tests/testdata/bitwise"
 	"git.woa.com/youngjin/gig/tests/testdata/closures"
 	"git.woa.com/youngjin/gig/tests/testdata/closures_advanced"
+	"git.woa.com/youngjin/gig/tests/testdata/channels"
 	"git.woa.com/youngjin/gig/tests/testdata/controlflow"
 	"git.woa.com/youngjin/gig/tests/testdata/cornercases"
 	"git.woa.com/youngjin/gig/tests/testdata/edgecases"
@@ -60,6 +61,7 @@ func TestCorrectnessEdgecases(t *testing.T)     { runTestSet(t, testSetsMap["edg
 func TestCorrectnessExternal(t *testing.T)      { runTestSet(t, testSetsMap["external"]) }
 func TestCorrectnessFunctions(t *testing.T)     { runTestSet(t, testSetsMap["functions"]) }
 func TestCorrectnessGoroutine(t *testing.T)     { runTestSet(t, testSetsMap["goroutine"]) }
+func TestCorrectnessChannels(t *testing.T)       { runTestSet(t, testSetsMap["channels"]) }
 func TestCorrectnessInit(t *testing.T)          { runTestSet(t, testSetsMap["init"]) }
 func TestCorrectnessLeetcodeHard(t *testing.T)  { runTestSet(t, testSetsMap["leetcode_hard"]) }
 func TestCorrectnessMaps(t *testing.T)          { runTestSet(t, testSetsMap["maps"]) }
@@ -186,14 +188,19 @@ func runTestSet(t *testing.T, set testSet) {
 				t.Fatalf("Run error: %v", err)
 			}
 
-			startNative := time.Now()
-			expected := callNative(tc.native, tc.args)
-			nativeDuration := time.Since(startNative)
+			// Skip native comparison when native is nil (e.g., package main sources)
+			if tc.native != nil {
+				startNative := time.Now()
+				expected := callNative(tc.native, tc.args)
+				nativeDuration := time.Since(startNative)
 
-			compareCorrectnessResults(t, result, expected)
+				compareCorrectnessResults(t, result, expected)
 
-			ratio := float64(interpDuration) / float64(nativeDuration)
-			t.Logf("interp: %v, native(using reflection): %v, ratio: %.1fx", interpDuration, nativeDuration, ratio)
+				ratio := float64(interpDuration) / float64(nativeDuration)
+				t.Logf("interp: %v, native(using reflection): %v, ratio: %.1fx", interpDuration, nativeDuration, ratio)
+			} else {
+				t.Logf("interp: %v (no native comparison for package main source)", interpDuration)
+			}
 		})
 	}
 }
@@ -240,6 +247,9 @@ var functionsSrc string
 
 //go:embed testdata/goroutine/main.go
 var goroutineSrc string
+
+//go:embed testdata/channels/main.go
+var channelsSrc string
 
 //go:embed testdata/initialize/main.go
 var initializeSrc string
@@ -623,6 +633,40 @@ var goroutineTests = map[string]testCase{
 	"SelectSend":                  {goroutineSrc, "SelectSend", nil, goroutine.SelectSend},
 	"RangeOverChannel":            {goroutineSrc, "RangeOverChannel", nil, goroutine.RangeOverChannel},
 	"RangeOverChannelWithBuiltin": {goroutineSrc, "RangeOverChannelWithBuiltin", nil, goroutine.RangeOverChannelWithBuiltin},
+}
+
+var channelsTests = map[string]testCase{
+	"ChannelBasic":             {channelsSrc, "ChannelBasic", nil, channels.ChannelBasic},
+	"ChannelBuffered":          {channelsSrc, "ChannelBuffered", nil, channels.ChannelBuffered},
+	"ChannelUnbuffered":        {channelsSrc, "ChannelUnbuffered", nil, channels.ChannelUnbuffered},
+	"ChannelClose":             {channelsSrc, "ChannelClose", nil, channels.ChannelClose},
+	"ChannelNil":               {channelsSrc, "ChannelNil", nil, channels.ChannelNil},
+	"SelectDefault":            {channelsSrc, "SelectDefault", nil, channels.SelectDefault},
+	"SelectSingleCase":         {channelsSrc, "SelectSingleCase", nil, channels.SelectSingleCase},
+	"SelectMultiCase":          {channelsSrc, "SelectMultiCase", nil, channels.SelectMultiCase},
+	"SelectSendReceive":        {channelsSrc, "SelectSendReceive", nil, channels.SelectSendReceive},
+	"SelectLoop":               {channelsSrc, "SelectLoop", nil, channels.SelectLoop},
+	"SelectMultipleChannels":   {channelsSrc, "SelectMultipleChannels", nil, channels.SelectMultipleChannels},
+	"ChannelDirectionSend":    {channelsSrc, "ChannelDirectionSend", nil, channels.ChannelDirectionSend},
+	"ChannelDirectionReceive":   {channelsSrc, "ChannelDirectionReceive", nil, channels.ChannelDirectionReceive},
+	"ChannelStruct":            {channelsSrc, "ChannelStruct", nil, channels.ChannelStruct},
+	"ChannelStructPointer":     {channelsSrc, "ChannelStructPointer", nil, channels.ChannelStructPointer},
+	"SliceOfChannels":          {channelsSrc, "SliceOfChannels", nil, channels.SliceOfChannels},
+	"MapOfChannels":             {channelsSrc, "MapOfChannels", nil, channels.MapOfChannels},
+	"ChannelDeadlock":          {channelsSrc, "ChannelDeadlock", nil, channels.ChannelDeadlock},
+	"SelectAllBlocked":         {channelsSrc, "SelectAllBlocked", nil, channels.SelectAllBlocked},
+	"SelectClosedChannel":      {channelsSrc, "SelectClosedChannel", nil, channels.SelectClosedChannel},
+	"SelectNilChannel":         {channelsSrc, "SelectNilChannel", nil, channels.SelectNilChannel},
+	"ChannelPipeline":          {channelsSrc, "ChannelPipeline", nil, channels.ChannelPipeline},
+	"SelectWithAssignment":     {channelsSrc, "SelectWithAssignment", nil, channels.SelectWithAssignment},
+	"SelectBreak":              {channelsSrc, "SelectBreak", nil, channels.SelectBreak},
+	"SelectContinue":           {channelsSrc, "SelectContinue", nil, channels.SelectContinue},
+	"ChannelFullCap":           {channelsSrc, "ChannelFullCap", nil, channels.ChannelFullCap},
+	"ChannelEmptyCap":          {channelsSrc, "ChannelEmptyCap", nil, channels.ChannelEmptyCap},
+	"SelectMutex":              {channelsSrc, "SelectMutex", nil, channels.SelectMutex},
+	"ChannelTwoWay":            {channelsSrc, "ChannelTwoWay", nil, channels.ChannelTwoWay},
+	"ChannelFanIn":             {channelsSrc, "ChannelFanIn", nil, channels.ChannelFanIn},
+	"ChannelBufferedsize":       {channelsSrc, "ChannelBufferedsize", nil, channels.ChannelBufferedsize},
 }
 
 var initTests = map[string]testCase{
@@ -1750,6 +1794,7 @@ var testSetsMap = map[string]testSet{
 	"external":           {name: "external", src: externalSrc, tests: externalTests},
 	"functions":          {name: "functions", src: functionsSrc, tests: functionsTests},
 	"goroutine":          {name: "goroutine", src: goroutineSrc, tests: goroutineTests},
+	"channels":           {name: "channels", src: channelsSrc, tests: channelsTests},
 	"init":               {name: "init", src: initSrc, tests: initTests},
 	"initialize":         {name: "initialize", src: initializeSrc, tests: initializeTests},
 	"leetcode_hard":      {name: "leetcode_hard", src: leetcodeHardSrc, tests: leetcode_hardTests},
