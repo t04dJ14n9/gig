@@ -2,6 +2,7 @@ package gig
 
 import (
 	"strings"
+	"sync"
 	"testing"
 
 	_ "git.woa.com/youngjin/gig/stdlib/packages" // register stdlib packages
@@ -143,5 +144,438 @@ func Foo() string {
 	_, err := Build(source)
 	if err == nil {
 		t.Fatal("expected Build to fail for unregistered package, but it succeeded")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Stateful globals tests
+// ---------------------------------------------------------------------------
+
+// toInt64 converts an interface result to int64 for comparison.
+func toInt64(v any) (int64, bool) {
+	switch n := v.(type) {
+	case int:
+		return int64(n), true
+	case int64:
+		return n, true
+	case int32:
+		return int64(n), true
+	default:
+		return 0, false
+	}
+}
+
+// TestStatefulGlobals_PersistAcrossRuns verifies that package-level variable
+// mutations persist across multiple Run calls when WithStatefulGlobals is set.
+func TestStatefulGlobals_PersistAcrossRuns(t *testing.T) {
+	source := `
+package main
+
+var counter int
+
+func init() {
+	counter = 0
+}
+
+func Increment() int {
+	counter++
+	return counter
+}
+`
+	prog, err := Build(source, WithStatefulGlobals())
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	for i := int64(1); i <= 3; i++ {
+		result, err := prog.Run("Increment")
+		if err != nil {
+			t.Fatalf("Run %d failed: %v", i, err)
+		}
+		got, ok := toInt64(result)
+		if !ok {
+			t.Fatalf("Run %d: unexpected type %T", i, result)
+		}
+	if got != i {
+		t.Errorf("Run %d: got %d, want %d", i, got, i)
+		}
+	}
+}
+
+// TestStatefulGlobals_ConcurrentRuns verifies that concurrent Run calls on a
+// stateful program are serialized (safe but not parallel).
+func TestStatefulGlobals_ConcurrentRuns(t *testing.T) {
+	source := `
+package main
+
+var counter int
+
+func init() {
+	counter = 0
+}
+
+func Increment() int {
+	counter++
+	return counter
+}
+`
+	prog, err := Build(source, WithStatefulGlobals())
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	// Run 100 increments concurrently
+	const numGoroutines = 100
+	var wg sync.WaitGroup
+	results := make(chan int64, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result, err := prog.Run("Increment")
+			if err != nil {
+				t.Errorf("Run failed: %v", err)
+				return
+			}
+			got, _ := toInt64(result)
+			results <- got
+		}()
+	}
+
+	wg.Wait()
+	close(results)
+
+	// All results should be unique integers 1..100 (no duplicates from races)
+	seen := make(map[int64]bool)
+	for r := range results {
+		if seen[r] {
+			t.Errorf("duplicate result %d - indicates race condition", r)
+		}
+		seen[r] = true
+	}
+
+	// Final counter should be exactly numGoroutines
+	finalResult, _ := prog.Run("Increment")
+	final, _ := toInt64(finalResult)
+	if final != numGoroutines+1 {
+		t.Errorf("final counter = %d, want %d", final, numGoroutines+1)
+	}
+
+	// Verify all values 1..100 were seen (serialized execution)
+	for i := int64(1); i <= numGoroutines; i++ {
+		if !seen[i] {
+			t.Errorf("missing result %d - execution was not properly serialized", i)
+		}
+	}
+}
+
+// TestStatefulGlobals_DefaultStatelessIsolation verifies that the default mode
+// (no WithStatefulGlobals) still resets globals between calls.
+func TestStatefulGlobals_DefaultStatelessIsolation(t *testing.T) {
+	source := `
+package main
+
+var counter int
+
+func init() {
+	counter = 0
+}
+
+func Increment() int {
+	counter++
+	return counter
+}
+`
+	prog, err := Build(source)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	// Each call should start from 0 and return 1
+	for i := 0; i < 3; i++ {
+		result, err := prog.Run("Increment")
+		if err != nil {
+			t.Fatalf("Run %d failed: %v", i+1, err)
+		}
+		got, ok := toInt64(result)
+		if !ok {
+			t.Fatalf("Run %d: unexpected type %T", i+1, result)
+		}
+		if got != 1 {
+			t.Errorf("Run %d: got %d, want 1 (stateless isolation)", i+1, got)
+		}
+	}
+}
+
+// TestStatefulGlobals_InitSeeded verifies that init()-seeded globals are
+// preserved and further mutated across calls in stateful mode.
+func TestStatefulGlobals_InitSeeded(t *testing.T) {
+	source := `
+package main
+
+var base int
+
+func init() {
+	base = 100
+}
+
+func AddAndGet(n int) int {
+	base += n
+	return base
+}
+`
+	prog, err := Build(source, WithStatefulGlobals())
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	// First call: base starts at 100, add 5 → 105
+	result, err := prog.Run("AddAndGet", 5)
+	if err != nil {
+		t.Fatalf("Run 1 failed: %v", err)
+	}
+	got, _ := toInt64(result)
+	if got != 105 {
+		t.Errorf("Run 1: got %v, want 105", got)
+	}
+
+	// Second call: base is now 105, add 10 → 115
+	result, err = prog.Run("AddAndGet", 10)
+	if err != nil {
+		t.Fatalf("Run 2 failed: %v", err)
+	}
+	got, _ = toInt64(result)
+	if got != 115 {
+		t.Errorf("Run 2: got %v, want 115", got)
+	}
+}
+
+// TestStatefulGlobals_MapCache verifies that a package-level map can serve as
+// a cross-call cache in stateful mode.
+func TestStatefulGlobals_MapCache(t *testing.T) {
+	source := `
+package main
+
+var cache map[string]int
+
+func init() {
+	cache = make(map[string]int)
+}
+
+func GetOrSet(key string, val int) int {
+	if v, ok := cache[key]; ok {
+		return v
+	}
+	cache[key] = val
+	return val
+}
+
+func CacheLen() int {
+	return len(cache)
+}
+`
+	prog, err := Build(source, WithStatefulGlobals())
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	// First call: cache miss, store "a" → 1
+	result, err := prog.Run("GetOrSet", "a", 1)
+	if err != nil {
+		t.Fatalf("Run 1 failed: %v", err)
+	}
+	got, _ := toInt64(result)
+	if got != 1 {
+		t.Errorf("Run 1: got %v, want 1", got)
+	}
+
+	// Second call: cache miss, store "b" → 2
+	result, err = prog.Run("GetOrSet", "b", 2)
+	if err != nil {
+		t.Fatalf("Run 2 failed: %v", err)
+	}
+	got, _ = toInt64(result)
+	if got != 2 {
+		t.Errorf("Run 2: got %v, want 2", got)
+	}
+
+	// Third call: cache hit for "a", should return 1
+	result, err = prog.Run("GetOrSet", "a", 999)
+	if err != nil {
+		t.Fatalf("Run 3 failed: %v", err)
+	}
+	got, _ = toInt64(result)
+	if got != 1 {
+		t.Errorf("Run 3: got %v, want 1 (cache hit)", got)
+	}
+
+	// Verify cache length
+	result, err = prog.Run("CacheLen")
+	if err != nil {
+		t.Fatalf("CacheLen failed: %v", err)
+	}
+	got, _ = toInt64(result)
+	if got != 2 {
+		t.Errorf("CacheLen: got %v, want 2", got)
+	}
+}
+
+// TestStatefulGlobals_SeparateProgramsIsolated verifies that two separate
+// Program instances with stateful globals have independent state.
+func TestStatefulGlobals_SeparateProgramsIsolated(t *testing.T) {
+	source := `
+package main
+
+var counter int
+
+func init() {
+	counter = 0
+}
+
+func Increment() int {
+	counter++
+	return counter
+}
+`
+	prog1, err := Build(source, WithStatefulGlobals())
+	if err != nil {
+		t.Fatalf("Build prog1 failed: %v", err)
+	}
+	prog2, err := Build(source, WithStatefulGlobals())
+	if err != nil {
+		t.Fatalf("Build prog2 failed: %v", err)
+	}
+
+	// Increment prog1 twice
+	prog1.Run("Increment")
+	r1, _ := prog1.Run("Increment")
+	got1, _ := toInt64(r1)
+	if got1 != 2 {
+		t.Errorf("prog1 Run 2: got %v, want 2", got1)
+	}
+
+	// prog2 should be independent, starting from 0
+	r2, _ := prog2.Run("Increment")
+	got2, _ := toInt64(r2)
+	if got2 != 1 {
+		t.Errorf("prog2 Run 1: got %v, want 1 (independent state)", got2)
+	}
+}
+
+// TestStatefulGlobals_IncCounterSequence verifies that the IncCounter pattern
+// from the initialize testdata works correctly with stateful globals.
+// This test is isolated from the main correctness suite because it requires
+// stateful globals mode.
+func TestStatefulGlobals_IncCounterSequence(t *testing.T) {
+	// Use the same source as tests/testdata/initialize/main.go IncCounter functions
+	// Note: init() is required to properly initialize the counter to a valid int value
+	source := `
+package main
+
+var counter int
+
+func init() {
+	counter = 0
+}
+
+func IncCounter1() int {
+	counter++
+	return counter
+}
+
+func IncCounter2() int {
+	counter++
+	return counter
+}
+`
+	prog, err := Build(source, WithStatefulGlobals())
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	// First call: counter 0 → 1
+	r1, err := prog.Run("IncCounter1")
+	if err != nil {
+		t.Fatalf("IncCounter1 failed: %v", err)
+	}
+	got1, _ := toInt64(r1)
+	if got1 != 1 {
+		t.Errorf("IncCounter1: got %d, want 1", got1)
+	}
+
+	// Second call: counter 1 → 2
+	r2, err := prog.Run("IncCounter2")
+	if err != nil {
+		t.Fatalf("IncCounter2 failed: %v", err)
+	}
+	got2, _ := toInt64(r2)
+	if got2 != 2 {
+		t.Errorf("IncCounter2: got %d, want 2", got2)
+	}
+
+	// Third call: counter 2 → 3
+	r3, err := prog.Run("IncCounter1")
+	if err != nil {
+		t.Fatalf("IncCounter1 (3rd) failed: %v", err)
+	}
+	got3, _ := toInt64(r3)
+	if got3 != 3 {
+		t.Errorf("IncCounter1 (3rd): got %d, want 3", got3)
+	}
+}
+
+// TestStatefulGlobals_InitSeededCounter verifies that a counter initialized
+// via init() works correctly with stateful globals.
+func TestStatefulGlobals_InitSeededCounter(t *testing.T) {
+	source := `
+package main
+
+var counter int
+
+func init() {
+	counter = 100
+}
+
+func IncCounter() int {
+	counter++
+	return counter
+}
+
+func GetCounter() int {
+	return counter
+}
+`
+	prog, err := Build(source, WithStatefulGlobals())
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	// After init, counter is 100
+	r0, _ := prog.Run("GetCounter")
+	got0, _ := toInt64(r0)
+	if got0 != 100 {
+		t.Errorf("GetCounter after init: got %d, want 100", got0)
+	}
+
+	// Increment: 100 → 101
+	r1, _ := prog.Run("IncCounter")
+	got1, _ := toInt64(r1)
+	if got1 != 101 {
+		t.Errorf("IncCounter: got %d, want 101", got1)
+	}
+
+	// Another increment: 101 → 102
+	r2, _ := prog.Run("IncCounter")
+	got2, _ := toInt64(r2)
+	if got2 != 102 {
+		t.Errorf("IncCounter (2nd): got %d, want 102", got2)
+	}
+
+	// Verify via GetCounter
+	r3, _ := prog.Run("GetCounter")
+	got3, _ := toInt64(r3)
+	if got3 != 102 {
+		t.Errorf("GetCounter after increments: got %d, want 102", got3)
 	}
 }

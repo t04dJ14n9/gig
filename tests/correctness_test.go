@@ -1791,8 +1791,6 @@ var allCorrectnessTests = map[string]testCase{
 	"init/CacheInitTest":       {initSrc, "CacheInitTest", nil, initialize.CacheInitTest},
 	"init/LookupTableInitTest": {initSrc, "LookupTableInitTest", nil, initialize.LookupTableInitTest},
 	"init/FibonacciInitTest":   {initSrc, "FibonacciInitTest", nil, initialize.FibonacciInitTest},
-	// "init/IncCounter1":         {initSrc, "IncCounter1", nil, initialize.IncCounter1},
-	// "init/IncCounter2":         {initSrc, "IncCounter2", nil, initialize.IncCounter2},
 
 	// ============================================================================
 	// cornercases
@@ -1938,7 +1936,7 @@ func runTestSet(t *testing.T, set testSet) {
 			compareCorrectnessResults(t, result, expected)
 
 			ratio := float64(interpDuration) / float64(nativeDuration)
-			t.Logf("interp: %v, native: %v, ratio: %.1fx", interpDuration, nativeDuration, ratio)
+			t.Logf("interp: %v, native(using reflection): %v, ratio: %.1fx", interpDuration, nativeDuration, ratio)
 		})
 	}
 }

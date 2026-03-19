@@ -193,14 +193,23 @@ func New(program *bytecode.Program) *VM {
 
 // Reset prepares the VM for reuse by clearing execution state.
 // The stack, frames, and globals slices are retained (zero-alloc reuse).
+// If the VM is currently bound to shared globals (stateful mode), the shared
+// globals are left untouched and only execution state is cleared.
 func (vm *VM) Reset() {
 	vm.sp = 0
 	vm.fp = 0
 	vm.panicking = false
 	vm.panicVal = value.MakeNil()
 	vm.ctx = nil
-	vm.globalsPtr = nil
-	// Restore globals to post-init snapshot, or zero them if there was no init().
+	// If globalsPtr is set (shared globals from stateful mode or goroutine),
+	// do not restore the local globals copy — the caller manages the shared
+	// state.  Only clear globalsPtr so the VM is detached.
+	if vm.globalsPtr != nil {
+		// VM was bound to shared globals; detach but don't reset local copy.
+		vm.globalsPtr = nil
+		return
+	}
+	// Stateless mode: restore globals to post-init snapshot, or zero them.
 	if len(vm.program.InitialGlobals) == len(vm.globals) {
 		copy(vm.globals, vm.program.InitialGlobals)
 	} else {
@@ -208,6 +217,20 @@ func (vm *VM) Reset() {
 			vm.globals[i] = value.Value{}
 		}
 	}
+}
+
+// BindSharedGlobals makes this VM execute against the provided shared globals
+// slice.  All global loads/stores will go through globalsPtr, which points at
+// the Program-owned backing store.  This must be called before Execute and
+// paired with UnbindSharedGlobals after execution finishes.
+func (vm *VM) BindSharedGlobals(globals *[]value.Value) {
+	vm.globalsPtr = globals
+}
+
+// UnbindSharedGlobals detaches the VM from shared globals so that Reset (called
+// when the VM is returned to the pool) does not clobber the shared state.
+func (vm *VM) UnbindSharedGlobals() {
+	vm.globalsPtr = nil
 }
 
 // Globals returns the VM's global variable slice.

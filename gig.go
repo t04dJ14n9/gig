@@ -59,6 +59,7 @@ import (
 	"go/token"
 	"go/types"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/tools/go/ssa"
@@ -76,12 +77,39 @@ const DefaultTimeout = 10 * time.Second
 // ErrTimeout is returned when execution times out.
 var ErrTimeout = context.DeadlineExceeded
 
+// buildConfig holds internal configuration parsed from BuildOption values.
+type buildConfig struct {
+	statefulGlobals bool
+}
+
+// BuildOption configures the behaviour of Build.
+// Use the With* functions to obtain concrete options.
+type BuildOption func(*buildConfig)
+
+// WithStatefulGlobals enables persistent package-level globals across Run calls.
+// When enabled, mutations to package-level variables in one Run call are visible
+// to subsequent Run calls on the same Program.  Top-level Run calls are serialized
+// so that shared global state remains deterministic.
+//
+// By default (when this option is not passed), each Run starts from the
+// post-init() global state snapshot and mutations are discarded after the call.
+func WithStatefulGlobals() BuildOption {
+	return func(c *buildConfig) {
+		c.statefulGlobals = true
+	}
+}
+
 // Program represents a compiled Go program ready for execution.
 // It contains the compiled bytecode, constant pool, type information, and SSA package reference.
 type Program struct {
 	program *bytecode.Program // compiled bytecode and metadata
 	ssaPkg  *ssa.Package      // SSA package for debugging/inspection
 	vmPool  *vm.VMPool        // reusable VM pool (eliminates 32KB alloc per Run)
+
+	// stateful mode fields (only used when WithStatefulGlobals is set)
+	stateful      bool           // whether stateful globals mode is enabled
+	sharedGlobals []value.Value  // program-owned globals shared across runs
+	runMu         sync.Mutex     // serializes top-level Run calls in stateful mode
 }
 
 // InternalProgram exposes the compiled bytecode program for testing/debugging.
@@ -91,6 +119,8 @@ func (p *Program) InternalProgram() *bytecode.Program { return p.program }
 //
 // The source must define a function that can be called via Run/RunWithContext.
 // If the source does not start with a package declaration, "package main" is prepended automatically.
+//
+// Options control runtime behaviour; see WithStatefulGlobals and other With* functions.
 //
 // The compilation process:
 //  1. Parse source code into AST
@@ -108,7 +138,13 @@ func (p *Program) InternalProgram() *bytecode.Program { return p.program }
 //		}
 //	`)
 //	result, _ := prog.Run("Add", 1, 2) // result = 3
-func Build(sourceCode string, packages ...string) (*Program, error) {
+func Build(sourceCode string, opts ...BuildOption) (*Program, error) {
+	// Parse options
+	cfg := buildConfig{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	// Auto-wrap with "package main" if no package declaration
 	sourceCode = strings.TrimSpace(sourceCode)
 	if !strings.HasPrefix(sourceCode, "package ") {
@@ -198,11 +234,24 @@ func Build(sourceCode string, packages ...string) (*Program, error) {
 		compiled.InitialGlobals = snap
 	}
 
-	return &Program{
+	p := &Program{
 		program: compiled,
 		ssaPkg:  ssaPkg,
 		vmPool:  vm.NewVMPool(compiled),
-	}, nil
+	}
+
+	// When stateful globals mode is enabled, create a Program-owned globals
+	// slice seeded from the post-init() snapshot.  All subsequent Run calls
+	// will execute against this shared backing store.
+	if cfg.statefulGlobals {
+		p.stateful = true
+		p.sharedGlobals = make([]value.Value, len(compiled.Globals))
+		if len(compiled.InitialGlobals) == len(p.sharedGlobals) {
+			copy(p.sharedGlobals, compiled.InitialGlobals)
+		}
+	}
+
+	return p, nil
 }
 
 // Run executes a function in the program with the given arguments.
@@ -234,7 +283,24 @@ func (p *Program) RunWithContext(ctx context.Context, funcName string, params ..
 		args[i] = value.FromInterface(param)
 	}
 
-	// Get VM from pool, execute, and return to pool
+	// In stateful mode, serialize top-level runs and bind the VM to the
+	// Program-owned shared globals so mutations persist across calls.
+	if p.stateful {
+		p.runMu.Lock()
+		defer p.runMu.Unlock()
+
+		virtualMachine := p.vmPool.Get()
+		virtualMachine.BindSharedGlobals(&p.sharedGlobals)
+		result, err := virtualMachine.ExecuteWithValues(funcName, ctx, args)
+		virtualMachine.UnbindSharedGlobals()
+		p.vmPool.Put(virtualMachine)
+		if err != nil {
+			return nil, err
+		}
+		return unwrapResult(result), nil
+	}
+
+	// Default stateless path: each Run starts from the init() snapshot.
 	virtualMachine := p.vmPool.Get()
 	result, err := virtualMachine.ExecuteWithValues(funcName, ctx, args)
 	p.vmPool.Put(virtualMachine)
@@ -242,19 +308,20 @@ func (p *Program) RunWithContext(ctx context.Context, funcName string, params ..
 		return nil, err
 	}
 
-	// Unwrap multi-return values: OpPack produces a []value.Value stored as
-	// a KindReflect reflect.Value. Convert to []any so the caller sees plain
-	// Go values instead of internal value.Value structs.
+	return unwrapResult(result), nil
+}
+
+// unwrapResult converts internal multi-return value.Value slices to []any.
+func unwrapResult(result value.Value) any {
 	iface := result.Interface()
 	if vals, ok := iface.([]value.Value); ok {
 		out := make([]any, len(vals))
 		for i, v := range vals {
 			out[i] = v.Interface()
 		}
-		return out, nil
+		return out
 	}
-
-	return iface, nil
+	return iface
 }
 
 // RunWithValues executes a function with pre-converted Value arguments.
@@ -262,6 +329,18 @@ func (p *Program) RunWithContext(ctx context.Context, funcName string, params ..
 // multiple times with the same parameter types, as it avoids repeated type conversion.
 // Context is the first parameter following Go idioms.
 func (p *Program) RunWithValues(ctx context.Context, funcName string, args []value.Value) (value.Value, error) {
+	if p.stateful {
+		p.runMu.Lock()
+		defer p.runMu.Unlock()
+
+		virtualMachine := p.vmPool.Get()
+		virtualMachine.BindSharedGlobals(&p.sharedGlobals)
+		result, err := virtualMachine.ExecuteWithValues(funcName, ctx, args)
+		virtualMachine.UnbindSharedGlobals()
+		p.vmPool.Put(virtualMachine)
+		return result, err
+	}
+
 	virtualMachine := p.vmPool.Get()
 	result, err := virtualMachine.ExecuteWithValues(funcName, ctx, args)
 	p.vmPool.Put(virtualMachine)
