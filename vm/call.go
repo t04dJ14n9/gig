@@ -1,7 +1,9 @@
 package vm
 
 import (
+	"go/types"
 	"reflect"
+	"strings"
 
 	"git.woa.com/youngjin/gig/bytecode"
 	"git.woa.com/youngjin/gig/value"
@@ -372,10 +374,43 @@ func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo,
 			method = rv.Addr().MethodByName(methodInfo.MethodName)
 		}
 		if !method.IsValid() {
+			// For structs with embedded interface fields (e.g., GetterHolder{Getter}),
+			// check if any field is an interface that contains the method.
+			// This handles the case where typeToReflect converts interfaces to interface{}
+			// and the method is actually on the concrete value stored in the interface field.
+			if rv.Kind() == reflect.Struct {
+				for i := 0; i < rv.NumField(); i++ {
+					field := rv.Field(i)
+					if field.Kind() == reflect.Interface && !field.IsNil() {
+						concrete := field.Elem()
+						m := concrete.MethodByName(methodInfo.MethodName)
+						if m.IsValid() {
+							// Found the method on the embedded interface's concrete value.
+							// Replace receiver with the concrete value and dispatch.
+							args[0] = value.MakeFromReflect(concrete)
+							method = m
+							rv = concrete
+							break
+						}
+						// Also try pointer receiver on the concrete value
+						if concrete.CanAddr() {
+							m = concrete.Addr().MethodByName(methodInfo.MethodName)
+							if m.IsValid() {
+								args[0] = value.MakeFromReflect(concrete.Addr())
+								method = m
+								rv = concrete.Addr()
+								break
+							}
+						}
+					}
+				}
+			}
+		}
+		if !method.IsValid() {
 			// Reflection-based lookup failed. This happens when typeToReflect
 			// strips named types to anonymous structs (e.g., Impl → struct{val int}).
 			// Fall back to calling a compiled method from the function table.
-			return vm.callCompiledMethod(methodInfo.MethodName, args)
+			return vm.callCompiledMethod(methodInfo.MethodName, methodInfo.ReceiverTypeName, args)
 		}
 	}
 
@@ -458,8 +493,67 @@ func (vm *VM) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo,
 // calls when reflection-based MethodByName fails — typically because typeToReflect
 // converts named types to anonymous struct types that lack the named type's methods.
 //
+// receiverTypeName is an optional hint from ExternalMethodInfo.ReceiverTypeName.
+// When non-empty, it restricts matching to methods whose receiver type name matches.
+// This prevents mis-dispatch when multiple types define methods with the same name
+// (e.g., both GetterImpl.Get and AdderStruct.Add, or multiple types with Get).
+//
 // args[0] is the receiver, args[1:] are the method arguments.
-func (vm *VM) callCompiledMethod(methodName string, args []value.Value) error {
+func (vm *VM) callCompiledMethod(methodName string, receiverTypeName string, args []value.Value) error {
+	// If we have a receiver type hint, first try to match both name and receiver type.
+	if receiverTypeName != "" {
+		for _, fn := range vm.program.FuncByIndex {
+			if fn == nil || fn.Source == nil {
+				continue
+			}
+			if fn.Source.Name() != methodName {
+				continue
+			}
+			sig := fn.Source.Signature
+			if sig.Recv() == nil {
+				continue
+			}
+			// Check if the receiver type name matches
+			recvName := extractCompiledReceiverTypeName(sig)
+			if recvName == receiverTypeName {
+				for _, arg := range args {
+					vm.push(arg)
+				}
+				vm.callCompiledFunction(vm.program.FuncIndex[fn.Source], len(args))
+				return nil
+			}
+		}
+	}
+
+	// Fallback: try to infer receiver type from the actual runtime value in args[0].
+	// When the receiver is a reflect.Value wrapping a concrete struct, we can extract
+	// the type name from the SSA function's receiver and match it against compiled methods.
+	if len(args) > 0 {
+		if concreteTypeName := inferReceiverTypeName(args[0]); concreteTypeName != "" {
+			for _, fn := range vm.program.FuncByIndex {
+				if fn == nil || fn.Source == nil {
+					continue
+				}
+				if fn.Source.Name() != methodName {
+					continue
+				}
+				sig := fn.Source.Signature
+				if sig.Recv() == nil {
+					continue
+				}
+				recvName := extractCompiledReceiverTypeName(sig)
+				if recvName == concreteTypeName {
+					for _, arg := range args {
+						vm.push(arg)
+					}
+					vm.callCompiledFunction(vm.program.FuncIndex[fn.Source], len(args))
+					return nil
+				}
+			}
+		}
+	}
+
+	// Last resort: match by method name only (original behavior).
 	// Search for a compiled function whose SSA name matches the method name
 	// and that has a receiver (i.e., is actually a method, not a plain function).
 	for _, fn := range vm.program.FuncByIndex {
@@ -485,4 +579,60 @@ func (vm *VM) callCompiledMethod(methodName string, args []value.Value) error {
 	// No compiled method found — push nil
 	vm.push(value.MakeNil())
 	return nil
+}
+
+// extractCompiledReceiverTypeName extracts the receiver type name from an SSA
+// function signature. For pointer receivers like (*Reader), it unwraps the pointer.
+func extractCompiledReceiverTypeName(sig *types.Signature) string {
+	recv := sig.Recv()
+	if recv == nil {
+		return ""
+	}
+	recvType := recv.Type()
+	// Unwrap pointer
+	if ptr, ok := recvType.(*types.Pointer); ok {
+		recvType = ptr.Elem()
+	}
+	if named, ok := recvType.(*types.Named); ok {
+		return named.Obj().Name()
+	}
+	return ""
+}
+
+// inferReceiverTypeName tries to extract a type name from a runtime value.Value
+// receiver. This is used when callCompiledMethod doesn't have a static type hint
+// but needs to disambiguate by the actual value being dispatched on.
+func inferReceiverTypeName(receiver value.Value) string {
+	rv, ok := receiver.ReflectValue()
+	if !ok {
+		return ""
+	}
+	// Unwrap interface
+	if rv.Kind() == reflect.Interface && !rv.IsNil() {
+		rv = rv.Elem()
+	}
+	// Unwrap pointer
+	if rv.Kind() == reflect.Ptr {
+		rv = rv.Elem()
+	}
+	t := rv.Type()
+	// For real Go types passed through, the name is available directly.
+	if t.Name() != "" {
+		return t.Name()
+	}
+	// For synthesized struct types (from reflect.StructOf via typeToReflect),
+	// the type name is embedded in the field PkgPath as a "#TypeName" suffix.
+	// This is set by typeToReflect's *types.Named → *types.Struct path:
+	//   - unexported fields get PkgPath = "pkg#TypeName"
+	//   - the _gig_id phantom field gets PkgPath = "gig/internal#TypeName"
+	if t.Kind() == reflect.Struct {
+		for i := 0; i < t.NumField(); i++ {
+			f := t.Field(i)
+			pkgPath := f.PkgPath
+			if idx := strings.LastIndex(pkgPath, "#"); idx >= 0 {
+				return pkgPath[idx+1:]
+			}
+		}
+	}
+	return ""
 }

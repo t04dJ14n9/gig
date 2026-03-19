@@ -196,6 +196,21 @@ func (c *compiler) compileCall(i *ssa.Call) {
 		methodInfo := &bytecode.ExternalMethodInfo{
 			MethodName: i.Call.Method.Name(),
 		}
+		// For invoke calls, try to extract the concrete receiver type from the
+		// interface value. This helps callCompiledMethod disambiguate methods
+		// when multiple types define the same method name (e.g., Get, Add).
+		if recvType := i.Call.Value.Type(); recvType != nil {
+			// The receiver is an interface type; the concrete type is unknown statically.
+			// However, the interface's method set constrains which types are valid.
+			// We store the interface type name as a hint for fallback dispatch.
+			if iface, ok := recvType.Underlying().(*types.Interface); ok {
+				_ = iface // interface type available for future use
+			}
+			// If the value itself has a known concrete type (rare for invoke), use it.
+			if named := extractNamedType(recvType); named != nil {
+				methodInfo.ReceiverTypeName = named.Obj().Name()
+			}
+		}
 		funcIdx := c.addConstant(methodInfo)
 		numArgs := len(i.Call.Args) + 1 // +1 for receiver
 		c.currentFunc.Instructions = append(c.currentFunc.Instructions,

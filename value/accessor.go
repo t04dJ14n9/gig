@@ -157,7 +157,11 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 	case KindFloat:
 		return reflect.ValueOf(v.Float()).Convert(typ)
 	case KindString:
-		return reflect.ValueOf(v.obj.(string))
+		rv := reflect.ValueOf(v.obj.(string))
+		if rv.Type() != typ {
+			rv = rv.Convert(typ)
+		}
+		return rv
 	case KindComplex:
 		return reflect.ValueOf(v.obj.(complex128))
 	case KindFunc:

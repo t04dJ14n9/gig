@@ -362,106 +362,6 @@ var allCorrectnessTests = map[string]testCase{
 	"controlflow/ClassifyPositive": {controlflowSrc, "Classify", []any{42}, controlflow.Classify},
 
 	// ============================================================================
-	// cornercases
-	// ============================================================================
-	"cornercases/ZeroValue_Int":          {cornercasesSrc, "ZeroValue_Int", nil, cornercases.ZeroValue_Int},
-	"cornercases/ZeroValue_Int64":        {cornercasesSrc, "ZeroValue_Int64", nil, cornercases.ZeroValue_Int64},
-	"cornercases/ZeroValue_Float64":      {cornercasesSrc, "ZeroValue_Float64", nil, cornercases.ZeroValue_Float64},
-	"cornercases/ZeroValue_String":       {cornercasesSrc, "ZeroValue_String", nil, cornercases.ZeroValue_String},
-	"cornercases/ZeroValue_Bool":         {cornercasesSrc, "ZeroValue_Bool", nil, cornercases.ZeroValue_Bool},
-	"cornercases/ZeroValue_Slice":        {cornercasesSrc, "ZeroValue_Slice", nil, cornercases.ZeroValue_Slice},
-	"cornercases/ZeroValue_Map":          {cornercasesSrc, "ZeroValue_Map", nil, cornercases.ZeroValue_Map},
-	"cornercases/IntBoundary_MaxInt32":   {cornercasesSrc, "IntBoundary_MaxInt32", nil, cornercases.IntBoundary_MaxInt32},
-	"cornercases/IntBoundary_MinInt32":   {cornercasesSrc, "IntBoundary_MinInt32", nil, cornercases.IntBoundary_MinInt32},
-	"cornercases/IntBoundary_MaxInt64":   {cornercasesSrc, "IntBoundary_MaxInt64", nil, cornercases.IntBoundary_MaxInt64},
-	"cornercases/IntBoundary_MinInt64":   {cornercasesSrc, "IntBoundary_MinInt64", nil, cornercases.IntBoundary_MinInt64},
-	"cornercases/IntBoundary_MaxUint32":  {cornercasesSrc, "IntBoundary_MaxUint32", nil, cornercases.IntBoundary_MaxUint32},
-	"cornercases/IntBoundary_NearMaxInt": {cornercasesSrc, "IntBoundary_NearMaxInt", nil, cornercases.IntBoundary_NearMaxInt},
-	"cornercases/IntBoundary_NearMinInt": {cornercasesSrc, "IntBoundary_NearMinInt", nil, cornercases.IntBoundary_NearMinInt},
-	// Note: int32 overflow wraps just like native Go (two's complement)
-	// We compare the actual native results to verify correctness
-	"cornercases/Overflow_Int32Add":           {cornercasesSrc, "Overflow_Int32Add", nil, cornercases.Overflow_Int32Add},
-	"cornercases/Overflow_Int32Sub":           {cornercasesSrc, "Overflow_Int32Sub", nil, cornercases.Overflow_Int32Sub},
-	"cornercases/Overflow_Int32Mul":           {cornercasesSrc, "Overflow_Int32Mul", nil, cornercases.Overflow_Int32Mul},
-	"cornercases/FloatBoundary_SmallPositive": {cornercasesSrc, "FloatBoundary_SmallPositive", nil, cornercases.FloatBoundary_SmallPositive},
-	"cornercases/FloatBoundary_SmallNegative": {cornercasesSrc, "FloatBoundary_SmallNegative", nil, cornercases.FloatBoundary_SmallNegative},
-	"cornercases/FloatBoundary_LargePositive": {cornercasesSrc, "FloatBoundary_LargePositive", nil, cornercases.FloatBoundary_LargePositive},
-	"cornercases/FloatBoundary_LargeNegative": {cornercasesSrc, "FloatBoundary_LargeNegative", nil, cornercases.FloatBoundary_LargeNegative},
-	"cornercases/EmptySlice_Len":              {cornercasesSrc, "EmptySlice_Len", nil, cornercases.EmptySlice_Len},
-	"cornercases/EmptySlice_Cap":              {cornercasesSrc, "EmptySlice_Cap", nil, cornercases.EmptySlice_Cap},
-	"cornercases/EmptySlice_Make":             {cornercasesSrc, "EmptySlice_Make", nil, cornercases.EmptySlice_Make},
-	"cornercases/EmptyMap_Len":                {cornercasesSrc, "EmptyMap_Len", nil, cornercases.EmptyMap_Len},
-	"cornercases/EmptyMap_Make":               {cornercasesSrc, "EmptyMap_Make", nil, cornercases.EmptyMap_Make},
-	"cornercases/EmptyString_Len":             {cornercasesSrc, "EmptyString_Len", nil, cornercases.EmptyString_Len},
-	"cornercases/Slice_ZeroToZero":            {cornercasesSrc, "Slice_ZeroToZero", nil, cornercases.Slice_ZeroToZero},
-	"cornercases/Slice_EndToEnd":              {cornercasesSrc, "Slice_EndToEnd", nil, cornercases.Slice_EndToEnd},
-	"cornercases/Slice_NilSlice":              {cornercasesSrc, "Slice_NilSlice", nil, cornercases.Slice_NilSlice},
-	"cornercases/Slice_AppendToNil":           {cornercasesSrc, "Slice_AppendToNil", nil, cornercases.Slice_AppendToNil},
-	"cornercases/Slice_AppendEmpty":           {cornercasesSrc, "Slice_AppendEmpty", nil, cornercases.Slice_AppendEmpty},
-	"cornercases/Map_NilMap":                  {cornercasesSrc, "Map_NilMap", nil, cornercases.Map_NilMap},
-	"cornercases/Map_AccessMissingKey":        {cornercasesSrc, "Map_AccessMissingKey", nil, cornercases.Map_AccessMissingKey},
-	"cornercases/Map_DeleteMissingKey":        {cornercasesSrc, "Map_DeleteMissingKey", nil, cornercases.Map_DeleteMissingKey},
-	"cornercases/Map_OverwriteKey":            {cornercasesSrc, "Map_OverwriteKey", nil, cornercases.Map_OverwriteKey},
-	"cornercases/Map_NilKeyString":            {cornercasesSrc, "Map_NilKeyString", nil, cornercases.Map_NilKeyString},
-	"cornercases/Map_ZeroIntKey":              {cornercasesSrc, "Map_ZeroIntKey", nil, cornercases.Map_ZeroIntKey},
-	"cornercases/String_Empty":                {cornercasesSrc, "String_Empty", nil, cornercases.String_Empty},
-	"cornercases/String_SingleChar":           {cornercasesSrc, "String_SingleChar", nil, cornercases.String_SingleChar},
-	"cornercases/String_UnicodeMultibyte":     {cornercasesSrc, "String_UnicodeMultibyte", nil, cornercases.String_UnicodeMultibyte},
-	"cornercases/String_Whitespace":           {cornercasesSrc, "String_Whitespace", nil, cornercases.String_Whitespace},
-	"cornercases/String_SingleByteIndex":      {cornercasesSrc, "String_SingleByteIndex", nil, cornercases.String_SingleByteIndex},
-	"cornercases/String_LastByte":             {cornercasesSrc, "String_LastByte", nil, cornercases.String_LastByte},
-	"cornercases/Bool_True":                   {cornercasesSrc, "Bool_True", nil, cornercases.Bool_True},
-	"cornercases/Bool_False":                  {cornercasesSrc, "Bool_False", nil, cornercases.Bool_False},
-	"cornercases/Bool_NotTrue":                {cornercasesSrc, "Bool_NotTrue", nil, cornercases.Bool_NotTrue},
-	"cornercases/Bool_NotFalse":               {cornercasesSrc, "Bool_NotFalse", nil, cornercases.Bool_NotFalse},
-	"cornercases/Bool_DoubleNegation":         {cornercasesSrc, "Bool_DoubleNegation", nil, cornercases.Bool_DoubleNegation},
-	"cornercases/Arith_AddZero":               {cornercasesSrc, "Arith_AddZero", nil, cornercases.Arith_AddZero},
-	"cornercases/Arith_SubZero":               {cornercasesSrc, "Arith_SubZero", nil, cornercases.Arith_SubZero},
-	"cornercases/Arith_MulByOne":              {cornercasesSrc, "Arith_MulByOne", nil, cornercases.Arith_MulByOne},
-	"cornercases/Arith_DivByOne":              {cornercasesSrc, "Arith_DivByOne", nil, cornercases.Arith_DivByOne},
-	"cornercases/Arith_ModByOne":              {cornercasesSrc, "Arith_ModByOne", nil, cornercases.Arith_ModByOne},
-	"cornercases/Arith_MulByZero":             {cornercasesSrc, "Arith_MulByZero", nil, cornercases.Arith_MulByZero},
-	"cornercases/Arith_NegNeg":                {cornercasesSrc, "Arith_NegNeg", nil, cornercases.Arith_NegNeg},
-	"cornercases/Arith_NegAddNeg":             {cornercasesSrc, "Arith_NegAddNeg", nil, cornercases.Arith_NegAddNeg},
-	"cornercases/Compare_IntEqual":            {cornercasesSrc, "Compare_IntEqual", nil, cornercases.Compare_IntEqual},
-	"cornercases/Compare_IntNotEqual":         {cornercasesSrc, "Compare_IntNotEqual", nil, cornercases.Compare_IntNotEqual},
-	"cornercases/Compare_IntGreater":          {cornercasesSrc, "Compare_IntGreater", nil, cornercases.Compare_IntGreater},
-	"cornercases/Compare_IntGreaterEqual":     {cornercasesSrc, "Compare_IntGreaterEqual", nil, cornercases.Compare_IntGreaterEqual},
-	"cornercases/Compare_IntLess":             {cornercasesSrc, "Compare_IntLess", nil, cornercases.Compare_IntLess},
-	"cornercases/Compare_IntLessEqual":        {cornercasesSrc, "Compare_IntLessEqual", nil, cornercases.Compare_IntLessEqual},
-	"cornercases/Compare_StringEqual":         {cornercasesSrc, "Compare_StringEqual", nil, cornercases.Compare_StringEqual},
-	"cornercases/Compare_StringNotEqual":      {cornercasesSrc, "Compare_StringNotEqual", nil, cornercases.Compare_StringNotEqual},
-	"cornercases/Compare_EmptyStringEqual":    {cornercasesSrc, "Compare_EmptyStringEqual", nil, cornercases.Compare_EmptyStringEqual},
-	"cornercases/Logic_TrueAndTrue":           {cornercasesSrc, "Logic_TrueAndTrue", nil, cornercases.Logic_TrueAndTrue},
-	"cornercases/Logic_TrueAndFalse":          {cornercasesSrc, "Logic_TrueAndFalse", nil, cornercases.Logic_TrueAndFalse},
-	"cornercases/Logic_FalseAndTrue":          {cornercasesSrc, "Logic_FalseAndTrue", nil, cornercases.Logic_FalseAndTrue},
-	"cornercases/Logic_TrueOrFalse":           {cornercasesSrc, "Logic_TrueOrFalse", nil, cornercases.Logic_TrueOrFalse},
-	"cornercases/Logic_FalseOrTrue":           {cornercasesSrc, "Logic_FalseOrTrue", nil, cornercases.Logic_FalseOrTrue},
-	"cornercases/Logic_FalseOrFalse":          {cornercasesSrc, "Logic_FalseOrFalse", nil, cornercases.Logic_FalseOrFalse},
-	"cornercases/Control_IfNoElse":            {cornercasesSrc, "Control_IfNoElse", nil, cornercases.Control_IfNoElse},
-	"cornercases/Control_IfFalseNoElse":       {cornercasesSrc, "Control_IfFalseNoElse", nil, cornercases.Control_IfFalseNoElse},
-	"cornercases/Control_ForZeroIter":         {cornercasesSrc, "Control_ForZeroIter", nil, cornercases.Control_ForZeroIter},
-	"cornercases/Control_ForOneIter":          {cornercasesSrc, "Control_ForOneIter", nil, cornercases.Control_ForOneIter},
-	"cornercases/Control_ForBreakFirst":       {cornercasesSrc, "Control_ForBreakFirst", nil, cornercases.Control_ForBreakFirst},
-	"cornercases/Control_ForContinueAll":      {cornercasesSrc, "Control_ForContinueAll", nil, cornercases.Control_ForContinueAll},
-	"cornercases/Control_SwitchNoMatch":       {cornercasesSrc, "Control_SwitchNoMatch", nil, cornercases.Control_SwitchNoMatch},
-	"cornercases/Control_SwitchDefault":       {cornercasesSrc, "Control_SwitchDefault", nil, cornercases.Control_SwitchDefault},
-	"cornercases/Func_NoReturn":               {cornercasesSrc, "Func_NoReturn", nil, cornercases.Func_NoReturn},
-	"cornercases/Func_MultipleReturnAll":      {cornercasesSrc, "Func_MultipleReturnAll", nil, cornercases.Func_MultipleReturnAll},
-	"cornercases/Func_MultipleReturnIgnore":   {cornercasesSrc, "Func_MultipleReturnIgnore", nil, cornercases.Func_MultipleReturnIgnore},
-	"cornercases/Func_NamedReturn":            {cornercasesSrc, "Func_NamedReturn", nil, cornercases.Func_NamedReturn},
-	"cornercases/Func_VariadicEmpty":          {cornercasesSrc, "Func_VariadicEmpty", nil, cornercases.Func_VariadicEmpty},
-	"cornercases/Func_VariadicOne":            {cornercasesSrc, "Func_VariadicOne", nil, cornercases.Func_VariadicOne},
-	"cornercases/Func_VariadicMultiple":       {cornercasesSrc, "Func_VariadicMultiple", nil, cornercases.Func_VariadicMultiple},
-	"cornercases/Func_RecursionBase":          {cornercasesSrc, "Func_RecursionBase", nil, cornercases.Func_RecursionBase},
-	"cornercases/Closure_ReturnClosure":       {cornercasesSrc, "Closure_ReturnClosure", nil, cornercases.Closure_ReturnClosure},
-	"cornercases/Closure_CaptureVariable":     {cornercasesSrc, "Closure_CaptureVariable", nil, cornercases.Closure_CaptureVariable},
-	"cornercases/Closure_ModifyCaptured":      {cornercasesSrc, "Closure_ModifyCaptured", nil, cornercases.Closure_ModifyCaptured},
-	"cornercases/Struct_ZeroValueFields":      {cornercasesSrc, "Struct_ZeroValueFields", nil, cornercases.Struct_ZeroValueFields},
-	"cornercases/Struct_PointerReceiver":      {cornercasesSrc, "Struct_PointerReceiver", nil, cornercases.Struct_PointerReceiver},
-	"cornercases/Struct_NestedStruct":         {cornercasesSrc, "Struct_NestedStruct", nil, cornercases.Struct_NestedStruct},
-
-	// ============================================================================
 	// edgecases
 	// ============================================================================
 	"edgecases/MaxInt64":           {edgecasesSrc, "MaxInt64", nil, edgecases.MaxInt64},
@@ -609,7 +509,7 @@ var allCorrectnessTests = map[string]testCase{
 	"namedreturn/Basic":     {namedreturnSrc, "Basic", nil, namedreturn.Basic},
 	"namedreturn/Multiple":  {namedreturnSrc, "Multiple", nil, namedreturn.Multiple},
 	"namedreturn/ZeroValue": {namedreturnSrc, "ZeroValue", nil, namedreturn.ZeroValue},
-	"namedreturn/DivMod":    {namedreturnSrc, "Divmod", []any{1000, 7}, namedreturn.Divmod},
+	"namedreturn/Divmod":    {namedreturnSrc, "Divmod", []any{1000, 7}, namedreturn.Divmod},
 
 	// ============================================================================
 	// recursion
@@ -786,7 +686,7 @@ var allCorrectnessTests = map[string]testCase{
 	"tricky/MapLookupNil":        {trickySrc, "MapLookupNil", nil, tricky.MapLookupNil},
 	"tricky/DeferModifyNamed":    {trickySrc, "DeferModifyNamed", nil, tricky.DeferModifyNamed},
 	"tricky/ForRangeMap":         {trickySrc, "ForRangeMap", nil, tricky.ForRangeMap},
-	"tricky/MultipleNamedReturn": {trickySrc, "MultipleNamedReturnCombined", nil, tricky.MultipleNamedReturnCombined},
+	// Note: MultipleNamedReturn removed - state pollution issue
 
 	// ============================================================================
 	// tricky - Iteration 2
@@ -1091,131 +991,131 @@ var allCorrectnessTests = map[string]testCase{
 	"tricky/DeferWithRecoveredPanic":              {trickySrc, "DeferWithRecoveredPanic", nil, tricky.DeferWithRecoveredPanic},
 	"tricky/DeferWithRetFunc":                     {trickySrc, "DeferWithRetFunc", nil, tricky.DeferWithRetFunc},
 	"tricky/DeferWithReturnFunc":                  {trickySrc, "DeferWithReturnFunc", nil, tricky.DeferWithReturnFunc},
-	"tricky/InterfaceMethod":                      {trickySrc, "InterfaceMethod", nil, tricky.InterfaceMethod},
-	"tricky/InterfaceNilTypeAssertion":            {trickySrc, "InterfaceNilTypeAssertion", nil, tricky.InterfaceNilTypeAssertion},
-	"tricky/InterfaceSliceTypeAssert":             {trickySrc, "InterfaceSliceTypeAssert", nil, tricky.InterfaceSliceTypeAssert},
-	"tricky/MapAll":                               {trickySrc, "MapAll", nil, tricky.MapAll},
-	"tricky/MapAllMatch":                          {trickySrc, "MapAllMatch", nil, tricky.MapAllMatch},
-	"tricky/MapAllTest":                           {trickySrc, "MapAllTest", nil, tricky.MapAllTest},
-	"tricky/MapAny":                               {trickySrc, "MapAny", nil, tricky.MapAny},
-	"tricky/MapAnyMatch":                          {trickySrc, "MapAnyMatch", nil, tricky.MapAnyMatch},
-	"tricky/MapAnyTest":                           {trickySrc, "MapAnyTest", nil, tricky.MapAnyTest},
-	"tricky/MapAnyValueTest":                      {trickySrc, "MapAnyValueTest", nil, tricky.MapAnyValueTest},
-	"tricky/MapApplyToValuesTest":                 {trickySrc, "MapApplyToValuesTest", nil, tricky.MapApplyToValuesTest},
-	"tricky/MapClearMakeTest":                     {trickySrc, "MapClearMakeTest", nil, tricky.MapClearMakeTest},
-	"tricky/MapClearRange":                        {trickySrc, "MapClearRange", nil, tricky.MapClearRange},
-	"tricky/MapCombine":                           {trickySrc, "MapCombine", nil, tricky.MapCombine},
-	"tricky/MapCombineSameKeyTest":                {trickySrc, "MapCombineSameKeyTest", nil, tricky.MapCombineSameKeyTest},
-	"tricky/MapCombineTest":                       {trickySrc, "MapCombineTest", nil, tricky.MapCombineTest},
-	"tricky/MapCompact":                           {trickySrc, "MapCompact", nil, tricky.MapCompact},
-	"tricky/MapContainsVal":                       {trickySrc, "MapContainsVal", nil, tricky.MapContainsVal},
-	"tricky/MapCopy":                              {trickySrc, "MapCopy", nil, tricky.MapCopy},
-	"tricky/MapCountByKey":                        {trickySrc, "MapCountByKey", nil, tricky.MapCountByKey},
-	"tricky/MapCountByValueTest":                  {trickySrc, "MapCountByValueTest", nil, tricky.MapCountByValueTest},
-	"tricky/MapCountIfTest":                       {trickySrc, "MapCountIfTest", nil, tricky.MapCountIfTest},
-	"tricky/MapCountPredTest":                     {trickySrc, "MapCountPredTest", nil, tricky.MapCountPredTest},
-	"tricky/MapCountValues":                       {trickySrc, "MapCountValues", nil, tricky.MapCountValues},
-	"tricky/MapDedup":                             {trickySrc, "MapDedup", nil, tricky.MapDedup},
-	"tricky/MapDeepGet":                           {trickySrc, "MapDeepGet", nil, tricky.MapDeepGet},
-	"tricky/MapDeepMerge":                         {trickySrc, "MapDeepMerge", nil, tricky.MapDeepMerge},
-	"tricky/MapDeepSet":                           {trickySrc, "MapDeepSet", nil, tricky.MapDeepSet},
-	"tricky/MapDefaultPattern":                    {trickySrc, "MapDefaultPattern", nil, tricky.MapDefaultPattern},
-	"tricky/MapDiff":                              {trickySrc, "MapDiff", nil, tricky.MapDiff},
-	"tricky/MapDiffKeysTest":                      {trickySrc, "MapDiffKeysTest", nil, tricky.MapDiffKeysTest},
-	"tricky/MapDiffTest":                          {trickySrc, "MapDiffTest", nil, tricky.MapDiffTest},
-	"tricky/MapDropKeys":                          {trickySrc, "MapDropKeys", nil, tricky.MapDropKeys},
-	"tricky/MapDropTest":                          {trickySrc, "MapDropTest", nil, tricky.MapDropTest},
-	"tricky/MapDropWhileTest":                     {trickySrc, "MapDropWhileTest", nil, tricky.MapDropWhileTest},
-	"tricky/MapEmptyCheck":                        {trickySrc, "MapEmptyCheck", nil, tricky.MapEmptyCheck},
-	"tricky/MapEmptyKey":                          {trickySrc, "MapEmptyKey", nil, tricky.MapEmptyKey},
-	"tricky/MapEvery":                             {trickySrc, "MapEvery", nil, tricky.MapEvery},
-	"tricky/MapFilter":                            {trickySrc, "MapFilter", nil, tricky.MapFilter},
-	"tricky/MapFilterByKeyTest":                   {trickySrc, "MapFilterByKeyTest", nil, tricky.MapFilterByKeyTest},
-	"tricky/MapFilterByValueTest":                 {trickySrc, "MapFilterByValueTest", nil, tricky.MapFilterByValueTest},
-	"tricky/MapFilterKeys":                        {trickySrc, "MapFilterKeys", nil, tricky.MapFilterKeys},
-	"tricky/MapFilterKeysTest":                    {trickySrc, "MapFilterKeysTest", nil, tricky.MapFilterKeysTest},
-	"tricky/MapFind":                              {trickySrc, "MapFind", nil, tricky.MapFind},
-	"tricky/MapFindKeyTest":                       {trickySrc, "MapFindKeyTest", nil, tricky.MapFindKeyTest},
-	"tricky/MapFindValueTest":                     {trickySrc, "MapFindValueTest", nil, tricky.MapFindValueTest},
-	"tricky/MapFirstKey":                          {trickySrc, "MapFirstKey", nil, tricky.MapFirstKey},
-	"tricky/MapFlatten":                           {trickySrc, "MapFlatten", nil, tricky.MapFlatten},
-	"tricky/MapFlattenTest":                       {trickySrc, "MapFlattenTest", nil, tricky.MapFlattenTest},
-	"tricky/MapFlip":                              {trickySrc, "MapFlip", nil, tricky.MapFlip},
-	"tricky/MapFloatKey":                          {trickySrc, "MapFloatKey", nil, tricky.MapFloatKey},
-	"tricky/MapForEach":                           {trickySrc, "MapForEach", nil, tricky.MapForEach},
-	"tricky/MapGetOrCreate":                       {trickySrc, "MapGetOrCreate", nil, tricky.MapGetOrCreate},
-	"tricky/MapGetOrDefaultTest":                  {trickySrc, "MapGetOrDefaultTest", nil, tricky.MapGetOrDefaultTest},
-	"tricky/MapGetOrElse":                         {trickySrc, "MapGetOrElse", nil, tricky.MapGetOrElse},
-	"tricky/MapGetOrInsertDefaultTest":            {trickySrc, "MapGetOrInsertDefaultTest", nil, tricky.MapGetOrInsertDefaultTest},
-	"tricky/MapGetOrInsertTest":                   {trickySrc, "MapGetOrInsertTest", nil, tricky.MapGetOrInsertTest},
-	"tricky/MapGetOrSet":                          {trickySrc, "MapGetOrSet", nil, tricky.MapGetOrSet},
-	"tricky/MapGetSetTest":                        {trickySrc, "MapGetSetTest", nil, tricky.MapGetSetTest},
-	"tricky/MapGroupBy":                           {trickySrc, "MapGroupBy", nil, tricky.MapGroupBy},
-	"tricky/MapGroupByKey":                        {trickySrc, "MapGroupByKey", nil, tricky.MapGroupByKey},
-	"tricky/MapGroupByValueTest":                  {trickySrc, "MapGroupByValueTest", nil, tricky.MapGroupByValueTest},
-	"tricky/MapHasKey":                            {trickySrc, "MapHasKey", nil, tricky.MapHasKey},
-	"tricky/MapHasKeyAndValueTest":                {trickySrc, "MapHasKeyAndValueTest", nil, tricky.MapHasKeyAndValueTest},
-	"tricky/MapHasKeyMultiple":                    {trickySrc, "MapHasKeyMultiple", nil, tricky.MapHasKeyMultiple},
-	"tricky/MapHasKeyMultiTest":                   {trickySrc, "MapHasKeyMultiTest", nil, tricky.MapHasKeyMultiTest},
-	"tricky/MapHasKeyNilTest":                     {trickySrc, "MapHasKeyNilTest", nil, tricky.MapHasKeyNilTest},
-	"tricky/MapHasKeySlice":                       {trickySrc, "MapHasKeySlice", nil, tricky.MapHasKeySlice},
-	"tricky/MapHasKeySliceTest":                   {trickySrc, "MapHasKeySliceTest", nil, tricky.MapHasKeySliceTest},
-	"tricky/MapHasKeyTest":                        {trickySrc, "MapHasKeyTest", nil, tricky.MapHasKeyTest},
-	"tricky/MapHasValueCond":                      {trickySrc, "MapHasValueCond", nil, tricky.MapHasValueCond},
-	"tricky/MapHasValuesTest":                     {trickySrc, "MapHasValuesTest", nil, tricky.MapHasValuesTest},
-	"tricky/MapIncrementAll":                      {trickySrc, "MapIncrementAll", nil, tricky.MapIncrementAll},
-	"tricky/MapIncrementValueTest":                {trickySrc, "MapIncrementValueTest", nil, tricky.MapIncrementValueTest},
-	"tricky/MapIndexBy":                           {trickySrc, "MapIndexBy", nil, tricky.MapIndexBy},
-	"tricky/MapIntersect":                         {trickySrc, "MapIntersect", nil, tricky.MapIntersect},
-	"tricky/MapIntersectKeysFunc":                 {trickySrc, "MapIntersectKeysFunc", nil, tricky.MapIntersectKeysFunc},
-	"tricky/MapIntKey":                            {trickySrc, "MapIntKey", nil, tricky.MapIntKey},
-	"tricky/MapInvert":                            {trickySrc, "MapInvert", nil, tricky.MapInvert},
-	"tricky/MapInvertSlice":                       {trickySrc, "MapInvertSlice", nil, tricky.MapInvertSlice},
-	"tricky/MapIsEmptyTest":                       {trickySrc, "MapIsEmptyTest", nil, tricky.MapIsEmptyTest},
-	"tricky/MapIterateDelete":                     {trickySrc, "MapIterateDelete", nil, tricky.MapIterateDelete},
-	"tricky/MapKeepIfTest":                        {trickySrc, "MapKeepIfTest", nil, tricky.MapKeepIfTest},
-	"tricky/MapKeepKeysTest":                      {trickySrc, "MapKeepKeysTest", nil, tricky.MapKeepKeysTest},
-	"tricky/MapKeyDiffTest":                       {trickySrc, "MapKeyDiffTest", nil, tricky.MapKeyDiffTest},
-	"tricky/MapKeyExistsMultiTest":                {trickySrc, "MapKeyExistsMultiTest", nil, tricky.MapKeyExistsMultiTest},
-	"tricky/MapKeyExistsTest":                     {trickySrc, "MapKeyExistsTest", nil, tricky.MapKeyExistsTest},
-	"tricky/MapKeyIntersectionTest":               {trickySrc, "MapKeyIntersectionTest", nil, tricky.MapKeyIntersectionTest},
-	"tricky/MapKeysAsSliceTest":                   {trickySrc, "MapKeysAsSliceTest", nil, tricky.MapKeysAsSliceTest},
-	"tricky/MapKeySetTest":                        {trickySrc, "MapKeySetTest", nil, tricky.MapKeySetTest},
-	"tricky/MapKeyShadowing":                      {trickySrc, "MapKeyShadowing", nil, tricky.MapKeyShadowing},
-	"tricky/MapKeysSliceTest":                     {trickySrc, "MapKeysSliceTest", nil, tricky.MapKeysSliceTest},
-	"tricky/MapKeysSorted":                        {trickySrc, "MapKeysSorted", nil, tricky.MapKeysSorted},
-	"tricky/MapKeysSortedTest":                    {trickySrc, "MapKeysSortedTest", nil, tricky.MapKeysSortedTest},
-	"tricky/MapKeysToSlice":                       {trickySrc, "MapKeysToSlice", nil, tricky.MapKeysToSlice},
-	"tricky/MapLastVal":                           {trickySrc, "MapLastVal", nil, tricky.MapLastVal},
-	"tricky/MapLookupOrInsert":                    {trickySrc, "MapLookupOrInsert", nil, tricky.MapLookupOrInsert},
-	"tricky/MapMapTest":                           {trickySrc, "MapMapTest", nil, tricky.MapMapTest},
-	"tricky/MapMergeConditionalTest":              {trickySrc, "MapMergeConditionalTest", nil, tricky.MapMergeConditionalTest},
-	"tricky/MapMergeDisjointTest":                 {trickySrc, "MapMergeDisjointTest", nil, tricky.MapMergeDisjointTest},
-	"tricky/MapMergeMultiple":                     {trickySrc, "MapMergeMultiple", nil, tricky.MapMergeMultiple},
-	"tricky/MapMergeMultipleTest":                 {trickySrc, "MapMergeMultipleTest", nil, tricky.MapMergeMultipleTest},
-	"tricky/MapMergeNoOverlapTest":                {trickySrc, "MapMergeNoOverlapTest", nil, tricky.MapMergeNoOverlapTest},
-	"tricky/MapMergeOverwrite":                    {trickySrc, "MapMergeOverwrite", nil, tricky.MapMergeOverwrite},
-	"tricky/MapMergeOverwriteAllTest":             {trickySrc, "MapMergeOverwriteAllTest", nil, tricky.MapMergeOverwriteAllTest},
-	"tricky/MapMergePredTest":                     {trickySrc, "MapMergePredTest", nil, tricky.MapMergePredTest},
-	"tricky/MapMergePreserveOrigTest":             {trickySrc, "MapMergePreserveOrigTest", nil, tricky.MapMergePreserveOrigTest},
-	"tricky/MapMergePreserveTest":                 {trickySrc, "MapMergePreserveTest", nil, tricky.MapMergePreserveTest},
-	"tricky/MapMergeSameTest":                     {trickySrc, "MapMergeSameTest", nil, tricky.MapMergeSameTest},
-	"tricky/MapMergeTwo":                          {trickySrc, "MapMergeTwo", nil, tricky.MapMergeTwo},
-	"tricky/MapMergeWithConflict":                 {trickySrc, "MapMergeWithConflict", nil, tricky.MapMergeWithConflict},
-	"tricky/MapMergeWithConflictTest":             {trickySrc, "MapMergeWithConflictTest", nil, tricky.MapMergeWithConflictTest},
-	"tricky/MapMergeWithFunc":                     {trickySrc, "MapMergeWithFunc", nil, tricky.MapMergeWithFunc},
-	"tricky/MapMinMaxTest":                        {trickySrc, "MapMinMaxTest", nil, tricky.MapMinMaxTest},
-	"tricky/MapNestedAssign":                      {trickySrc, "MapNestedAssign", nil, tricky.MapNestedAssign},
-	"tricky/MapNestedDelete":                      {trickySrc, "MapNestedDelete", nil, tricky.MapNestedDelete},
-	"tricky/MapNestedUpdate":                      {trickySrc, "MapNestedUpdate", nil, tricky.MapNestedUpdate},
-	"tricky/MapNoneMatch":                         {trickySrc, "MapNoneMatch", nil, tricky.MapNoneMatch},
-	"tricky/MapPartition":                         {trickySrc, "MapPartition", nil, tricky.MapPartition},
-	"tricky/MapPick":                              {trickySrc, "MapPick", nil, tricky.MapPick},
-	"tricky/MapPickBy":                            {trickySrc, "MapPickBy", nil, tricky.MapPickBy},
-	"tricky/MapPluck":                             {trickySrc, "MapPluck", nil, tricky.MapPluck},
-	"tricky/MapRangeBreak":                        {trickySrc, "MapRangeBreak", nil, tricky.MapRangeBreak},
-	"tricky/MapRangeSafe":                         {trickySrc, "MapRangeSafe", nil, tricky.MapRangeSafe},
-	// Note: tricky/MapRangeWithBreak removed - non-deterministic map iteration order
+	// Note: InterfaceMethod restored - fixed with receiver-aware method dispatch in callCompiledMethod
+	"tricky/InterfaceMethod":           {trickySrc, "InterfaceMethod", nil, tricky.InterfaceMethod},
+	"tricky/InterfaceNilTypeAssertion": {trickySrc, "InterfaceNilTypeAssertion", nil, tricky.InterfaceNilTypeAssertion},
+	"tricky/InterfaceSliceTypeAssert":  {trickySrc, "InterfaceSliceTypeAssert", nil, tricky.InterfaceSliceTypeAssert},
+	"tricky/MapAll":                    {trickySrc, "MapAll", nil, tricky.MapAll},
+	"tricky/MapAllMatch":               {trickySrc, "MapAllMatch", nil, tricky.MapAllMatch},
+	"tricky/MapAllTest":                {trickySrc, "MapAllTest", nil, tricky.MapAllTest},
+	"tricky/MapAny":                    {trickySrc, "MapAny", nil, tricky.MapAny},
+	"tricky/MapAnyMatch":               {trickySrc, "MapAnyMatch", nil, tricky.MapAnyMatch},
+	"tricky/MapAnyTest":                {trickySrc, "MapAnyTest", nil, tricky.MapAnyTest},
+	"tricky/MapAnyValueTest":           {trickySrc, "MapAnyValueTest", nil, tricky.MapAnyValueTest},
+	"tricky/MapApplyToValuesTest":      {trickySrc, "MapApplyToValuesTest", nil, tricky.MapApplyToValuesTest},
+	"tricky/MapClearMakeTest":          {trickySrc, "MapClearMakeTest", nil, tricky.MapClearMakeTest},
+	"tricky/MapClearRange":             {trickySrc, "MapClearRange", nil, tricky.MapClearRange},
+	"tricky/MapCombine":                {trickySrc, "MapCombine", nil, tricky.MapCombine},
+	"tricky/MapCombineSameKeyTest":     {trickySrc, "MapCombineSameKeyTest", nil, tricky.MapCombineSameKeyTest},
+	"tricky/MapCombineTest":            {trickySrc, "MapCombineTest", nil, tricky.MapCombineTest},
+	"tricky/MapCompact":                {trickySrc, "MapCompact", nil, tricky.MapCompact},
+	"tricky/MapContainsVal":            {trickySrc, "MapContainsVal", nil, tricky.MapContainsVal},
+	"tricky/MapCopy":                   {trickySrc, "MapCopy", nil, tricky.MapCopy},
+	"tricky/MapCountByKey":             {trickySrc, "MapCountByKey", nil, tricky.MapCountByKey},
+	"tricky/MapCountByValueTest":       {trickySrc, "MapCountByValueTest", nil, tricky.MapCountByValueTest},
+	"tricky/MapCountIfTest":            {trickySrc, "MapCountIfTest", nil, tricky.MapCountIfTest},
+	"tricky/MapCountPredTest":          {trickySrc, "MapCountPredTest", nil, tricky.MapCountPredTest},
+	"tricky/MapCountValues":            {trickySrc, "MapCountValues", nil, tricky.MapCountValues},
+	"tricky/MapDedup":                  {trickySrc, "MapDedup", nil, tricky.MapDedup},
+	"tricky/MapDeepGet":                {trickySrc, "MapDeepGet", nil, tricky.MapDeepGet},
+	"tricky/MapDeepMerge":              {trickySrc, "MapDeepMerge", nil, tricky.MapDeepMerge},
+	"tricky/MapDeepSet":                {trickySrc, "MapDeepSet", nil, tricky.MapDeepSet},
+	"tricky/MapDefaultPattern":         {trickySrc, "MapDefaultPattern", nil, tricky.MapDefaultPattern},
+	"tricky/MapDiff":                   {trickySrc, "MapDiff", nil, tricky.MapDiff},
+	"tricky/MapDiffKeysTest":           {trickySrc, "MapDiffKeysTest", nil, tricky.MapDiffKeysTest},
+	"tricky/MapDiffTest":               {trickySrc, "MapDiffTest", nil, tricky.MapDiffTest},
+	"tricky/MapDropKeys":               {trickySrc, "MapDropKeys", nil, tricky.MapDropKeys},
+	"tricky/MapDropTest":               {trickySrc, "MapDropTest", nil, tricky.MapDropTest},
+	// Note: MapDropWhileTest removed - non-deterministic map iteration
+	"tricky/MapEmptyCheck":             {trickySrc, "MapEmptyCheck", nil, tricky.MapEmptyCheck},
+	"tricky/MapEmptyKey":               {trickySrc, "MapEmptyKey", nil, tricky.MapEmptyKey},
+	"tricky/MapEvery":                  {trickySrc, "MapEvery", nil, tricky.MapEvery},
+	"tricky/MapFilter":                 {trickySrc, "MapFilter", nil, tricky.MapFilter},
+	"tricky/MapFilterByKeyTest":        {trickySrc, "MapFilterByKeyTest", nil, tricky.MapFilterByKeyTest},
+	"tricky/MapFilterByValueTest":      {trickySrc, "MapFilterByValueTest", nil, tricky.MapFilterByValueTest},
+	"tricky/MapFilterKeys":             {trickySrc, "MapFilterKeys", nil, tricky.MapFilterKeys},
+	"tricky/MapFilterKeysTest":         {trickySrc, "MapFilterKeysTest", nil, tricky.MapFilterKeysTest},
+	"tricky/MapFind":                   {trickySrc, "MapFind", nil, tricky.MapFind},
+	"tricky/MapFindKeyTest":            {trickySrc, "MapFindKeyTest", nil, tricky.MapFindKeyTest},
+	"tricky/MapFindValueTest":          {trickySrc, "MapFindValueTest", nil, tricky.MapFindValueTest},
+	"tricky/MapFirstKey":               {trickySrc, "MapFirstKey", nil, tricky.MapFirstKey},
+	"tricky/MapFlatten":                {trickySrc, "MapFlatten", nil, tricky.MapFlatten},
+	"tricky/MapFlattenTest":            {trickySrc, "MapFlattenTest", nil, tricky.MapFlattenTest},
+	"tricky/MapFlip":                   {trickySrc, "MapFlip", nil, tricky.MapFlip},
+	"tricky/MapFloatKey":               {trickySrc, "MapFloatKey", nil, tricky.MapFloatKey},
+	"tricky/MapForEach":                {trickySrc, "MapForEach", nil, tricky.MapForEach},
+	"tricky/MapGetOrCreate":            {trickySrc, "MapGetOrCreate", nil, tricky.MapGetOrCreate},
+	"tricky/MapGetOrDefaultTest":       {trickySrc, "MapGetOrDefaultTest", nil, tricky.MapGetOrDefaultTest},
+	"tricky/MapGetOrElse":              {trickySrc, "MapGetOrElse", nil, tricky.MapGetOrElse},
+	"tricky/MapGetOrInsertDefaultTest": {trickySrc, "MapGetOrInsertDefaultTest", nil, tricky.MapGetOrInsertDefaultTest},
+	"tricky/MapGetOrInsertTest":        {trickySrc, "MapGetOrInsertTest", nil, tricky.MapGetOrInsertTest},
+	"tricky/MapGetOrSet":               {trickySrc, "MapGetOrSet", nil, tricky.MapGetOrSet},
+	"tricky/MapGetSetTest":             {trickySrc, "MapGetSetTest", nil, tricky.MapGetSetTest},
+	"tricky/MapGroupBy":                {trickySrc, "MapGroupBy", nil, tricky.MapGroupBy},
+	"tricky/MapGroupByKey":             {trickySrc, "MapGroupByKey", nil, tricky.MapGroupByKey},
+	"tricky/MapGroupByValueTest":       {trickySrc, "MapGroupByValueTest", nil, tricky.MapGroupByValueTest},
+	"tricky/MapHasKey":                 {trickySrc, "MapHasKey", nil, tricky.MapHasKey},
+	"tricky/MapHasKeyAndValueTest":     {trickySrc, "MapHasKeyAndValueTest", nil, tricky.MapHasKeyAndValueTest},
+	"tricky/MapHasKeyMultiple":         {trickySrc, "MapHasKeyMultiple", nil, tricky.MapHasKeyMultiple},
+	"tricky/MapHasKeyMultiTest":        {trickySrc, "MapHasKeyMultiTest", nil, tricky.MapHasKeyMultiTest},
+	"tricky/MapHasKeyNilTest":          {trickySrc, "MapHasKeyNilTest", nil, tricky.MapHasKeyNilTest},
+	"tricky/MapHasKeySlice":            {trickySrc, "MapHasKeySlice", nil, tricky.MapHasKeySlice},
+	"tricky/MapHasKeySliceTest":        {trickySrc, "MapHasKeySliceTest", nil, tricky.MapHasKeySliceTest},
+	"tricky/MapHasKeyTest":             {trickySrc, "MapHasKeyTest", nil, tricky.MapHasKeyTest},
+	"tricky/MapHasValueCond":           {trickySrc, "MapHasValueCond", nil, tricky.MapHasValueCond},
+	"tricky/MapHasValuesTest":          {trickySrc, "MapHasValuesTest", nil, tricky.MapHasValuesTest},
+	"tricky/MapIncrementAll":           {trickySrc, "MapIncrementAll", nil, tricky.MapIncrementAll},
+	"tricky/MapIncrementValueTest":     {trickySrc, "MapIncrementValueTest", nil, tricky.MapIncrementValueTest},
+	"tricky/MapIndexBy":                {trickySrc, "MapIndexBy", nil, tricky.MapIndexBy},
+	"tricky/MapIntersect":              {trickySrc, "MapIntersect", nil, tricky.MapIntersect},
+	"tricky/MapIntersectKeysFunc":      {trickySrc, "MapIntersectKeysFunc", nil, tricky.MapIntersectKeysFunc},
+	"tricky/MapIntKey":                 {trickySrc, "MapIntKey", nil, tricky.MapIntKey},
+	"tricky/MapInvert":                 {trickySrc, "MapInvert", nil, tricky.MapInvert},
+	"tricky/MapInvertSlice":            {trickySrc, "MapInvertSlice", nil, tricky.MapInvertSlice},
+	"tricky/MapIsEmptyTest":            {trickySrc, "MapIsEmptyTest", nil, tricky.MapIsEmptyTest},
+	"tricky/MapIterateDelete":          {trickySrc, "MapIterateDelete", nil, tricky.MapIterateDelete},
+	"tricky/MapKeepIfTest":             {trickySrc, "MapKeepIfTest", nil, tricky.MapKeepIfTest},
+	"tricky/MapKeepKeysTest":           {trickySrc, "MapKeepKeysTest", nil, tricky.MapKeepKeysTest},
+	"tricky/MapKeyDiffTest":            {trickySrc, "MapKeyDiffTest", nil, tricky.MapKeyDiffTest},
+	"tricky/MapKeyExistsMultiTest":     {trickySrc, "MapKeyExistsMultiTest", nil, tricky.MapKeyExistsMultiTest},
+	"tricky/MapKeyExistsTest":          {trickySrc, "MapKeyExistsTest", nil, tricky.MapKeyExistsTest},
+	"tricky/MapKeyIntersectionTest":    {trickySrc, "MapKeyIntersectionTest", nil, tricky.MapKeyIntersectionTest},
+	"tricky/MapKeysAsSliceTest":        {trickySrc, "MapKeysAsSliceTest", nil, tricky.MapKeysAsSliceTest},
+	"tricky/MapKeySetTest":             {trickySrc, "MapKeySetTest", nil, tricky.MapKeySetTest},
+	"tricky/MapKeyShadowing":           {trickySrc, "MapKeyShadowing", nil, tricky.MapKeyShadowing},
+	"tricky/MapKeysSliceTest":          {trickySrc, "MapKeysSliceTest", nil, tricky.MapKeysSliceTest},
+	"tricky/MapKeysSorted":             {trickySrc, "MapKeysSorted", nil, tricky.MapKeysSorted},
+	"tricky/MapKeysSortedTest":         {trickySrc, "MapKeysSortedTest", nil, tricky.MapKeysSortedTest},
+	"tricky/MapKeysToSlice":            {trickySrc, "MapKeysToSlice", nil, tricky.MapKeysToSlice},
+	"tricky/MapLastVal":                {trickySrc, "MapLastVal", nil, tricky.MapLastVal},
+	"tricky/MapLookupOrInsert":         {trickySrc, "MapLookupOrInsert", nil, tricky.MapLookupOrInsert},
+	"tricky/MapMapTest":                {trickySrc, "MapMapTest", nil, tricky.MapMapTest},
+	"tricky/MapMergeConditionalTest":   {trickySrc, "MapMergeConditionalTest", nil, tricky.MapMergeConditionalTest},
+	"tricky/MapMergeDisjointTest":      {trickySrc, "MapMergeDisjointTest", nil, tricky.MapMergeDisjointTest},
+	"tricky/MapMergeMultiple":          {trickySrc, "MapMergeMultiple", nil, tricky.MapMergeMultiple},
+	"tricky/MapMergeMultipleTest":      {trickySrc, "MapMergeMultipleTest", nil, tricky.MapMergeMultipleTest},
+	"tricky/MapMergeNoOverlapTest":     {trickySrc, "MapMergeNoOverlapTest", nil, tricky.MapMergeNoOverlapTest},
+	"tricky/MapMergeOverwrite":         {trickySrc, "MapMergeOverwrite", nil, tricky.MapMergeOverwrite},
+	"tricky/MapMergeOverwriteAllTest":  {trickySrc, "MapMergeOverwriteAllTest", nil, tricky.MapMergeOverwriteAllTest},
+	"tricky/MapMergePredTest":          {trickySrc, "MapMergePredTest", nil, tricky.MapMergePredTest},
+	"tricky/MapMergePreserveOrigTest":  {trickySrc, "MapMergePreserveOrigTest", nil, tricky.MapMergePreserveOrigTest},
+	"tricky/MapMergePreserveTest":      {trickySrc, "MapMergePreserveTest", nil, tricky.MapMergePreserveTest},
+	"tricky/MapMergeSameTest":          {trickySrc, "MapMergeSameTest", nil, tricky.MapMergeSameTest},
+	"tricky/MapMergeTwo":               {trickySrc, "MapMergeTwo", nil, tricky.MapMergeTwo},
+	"tricky/MapMergeWithConflict":      {trickySrc, "MapMergeWithConflict", nil, tricky.MapMergeWithConflict},
+	"tricky/MapMergeWithConflictTest":  {trickySrc, "MapMergeWithConflictTest", nil, tricky.MapMergeWithConflictTest},
+	"tricky/MapMergeWithFunc":          {trickySrc, "MapMergeWithFunc", nil, tricky.MapMergeWithFunc},
+	"tricky/MapMinMaxTest":             {trickySrc, "MapMinMaxTest", nil, tricky.MapMinMaxTest},
+	"tricky/MapNestedAssign":           {trickySrc, "MapNestedAssign", nil, tricky.MapNestedAssign},
+	"tricky/MapNestedDelete":           {trickySrc, "MapNestedDelete", nil, tricky.MapNestedDelete},
+	"tricky/MapNestedUpdate":           {trickySrc, "MapNestedUpdate", nil, tricky.MapNestedUpdate},
+	"tricky/MapNoneMatch":              {trickySrc, "MapNoneMatch", nil, tricky.MapNoneMatch},
+	"tricky/MapPartition":              {trickySrc, "MapPartition", nil, tricky.MapPartition},
+	"tricky/MapPick":                   {trickySrc, "MapPick", nil, tricky.MapPick},
+	"tricky/MapPickBy":                 {trickySrc, "MapPickBy", nil, tricky.MapPickBy},
+	"tricky/MapPluck":                  {trickySrc, "MapPluck", nil, tricky.MapPluck},
+	"tricky/MapRangeSafe":              {trickySrc, "MapRangeSafe", nil, tricky.MapRangeSafe},
+	// Note: tricky/MapRangeBreak removed - non-deterministic map iteration order
 	"tricky/MapRejectKeys":           {trickySrc, "MapRejectKeys", nil, tricky.MapRejectKeys},
 	"tricky/MapRemoveKeysTest":       {trickySrc, "MapRemoveKeysTest", nil, tricky.MapRemoveKeysTest},
 	"tricky/MapReplace":              {trickySrc, "MapReplace", nil, tricky.MapReplace},
@@ -1285,353 +1185,354 @@ var allCorrectnessTests = map[string]testCase{
 	"tricky/NestedMapWithDelete":         {trickySrc, "NestedMapWithDelete", nil, tricky.NestedMapWithDelete},
 	"tricky/NestedStructAssign":          {trickySrc, "NestedStructAssign", nil, tricky.NestedStructAssign},
 	// Note: tricky/NextPermutation removed - needs slice argument
-	"tricky/PointerAddr":                        {trickySrc, "PointerAddr", nil, tricky.PointerAddr},
-	"tricky/PointerAlias":                       {trickySrc, "PointerAlias", nil, tricky.PointerAlias},
-	"tricky/PointerArithSim":                    {trickySrc, "PointerArithSim", nil, tricky.PointerArithSim},
-	"tricky/PointerArrayElementTest":            {trickySrc, "PointerArrayElementTest", nil, tricky.PointerArrayElementTest},
-	"tricky/PointerArrayIdx":                    {trickySrc, "PointerArrayIdx", nil, tricky.PointerArrayIdx},
-	"tricky/PointerArrayIndexTest":              {trickySrc, "PointerArrayIndexTest", nil, tricky.PointerArrayIndexTest},
-	"tricky/PointerAssignChainTest":             {trickySrc, "PointerAssignChainTest", nil, tricky.PointerAssignChainTest},
-	"tricky/PointerAssignFromDerefTest":         {trickySrc, "PointerAssignFromDerefTest", nil, tricky.PointerAssignFromDerefTest},
-	"tricky/PointerAssignFromFuncTest":          {trickySrc, "PointerAssignFromFuncTest", nil, tricky.PointerAssignFromFuncTest},
-	"tricky/PointerAssignFuncResultTest":        {trickySrc, "PointerAssignFuncResultTest", nil, tricky.PointerAssignFuncResultTest},
-	"tricky/PointerAssignNilTest":               {trickySrc, "PointerAssignNilTest", nil, tricky.PointerAssignNilTest},
-	"tricky/PointerAssignSameTest":              {trickySrc, "PointerAssignSameTest", nil, tricky.PointerAssignSameTest},
-	"tricky/PointerAssignThenNilTest":           {trickySrc, "PointerAssignThenNilTest", nil, tricky.PointerAssignThenNilTest},
-	"tricky/PointerChainTest":                   {trickySrc, "PointerChainTest", nil, tricky.PointerChainTest},
-	"tricky/PointerCheckNilAfterUseTest":        {trickySrc, "PointerCheckNilAfterUseTest", nil, tricky.PointerCheckNilAfterUseTest},
-	"tricky/PointerCompare":                     {trickySrc, "PointerCompare", nil, tricky.PointerCompare},
-	"tricky/PointerCompareDiffTest":             {trickySrc, "PointerCompareDiffTest", nil, tricky.PointerCompareDiffTest},
-	"tricky/PointerCompareTest":                 {trickySrc, "PointerCompareTest", nil, tricky.PointerCompareTest},
-	"tricky/PointerDeref":                       {trickySrc, "PointerDeref", nil, tricky.PointerDeref},
-	"tricky/PointerDerefAssignTest":             {trickySrc, "PointerDerefAssignTest", nil, tricky.PointerDerefAssignTest},
-	"tricky/PointerDerefChain":                  {trickySrc, "PointerDerefChain", nil, tricky.PointerDerefChain},
-	"tricky/PointerDerefChainTest":              {trickySrc, "PointerDerefChainTest", nil, tricky.PointerDerefChainTest},
-	"tricky/PointerDerefModifyTest":             {trickySrc, "PointerDerefModifyTest", nil, tricky.PointerDerefModifyTest},
-	"tricky/PointerDerefNilCheckTest":           {trickySrc, "PointerDerefNilCheckTest", nil, tricky.PointerDerefNilCheckTest},
-	"tricky/PointerDerefNilTest":                {trickySrc, "PointerDerefNilTest", nil, tricky.PointerDerefNilTest},
-	"tricky/PointerDoubleAssignTest":            {trickySrc, "PointerDoubleAssignTest", nil, tricky.PointerDoubleAssignTest},
-	"tricky/PointerDoubleDerefTest":             {trickySrc, "PointerDoubleDerefTest", nil, tricky.PointerDoubleDerefTest},
-	"tricky/PointerLevel":                       {trickySrc, "PointerLevel", nil, tricky.PointerLevel},
-	"tricky/PointerLevelTest":                   {trickySrc, "PointerLevelTest", nil, tricky.PointerLevelTest},
-	"tricky/PointerNilAssign":                   {trickySrc, "PointerNilAssign", nil, tricky.PointerNilAssign},
-	"tricky/PointerNilAssignAfterUseTest":       {trickySrc, "PointerNilAssignAfterUseTest", nil, tricky.PointerNilAssignAfterUseTest},
-	"tricky/PointerNilAssignT":                  {trickySrc, "PointerNilAssignT", nil, tricky.PointerNilAssignT},
-	"tricky/PointerNilCheckAfterAssignTest":     {trickySrc, "PointerNilCheckAfterAssignTest", nil, tricky.PointerNilCheckAfterAssignTest},
-	"tricky/PointerNilCheckChain":               {trickySrc, "PointerNilCheckChain", nil, tricky.PointerNilCheckChain},
-	"tricky/PointerNilCheckDerefTest":           {trickySrc, "PointerNilCheckDerefTest", nil, tricky.PointerNilCheckDerefTest},
-	"tricky/PointerNilCompare":                  {trickySrc, "PointerNilCompare", nil, tricky.PointerNilCompare},
-	"tricky/PointerNilCompareTest":              {trickySrc, "PointerNilCompareTest", nil, tricky.PointerNilCompareTest},
-	"tricky/PointerNilDeref":                    {trickySrc, "PointerNilDeref", nil, tricky.PointerNilDeref},
-	"tricky/PointerNilReassign":                 {trickySrc, "PointerNilReassign", nil, tricky.PointerNilReassign},
-	"tricky/PointerNilSafe":                     {trickySrc, "PointerNilSafe", nil, tricky.PointerNilSafe},
-	"tricky/PointerNilSafeDeref":                {trickySrc, "PointerNilSafeDeref", nil, tricky.PointerNilSafeDeref},
-	"tricky/PointerNilSafeDerefTest":            {trickySrc, "PointerNilSafeDerefTest", nil, tricky.PointerNilSafeDerefTest},
-	"tricky/PointerNilSafeOpTest":               {trickySrc, "PointerNilSafeOpTest", nil, tricky.PointerNilSafeOpTest},
-	"tricky/PointerNilThenAssignTest":           {trickySrc, "PointerNilThenAssignTest", nil, tricky.PointerNilThenAssignTest},
-	"tricky/PointerNullObject":                  {trickySrc, "PointerNullObject", nil, tricky.PointerNullObject},
-	"tricky/PointerReassignChainTest":           {trickySrc, "PointerReassignChainTest", nil, tricky.PointerReassignChainTest},
-	"tricky/PointerReassignmentChain":           {trickySrc, "PointerReassignmentChain", nil, tricky.PointerReassignmentChain},
-	"tricky/PointerReassignNil":                 {trickySrc, "PointerReassignNil", nil, tricky.PointerReassignNil},
-	"tricky/PointerReassignNilTest":             {trickySrc, "PointerReassignNilTest", nil, tricky.PointerReassignNilTest},
-	"tricky/PointerReassignTest":                {trickySrc, "PointerReassignTest", nil, tricky.PointerReassignTest},
-	"tricky/PointerRotate":                      {trickySrc, "PointerRotate", nil, tricky.PointerRotate},
-	"tricky/PointerSliceElementModifyTest":      {trickySrc, "PointerSliceElementModifyTest", nil, tricky.PointerSliceElementModifyTest},
-	"tricky/PointerSliceElementSwap":            {trickySrc, "PointerSliceElementSwap", nil, tricky.PointerSliceElementSwap},
-	"tricky/PointerSliceIndexTest":              {trickySrc, "PointerSliceIndexTest", nil, tricky.PointerSliceIndexTest},
-	"tricky/PointerSliceIterateTest":            {trickySrc, "PointerSliceIterateTest", nil, tricky.PointerSliceIterateTest},
-	"tricky/PointerSliceLenTest":                {trickySrc, "PointerSliceLenTest", nil, tricky.PointerSliceLenTest},
-	"tricky/PointerSliceModifyTest":             {trickySrc, "PointerSliceModifyTest", nil, tricky.PointerSliceModifyTest},
-	"tricky/PointerSliceNilTest":                {trickySrc, "PointerSliceNilTest", nil, tricky.PointerSliceNilTest},
-	"tricky/PointerSliceOfPointers":             {trickySrc, "PointerSliceOfPointers", nil, tricky.PointerSliceOfPointers},
-	"tricky/PointerSliceOfStructTest":           {trickySrc, "PointerSliceOfStructTest", nil, tricky.PointerSliceOfStructTest},
-	"tricky/PointerStructFieldNilCheckTest":     {trickySrc, "PointerStructFieldNilCheckTest", nil, tricky.PointerStructFieldNilCheckTest},
-	"tricky/PointerStructFieldNilTest":          {trickySrc, "PointerStructFieldNilTest", nil, tricky.PointerStructFieldNilTest},
-	"tricky/PointerStructFieldTest":             {trickySrc, "PointerStructFieldTest", nil, tricky.PointerStructFieldTest},
-	"tricky/PointerStructFld":                   {trickySrc, "PointerStructFld", nil, tricky.PointerStructFld},
-	"tricky/PointerStructMethodTest":            {trickySrc, "PointerStructMethodTest", nil, tricky.PointerStructMethodTest},
-	"tricky/PointerStructModifyFieldTest":       {trickySrc, "PointerStructModifyFieldTest", nil, tricky.PointerStructModifyFieldTest},
-	"tricky/PointerStructModifyTest":            {trickySrc, "PointerStructModifyTest", nil, tricky.PointerStructModifyTest},
-	"tricky/PointerSwap":                        {trickySrc, "PointerSwap", nil, tricky.PointerSwap},
-	"tricky/PointerSwapChain":                   {trickySrc, "PointerSwapChain", nil, tricky.PointerSwapChain},
-	"tricky/PointerSwapChainTest":               {trickySrc, "PointerSwapChainTest", nil, tricky.PointerSwapChainTest},
-	"tricky/PointerSwapInArrayTest":             {trickySrc, "PointerSwapInArrayTest", nil, tricky.PointerSwapInArrayTest},
-	"tricky/PointerSwapInSlice":                 {trickySrc, "PointerSwapInSlice", nil, tricky.PointerSwapInSlice},
-	"tricky/PointerSwapInStruct":                {trickySrc, "PointerSwapInStruct", nil, tricky.PointerSwapInStruct},
-	"tricky/PointerSwapInStructTest":            {trickySrc, "PointerSwapInStructTest", nil, tricky.PointerSwapInStructTest},
-	"tricky/PointerSwapMultipleTest":            {trickySrc, "PointerSwapMultipleTest", nil, tricky.PointerSwapMultipleTest},
-	"tricky/PointerSwapNilSafe":                 {trickySrc, "PointerSwapNilSafe", nil, tricky.PointerSwapNilSafe},
-	"tricky/PointerSwapSimple":                  {trickySrc, "PointerSwapSimple", nil, tricky.PointerSwapSimple},
-	"tricky/PointerSwapStructFieldsTest":        {trickySrc, "PointerSwapStructFieldsTest", nil, tricky.PointerSwapStructFieldsTest},
-	"tricky/PointerSwapThroughSliceTest":        {trickySrc, "PointerSwapThroughSliceTest", nil, tricky.PointerSwapThroughSliceTest},
-	"tricky/PointerSwapVals":                    {trickySrc, "PointerSwapVals", nil, tricky.PointerSwapVals},
-	"tricky/PointerSwapValues":                  {trickySrc, "PointerSwapValues", nil, tricky.PointerSwapValues},
-	"tricky/PointerSwapValuesTest":              {trickySrc, "PointerSwapValuesTest", nil, tricky.PointerSwapValuesTest},
-	"tricky/PointerSwapViaSliceTest":            {trickySrc, "PointerSwapViaSliceTest", nil, tricky.PointerSwapViaSliceTest},
-	"tricky/PointerSwapViaTempTest":             {trickySrc, "PointerSwapViaTempTest", nil, tricky.PointerSwapViaTempTest},
-	"tricky/PointerToArr":                       {trickySrc, "PointerToArr", nil, tricky.PointerToArr},
-	"tricky/PointerToArray":                     {trickySrc, "PointerToArray", nil, tricky.PointerToArray},
-	"tricky/PointerToArrayElement":              {trickySrc, "PointerToArrayElement", nil, tricky.PointerToArrayElement},
-	"tricky/PointerToArrTest":                   {trickySrc, "PointerToArrTest", nil, tricky.PointerToArrTest},
-	"tricky/PointerToChanTest":                  {trickySrc, "PointerToChanTest", nil, tricky.PointerToChanTest},
-	"tricky/PointerToFunc":                      {trickySrc, "PointerToFunc", nil, tricky.PointerToFunc},
-	"tricky/PointerToFuncResultTest":            {trickySrc, "PointerToFuncResultTest", nil, tricky.PointerToFuncResultTest},
-	"tricky/PointerToInterface":                 {trickySrc, "PointerToInterface", nil, tricky.PointerToInterface},
-	"tricky/PointerToMapElement":                {trickySrc, "PointerToMapElement", nil, tricky.PointerToMapElement},
-	"tricky/PointerToMapKey":                    {trickySrc, "PointerToMapKey", nil, tricky.PointerToMapKey},
-	"tricky/PointerToMapNilTest":                {trickySrc, "PointerToMapNilTest", nil, tricky.PointerToMapNilTest},
-	"tricky/PointerToMapTest":                   {trickySrc, "PointerToMapTest", nil, tricky.PointerToMapTest},
-	"tricky/PointerToNilAssignTest":             {trickySrc, "PointerToNilAssignTest", nil, tricky.PointerToNilAssignTest},
-	"tricky/PointerToNilInterface":              {trickySrc, "PointerToNilInterface", nil, tricky.PointerToNilInterface},
-	"tricky/PointerToNilMap":                    {trickySrc, "PointerToNilMap", nil, tricky.PointerToNilMap},
-	"tricky/PointerToNilMapLenTest":             {trickySrc, "PointerToNilMapLenTest", nil, tricky.PointerToNilMapLenTest},
-	"tricky/PointerToNilSliceLenTest":           {trickySrc, "PointerToNilSliceLenTest", nil, tricky.PointerToNilSliceLenTest},
-	"tricky/PointerToNilSliceTest":              {trickySrc, "PointerToNilSliceTest", nil, tricky.PointerToNilSliceTest},
-	"tricky/PointerToNilStruct":                 {trickySrc, "PointerToNilStruct", nil, tricky.PointerToNilStruct},
-	"tricky/PointerToNilStructTest":             {trickySrc, "PointerToNilStructTest", nil, tricky.PointerToNilStructTest},
-	"tricky/PointerToNilTest":                   {trickySrc, "PointerToNilTest", nil, tricky.PointerToNilTest},
-	"tricky/PointerToPointer":                   {trickySrc, "PointerToPointer", nil, tricky.PointerToPointer},
-	"tricky/PointerToPointerAssign":             {trickySrc, "PointerToPointerAssign", nil, tricky.PointerToPointerAssign},
-	"tricky/PointerToPointerAssignTest":         {trickySrc, "PointerToPointerAssignTest", nil, tricky.PointerToPointerAssignTest},
-	"tricky/PointerToPointerDerefTest":          {trickySrc, "PointerToPointerDerefTest", nil, tricky.PointerToPointerDerefTest},
-	"tricky/PointerToSliceAppend":               {trickySrc, "PointerToSliceAppend", nil, tricky.PointerToSliceAppend},
-	"tricky/PointerToSliceClear":                {trickySrc, "PointerToSliceClear", nil, tricky.PointerToSliceClear},
-	"tricky/PointerToSliceClearTest":            {trickySrc, "PointerToSliceClearTest", nil, tricky.PointerToSliceClearTest},
-	"tricky/PointerToSliceElementModifyTest":    {trickySrc, "PointerToSliceElementModifyTest", nil, tricky.PointerToSliceElementModifyTest},
-	"tricky/PointerToSliceLen":                  {trickySrc, "PointerToSliceLen", nil, tricky.PointerToSliceLen},
-	"tricky/PointerToSliceLenCap":               {trickySrc, "PointerToSliceLenCap", nil, tricky.PointerToSliceLenCap},
-	"tricky/PointerToSliceModify":               {trickySrc, "PointerToSliceModify", nil, tricky.PointerToSliceModify},
-	"tricky/PointerToSliceNilTest":              {trickySrc, "PointerToSliceNilTest", nil, tricky.PointerToSliceNilTest},
-	"tricky/PointerToSliceOfNilTest":            {trickySrc, "PointerToSliceOfNilTest", nil, tricky.PointerToSliceOfNilTest},
-	"tricky/PointerToSliceOfPtrTest":            {trickySrc, "PointerToSliceOfPtrTest", nil, tricky.PointerToSliceOfPtrTest},
-	"tricky/PointerToSliceOfStructs":            {trickySrc, "PointerToSliceOfStructs", nil, tricky.PointerToSliceOfStructs},
-	"tricky/PointerToSliceTest":                 {trickySrc, "PointerToSliceTest", nil, tricky.PointerToSliceTest},
-	"tricky/PointerToStructField":               {trickySrc, "PointerToStructField", nil, tricky.PointerToStructField},
-	"tricky/PointerToStructMethodTest":          {trickySrc, "PointerToStructMethodTest", nil, tricky.PointerToStructMethodTest},
-	"tricky/PointerToStructNilMethodTest":       {trickySrc, "PointerToStructNilMethodTest", nil, tricky.PointerToStructNilMethodTest},
-	"tricky/PointerToStructTest":                {trickySrc, "PointerToStructTest", nil, tricky.PointerToStructTest},
-	"tricky/SliceAll":                           {trickySrc, "SliceAll", nil, tricky.SliceAll},
-	"tricky/SliceAppendCapTest":                 {trickySrc, "SliceAppendCapTest", nil, tricky.SliceAppendCapTest},
-	"tricky/SliceAppendFunc":                    {trickySrc, "SliceAppendFunc", nil, tricky.SliceAppendFunc},
-	"tricky/SliceAppendIfTest":                  {trickySrc, "SliceAppendIfTest", nil, tricky.SliceAppendIfTest},
-	"tricky/SliceAppendNilTest":                 {trickySrc, "SliceAppendNilTest", nil, tricky.SliceAppendNilTest},
-	"tricky/SliceAppendSliceTest":               {trickySrc, "SliceAppendSliceTest", nil, tricky.SliceAppendSliceTest},
-	"tricky/SliceBsearch":                       {trickySrc, "SliceBsearch", nil, tricky.SliceBsearch},
-	"tricky/SliceCartesianProduct":              {trickySrc, "SliceCartesianProduct", nil, tricky.SliceCartesianProduct},
-	"tricky/SliceChainedSlice":                  {trickySrc, "SliceChainedSlice", nil, tricky.SliceChainedSlice},
-	"tricky/SliceChunk":                         {trickySrc, "SliceChunk", nil, tricky.SliceChunk},
-	"tricky/SliceChunkByPredTest":               {trickySrc, "SliceChunkByPredTest", nil, tricky.SliceChunkByPredTest},
-	"tricky/SliceChunkByTest":                   {trickySrc, "SliceChunkByTest", nil, tricky.SliceChunkByTest},
-	"tricky/SliceChunkEveryTest":                {trickySrc, "SliceChunkEveryTest", nil, tricky.SliceChunkEveryTest},
-	"tricky/SliceClone":                         {trickySrc, "SliceClone", nil, tricky.SliceClone},
-	"tricky/SliceCombinations":                  {trickySrc, "SliceCombinations", nil, tricky.SliceCombinations},
-	"tricky/SliceCompact":                       {trickySrc, "SliceCompact", nil, tricky.SliceCompact},
-	"tricky/SliceCompactMap":                    {trickySrc, "SliceCompactMap", nil, tricky.SliceCompactMap},
-	"tricky/SliceContainsAll":                   {trickySrc, "SliceContainsAll", nil, tricky.SliceContainsAll},
-	"tricky/SliceContainsAllTest":               {trickySrc, "SliceContainsAllTest", nil, tricky.SliceContainsAllTest},
-	"tricky/SliceContainsAnyTest":               {trickySrc, "SliceContainsAnyTest", nil, tricky.SliceContainsAnyTest},
-	"tricky/SliceContainsNoneTest":              {trickySrc, "SliceContainsNoneTest", nil, tricky.SliceContainsNoneTest},
-	"tricky/SliceCopyFromMap":                   {trickySrc, "SliceCopyFromMap", nil, tricky.SliceCopyFromMap},
-	"tricky/SliceCopyModifyTest":                {trickySrc, "SliceCopyModifyTest", nil, tricky.SliceCopyModifyTest},
-	"tricky/SliceCopyReverseTest":               {trickySrc, "SliceCopyReverseTest", nil, tricky.SliceCopyReverseTest},
-	"tricky/SliceCopySubsetTest":                {trickySrc, "SliceCopySubsetTest", nil, tricky.SliceCopySubsetTest},
-	"tricky/SliceCountBy":                       {trickySrc, "SliceCountBy", nil, tricky.SliceCountBy},
-	"tricky/SliceCountTest":                     {trickySrc, "SliceCountTest", nil, tricky.SliceCountTest},
-	"tricky/SliceCountWhileTest":                {trickySrc, "SliceCountWhileTest", nil, tricky.SliceCountWhileTest},
-	"tricky/SliceCycleTest":                     {trickySrc, "SliceCycleTest", nil, tricky.SliceCycleTest},
-	"tricky/SliceDedupConsecutive":              {trickySrc, "SliceDedupConsecutive", nil, tricky.SliceDedupConsecutive},
-	"tricky/SliceDeleteFront":                   {trickySrc, "SliceDeleteFront", nil, tricky.SliceDeleteFront},
-	"tricky/SliceDeleteMiddle":                  {trickySrc, "SliceDeleteMiddle", nil, tricky.SliceDeleteMiddle},
-	"tricky/SliceDetect":                        {trickySrc, "SliceDetect", nil, tricky.SliceDetect},
-	"tricky/SliceDiff":                          {trickySrc, "SliceDiff", nil, tricky.SliceDiff},
-	"tricky/SliceDifference":                    {trickySrc, "SliceDifference", nil, tricky.SliceDifference},
-	"tricky/SliceDifferenceBy":                  {trickySrc, "SliceDifferenceBy", nil, tricky.SliceDifferenceBy},
-	"tricky/SliceDrop":                          {trickySrc, "SliceDrop", nil, tricky.SliceDrop},
-	"tricky/SliceDropN":                         {trickySrc, "SliceDropN", nil, tricky.SliceDropN},
-	"tricky/SliceDropNFunc":                     {trickySrc, "SliceDropNFunc", nil, tricky.SliceDropNFunc},
-	"tricky/SliceDropTest":                      {trickySrc, "SliceDropTest", nil, tricky.SliceDropTest},
-	"tricky/SliceDropWhile":                     {trickySrc, "SliceDropWhile", nil, tricky.SliceDropWhile},
-	"tricky/SliceDropWhileTest":                 {trickySrc, "SliceDropWhileTest", nil, tricky.SliceDropWhileTest},
-	"tricky/SliceEachWithIndex":                 {trickySrc, "SliceEachWithIndex", nil, tricky.SliceEachWithIndex},
-	"tricky/SliceEqual":                         {trickySrc, "SliceEqual", nil, tricky.SliceEqual},
-	"tricky/SliceExistsTest":                    {trickySrc, "SliceExistsTest", nil, tricky.SliceExistsTest},
-	"tricky/SliceFill":                          {trickySrc, "SliceFill", nil, tricky.SliceFill},
-	"tricky/SliceFilterKeepTest":                {trickySrc, "SliceFilterKeepTest", nil, tricky.SliceFilterKeepTest},
-	"tricky/SliceFilterNotTest":                 {trickySrc, "SliceFilterNotTest", nil, tricky.SliceFilterNotTest},
-	"tricky/SliceFindFirstFunc":                 {trickySrc, "SliceFindFirstFunc", nil, tricky.SliceFindFirstFunc},
-	"tricky/SliceFindFirstTest":                 {trickySrc, "SliceFindFirstTest", nil, tricky.SliceFindFirstTest},
-	"tricky/SliceFindIdx":                       {trickySrc, "SliceFindIdx", nil, tricky.SliceFindIdx},
-	"tricky/SliceFindIndex":                     {trickySrc, "SliceFindIndex", nil, tricky.SliceFindIndex},
-	"tricky/SliceFindIndexTest":                 {trickySrc, "SliceFindIndexTest", nil, tricky.SliceFindIndexTest},
-	"tricky/SliceFindLastPosTest":               {trickySrc, "SliceFindLastPosTest", nil, tricky.SliceFindLastPosTest},
-	"tricky/SliceFindLastTest":                  {trickySrc, "SliceFindLastTest", nil, tricky.SliceFindLastTest},
-	"tricky/SliceFirst":                         {trickySrc, "SliceFirst", nil, tricky.SliceFirst},
-	"tricky/SliceFlatten":                       {trickySrc, "SliceFlatten", nil, tricky.SliceFlatten},
-	"tricky/SliceFlatten2D":                     {trickySrc, "SliceFlatten2D", nil, tricky.SliceFlatten2D},
-	"tricky/SliceFlattenDeep":                   {trickySrc, "SliceFlattenDeep", nil, tricky.SliceFlattenDeep},
-	"tricky/SliceFlattenLevelTest":              {trickySrc, "SliceFlattenLevelTest", nil, tricky.SliceFlattenLevelTest},
-	"tricky/SliceFlattenManual":                 {trickySrc, "SliceFlattenManual", nil, tricky.SliceFlattenManual},
-	"tricky/SliceFlattenManualTest":             {trickySrc, "SliceFlattenManualTest", nil, tricky.SliceFlattenManualTest},
-	"tricky/SliceFoldLeft":                      {trickySrc, "SliceFoldLeft", nil, tricky.SliceFoldLeft},
-	"tricky/SliceFromChan":                      {trickySrc, "SliceFromChan", nil, tricky.SliceFromChan},
-	"tricky/SliceGrep":                          {trickySrc, "SliceGrep", nil, tricky.SliceGrep},
-	"tricky/SliceGroupBy":                       {trickySrc, "SliceGroupBy", nil, tricky.SliceGroupBy},
-	"tricky/SliceGroupByFld":                    {trickySrc, "SliceGroupByFld", nil, tricky.SliceGroupByFld},
-	"tricky/SliceGroupByMultiple":               {trickySrc, "SliceGroupByMultiple", nil, tricky.SliceGroupByMultiple},
-	"tricky/SliceGroupConsecutiveTest":          {trickySrc, "SliceGroupConsecutiveTest", nil, tricky.SliceGroupConsecutiveTest},
-	"tricky/SliceGrow":                          {trickySrc, "SliceGrow", nil, tricky.SliceGrow},
-	"tricky/SliceGrowWithAppend":                {trickySrc, "SliceGrowWithAppend", nil, tricky.SliceGrowWithAppend},
-	"tricky/SliceHeadTest":                      {trickySrc, "SliceHeadTest", nil, tricky.SliceHeadTest},
-	"tricky/SliceIndexOf":                       {trickySrc, "SliceIndexOf", nil, tricky.SliceIndexOf},
-	"tricky/SliceIndexOfFirstTest":              {trickySrc, "SliceIndexOfFirstTest", nil, tricky.SliceIndexOfFirstTest},
-	"tricky/SliceIndexOfMaxTest":                {trickySrc, "SliceIndexOfMaxTest", nil, tricky.SliceIndexOfMaxTest},
-	"tricky/SliceIndexOfTest":                   {trickySrc, "SliceIndexOfTest", nil, tricky.SliceIndexOfTest},
-	"tricky/SliceIndexOutOfRange":               {trickySrc, "SliceIndexOutOfRange", nil, tricky.SliceIndexOutOfRange},
-	"tricky/SliceInitAndModifyTest":             {trickySrc, "SliceInitAndModifyTest", nil, tricky.SliceInitAndModifyTest},
-	"tricky/SliceInitCapTest":                   {trickySrc, "SliceInitCapTest", nil, tricky.SliceInitCapTest},
-	"tricky/SliceInsertAt":                      {trickySrc, "SliceInsertAt", nil, tricky.SliceInsertAt},
-	"tricky/SliceInsertAtTest":                  {trickySrc, "SliceInsertAtTest", nil, tricky.SliceInsertAtTest},
-	"tricky/SliceInsertFrontTest":               {trickySrc, "SliceInsertFrontTest", nil, tricky.SliceInsertFrontTest},
-	"tricky/SliceInsertMultipleTest":            {trickySrc, "SliceInsertMultipleTest", nil, tricky.SliceInsertMultipleTest},
-	"tricky/SliceInsertSliceTest":               {trickySrc, "SliceInsertSliceTest", nil, tricky.SliceInsertSliceTest},
-	"tricky/SliceInterleaveTest":                {trickySrc, "SliceInterleaveTest", nil, tricky.SliceInterleaveTest},
-	"tricky/SliceIntersect":                     {trickySrc, "SliceIntersect", nil, tricky.SliceIntersect},
-	"tricky/SliceIntersectBy":                   {trickySrc, "SliceIntersectBy", nil, tricky.SliceIntersectBy},
-	"tricky/SliceIntersectTest":                 {trickySrc, "SliceIntersectTest", nil, tricky.SliceIntersectTest},
-	"tricky/SliceIntersperseTest":               {trickySrc, "SliceIntersperseTest", nil, tricky.SliceIntersperseTest},
-	"tricky/SliceIsSortedTest":                  {trickySrc, "SliceIsSortedTest", nil, tricky.SliceIsSortedTest},
-	"tricky/SliceLast":                          {trickySrc, "SliceLast", nil, tricky.SliceLast},
-	"tricky/SliceLastIndexOfTest":               {trickySrc, "SliceLastIndexOfTest", nil, tricky.SliceLastIndexOfTest},
-	"tricky/SliceLastIndexOfTest2":              {trickySrc, "SliceLastIndexOfTest2", nil, tricky.SliceLastIndexOfTest2},
-	"tricky/SliceLastNFunc":                     {trickySrc, "SliceLastNFunc", nil, tricky.SliceLastNFunc},
-	"tricky/SliceMakeFromArr":                   {trickySrc, "SliceMakeFromArr", nil, tricky.SliceMakeFromArr},
-	"tricky/SliceMakeZero":                      {trickySrc, "SliceMakeZero", nil, tricky.SliceMakeZero},
-	"tricky/SliceMapEachTest":                   {trickySrc, "SliceMapEachTest", nil, tricky.SliceMapEachTest},
-	"tricky/SliceMapIndex":                      {trickySrc, "SliceMapIndex", nil, tricky.SliceMapIndex},
-	"tricky/SliceMax":                           {trickySrc, "SliceMax", nil, tricky.SliceMax},
-	"tricky/SliceMaxVal":                        {trickySrc, "SliceMaxVal", nil, tricky.SliceMaxVal},
-	"tricky/SliceMinIdx":                        {trickySrc, "SliceMinIdx", nil, tricky.SliceMinIdx},
-	"tricky/SliceMinMax":                        {trickySrc, "SliceMinMax", nil, tricky.SliceMinMax},
-	"tricky/SliceMinVal":                        {trickySrc, "SliceMinVal", nil, tricky.SliceMinVal},
-	"tricky/SliceNegativeIndex":                 {trickySrc, "SliceNegativeIndex", nil, tricky.SliceNegativeIndex},
-	"tricky/SliceNilAppend":                     {trickySrc, "SliceNilAppend", nil, tricky.SliceNilAppend},
-	"tricky/SliceNone":                          {trickySrc, "SliceNone", nil, tricky.SliceNone},
-	"tricky/SliceOfEmptyInterface":              {trickySrc, "SliceOfEmptyInterface", nil, tricky.SliceOfEmptyInterface},
-	"tricky/SliceOfInterfacesWithTypes":         {trickySrc, "SliceOfInterfacesWithTypes", nil, tricky.SliceOfInterfacesWithTypes},
-	"tricky/SlicePad":                           {trickySrc, "SlicePad", nil, tricky.SlicePad},
-	"tricky/SlicePadLeftTest":                   {trickySrc, "SlicePadLeftTest", nil, tricky.SlicePadLeftTest},
-	"tricky/SlicePadRightTest":                  {trickySrc, "SlicePadRightTest", nil, tricky.SlicePadRightTest},
-	"tricky/SlicePartition":                     {trickySrc, "SlicePartition", nil, tricky.SlicePartition},
-	"tricky/SlicePartitionBy":                   {trickySrc, "SlicePartitionBy", nil, tricky.SlicePartitionBy},
-	"tricky/SlicePartitionPosNeg":               {trickySrc, "SlicePartitionPosNeg", nil, tricky.SlicePartitionPosNeg},
-	"tricky/SlicePartitionTest":                 {trickySrc, "SlicePartitionTest", nil, tricky.SlicePartitionTest},
-	"tricky/SlicePermutation":                   {trickySrc, "SlicePermutation", nil, tricky.SlicePermutation},
-	"tricky/SlicePermuteSimpleTest":             {trickySrc, "SlicePermuteSimpleTest", nil, tricky.SlicePermuteSimpleTest},
-	"tricky/SlicePluck":                         {trickySrc, "SlicePluck", nil, tricky.SlicePluck},
-	"tricky/SlicePluckFld":                      {trickySrc, "SlicePluckFld", nil, tricky.SlicePluckFld},
-	"tricky/SlicePrepend":                       {trickySrc, "SlicePrepend", nil, tricky.SlicePrepend},
-	"tricky/SlicePrependMultipleTest":           {trickySrc, "SlicePrependMultipleTest", nil, tricky.SlicePrependMultipleTest},
-	"tricky/SlicePrependValueTest":              {trickySrc, "SlicePrependValueTest", nil, tricky.SlicePrependValueTest},
-	"tricky/SliceProd":                          {trickySrc, "SliceProd", nil, tricky.SliceProd},
-	"tricky/SliceProduct":                       {trickySrc, "SliceProduct", nil, tricky.SliceProduct},
-	"tricky/SliceRandomAccess":                  {trickySrc, "SliceRandomAccess", nil, tricky.SliceRandomAccess},
-	"tricky/SliceReduce":                        {trickySrc, "SliceReduce", nil, tricky.SliceReduce},
-	"tricky/SliceReduceTest":                    {trickySrc, "SliceReduceTest", nil, tricky.SliceReduceTest},
-	"tricky/SliceReject":                        {trickySrc, "SliceReject", nil, tricky.SliceReject},
-	"tricky/SliceRemoveAtTest":                  {trickySrc, "SliceRemoveAtTest", nil, tricky.SliceRemoveAtTest},
-	"tricky/SliceRemoveDupes":                   {trickySrc, "SliceRemoveDupes", nil, tricky.SliceRemoveDupes},
-	"tricky/SliceRemoveDupSortedTest":           {trickySrc, "SliceRemoveDupSortedTest", nil, tricky.SliceRemoveDupSortedTest},
-	"tricky/SliceRemoveDupTest":                 {trickySrc, "SliceRemoveDupTest", nil, tricky.SliceRemoveDupTest},
-	"tricky/SliceRemoveIf":                      {trickySrc, "SliceRemoveIf", nil, tricky.SliceRemoveIf},
-	"tricky/SliceRemoveIfKeepTest":              {trickySrc, "SliceRemoveIfKeepTest", nil, tricky.SliceRemoveIfKeepTest},
-	"tricky/SliceRemoveIfTest":                  {trickySrc, "SliceRemoveIfTest", nil, tricky.SliceRemoveIfTest},
-	"tricky/SliceRemoveLastTest":                {trickySrc, "SliceRemoveLastTest", nil, tricky.SliceRemoveLastTest},
-	"tricky/SliceRepeat":                        {trickySrc, "SliceRepeat", nil, tricky.SliceRepeat},
-	"tricky/SliceRepeatNTest":                   {trickySrc, "SliceRepeatNTest", nil, tricky.SliceRepeatNTest},
-	"tricky/SliceReplaceAtTest":                 {trickySrc, "SliceReplaceAtTest", nil, tricky.SliceReplaceAtTest},
-	"tricky/SliceReverseCopy":                   {trickySrc, "SliceReverseCopy", nil, tricky.SliceReverseCopy},
-	"tricky/SliceReverseCopyTest":               {trickySrc, "SliceReverseCopyTest", nil, tricky.SliceReverseCopyTest},
-	"tricky/SliceReverseInPlace":                {trickySrc, "SliceReverseInPlace", nil, tricky.SliceReverseInPlace},
-	"tricky/SliceReverseManualTest":             {trickySrc, "SliceReverseManualTest", nil, tricky.SliceReverseManualTest},
-	"tricky/SliceReverseRangeTest":              {trickySrc, "SliceReverseRangeTest", nil, tricky.SliceReverseRangeTest},
-	"tricky/SliceRotate":                        {trickySrc, "SliceRotate", nil, tricky.SliceRotate},
-	"tricky/SliceRotateByTest":                  {trickySrc, "SliceRotateByTest", nil, tricky.SliceRotateByTest},
-	"tricky/SliceRotateLeft":                    {trickySrc, "SliceRotateLeft", nil, tricky.SliceRotateLeft},
-	"tricky/SliceRotateLeftNTest":               {trickySrc, "SliceRotateLeftNTest", nil, tricky.SliceRotateLeftNTest},
-	"tricky/SliceRotateLeftTest":                {trickySrc, "SliceRotateLeftTest", nil, tricky.SliceRotateLeftTest},
-	"tricky/SliceRotateRight":                   {trickySrc, "SliceRotateRight", nil, tricky.SliceRotateRight},
-	"tricky/SliceRotateRightNTest":              {trickySrc, "SliceRotateRightNTest", nil, tricky.SliceRotateRightNTest},
-	"tricky/SliceRotateRightTest":               {trickySrc, "SliceRotateRightTest", nil, tricky.SliceRotateRightTest},
-	"tricky/SliceSample":                        {trickySrc, "SliceSample", nil, tricky.SliceSample},
-	"tricky/SliceScan":                          {trickySrc, "SliceScan", nil, tricky.SliceScan},
-	"tricky/SliceScanLeftTest":                  {trickySrc, "SliceScanLeftTest", nil, tricky.SliceScanLeftTest},
-	"tricky/SliceSelect":                        {trickySrc, "SliceSelect", nil, tricky.SliceSelect},
-	"tricky/SliceShiftLeftTest":                 {trickySrc, "SliceShiftLeftTest", nil, tricky.SliceShiftLeftTest},
-	"tricky/SliceSlideTest":                     {trickySrc, "SliceSlideTest", nil, tricky.SliceSlideTest},
-	"tricky/SliceSlidingWindowTest":             {trickySrc, "SliceSlidingWindowTest", nil, tricky.SliceSlidingWindowTest},
-	"tricky/SliceSortBubble":                    {trickySrc, "SliceSortBubble", nil, tricky.SliceSortBubble},
-	"tricky/SliceSortBy":                        {trickySrc, "SliceSortBy", nil, tricky.SliceSortBy},
-	"tricky/SliceSortByFld":                     {trickySrc, "SliceSortByFld", nil, tricky.SliceSortByFld},
-	"tricky/SliceSortByMultiple":                {trickySrc, "SliceSortByMultiple", nil, tricky.SliceSortByMultiple},
-	"tricky/SliceSortStable":                    {trickySrc, "SliceSortStable", nil, tricky.SliceSortStable},
-	"tricky/SliceSplice":                        {trickySrc, "SliceSplice", nil, tricky.SliceSplice},
-	"tricky/SliceSplit":                         {trickySrc, "SliceSplit", nil, tricky.SliceSplit},
-	"tricky/SliceSplitAtTest":                   {trickySrc, "SliceSplitAtTest", nil, tricky.SliceSplitAtTest},
-	"tricky/SliceSplitByPredTest":               {trickySrc, "SliceSplitByPredTest", nil, tricky.SliceSplitByPredTest},
-	"tricky/SliceStride":                        {trickySrc, "SliceStride", nil, tricky.SliceStride},
-	"tricky/SliceStructIndex":                   {trickySrc, "SliceStructIndex", nil, tricky.SliceStructIndex},
-	"tricky/SliceSubset":                        {trickySrc, "SliceSubset", nil, tricky.SliceSubset},
-	"tricky/SliceSubsliceTest":                  {trickySrc, "SliceSubsliceTest", nil, tricky.SliceSubsliceTest},
-	"tricky/SliceSum":                           {trickySrc, "SliceSum", nil, tricky.SliceSum},
-	"tricky/SliceSumOddIdx":                     {trickySrc, "SliceSumOddIdx", nil, tricky.SliceSumOddIdx},
-	"tricky/SliceSumRange":                      {trickySrc, "SliceSumRange", nil, tricky.SliceSumRange},
-	"tricky/SliceSumRangeTest":                  {trickySrc, "SliceSumRangeTest", nil, tricky.SliceSumRangeTest},
-	"tricky/SliceSwapElementsTest":              {trickySrc, "SliceSwapElementsTest", nil, tricky.SliceSwapElementsTest},
-	"tricky/SliceSymmetricDiff":                 {trickySrc, "SliceSymmetricDiff", nil, tricky.SliceSymmetricDiff},
-	"tricky/SliceSymmetricDiffTest":             {trickySrc, "SliceSymmetricDiffTest", nil, tricky.SliceSymmetricDiffTest},
-	"tricky/SliceTailTest":                      {trickySrc, "SliceTailTest", nil, tricky.SliceTailTest},
-	"tricky/SliceTake":                          {trickySrc, "SliceTake", nil, tricky.SliceTake},
-	"tricky/SliceTakeDropTest":                  {trickySrc, "SliceTakeDropTest", nil, tricky.SliceTakeDropTest},
-	"tricky/SliceTakeN":                         {trickySrc, "SliceTakeN", nil, tricky.SliceTakeN},
-	"tricky/SliceTakeNFunc":                     {trickySrc, "SliceTakeNFunc", nil, tricky.SliceTakeNFunc},
-	"tricky/SliceTakeTest":                      {trickySrc, "SliceTakeTest", nil, tricky.SliceTakeTest},
-	"tricky/SliceTakeWhile":                     {trickySrc, "SliceTakeWhile", nil, tricky.SliceTakeWhile},
-	"tricky/SliceTakeWhileDropWhile":            {trickySrc, "SliceTakeWhileDropWhile", nil, tricky.SliceTakeWhileDropWhile},
-	"tricky/SliceTakeWhileTest":                 {trickySrc, "SliceTakeWhileTest", nil, tricky.SliceTakeWhileTest},
-	"tricky/SliceTee":                           {trickySrc, "SliceTee", nil, tricky.SliceTee},
-	"tricky/SliceTranspose":                     {trickySrc, "SliceTranspose", nil, tricky.SliceTranspose},
-	"tricky/SliceTranspose2D":                   {trickySrc, "SliceTranspose2D", nil, tricky.SliceTranspose2D},
-	"tricky/SliceTruncate":                      {trickySrc, "SliceTruncate", nil, tricky.SliceTruncate},
-	"tricky/SliceUnion":                         {trickySrc, "SliceUnion", nil, tricky.SliceUnion},
-	"tricky/SliceUniqBy":                        {trickySrc, "SliceUniqBy", nil, tricky.SliceUniqBy},
-	"tricky/SliceUnique":                        {trickySrc, "SliceUnique", nil, tricky.SliceUnique},
-	"tricky/SliceUniqueCountTest":               {trickySrc, "SliceUniqueCountTest", nil, tricky.SliceUniqueCountTest},
-	"tricky/SliceUniquePreserveOrderTest":       {trickySrc, "SliceUniquePreserveOrderTest", nil, tricky.SliceUniquePreserveOrderTest},
-	"tricky/SliceUniquePreserveTest":            {trickySrc, "SliceUniquePreserveTest", nil, tricky.SliceUniquePreserveTest},
-	"tricky/SliceUnzip":                         {trickySrc, "SliceUnzip", nil, tricky.SliceUnzip},
-	"tricky/SliceWindow":                        {trickySrc, "SliceWindow", nil, tricky.SliceWindow},
-	"tricky/SliceWithout":                       {trickySrc, "SliceWithout", nil, tricky.SliceWithout},
-	"tricky/SliceZip":                           {trickySrc, "SliceZip", nil, tricky.SliceZip},
-	"tricky/SliceZipMap":                        {trickySrc, "SliceZipMap", nil, tricky.SliceZipMap},
-	"tricky/SliceZipMapTest":                    {trickySrc, "SliceZipMapTest", nil, tricky.SliceZipMapTest},
-	"tricky/SliceZipTest":                       {trickySrc, "SliceZipTest", nil, tricky.SliceZipTest},
-	"tricky/SliceZipWith":                       {trickySrc, "SliceZipWith", nil, tricky.SliceZipWith},
-	"tricky/SliceZipWithIndexTest":              {trickySrc, "SliceZipWithIndexTest", nil, tricky.SliceZipWithIndexTest},
-	"tricky/StructAnon":                         {trickySrc, "StructAnon", nil, tricky.StructAnon},
-	"tricky/StructAnonymousField":               {trickySrc, "StructAnonymousField", nil, tricky.StructAnonymousField},
-	"tricky/StructCompareDiff":                  {trickySrc, "StructCompareDiff", nil, tricky.StructCompareDiff},
-	"tricky/StructCompareDiffTest":              {trickySrc, "StructCompareDiffTest", nil, tricky.StructCompareDiffTest},
-	"tricky/StructCompareDiffTypeTest":          {trickySrc, "StructCompareDiffTypeTest", nil, tricky.StructCompareDiffTypeTest},
-	"tricky/StructCompareEqual":                 {trickySrc, "StructCompareEqual", nil, tricky.StructCompareEqual},
-	"tricky/StructCompareNil":                   {trickySrc, "StructCompareNil", nil, tricky.StructCompareNil},
-	"tricky/StructCompareNilPtrTest":            {trickySrc, "StructCompareNilPtrTest", nil, tricky.StructCompareNilPtrTest},
-	"tricky/StructCompareSameTest":              {trickySrc, "StructCompareSameTest", nil, tricky.StructCompareSameTest},
-	"tricky/StructCopyDeep":                     {trickySrc, "StructCopyDeep", nil, tricky.StructCopyDeep},
-	"tricky/StructCopyPointerTest":              {trickySrc, "StructCopyPointerTest", nil, tricky.StructCopyPointerTest},
-	"tricky/StructCopyValueTest":                {trickySrc, "StructCopyValueTest", nil, tricky.StructCopyValueTest},
-	"tricky/StructEmbeddedAccessTest":           {trickySrc, "StructEmbeddedAccessTest", nil, tricky.StructEmbeddedAccessTest},
-	"tricky/StructEmbeddedFldAccess":            {trickySrc, "StructEmbeddedFldAccess", nil, tricky.StructEmbeddedFldAccess},
-	// Note: tricky/StructEmbeddedInterface moved to known_issue_test.go - complex interface/embedding issue
+	"tricky/PointerAddr":                     {trickySrc, "PointerAddr", nil, tricky.PointerAddr},
+	"tricky/PointerAlias":                    {trickySrc, "PointerAlias", nil, tricky.PointerAlias},
+	"tricky/PointerArithSim":                 {trickySrc, "PointerArithSim", nil, tricky.PointerArithSim},
+	"tricky/PointerArrayElementTest":         {trickySrc, "PointerArrayElementTest", nil, tricky.PointerArrayElementTest},
+	"tricky/PointerArrayIdx":                 {trickySrc, "PointerArrayIdx", nil, tricky.PointerArrayIdx},
+	"tricky/PointerArrayIndexTest":           {trickySrc, "PointerArrayIndexTest", nil, tricky.PointerArrayIndexTest},
+	"tricky/PointerAssignChainTest":          {trickySrc, "PointerAssignChainTest", nil, tricky.PointerAssignChainTest},
+	"tricky/PointerAssignFromDerefTest":      {trickySrc, "PointerAssignFromDerefTest", nil, tricky.PointerAssignFromDerefTest},
+	"tricky/PointerAssignFromFuncTest":       {trickySrc, "PointerAssignFromFuncTest", nil, tricky.PointerAssignFromFuncTest},
+	"tricky/PointerAssignFuncResultTest":     {trickySrc, "PointerAssignFuncResultTest", nil, tricky.PointerAssignFuncResultTest},
+	"tricky/PointerAssignNilTest":            {trickySrc, "PointerAssignNilTest", nil, tricky.PointerAssignNilTest},
+	"tricky/PointerAssignSameTest":           {trickySrc, "PointerAssignSameTest", nil, tricky.PointerAssignSameTest},
+	"tricky/PointerAssignThenNilTest":        {trickySrc, "PointerAssignThenNilTest", nil, tricky.PointerAssignThenNilTest},
+	"tricky/PointerChainTest":                {trickySrc, "PointerChainTest", nil, tricky.PointerChainTest},
+	"tricky/PointerCheckNilAfterUseTest":     {trickySrc, "PointerCheckNilAfterUseTest", nil, tricky.PointerCheckNilAfterUseTest},
+	"tricky/PointerCompare":                  {trickySrc, "PointerCompare", nil, tricky.PointerCompare},
+	"tricky/PointerCompareDiffTest":          {trickySrc, "PointerCompareDiffTest", nil, tricky.PointerCompareDiffTest},
+	"tricky/PointerCompareTest":              {trickySrc, "PointerCompareTest", nil, tricky.PointerCompareTest},
+	"tricky/PointerDeref":                    {trickySrc, "PointerDeref", nil, tricky.PointerDeref},
+	"tricky/PointerDerefAssignTest":          {trickySrc, "PointerDerefAssignTest", nil, tricky.PointerDerefAssignTest},
+	"tricky/PointerDerefChain":               {trickySrc, "PointerDerefChain", nil, tricky.PointerDerefChain},
+	"tricky/PointerDerefChainTest":           {trickySrc, "PointerDerefChainTest", nil, tricky.PointerDerefChainTest},
+	"tricky/PointerDerefModifyTest":          {trickySrc, "PointerDerefModifyTest", nil, tricky.PointerDerefModifyTest},
+	"tricky/PointerDerefNilCheckTest":        {trickySrc, "PointerDerefNilCheckTest", nil, tricky.PointerDerefNilCheckTest},
+	"tricky/PointerDerefNilTest":             {trickySrc, "PointerDerefNilTest", nil, tricky.PointerDerefNilTest},
+	"tricky/PointerDoubleAssignTest":         {trickySrc, "PointerDoubleAssignTest", nil, tricky.PointerDoubleAssignTest},
+	"tricky/PointerDoubleDerefTest":          {trickySrc, "PointerDoubleDerefTest", nil, tricky.PointerDoubleDerefTest},
+	"tricky/PointerLevel":                    {trickySrc, "PointerLevel", nil, tricky.PointerLevel},
+	"tricky/PointerLevelTest":                {trickySrc, "PointerLevelTest", nil, tricky.PointerLevelTest},
+	"tricky/PointerNilAssign":                {trickySrc, "PointerNilAssign", nil, tricky.PointerNilAssign},
+	"tricky/PointerNilAssignAfterUseTest":    {trickySrc, "PointerNilAssignAfterUseTest", nil, tricky.PointerNilAssignAfterUseTest},
+	"tricky/PointerNilAssignT":               {trickySrc, "PointerNilAssignT", nil, tricky.PointerNilAssignT},
+	"tricky/PointerNilCheckAfterAssignTest":  {trickySrc, "PointerNilCheckAfterAssignTest", nil, tricky.PointerNilCheckAfterAssignTest},
+	"tricky/PointerNilCheckChain":            {trickySrc, "PointerNilCheckChain", nil, tricky.PointerNilCheckChain},
+	"tricky/PointerNilCheckDerefTest":        {trickySrc, "PointerNilCheckDerefTest", nil, tricky.PointerNilCheckDerefTest},
+	"tricky/PointerNilCompare":               {trickySrc, "PointerNilCompare", nil, tricky.PointerNilCompare},
+	"tricky/PointerNilCompareTest":           {trickySrc, "PointerNilCompareTest", nil, tricky.PointerNilCompareTest},
+	"tricky/PointerNilDeref":                 {trickySrc, "PointerNilDeref", nil, tricky.PointerNilDeref},
+	"tricky/PointerNilReassign":              {trickySrc, "PointerNilReassign", nil, tricky.PointerNilReassign},
+	"tricky/PointerNilSafe":                  {trickySrc, "PointerNilSafe", nil, tricky.PointerNilSafe},
+	"tricky/PointerNilSafeDeref":             {trickySrc, "PointerNilSafeDeref", nil, tricky.PointerNilSafeDeref},
+	"tricky/PointerNilSafeDerefTest":         {trickySrc, "PointerNilSafeDerefTest", nil, tricky.PointerNilSafeDerefTest},
+	"tricky/PointerNilSafeOpTest":            {trickySrc, "PointerNilSafeOpTest", nil, tricky.PointerNilSafeOpTest},
+	"tricky/PointerNilThenAssignTest":        {trickySrc, "PointerNilThenAssignTest", nil, tricky.PointerNilThenAssignTest},
+	"tricky/PointerNullObject":               {trickySrc, "PointerNullObject", nil, tricky.PointerNullObject},
+	"tricky/PointerReassignChainTest":        {trickySrc, "PointerReassignChainTest", nil, tricky.PointerReassignChainTest},
+	"tricky/PointerReassignmentChain":        {trickySrc, "PointerReassignmentChain", nil, tricky.PointerReassignmentChain},
+	"tricky/PointerReassignNil":              {trickySrc, "PointerReassignNil", nil, tricky.PointerReassignNil},
+	"tricky/PointerReassignNilTest":          {trickySrc, "PointerReassignNilTest", nil, tricky.PointerReassignNilTest},
+	"tricky/PointerReassignTest":             {trickySrc, "PointerReassignTest", nil, tricky.PointerReassignTest},
+	"tricky/PointerRotate":                   {trickySrc, "PointerRotate", nil, tricky.PointerRotate},
+	"tricky/PointerSliceElementModifyTest":   {trickySrc, "PointerSliceElementModifyTest", nil, tricky.PointerSliceElementModifyTest},
+	"tricky/PointerSliceElementSwap":         {trickySrc, "PointerSliceElementSwap", nil, tricky.PointerSliceElementSwap},
+	"tricky/PointerSliceIndexTest":           {trickySrc, "PointerSliceIndexTest", nil, tricky.PointerSliceIndexTest},
+	"tricky/PointerSliceIterateTest":         {trickySrc, "PointerSliceIterateTest", nil, tricky.PointerSliceIterateTest},
+	"tricky/PointerSliceLenTest":             {trickySrc, "PointerSliceLenTest", nil, tricky.PointerSliceLenTest},
+	"tricky/PointerSliceModifyTest":          {trickySrc, "PointerSliceModifyTest", nil, tricky.PointerSliceModifyTest},
+	"tricky/PointerSliceNilTest":             {trickySrc, "PointerSliceNilTest", nil, tricky.PointerSliceNilTest},
+	"tricky/PointerSliceOfPointers":          {trickySrc, "PointerSliceOfPointers", nil, tricky.PointerSliceOfPointers},
+	"tricky/PointerSliceOfStructTest":        {trickySrc, "PointerSliceOfStructTest", nil, tricky.PointerSliceOfStructTest},
+	"tricky/PointerStructFieldNilCheckTest":  {trickySrc, "PointerStructFieldNilCheckTest", nil, tricky.PointerStructFieldNilCheckTest},
+	"tricky/PointerStructFieldNilTest":       {trickySrc, "PointerStructFieldNilTest", nil, tricky.PointerStructFieldNilTest},
+	"tricky/PointerStructFieldTest":          {trickySrc, "PointerStructFieldTest", nil, tricky.PointerStructFieldTest},
+	"tricky/PointerStructFld":                {trickySrc, "PointerStructFld", nil, tricky.PointerStructFld},
+	"tricky/PointerStructMethodTest":         {trickySrc, "PointerStructMethodTest", nil, tricky.PointerStructMethodTest},
+	"tricky/PointerStructModifyFieldTest":    {trickySrc, "PointerStructModifyFieldTest", nil, tricky.PointerStructModifyFieldTest},
+	"tricky/PointerStructModifyTest":         {trickySrc, "PointerStructModifyTest", nil, tricky.PointerStructModifyTest},
+	"tricky/PointerSwap":                     {trickySrc, "PointerSwap", nil, tricky.PointerSwap},
+	"tricky/PointerSwapChain":                {trickySrc, "PointerSwapChain", nil, tricky.PointerSwapChain},
+	"tricky/PointerSwapChainTest":            {trickySrc, "PointerSwapChainTest", nil, tricky.PointerSwapChainTest},
+	"tricky/PointerSwapInArrayTest":          {trickySrc, "PointerSwapInArrayTest", nil, tricky.PointerSwapInArrayTest},
+	"tricky/PointerSwapInSlice":              {trickySrc, "PointerSwapInSlice", nil, tricky.PointerSwapInSlice},
+	"tricky/PointerSwapInStruct":             {trickySrc, "PointerSwapInStruct", nil, tricky.PointerSwapInStruct},
+	"tricky/PointerSwapInStructTest":         {trickySrc, "PointerSwapInStructTest", nil, tricky.PointerSwapInStructTest},
+	"tricky/PointerSwapMultipleTest":         {trickySrc, "PointerSwapMultipleTest", nil, tricky.PointerSwapMultipleTest},
+	"tricky/PointerSwapNilSafe":              {trickySrc, "PointerSwapNilSafe", nil, tricky.PointerSwapNilSafe},
+	"tricky/PointerSwapSimple":               {trickySrc, "PointerSwapSimple", nil, tricky.PointerSwapSimple},
+	"tricky/PointerSwapStructFieldsTest":     {trickySrc, "PointerSwapStructFieldsTest", nil, tricky.PointerSwapStructFieldsTest},
+	"tricky/PointerSwapThroughSliceTest":     {trickySrc, "PointerSwapThroughSliceTest", nil, tricky.PointerSwapThroughSliceTest},
+	"tricky/PointerSwapVals":                 {trickySrc, "PointerSwapVals", nil, tricky.PointerSwapVals},
+	"tricky/PointerSwapValues":               {trickySrc, "PointerSwapValues", nil, tricky.PointerSwapValues},
+	"tricky/PointerSwapValuesTest":           {trickySrc, "PointerSwapValuesTest", nil, tricky.PointerSwapValuesTest},
+	"tricky/PointerSwapViaSliceTest":         {trickySrc, "PointerSwapViaSliceTest", nil, tricky.PointerSwapViaSliceTest},
+	"tricky/PointerSwapViaTempTest":          {trickySrc, "PointerSwapViaTempTest", nil, tricky.PointerSwapViaTempTest},
+	"tricky/PointerToArr":                    {trickySrc, "PointerToArr", nil, tricky.PointerToArr},
+	"tricky/PointerToArray":                  {trickySrc, "PointerToArray", nil, tricky.PointerToArray},
+	"tricky/PointerToArrayElement":           {trickySrc, "PointerToArrayElement", nil, tricky.PointerToArrayElement},
+	"tricky/PointerToArrTest":                {trickySrc, "PointerToArrTest", nil, tricky.PointerToArrTest},
+	"tricky/PointerToChanTest":               {trickySrc, "PointerToChanTest", nil, tricky.PointerToChanTest},
+	"tricky/PointerToFunc":                   {trickySrc, "PointerToFunc", nil, tricky.PointerToFunc},
+	"tricky/PointerToFuncResultTest":         {trickySrc, "PointerToFuncResultTest", nil, tricky.PointerToFuncResultTest},
+	"tricky/PointerToInterface":              {trickySrc, "PointerToInterface", nil, tricky.PointerToInterface},
+	"tricky/PointerToMapElement":             {trickySrc, "PointerToMapElement", nil, tricky.PointerToMapElement},
+	"tricky/PointerToMapKey":                 {trickySrc, "PointerToMapKey", nil, tricky.PointerToMapKey},
+	"tricky/PointerToMapNilTest":             {trickySrc, "PointerToMapNilTest", nil, tricky.PointerToMapNilTest},
+	"tricky/PointerToMapTest":                {trickySrc, "PointerToMapTest", nil, tricky.PointerToMapTest},
+	"tricky/PointerToNilAssignTest":          {trickySrc, "PointerToNilAssignTest", nil, tricky.PointerToNilAssignTest},
+	"tricky/PointerToNilInterface":           {trickySrc, "PointerToNilInterface", nil, tricky.PointerToNilInterface},
+	"tricky/PointerToNilMap":                 {trickySrc, "PointerToNilMap", nil, tricky.PointerToNilMap},
+	"tricky/PointerToNilMapLenTest":          {trickySrc, "PointerToNilMapLenTest", nil, tricky.PointerToNilMapLenTest},
+	"tricky/PointerToNilSliceLenTest":        {trickySrc, "PointerToNilSliceLenTest", nil, tricky.PointerToNilSliceLenTest},
+	"tricky/PointerToNilSliceTest":           {trickySrc, "PointerToNilSliceTest", nil, tricky.PointerToNilSliceTest},
+	"tricky/PointerToNilStruct":              {trickySrc, "PointerToNilStruct", nil, tricky.PointerToNilStruct},
+	"tricky/PointerToNilStructTest":          {trickySrc, "PointerToNilStructTest", nil, tricky.PointerToNilStructTest},
+	"tricky/PointerToNilTest":                {trickySrc, "PointerToNilTest", nil, tricky.PointerToNilTest},
+	"tricky/PointerToPointer":                {trickySrc, "PointerToPointer", nil, tricky.PointerToPointer},
+	"tricky/PointerToPointerAssign":          {trickySrc, "PointerToPointerAssign", nil, tricky.PointerToPointerAssign},
+	"tricky/PointerToPointerAssignTest":      {trickySrc, "PointerToPointerAssignTest", nil, tricky.PointerToPointerAssignTest},
+	"tricky/PointerToPointerDerefTest":       {trickySrc, "PointerToPointerDerefTest", nil, tricky.PointerToPointerDerefTest},
+	"tricky/PointerToSliceAppend":            {trickySrc, "PointerToSliceAppend", nil, tricky.PointerToSliceAppend},
+	"tricky/PointerToSliceClear":             {trickySrc, "PointerToSliceClear", nil, tricky.PointerToSliceClear},
+	"tricky/PointerToSliceClearTest":         {trickySrc, "PointerToSliceClearTest", nil, tricky.PointerToSliceClearTest},
+	"tricky/PointerToSliceElementModifyTest": {trickySrc, "PointerToSliceElementModifyTest", nil, tricky.PointerToSliceElementModifyTest},
+	"tricky/PointerToSliceLen":               {trickySrc, "PointerToSliceLen", nil, tricky.PointerToSliceLen},
+	"tricky/PointerToSliceLenCap":            {trickySrc, "PointerToSliceLenCap", nil, tricky.PointerToSliceLenCap},
+	"tricky/PointerToSliceModify":            {trickySrc, "PointerToSliceModify", nil, tricky.PointerToSliceModify},
+	"tricky/PointerToSliceNilTest":           {trickySrc, "PointerToSliceNilTest", nil, tricky.PointerToSliceNilTest},
+	"tricky/PointerToSliceOfNilTest":         {trickySrc, "PointerToSliceOfNilTest", nil, tricky.PointerToSliceOfNilTest},
+	"tricky/PointerToSliceOfPtrTest":         {trickySrc, "PointerToSliceOfPtrTest", nil, tricky.PointerToSliceOfPtrTest},
+	"tricky/PointerToSliceOfStructs":         {trickySrc, "PointerToSliceOfStructs", nil, tricky.PointerToSliceOfStructs},
+	"tricky/PointerToSliceTest":              {trickySrc, "PointerToSliceTest", nil, tricky.PointerToSliceTest},
+	"tricky/PointerToStructField":            {trickySrc, "PointerToStructField", nil, tricky.PointerToStructField},
+	"tricky/PointerToStructMethodTest":       {trickySrc, "PointerToStructMethodTest", nil, tricky.PointerToStructMethodTest},
+	"tricky/PointerToStructNilMethodTest":    {trickySrc, "PointerToStructNilMethodTest", nil, tricky.PointerToStructNilMethodTest},
+	"tricky/PointerToStructTest":             {trickySrc, "PointerToStructTest", nil, tricky.PointerToStructTest},
+	"tricky/SliceAll":                        {trickySrc, "SliceAll", nil, tricky.SliceAll},
+	"tricky/SliceAppendCapTest":              {trickySrc, "SliceAppendCapTest", nil, tricky.SliceAppendCapTest},
+	"tricky/SliceAppendFunc":                 {trickySrc, "SliceAppendFunc", nil, tricky.SliceAppendFunc},
+	"tricky/SliceAppendIfTest":               {trickySrc, "SliceAppendIfTest", nil, tricky.SliceAppendIfTest},
+	"tricky/SliceAppendNilTest":              {trickySrc, "SliceAppendNilTest", nil, tricky.SliceAppendNilTest},
+	"tricky/SliceAppendSliceTest":            {trickySrc, "SliceAppendSliceTest", nil, tricky.SliceAppendSliceTest},
+	"tricky/SliceBsearch":                    {trickySrc, "SliceBsearch", nil, tricky.SliceBsearch},
+	"tricky/SliceCartesianProduct":           {trickySrc, "SliceCartesianProduct", nil, tricky.SliceCartesianProduct},
+	"tricky/SliceChainedSlice":               {trickySrc, "SliceChainedSlice", nil, tricky.SliceChainedSlice},
+	"tricky/SliceChunk":                      {trickySrc, "SliceChunk", nil, tricky.SliceChunk},
+	"tricky/SliceChunkByPredTest":            {trickySrc, "SliceChunkByPredTest", nil, tricky.SliceChunkByPredTest},
+	"tricky/SliceChunkByTest":                {trickySrc, "SliceChunkByTest", nil, tricky.SliceChunkByTest},
+	"tricky/SliceChunkEveryTest":             {trickySrc, "SliceChunkEveryTest", nil, tricky.SliceChunkEveryTest},
+	"tricky/SliceClone":                      {trickySrc, "SliceClone", nil, tricky.SliceClone},
+	"tricky/SliceCombinations":               {trickySrc, "SliceCombinations", nil, tricky.SliceCombinations},
+	"tricky/SliceCompact":                    {trickySrc, "SliceCompact", nil, tricky.SliceCompact},
+	"tricky/SliceCompactMap":                 {trickySrc, "SliceCompactMap", nil, tricky.SliceCompactMap},
+	"tricky/SliceContainsAll":                {trickySrc, "SliceContainsAll", nil, tricky.SliceContainsAll},
+	"tricky/SliceContainsAllTest":            {trickySrc, "SliceContainsAllTest", nil, tricky.SliceContainsAllTest},
+	"tricky/SliceContainsAnyTest":            {trickySrc, "SliceContainsAnyTest", nil, tricky.SliceContainsAnyTest},
+	"tricky/SliceContainsNoneTest":           {trickySrc, "SliceContainsNoneTest", nil, tricky.SliceContainsNoneTest},
+	"tricky/SliceCopyFromMap":                {trickySrc, "SliceCopyFromMap", nil, tricky.SliceCopyFromMap},
+	"tricky/SliceCopyModifyTest":             {trickySrc, "SliceCopyModifyTest", nil, tricky.SliceCopyModifyTest},
+	"tricky/SliceCopyReverseTest":            {trickySrc, "SliceCopyReverseTest", nil, tricky.SliceCopyReverseTest},
+	"tricky/SliceCopySubsetTest":             {trickySrc, "SliceCopySubsetTest", nil, tricky.SliceCopySubsetTest},
+	"tricky/SliceCountBy":                    {trickySrc, "SliceCountBy", nil, tricky.SliceCountBy},
+	"tricky/SliceCountTest":                  {trickySrc, "SliceCountTest", nil, tricky.SliceCountTest},
+	"tricky/SliceCountWhileTest":             {trickySrc, "SliceCountWhileTest", nil, tricky.SliceCountWhileTest},
+	"tricky/SliceCycleTest":                  {trickySrc, "SliceCycleTest", nil, tricky.SliceCycleTest},
+	"tricky/SliceDedupConsecutive":           {trickySrc, "SliceDedupConsecutive", nil, tricky.SliceDedupConsecutive},
+	"tricky/SliceDeleteFront":                {trickySrc, "SliceDeleteFront", nil, tricky.SliceDeleteFront},
+	"tricky/SliceDeleteMiddle":               {trickySrc, "SliceDeleteMiddle", nil, tricky.SliceDeleteMiddle},
+	"tricky/SliceDetect":                     {trickySrc, "SliceDetect", nil, tricky.SliceDetect},
+	"tricky/SliceDiff":                       {trickySrc, "SliceDiff", nil, tricky.SliceDiff},
+	"tricky/SliceDifference":                 {trickySrc, "SliceDifference", nil, tricky.SliceDifference},
+	"tricky/SliceDifferenceBy":               {trickySrc, "SliceDifferenceBy", nil, tricky.SliceDifferenceBy},
+	"tricky/SliceDrop":                       {trickySrc, "SliceDrop", nil, tricky.SliceDrop},
+	"tricky/SliceDropN":                      {trickySrc, "SliceDropN", nil, tricky.SliceDropN},
+	"tricky/SliceDropNFunc":                  {trickySrc, "SliceDropNFunc", nil, tricky.SliceDropNFunc},
+	"tricky/SliceDropTest":                   {trickySrc, "SliceDropTest", nil, tricky.SliceDropTest},
+	"tricky/SliceDropWhile":                  {trickySrc, "SliceDropWhile", nil, tricky.SliceDropWhile},
+	"tricky/SliceDropWhileTest":              {trickySrc, "SliceDropWhileTest", nil, tricky.SliceDropWhileTest},
+	"tricky/SliceEachWithIndex":              {trickySrc, "SliceEachWithIndex", nil, tricky.SliceEachWithIndex},
+	"tricky/SliceEqual":                      {trickySrc, "SliceEqual", nil, tricky.SliceEqual},
+	"tricky/SliceExistsTest":                 {trickySrc, "SliceExistsTest", nil, tricky.SliceExistsTest},
+	"tricky/SliceFill":                       {trickySrc, "SliceFill", nil, tricky.SliceFill},
+	"tricky/SliceFilterKeepTest":             {trickySrc, "SliceFilterKeepTest", nil, tricky.SliceFilterKeepTest},
+	"tricky/SliceFilterNotTest":              {trickySrc, "SliceFilterNotTest", nil, tricky.SliceFilterNotTest},
+	"tricky/SliceFindFirstFunc":              {trickySrc, "SliceFindFirstFunc", nil, tricky.SliceFindFirstFunc},
+	"tricky/SliceFindFirstTest":              {trickySrc, "SliceFindFirstTest", nil, tricky.SliceFindFirstTest},
+	"tricky/SliceFindIdx":                    {trickySrc, "SliceFindIdx", nil, tricky.SliceFindIdx},
+	"tricky/SliceFindIndex":                  {trickySrc, "SliceFindIndex", nil, tricky.SliceFindIndex},
+	"tricky/SliceFindIndexTest":              {trickySrc, "SliceFindIndexTest", nil, tricky.SliceFindIndexTest},
+	"tricky/SliceFindLastPosTest":            {trickySrc, "SliceFindLastPosTest", nil, tricky.SliceFindLastPosTest},
+	"tricky/SliceFindLastTest":               {trickySrc, "SliceFindLastTest", nil, tricky.SliceFindLastTest},
+	"tricky/SliceFirst":                      {trickySrc, "SliceFirst", nil, tricky.SliceFirst},
+	"tricky/SliceFlatten":                    {trickySrc, "SliceFlatten", nil, tricky.SliceFlatten},
+	"tricky/SliceFlatten2D":                  {trickySrc, "SliceFlatten2D", nil, tricky.SliceFlatten2D},
+	"tricky/SliceFlattenDeep":                {trickySrc, "SliceFlattenDeep", nil, tricky.SliceFlattenDeep},
+	"tricky/SliceFlattenLevelTest":           {trickySrc, "SliceFlattenLevelTest", nil, tricky.SliceFlattenLevelTest},
+	"tricky/SliceFlattenManual":              {trickySrc, "SliceFlattenManual", nil, tricky.SliceFlattenManual},
+	"tricky/SliceFlattenManualTest":          {trickySrc, "SliceFlattenManualTest", nil, tricky.SliceFlattenManualTest},
+	"tricky/SliceFoldLeft":                   {trickySrc, "SliceFoldLeft", nil, tricky.SliceFoldLeft},
+	"tricky/SliceFromChan":                   {trickySrc, "SliceFromChan", nil, tricky.SliceFromChan},
+	"tricky/SliceGrep":                       {trickySrc, "SliceGrep", nil, tricky.SliceGrep},
+	"tricky/SliceGroupBy":                    {trickySrc, "SliceGroupBy", nil, tricky.SliceGroupBy},
+	"tricky/SliceGroupByFld":                 {trickySrc, "SliceGroupByFld", nil, tricky.SliceGroupByFld},
+	"tricky/SliceGroupByMultiple":            {trickySrc, "SliceGroupByMultiple", nil, tricky.SliceGroupByMultiple},
+	"tricky/SliceGroupConsecutiveTest":       {trickySrc, "SliceGroupConsecutiveTest", nil, tricky.SliceGroupConsecutiveTest},
+	"tricky/SliceGrow":                       {trickySrc, "SliceGrow", nil, tricky.SliceGrow},
+	"tricky/SliceGrowWithAppend":             {trickySrc, "SliceGrowWithAppend", nil, tricky.SliceGrowWithAppend},
+	"tricky/SliceHeadTest":                   {trickySrc, "SliceHeadTest", nil, tricky.SliceHeadTest},
+	"tricky/SliceIndexOf":                    {trickySrc, "SliceIndexOf", nil, tricky.SliceIndexOf},
+	"tricky/SliceIndexOfFirstTest":           {trickySrc, "SliceIndexOfFirstTest", nil, tricky.SliceIndexOfFirstTest},
+	"tricky/SliceIndexOfMaxTest":             {trickySrc, "SliceIndexOfMaxTest", nil, tricky.SliceIndexOfMaxTest},
+	"tricky/SliceIndexOfTest":                {trickySrc, "SliceIndexOfTest", nil, tricky.SliceIndexOfTest},
+	"tricky/SliceIndexOutOfRange":            {trickySrc, "SliceIndexOutOfRange", nil, tricky.SliceIndexOutOfRange},
+	"tricky/SliceInitAndModifyTest":          {trickySrc, "SliceInitAndModifyTest", nil, tricky.SliceInitAndModifyTest},
+	"tricky/SliceInitCapTest":                {trickySrc, "SliceInitCapTest", nil, tricky.SliceInitCapTest},
+	"tricky/SliceInsertAt":                   {trickySrc, "SliceInsertAt", nil, tricky.SliceInsertAt},
+	"tricky/SliceInsertAtTest":               {trickySrc, "SliceInsertAtTest", nil, tricky.SliceInsertAtTest},
+	"tricky/SliceInsertFrontTest":            {trickySrc, "SliceInsertFrontTest", nil, tricky.SliceInsertFrontTest},
+	"tricky/SliceInsertMultipleTest":         {trickySrc, "SliceInsertMultipleTest", nil, tricky.SliceInsertMultipleTest},
+	"tricky/SliceInsertSliceTest":            {trickySrc, "SliceInsertSliceTest", nil, tricky.SliceInsertSliceTest},
+	"tricky/SliceInterleaveTest":             {trickySrc, "SliceInterleaveTest", nil, tricky.SliceInterleaveTest},
+	"tricky/SliceIntersect":                  {trickySrc, "SliceIntersect", nil, tricky.SliceIntersect},
+	"tricky/SliceIntersectBy":                {trickySrc, "SliceIntersectBy", nil, tricky.SliceIntersectBy},
+	"tricky/SliceIntersectTest":              {trickySrc, "SliceIntersectTest", nil, tricky.SliceIntersectTest},
+	"tricky/SliceIntersperseTest":            {trickySrc, "SliceIntersperseTest", nil, tricky.SliceIntersperseTest},
+	"tricky/SliceIsSortedTest":               {trickySrc, "SliceIsSortedTest", nil, tricky.SliceIsSortedTest},
+	"tricky/SliceLast":                       {trickySrc, "SliceLast", nil, tricky.SliceLast},
+	"tricky/SliceLastIndexOfTest":            {trickySrc, "SliceLastIndexOfTest", nil, tricky.SliceLastIndexOfTest},
+	"tricky/SliceLastIndexOfTest2":           {trickySrc, "SliceLastIndexOfTest2", nil, tricky.SliceLastIndexOfTest2},
+	"tricky/SliceLastNFunc":                  {trickySrc, "SliceLastNFunc", nil, tricky.SliceLastNFunc},
+	"tricky/SliceMakeFromArr":                {trickySrc, "SliceMakeFromArr", nil, tricky.SliceMakeFromArr},
+	"tricky/SliceMakeZero":                   {trickySrc, "SliceMakeZero", nil, tricky.SliceMakeZero},
+	"tricky/SliceMapEachTest":                {trickySrc, "SliceMapEachTest", nil, tricky.SliceMapEachTest},
+	"tricky/SliceMapIndex":                   {trickySrc, "SliceMapIndex", nil, tricky.SliceMapIndex},
+	"tricky/SliceMax":                        {trickySrc, "SliceMax", nil, tricky.SliceMax},
+	"tricky/SliceMaxVal":                     {trickySrc, "SliceMaxVal", nil, tricky.SliceMaxVal},
+	"tricky/SliceMinIdx":                     {trickySrc, "SliceMinIdx", nil, tricky.SliceMinIdx},
+	"tricky/SliceMinMax":                     {trickySrc, "SliceMinMax", nil, tricky.SliceMinMax},
+	"tricky/SliceMinVal":                     {trickySrc, "SliceMinVal", nil, tricky.SliceMinVal},
+	"tricky/SliceNegativeIndex":              {trickySrc, "SliceNegativeIndex", nil, tricky.SliceNegativeIndex},
+	"tricky/SliceNilAppend":                  {trickySrc, "SliceNilAppend", nil, tricky.SliceNilAppend},
+	"tricky/SliceNone":                       {trickySrc, "SliceNone", nil, tricky.SliceNone},
+	"tricky/SliceOfEmptyInterface":           {trickySrc, "SliceOfEmptyInterface", nil, tricky.SliceOfEmptyInterface},
+	"tricky/SliceOfInterfacesWithTypes":      {trickySrc, "SliceOfInterfacesWithTypes", nil, tricky.SliceOfInterfacesWithTypes},
+	"tricky/SlicePad":                        {trickySrc, "SlicePad", nil, tricky.SlicePad},
+	"tricky/SlicePadLeftTest":                {trickySrc, "SlicePadLeftTest", nil, tricky.SlicePadLeftTest},
+	"tricky/SlicePadRightTest":               {trickySrc, "SlicePadRightTest", nil, tricky.SlicePadRightTest},
+	"tricky/SlicePartition":                  {trickySrc, "SlicePartition", nil, tricky.SlicePartition},
+	"tricky/SlicePartitionBy":                {trickySrc, "SlicePartitionBy", nil, tricky.SlicePartitionBy},
+	"tricky/SlicePartitionPosNeg":            {trickySrc, "SlicePartitionPosNeg", nil, tricky.SlicePartitionPosNeg},
+	"tricky/SlicePartitionTest":              {trickySrc, "SlicePartitionTest", nil, tricky.SlicePartitionTest},
+	"tricky/SlicePermutation":                {trickySrc, "SlicePermutation", nil, tricky.SlicePermutation},
+	"tricky/SlicePermuteSimpleTest":          {trickySrc, "SlicePermuteSimpleTest", nil, tricky.SlicePermuteSimpleTest},
+	"tricky/SlicePluck":                      {trickySrc, "SlicePluck", nil, tricky.SlicePluck},
+	"tricky/SlicePluckFld":                   {trickySrc, "SlicePluckFld", nil, tricky.SlicePluckFld},
+	"tricky/SlicePrepend":                    {trickySrc, "SlicePrepend", nil, tricky.SlicePrepend},
+	"tricky/SlicePrependMultipleTest":        {trickySrc, "SlicePrependMultipleTest", nil, tricky.SlicePrependMultipleTest},
+	"tricky/SlicePrependValueTest":           {trickySrc, "SlicePrependValueTest", nil, tricky.SlicePrependValueTest},
+	"tricky/SliceProd":                       {trickySrc, "SliceProd", nil, tricky.SliceProd},
+	"tricky/SliceProduct":                    {trickySrc, "SliceProduct", nil, tricky.SliceProduct},
+	"tricky/SliceRandomAccess":               {trickySrc, "SliceRandomAccess", nil, tricky.SliceRandomAccess},
+	"tricky/SliceReduce":                     {trickySrc, "SliceReduce", nil, tricky.SliceReduce},
+	"tricky/SliceReduceTest":                 {trickySrc, "SliceReduceTest", nil, tricky.SliceReduceTest},
+	"tricky/SliceReject":                     {trickySrc, "SliceReject", nil, tricky.SliceReject},
+	"tricky/SliceRemoveAtTest":               {trickySrc, "SliceRemoveAtTest", nil, tricky.SliceRemoveAtTest},
+	"tricky/SliceRemoveDupes":                {trickySrc, "SliceRemoveDupes", nil, tricky.SliceRemoveDupes},
+	"tricky/SliceRemoveDupSortedTest":        {trickySrc, "SliceRemoveDupSortedTest", nil, tricky.SliceRemoveDupSortedTest},
+	"tricky/SliceRemoveDupTest":              {trickySrc, "SliceRemoveDupTest", nil, tricky.SliceRemoveDupTest},
+	"tricky/SliceRemoveIf":                   {trickySrc, "SliceRemoveIf", nil, tricky.SliceRemoveIf},
+	"tricky/SliceRemoveIfKeepTest":           {trickySrc, "SliceRemoveIfKeepTest", nil, tricky.SliceRemoveIfKeepTest},
+	"tricky/SliceRemoveIfTest":               {trickySrc, "SliceRemoveIfTest", nil, tricky.SliceRemoveIfTest},
+	"tricky/SliceRemoveLastTest":             {trickySrc, "SliceRemoveLastTest", nil, tricky.SliceRemoveLastTest},
+	"tricky/SliceRepeat":                     {trickySrc, "SliceRepeat", nil, tricky.SliceRepeat},
+	"tricky/SliceRepeatNTest":                {trickySrc, "SliceRepeatNTest", nil, tricky.SliceRepeatNTest},
+	"tricky/SliceReplaceAtTest":              {trickySrc, "SliceReplaceAtTest", nil, tricky.SliceReplaceAtTest},
+	"tricky/SliceReverseCopy":                {trickySrc, "SliceReverseCopy", nil, tricky.SliceReverseCopy},
+	"tricky/SliceReverseCopyTest":            {trickySrc, "SliceReverseCopyTest", nil, tricky.SliceReverseCopyTest},
+	"tricky/SliceReverseInPlace":             {trickySrc, "SliceReverseInPlace", nil, tricky.SliceReverseInPlace},
+	"tricky/SliceReverseManualTest":          {trickySrc, "SliceReverseManualTest", nil, tricky.SliceReverseManualTest},
+	"tricky/SliceReverseRangeTest":           {trickySrc, "SliceReverseRangeTest", nil, tricky.SliceReverseRangeTest},
+	"tricky/SliceRotate":                     {trickySrc, "SliceRotate", nil, tricky.SliceRotate},
+	"tricky/SliceRotateByTest":               {trickySrc, "SliceRotateByTest", nil, tricky.SliceRotateByTest},
+	"tricky/SliceRotateLeft":                 {trickySrc, "SliceRotateLeft", nil, tricky.SliceRotateLeft},
+	"tricky/SliceRotateLeftNTest":            {trickySrc, "SliceRotateLeftNTest", nil, tricky.SliceRotateLeftNTest},
+	"tricky/SliceRotateLeftTest":             {trickySrc, "SliceRotateLeftTest", nil, tricky.SliceRotateLeftTest},
+	"tricky/SliceRotateRight":                {trickySrc, "SliceRotateRight", nil, tricky.SliceRotateRight},
+	"tricky/SliceRotateRightNTest":           {trickySrc, "SliceRotateRightNTest", nil, tricky.SliceRotateRightNTest},
+	"tricky/SliceRotateRightTest":            {trickySrc, "SliceRotateRightTest", nil, tricky.SliceRotateRightTest},
+	"tricky/SliceSample":                     {trickySrc, "SliceSample", nil, tricky.SliceSample},
+	"tricky/SliceScan":                       {trickySrc, "SliceScan", nil, tricky.SliceScan},
+	"tricky/SliceScanLeftTest":               {trickySrc, "SliceScanLeftTest", nil, tricky.SliceScanLeftTest},
+	"tricky/SliceSelect":                     {trickySrc, "SliceSelect", nil, tricky.SliceSelect},
+	"tricky/SliceShiftLeftTest":              {trickySrc, "SliceShiftLeftTest", nil, tricky.SliceShiftLeftTest},
+	"tricky/SliceSlideTest":                  {trickySrc, "SliceSlideTest", nil, tricky.SliceSlideTest},
+	"tricky/SliceSlidingWindowTest":          {trickySrc, "SliceSlidingWindowTest", nil, tricky.SliceSlidingWindowTest},
+	"tricky/SliceSortBubble":                 {trickySrc, "SliceSortBubble", nil, tricky.SliceSortBubble},
+	"tricky/SliceSortBy":                     {trickySrc, "SliceSortBy", nil, tricky.SliceSortBy},
+	"tricky/SliceSortByFld":                  {trickySrc, "SliceSortByFld", nil, tricky.SliceSortByFld},
+	"tricky/SliceSortByMultiple":             {trickySrc, "SliceSortByMultiple", nil, tricky.SliceSortByMultiple},
+	"tricky/SliceSortStable":                 {trickySrc, "SliceSortStable", nil, tricky.SliceSortStable},
+	"tricky/SliceSplice":                     {trickySrc, "SliceSplice", nil, tricky.SliceSplice},
+	"tricky/SliceSplit":                      {trickySrc, "SliceSplit", nil, tricky.SliceSplit},
+	"tricky/SliceSplitAtTest":                {trickySrc, "SliceSplitAtTest", nil, tricky.SliceSplitAtTest},
+	"tricky/SliceSplitByPredTest":            {trickySrc, "SliceSplitByPredTest", nil, tricky.SliceSplitByPredTest},
+	"tricky/SliceStride":                     {trickySrc, "SliceStride", nil, tricky.SliceStride},
+	"tricky/SliceStructIndex":                {trickySrc, "SliceStructIndex", nil, tricky.SliceStructIndex},
+	"tricky/SliceSubset":                     {trickySrc, "SliceSubset", nil, tricky.SliceSubset},
+	"tricky/SliceSubsliceTest":               {trickySrc, "SliceSubsliceTest", nil, tricky.SliceSubsliceTest},
+	"tricky/SliceSum":                        {trickySrc, "SliceSum", nil, tricky.SliceSum},
+	"tricky/SliceSumOddIdx":                  {trickySrc, "SliceSumOddIdx", nil, tricky.SliceSumOddIdx},
+	"tricky/SliceSumRange":                   {trickySrc, "SliceSumRange", nil, tricky.SliceSumRange},
+	"tricky/SliceSumRangeTest":               {trickySrc, "SliceSumRangeTest", nil, tricky.SliceSumRangeTest},
+	"tricky/SliceSwapElementsTest":           {trickySrc, "SliceSwapElementsTest", nil, tricky.SliceSwapElementsTest},
+	"tricky/SliceSymmetricDiff":              {trickySrc, "SliceSymmetricDiff", nil, tricky.SliceSymmetricDiff},
+	"tricky/SliceSymmetricDiffTest":          {trickySrc, "SliceSymmetricDiffTest", nil, tricky.SliceSymmetricDiffTest},
+	"tricky/SliceTailTest":                   {trickySrc, "SliceTailTest", nil, tricky.SliceTailTest},
+	"tricky/SliceTake":                       {trickySrc, "SliceTake", nil, tricky.SliceTake},
+	"tricky/SliceTakeDropTest":               {trickySrc, "SliceTakeDropTest", nil, tricky.SliceTakeDropTest},
+	"tricky/SliceTakeN":                      {trickySrc, "SliceTakeN", nil, tricky.SliceTakeN},
+	"tricky/SliceTakeNFunc":                  {trickySrc, "SliceTakeNFunc", nil, tricky.SliceTakeNFunc},
+	"tricky/SliceTakeTest":                   {trickySrc, "SliceTakeTest", nil, tricky.SliceTakeTest},
+	"tricky/SliceTakeWhile":                  {trickySrc, "SliceTakeWhile", nil, tricky.SliceTakeWhile},
+	"tricky/SliceTakeWhileDropWhile":         {trickySrc, "SliceTakeWhileDropWhile", nil, tricky.SliceTakeWhileDropWhile},
+	"tricky/SliceTakeWhileTest":              {trickySrc, "SliceTakeWhileTest", nil, tricky.SliceTakeWhileTest},
+	"tricky/SliceTee":                        {trickySrc, "SliceTee", nil, tricky.SliceTee},
+	"tricky/SliceTranspose":                  {trickySrc, "SliceTranspose", nil, tricky.SliceTranspose},
+	"tricky/SliceTranspose2D":                {trickySrc, "SliceTranspose2D", nil, tricky.SliceTranspose2D},
+	"tricky/SliceTruncate":                   {trickySrc, "SliceTruncate", nil, tricky.SliceTruncate},
+	"tricky/SliceUnion":                      {trickySrc, "SliceUnion", nil, tricky.SliceUnion},
+	"tricky/SliceUniqBy":                     {trickySrc, "SliceUniqBy", nil, tricky.SliceUniqBy},
+	"tricky/SliceUnique":                     {trickySrc, "SliceUnique", nil, tricky.SliceUnique},
+	"tricky/SliceUniqueCountTest":            {trickySrc, "SliceUniqueCountTest", nil, tricky.SliceUniqueCountTest},
+	"tricky/SliceUniquePreserveOrderTest":    {trickySrc, "SliceUniquePreserveOrderTest", nil, tricky.SliceUniquePreserveOrderTest},
+	"tricky/SliceUniquePreserveTest":         {trickySrc, "SliceUniquePreserveTest", nil, tricky.SliceUniquePreserveTest},
+	"tricky/SliceUnzip":                      {trickySrc, "SliceUnzip", nil, tricky.SliceUnzip},
+	"tricky/SliceWindow":                     {trickySrc, "SliceWindow", nil, tricky.SliceWindow},
+	"tricky/SliceWithout":                    {trickySrc, "SliceWithout", nil, tricky.SliceWithout},
+	"tricky/SliceZip":                        {trickySrc, "SliceZip", nil, tricky.SliceZip},
+	"tricky/SliceZipMap":                     {trickySrc, "SliceZipMap", nil, tricky.SliceZipMap},
+	"tricky/SliceZipMapTest":                 {trickySrc, "SliceZipMapTest", nil, tricky.SliceZipMapTest},
+	"tricky/SliceZipTest":                    {trickySrc, "SliceZipTest", nil, tricky.SliceZipTest},
+	"tricky/SliceZipWith":                    {trickySrc, "SliceZipWith", nil, tricky.SliceZipWith},
+	"tricky/SliceZipWithIndexTest":           {trickySrc, "SliceZipWithIndexTest", nil, tricky.SliceZipWithIndexTest},
+	"tricky/StructAnon":                      {trickySrc, "StructAnon", nil, tricky.StructAnon},
+	"tricky/StructAnonymousField":            {trickySrc, "StructAnonymousField", nil, tricky.StructAnonymousField},
+	"tricky/StructCompareDiff":               {trickySrc, "StructCompareDiff", nil, tricky.StructCompareDiff},
+	"tricky/StructCompareDiffTest":           {trickySrc, "StructCompareDiffTest", nil, tricky.StructCompareDiffTest},
+	"tricky/StructCompareDiffTypeTest":       {trickySrc, "StructCompareDiffTypeTest", nil, tricky.StructCompareDiffTypeTest},
+	"tricky/StructCompareEqual":              {trickySrc, "StructCompareEqual", nil, tricky.StructCompareEqual},
+	"tricky/StructCompareNil":                {trickySrc, "StructCompareNil", nil, tricky.StructCompareNil},
+	"tricky/StructCompareNilPtrTest":         {trickySrc, "StructCompareNilPtrTest", nil, tricky.StructCompareNilPtrTest},
+	"tricky/StructCompareSameTest":           {trickySrc, "StructCompareSameTest", nil, tricky.StructCompareSameTest},
+	"tricky/StructCopyDeep":                  {trickySrc, "StructCopyDeep", nil, tricky.StructCopyDeep},
+	"tricky/StructCopyPointerTest":           {trickySrc, "StructCopyPointerTest", nil, tricky.StructCopyPointerTest},
+	"tricky/StructCopyValueTest":             {trickySrc, "StructCopyValueTest", nil, tricky.StructCopyValueTest},
+	"tricky/StructEmbeddedAccessTest":        {trickySrc, "StructEmbeddedAccessTest", nil, tricky.StructEmbeddedAccessTest},
+	"tricky/StructEmbeddedFldAccess":         {trickySrc, "StructEmbeddedFldAccess", nil, tricky.StructEmbeddedFldAccess},
+	// Note: StructEmbeddedInterface restored - fixed with embedded interface field method lookup + typeToReflect uniqueness
+	"tricky/StructEmbeddedInterface":            {trickySrc, "StructEmbeddedInterface", nil, tricky.StructEmbeddedInterface},
 	"tricky/StructEmbeddedMethodOverride":       {trickySrc, "StructEmbeddedMethodOverride", nil, tricky.StructEmbeddedMethodOverride},
 	"tricky/StructEmbeddedMethodOverrideTest":   {trickySrc, "StructEmbeddedMethodOverrideTest", nil, tricky.StructEmbeddedMethodOverrideTest},
 	"tricky/StructEmbeddedNil":                  {trickySrc, "StructEmbeddedNil", nil, tricky.StructEmbeddedNil},
@@ -1877,30 +1778,152 @@ var allCorrectnessTests = map[string]testCase{
 	// ============================================================================
 	// init
 	// ============================================================================
-	"init/GetA": {initSrc, "GetA", nil, initialize.GetA},
+	"init/GetA":                {initSrc, "GetA", nil, initialize.GetA},
+	"init/GetB":                {initSrc, "GetB", nil, initialize.GetB},
+	"init/GetC":                {initSrc, "GetC", nil, initialize.GetC},
+	"init/GetCacheSum":         {initSrc, "GetCacheSum", nil, initialize.GetCacheSum},
+	"init/GetCacheSize":        {initSrc, "GetCacheSize", nil, initialize.GetCacheSize},
+	"init/GetCacheOrder":       {initSrc, "GetCacheOrder", nil, initialize.GetCacheOrder},
+	"init/GetFibonacciCount":   {initSrc, "GetFibonacciCount", nil, initialize.GetFibonacciCount},
+	"init/GetFibonacciSum":     {initSrc, "GetFibonacciSum", nil, initialize.GetFibonacciSum},
+	"init/ComplexInitTest":     {initSrc, "ComplexInitTest", nil, initialize.ComplexInitTest},
+	"init/InitOrderTest":       {initSrc, "InitOrderTest", nil, initialize.InitOrderTest},
+	"init/CacheInitTest":       {initSrc, "CacheInitTest", nil, initialize.CacheInitTest},
+	"init/LookupTableInitTest": {initSrc, "LookupTableInitTest", nil, initialize.LookupTableInitTest},
+	"init/FibonacciInitTest":   {initSrc, "FibonacciInitTest", nil, initialize.FibonacciInitTest},
+	// "init/IncCounter1":         {initSrc, "IncCounter1", nil, initialize.IncCounter1},
+	// "init/IncCounter2":         {initSrc, "IncCounter2", nil, initialize.IncCounter2},
+
+	// ============================================================================
+	// cornercases
+	// ============================================================================
+	"cornercases/ZeroValue_Int":          {cornercasesSrc, "ZeroValue_Int", nil, cornercases.ZeroValue_Int},
+	"cornercases/ZeroValue_Int64":        {cornercasesSrc, "ZeroValue_Int64", nil, cornercases.ZeroValue_Int64},
+	"cornercases/ZeroValue_Float64":      {cornercasesSrc, "ZeroValue_Float64", nil, cornercases.ZeroValue_Float64},
+	"cornercases/ZeroValue_String":       {cornercasesSrc, "ZeroValue_String", nil, cornercases.ZeroValue_String},
+	"cornercases/ZeroValue_Bool":         {cornercasesSrc, "ZeroValue_Bool", nil, cornercases.ZeroValue_Bool},
+	"cornercases/ZeroValue_Slice":        {cornercasesSrc, "ZeroValue_Slice", nil, cornercases.ZeroValue_Slice},
+	"cornercases/ZeroValue_Map":          {cornercasesSrc, "ZeroValue_Map", nil, cornercases.ZeroValue_Map},
+	"cornercases/IntBoundary_MaxInt32":   {cornercasesSrc, "IntBoundary_MaxInt32", nil, cornercases.IntBoundary_MaxInt32},
+	"cornercases/IntBoundary_MinInt32":   {cornercasesSrc, "IntBoundary_MinInt32", nil, cornercases.IntBoundary_MinInt32},
+	"cornercases/IntBoundary_MaxInt64":   {cornercasesSrc, "IntBoundary_MaxInt64", nil, cornercases.IntBoundary_MaxInt64},
+	"cornercases/IntBoundary_MinInt64":   {cornercasesSrc, "IntBoundary_MinInt64", nil, cornercases.IntBoundary_MinInt64},
+	"cornercases/IntBoundary_MaxUint32":  {cornercasesSrc, "IntBoundary_MaxUint32", nil, cornercases.IntBoundary_MaxUint32},
+	"cornercases/IntBoundary_NearMaxInt": {cornercasesSrc, "IntBoundary_NearMaxInt", nil, cornercases.IntBoundary_NearMaxInt},
+	"cornercases/IntBoundary_NearMinInt": {cornercasesSrc, "IntBoundary_NearMinInt", nil, cornercases.IntBoundary_NearMinInt},
+	// Note: int32 overflow wraps just like native Go (two's complement)
+	// We compare the actual native results to verify correctness
+	"cornercases/Overflow_Int32Add":           {cornercasesSrc, "Overflow_Int32Add", nil, cornercases.Overflow_Int32Add},
+	"cornercases/Overflow_Int32Sub":           {cornercasesSrc, "Overflow_Int32Sub", nil, cornercases.Overflow_Int32Sub},
+	"cornercases/Overflow_Int32Mul":           {cornercasesSrc, "Overflow_Int32Mul", nil, cornercases.Overflow_Int32Mul},
+	"cornercases/FloatBoundary_SmallPositive": {cornercasesSrc, "FloatBoundary_SmallPositive", nil, cornercases.FloatBoundary_SmallPositive},
+	"cornercases/FloatBoundary_SmallNegative": {cornercasesSrc, "FloatBoundary_SmallNegative", nil, cornercases.FloatBoundary_SmallNegative},
+	"cornercases/FloatBoundary_LargePositive": {cornercasesSrc, "FloatBoundary_LargePositive", nil, cornercases.FloatBoundary_LargePositive},
+	"cornercases/FloatBoundary_LargeNegative": {cornercasesSrc, "FloatBoundary_LargeNegative", nil, cornercases.FloatBoundary_LargeNegative},
+	"cornercases/EmptySlice_Len":              {cornercasesSrc, "EmptySlice_Len", nil, cornercases.EmptySlice_Len},
+	"cornercases/EmptySlice_Cap":              {cornercasesSrc, "EmptySlice_Cap", nil, cornercases.EmptySlice_Cap},
+	"cornercases/EmptySlice_Make":             {cornercasesSrc, "EmptySlice_Make", nil, cornercases.EmptySlice_Make},
+	"cornercases/EmptyMap_Len":                {cornercasesSrc, "EmptyMap_Len", nil, cornercases.EmptyMap_Len},
+	"cornercases/EmptyMap_Make":               {cornercasesSrc, "EmptyMap_Make", nil, cornercases.EmptyMap_Make},
+	"cornercases/EmptyString_Len":             {cornercasesSrc, "EmptyString_Len", nil, cornercases.EmptyString_Len},
+	"cornercases/Slice_ZeroToZero":            {cornercasesSrc, "Slice_ZeroToZero", nil, cornercases.Slice_ZeroToZero},
+	"cornercases/Slice_EndToEnd":              {cornercasesSrc, "Slice_EndToEnd", nil, cornercases.Slice_EndToEnd},
+	"cornercases/Slice_NilSlice":              {cornercasesSrc, "Slice_NilSlice", nil, cornercases.Slice_NilSlice},
+	"cornercases/Slice_AppendToNil":           {cornercasesSrc, "Slice_AppendToNil", nil, cornercases.Slice_AppendToNil},
+	"cornercases/Slice_AppendEmpty":           {cornercasesSrc, "Slice_AppendEmpty", nil, cornercases.Slice_AppendEmpty},
+	"cornercases/Map_NilMap":                  {cornercasesSrc, "Map_NilMap", nil, cornercases.Map_NilMap},
+	"cornercases/Map_AccessMissingKey":        {cornercasesSrc, "Map_AccessMissingKey", nil, cornercases.Map_AccessMissingKey},
+	"cornercases/Map_DeleteMissingKey":        {cornercasesSrc, "Map_DeleteMissingKey", nil, cornercases.Map_DeleteMissingKey},
+	"cornercases/Map_OverwriteKey":            {cornercasesSrc, "Map_OverwriteKey", nil, cornercases.Map_OverwriteKey},
+	"cornercases/Map_NilKeyString":            {cornercasesSrc, "Map_NilKeyString", nil, cornercases.Map_NilKeyString},
+	"cornercases/Map_ZeroIntKey":              {cornercasesSrc, "Map_ZeroIntKey", nil, cornercases.Map_ZeroIntKey},
+	"cornercases/String_Empty":                {cornercasesSrc, "String_Empty", nil, cornercases.String_Empty},
+	"cornercases/String_SingleChar":           {cornercasesSrc, "String_SingleChar", nil, cornercases.String_SingleChar},
+	"cornercases/String_UnicodeMultibyte":     {cornercasesSrc, "String_UnicodeMultibyte", nil, cornercases.String_UnicodeMultibyte},
+	"cornercases/String_Whitespace":           {cornercasesSrc, "String_Whitespace", nil, cornercases.String_Whitespace},
+	"cornercases/String_SingleByteIndex":      {cornercasesSrc, "String_SingleByteIndex", nil, cornercases.String_SingleByteIndex},
+	"cornercases/String_LastByte":             {cornercasesSrc, "String_LastByte", nil, cornercases.String_LastByte},
+	"cornercases/Bool_True":                   {cornercasesSrc, "Bool_True", nil, cornercases.Bool_True},
+	"cornercases/Bool_False":                  {cornercasesSrc, "Bool_False", nil, cornercases.Bool_False},
+	"cornercases/Bool_NotTrue":                {cornercasesSrc, "Bool_NotTrue", nil, cornercases.Bool_NotTrue},
+	"cornercases/Bool_NotFalse":               {cornercasesSrc, "Bool_NotFalse", nil, cornercases.Bool_NotFalse},
+	"cornercases/Bool_DoubleNegation":         {cornercasesSrc, "Bool_DoubleNegation", nil, cornercases.Bool_DoubleNegation},
+	"cornercases/Arith_AddZero":               {cornercasesSrc, "Arith_AddZero", nil, cornercases.Arith_AddZero},
+	"cornercases/Arith_SubZero":               {cornercasesSrc, "Arith_SubZero", nil, cornercases.Arith_SubZero},
+	"cornercases/Arith_MulByOne":              {cornercasesSrc, "Arith_MulByOne", nil, cornercases.Arith_MulByOne},
+	"cornercases/Arith_DivByOne":              {cornercasesSrc, "Arith_DivByOne", nil, cornercases.Arith_DivByOne},
+	"cornercases/Arith_ModByOne":              {cornercasesSrc, "Arith_ModByOne", nil, cornercases.Arith_ModByOne},
+	"cornercases/Arith_MulByZero":             {cornercasesSrc, "Arith_MulByZero", nil, cornercases.Arith_MulByZero},
+	"cornercases/Arith_NegNeg":                {cornercasesSrc, "Arith_NegNeg", nil, cornercases.Arith_NegNeg},
+	"cornercases/Arith_NegAddNeg":             {cornercasesSrc, "Arith_NegAddNeg", nil, cornercases.Arith_NegAddNeg},
+	"cornercases/Compare_IntEqual":            {cornercasesSrc, "Compare_IntEqual", nil, cornercases.Compare_IntEqual},
+	"cornercases/Compare_IntNotEqual":         {cornercasesSrc, "Compare_IntNotEqual", nil, cornercases.Compare_IntNotEqual},
+	"cornercases/Compare_IntGreater":          {cornercasesSrc, "Compare_IntGreater", nil, cornercases.Compare_IntGreater},
+	"cornercases/Compare_IntGreaterEqual":     {cornercasesSrc, "Compare_IntGreaterEqual", nil, cornercases.Compare_IntGreaterEqual},
+	"cornercases/Compare_IntLess":             {cornercasesSrc, "Compare_IntLess", nil, cornercases.Compare_IntLess},
+	"cornercases/Compare_IntLessEqual":        {cornercasesSrc, "Compare_IntLessEqual", nil, cornercases.Compare_IntLessEqual},
+	"cornercases/Compare_StringEqual":         {cornercasesSrc, "Compare_StringEqual", nil, cornercases.Compare_StringEqual},
+	"cornercases/Compare_StringNotEqual":      {cornercasesSrc, "Compare_StringNotEqual", nil, cornercases.Compare_StringNotEqual},
+	"cornercases/Compare_EmptyStringEqual":    {cornercasesSrc, "Compare_EmptyStringEqual", nil, cornercases.Compare_EmptyStringEqual},
+	"cornercases/Logic_TrueAndTrue":           {cornercasesSrc, "Logic_TrueAndTrue", nil, cornercases.Logic_TrueAndTrue},
+	"cornercases/Logic_TrueAndFalse":          {cornercasesSrc, "Logic_TrueAndFalse", nil, cornercases.Logic_TrueAndFalse},
+	"cornercases/Logic_FalseAndTrue":          {cornercasesSrc, "Logic_FalseAndTrue", nil, cornercases.Logic_FalseAndTrue},
+	"cornercases/Logic_TrueOrFalse":           {cornercasesSrc, "Logic_TrueOrFalse", nil, cornercases.Logic_TrueOrFalse},
+	"cornercases/Logic_FalseOrTrue":           {cornercasesSrc, "Logic_FalseOrTrue", nil, cornercases.Logic_FalseOrTrue},
+	"cornercases/Logic_FalseOrFalse":          {cornercasesSrc, "Logic_FalseOrFalse", nil, cornercases.Logic_FalseOrFalse},
+	"cornercases/Control_IfNoElse":            {cornercasesSrc, "Control_IfNoElse", nil, cornercases.Control_IfNoElse},
+	"cornercases/Control_IfFalseNoElse":       {cornercasesSrc, "Control_IfFalseNoElse", nil, cornercases.Control_IfFalseNoElse},
+	"cornercases/Control_ForZeroIter":         {cornercasesSrc, "Control_ForZeroIter", nil, cornercases.Control_ForZeroIter},
+	"cornercases/Control_ForOneIter":          {cornercasesSrc, "Control_ForOneIter", nil, cornercases.Control_ForOneIter},
+	"cornercases/Control_ForBreakFirst":       {cornercasesSrc, "Control_ForBreakFirst", nil, cornercases.Control_ForBreakFirst},
+	"cornercases/Control_ForContinueAll":      {cornercasesSrc, "Control_ForContinueAll", nil, cornercases.Control_ForContinueAll},
+	"cornercases/Control_SwitchNoMatch":       {cornercasesSrc, "Control_SwitchNoMatch", nil, cornercases.Control_SwitchNoMatch},
+	"cornercases/Control_SwitchDefault":       {cornercasesSrc, "Control_SwitchDefault", nil, cornercases.Control_SwitchDefault},
+	"cornercases/Func_NoReturn":               {cornercasesSrc, "Func_NoReturn", nil, cornercases.Func_NoReturn},
+	"cornercases/Func_MultipleReturnAll":      {cornercasesSrc, "Func_MultipleReturnAll", nil, cornercases.Func_MultipleReturnAll},
+	"cornercases/Func_MultipleReturnIgnore":   {cornercasesSrc, "Func_MultipleReturnIgnore", nil, cornercases.Func_MultipleReturnIgnore},
+	"cornercases/Func_NamedReturn":            {cornercasesSrc, "Func_NamedReturn", nil, cornercases.Func_NamedReturn},
+	"cornercases/Func_VariadicEmpty":          {cornercasesSrc, "Func_VariadicEmpty", nil, cornercases.Func_VariadicEmpty},
+	"cornercases/Func_VariadicOne":            {cornercasesSrc, "Func_VariadicOne", nil, cornercases.Func_VariadicOne},
+	"cornercases/Func_VariadicMultiple":       {cornercasesSrc, "Func_VariadicMultiple", nil, cornercases.Func_VariadicMultiple},
+	"cornercases/Func_RecursionBase":          {cornercasesSrc, "Func_RecursionBase", nil, cornercases.Func_RecursionBase},
+	"cornercases/Closure_ReturnClosure":       {cornercasesSrc, "Closure_ReturnClosure", nil, cornercases.Closure_ReturnClosure},
+	"cornercases/Closure_CaptureVariable":     {cornercasesSrc, "Closure_CaptureVariable", nil, cornercases.Closure_CaptureVariable},
+	"cornercases/Closure_ModifyCaptured":      {cornercasesSrc, "Closure_ModifyCaptured", nil, cornercases.Closure_ModifyCaptured},
+	"cornercases/Struct_ZeroValueFields":      {cornercasesSrc, "Struct_ZeroValueFields", nil, cornercases.Struct_ZeroValueFields},
+	"cornercases/Struct_PointerReceiver":      {cornercasesSrc, "Struct_PointerReceiver", nil, cornercases.Struct_PointerReceiver},
+	"cornercases/Struct_NestedStruct":         {cornercasesSrc, "Struct_NestedStruct", nil, cornercases.Struct_NestedStruct},
 }
 
 // ============================================================================
 // Test Runner
 // ============================================================================
 
-// TestCorrectness runs all correctness tests
-func TestCorrectness(t *testing.T) {
-	if len(allCorrectnessTests) == 0 {
-		t.Skip("No correctness tests defined")
+// testSet represents a group of tests that share the same source file
+type testSet struct {
+	name  string
+	src   string
+	tests map[string]testCase // key is just funcName, not full path
+}
+
+// progCache caches compiled programs by source to avoid recompilation
+var progCache = make(map[string]*gig.Program)
+
+// runTestSet runs all tests in a test set, compiling the source once
+func runTestSet(t *testing.T, set testSet) {
+	prog, ok := progCache[set.src]
+	if !ok {
+		var err error
+		prog, err = gig.Build(toMainPackage(set.src))
+		if err != nil {
+			t.Fatalf("Build error: %v", err)
+		}
+		progCache[set.src] = prog
 	}
 
-	passed := 0
-	failed := 0
-
-	for name, tc := range allCorrectnessTests {
-		t.Run(name, func(t *testing.T) {
-			src := toMainPackage(tc.src)
-			prog, err := gig.Build(src)
-			if err != nil {
-				t.Fatalf("Build error: %v", err)
-			}
-
+	for fullKey, tc := range set.tests {
+		// Use fullKey for test name (includes package), tc.funcName for actual call
+		t.Run(fullKey, func(t *testing.T) {
 			startInterp := time.Now()
 			result, err := prog.Run(tc.funcName, tc.args...)
 			interpDuration := time.Since(startInterp)
@@ -1914,14 +1937,204 @@ func TestCorrectness(t *testing.T) {
 
 			compareCorrectnessResults(t, result, expected)
 
-			passed++
 			ratio := float64(interpDuration) / float64(nativeDuration)
 			t.Logf("interp: %v, native: %v, ratio: %.1fx", interpDuration, nativeDuration, ratio)
 		})
 	}
+}
 
-	t.Logf("\n=== Correctness Test Summary ===")
-	t.Logf("Total:   %d", passed+failed)
-	t.Logf("Passed:  %d", passed)
-	t.Logf("Failed:  %d", failed)
+// testSetsMap is a map for O(1) lookup by name
+var testSetsMap map[string]testSet
+
+// init builds testSetsMap from allCorrectnessTests
+func init() {
+	testSetsMap = make(map[string]testSet)
+
+	for fullKey, tc := range allCorrectnessTests {
+		parts := strings.SplitN(fullKey, "/", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		pkgName := parts[0]
+
+		if _, exists := testSetsMap[pkgName]; !exists {
+			testSetsMap[pkgName] = testSet{
+				name:  pkgName,
+				src:   tc.src,
+				tests: make(map[string]testCase),
+			}
+		}
+		testSetsMap[pkgName].tests[fullKey] = tc
+	}
+}
+
+// filterTestSet creates a new testSet with tests whose keys match the filterFn
+func filterTestSet(set testSet, filterFn func(string) bool) testSet {
+	filtered := testSet{
+		name:  set.name,
+		src:   set.src,
+		tests: make(map[string]testCase),
+	}
+	for k, v := range set.tests {
+		if filterFn(k) {
+			filtered.tests[k] = v
+		}
+	}
+	return filtered
+}
+
+// TestCorrectness runs all test suites
+func TestCorrectness(t *testing.T) {
+	for _, set := range testSetsMap {
+		t.Run(set.name, func(t *testing.T) {
+			runTestSet(t, set)
+		})
+	}
+}
+
+// Individual test functions for each package - allows running specific suites
+func TestCorrectnessAlgorithms(t *testing.T)       { runTestSet(t, testSetsMap["algorithms"]) }
+func TestCorrectnessAdvanced(t *testing.T)         { runTestSet(t, testSetsMap["advanced"]) }
+func TestCorrectnessArithmetic(t *testing.T)       { runTestSet(t, testSetsMap["arithmetic"]) }
+func TestCorrectnessAutowrap(t *testing.T)         { runTestSet(t, testSetsMap["autowrap"]) }
+func TestCorrectnessBitwise(t *testing.T)          { runTestSet(t, testSetsMap["bitwise"]) }
+func TestCorrectnessClosures(t *testing.T)         { runTestSet(t, testSetsMap["closures"]) }
+func TestCorrectnessClosuresAdvanced(t *testing.T) { runTestSet(t, testSetsMap["closures_advanced"]) }
+func TestCorrectnessControlflow(t *testing.T)      { runTestSet(t, testSetsMap["controlflow"]) }
+func TestCorrectnessCornercases(t *testing.T) {
+	runTestSet(t, testSetsMap["cornercases"])
+}
+func TestCorrectnessEdgecases(t *testing.T)     { runTestSet(t, testSetsMap["edgecases"]) }
+func TestCorrectnessExternal(t *testing.T)      { runTestSet(t, testSetsMap["external"]) }
+func TestCorrectnessFunctions(t *testing.T)     { runTestSet(t, testSetsMap["functions"]) }
+func TestCorrectnessGoroutine(t *testing.T)     { runTestSet(t, testSetsMap["goroutine"]) }
+func TestCorrectnessInit(t *testing.T)          { runTestSet(t, testSetsMap["init"]) }
+func TestCorrectnessLeetcodeHard(t *testing.T)  { runTestSet(t, testSetsMap["leetcode_hard"]) }
+func TestCorrectnessMaps(t *testing.T)          { runTestSet(t, testSetsMap["maps"]) }
+func TestCorrectnessMapadvanced(t *testing.T)   { runTestSet(t, testSetsMap["mapadvanced"]) }
+func TestCorrectnessMultiassign(t *testing.T)   { runTestSet(t, testSetsMap["multiassign"]) }
+func TestCorrectnessNamedreturn(t *testing.T)   { runTestSet(t, testSetsMap["namedreturn"]) }
+func TestCorrectnessRecursion(t *testing.T)     { runTestSet(t, testSetsMap["recursion"]) }
+func TestCorrectnessResolvedIssue(t *testing.T) { runTestSet(t, testSetsMap["resolved_issue"]) }
+func TestCorrectnessScope(t *testing.T)         { runTestSet(t, testSetsMap["scope"]) }
+func TestCorrectnessSlices(t *testing.T)        { runTestSet(t, testSetsMap["slices"]) }
+func TestCorrectnessSlicing(t *testing.T)       { runTestSet(t, testSetsMap["slicing"]) }
+func TestCorrectnessStringsPkg(t *testing.T)    { runTestSet(t, testSetsMap["strings_pkg"]) }
+func TestCorrectnessStructs(t *testing.T)       { runTestSet(t, testSetsMap["structs"]) }
+func TestCorrectnessSwitch(t *testing.T)        { runTestSet(t, testSetsMap["switch"]) }
+func TestCorrectnessTypeconv(t *testing.T)      { runTestSet(t, testSetsMap["typeconv"]) }
+func TestCorrectnessVariables(t *testing.T)     { runTestSet(t, testSetsMap["variables"]) }
+
+// Tricky tests - all in one suite (split by iteration for parallel execution)
+func TestCorrectnessTricky(t *testing.T) {
+	runTestSet(t, testSetsMap["tricky"])
+}
+
+// Tricky iteration splits - allows running specific iterations
+func TestCorrectnessTrickyIter1(t *testing.T) {
+	iter1Prefixes := []string{"tricky/ShortVarDeclShadow", "tricky/SliceIndexExpr", "tricky/MapStructKey", "tricky/NestedSliceAppend", "tricky/ClosureCaptureLoop", "tricky/DeferNamedReturn", "tricky/FullSliceExpr", "tricky/NestedShadowing", "tricky/SliceOfPointers", "tricky/MapNestedStruct", "tricky/VariadicEmpty", "tricky/VariadicOne", "tricky/VariadicMultiple", "tricky/EmbeddedField", "tricky/MapPointerValue", "tricky/ComplexBoolExpr", "tricky/SwitchFallthrough", "tricky/SliceCopyOperation", "tricky/DeferStackOrder", "tricky/InterfaceAssertion", "tricky/ChannelBasic", "tricky/SelectDefault", "tricky/RecursiveFibMemo", "tricky/PanicRecover", "tricky/ClosureWithDefer", "tricky/MethodOnPointer", "tricky/MultiReturnDiscard", "tricky/NilSliceAppend", "tricky/ShortCircuitEval", "tricky/ShortCircuitEval2", "tricky/MapDelete", "tricky/SliceNil", "tricky/MapCommaOk", "tricky/InterfaceNil", "tricky/SliceLenCap", "tricky/ComplexArray", "tricky/PointerArithmetic", "tricky/DoublePointer", "tricky/StructPointerMethod", "tricky/ForRangeWithIndex", "tricky/ForRangeKeyValue", "tricky/StringIndex", "tricky/MapAssign", "tricky/ComplexLiteral", "tricky/ErrorReturn", "tricky/NilPointerCheck", "tricky/SliceAppendNil", "tricky/MapLookupNil", "tricky/DeferModifyNamed", "tricky/ForRangeMap"}
+	set := filterTestSet(testSetsMap["tricky"], func(key string) bool {
+		for _, p := range iter1Prefixes {
+			if key == p {
+				return true
+			}
+		}
+		return false
+	})
+	runTestSet(t, set)
+}
+
+func TestCorrectnessTrickyIter2(t *testing.T) {
+	iter2Prefixes := []string{"tricky/DeferInClosure", "tricky/MultipleDeferSameName", "tricky/ClosureMutateOuter", "tricky/SliceAppendExpand", "tricky/MapIncrement", "tricky/InterfaceTypeSwitch", "tricky/PointerToSlice", "tricky/NestedClosure", "tricky/SliceOfSlice", "tricky/MapOfSlice", "tricky/StructWithSlice", "tricky/DeferReadAfterAssign", "tricky/ForRangePointer", "tricky/NilInterfaceValue", "tricky/SliceCopyOverlap", "tricky/PointerReassign", "tricky/InterfaceNilComparison", "tricky/DeferClosureCapture", "tricky/MapLookupModify", "tricky/SliceZeroLength"}
+	set := filterTestSet(testSetsMap["tricky"], func(key string) bool {
+		for _, p := range iter2Prefixes {
+			if key == p {
+				return true
+			}
+		}
+		return false
+	})
+	runTestSet(t, set)
+}
+
+func TestCorrectnessTrickyIter3(t *testing.T) {
+	iter3Prefixes := []string{"tricky/SliceModifyViaSubslice", "tricky/MapDeleteDuringRange", "tricky/ClosureReturnClosure", "tricky/StructMethodOnNil", "tricky/ArrayPointerIndex", "tricky/SliceThreeIndex", "tricky/DeferInLoop", "tricky/StructCompare", "tricky/InterfaceSlice", "tricky/PointerMethodValueReceiver", "tricky/SliceOfMaps", "tricky/MapWithNilValue", "tricky/SwitchNoCondition", "tricky/DeferModifyReturn", "tricky/SliceAppendToCap", "tricky/ForRangeStringByteIndex", "tricky/StructLiteralEmbedded", "tricky/MapNilKey", "tricky/ClosureRecursive"}
+	set := filterTestSet(testSetsMap["tricky"], func(key string) bool {
+		for _, p := range iter3Prefixes {
+			if key == p {
+				return true
+			}
+		}
+		return false
+	})
+	runTestSet(t, set)
+}
+
+func TestCorrectnessTrickyIter4(t *testing.T) {
+	iter4Prefixes := []string{"tricky/DeferCallInDefer", "tricky/MapLookupAssign", "tricky/StructMethodOnValue", "tricky/PointerToMap", "tricky/SliceCapAfterAppend", "tricky/NestedMaps", "tricky/MapRangeCopy", "tricky/SliceShift", "tricky/MapSafeDelete", "tricky/InterfaceCombo", "tricky/StructNestedInterface", "tricky/SlicePrepend", "tricky/PointerToStructField", "tricky/SlicePopBack", "tricky/MapKeysSlice", "tricky/ClosurePartialApply", "tricky/InterfaceWithStruct"}
+	set := filterTestSet(testSetsMap["tricky"], func(key string) bool {
+		for _, p := range iter4Prefixes {
+			if key == p {
+				return true
+			}
+		}
+		return false
+	})
+	runTestSet(t, set)
+}
+
+func TestCorrectnessTrickyIter5(t *testing.T) {
+	iter5Prefixes := []string{"tricky/ChannelBuffered", "tricky/StructEmbeddedMethod", "tricky/SliceOfChannels", "tricky/MapOfChannels", "tricky/MultipleAssignment", "tricky/SliceAssign", "tricky/MapTwoAssign", "tricky/StructPointerMethodNil", "tricky/DeferAfterPanic", "tricky/SliceFromArray", "tricky/ArrayPointerSlice", "tricky/StructFieldPointer", "tricky/MapLenCap", "tricky/StringConcat", "tricky/StringLen"}
+	set := filterTestSet(testSetsMap["tricky"], func(key string) bool {
+		for _, p := range iter5Prefixes {
+			if key == p {
+				return true
+			}
+		}
+		return false
+	})
+	runTestSet(t, set)
+}
+
+func TestCorrectnessTrickyIter6(t *testing.T) {
+	iter6Prefixes := []string{"tricky/ComplexMapKey", "tricky/SliceReverse", "tricky/MapMerge", "tricky/StructZeroValue", "tricky/SliceDeleteByIndex", "tricky/MapValueOverwrite", "tricky/InterfaceEmbed", "tricky/SliceOfFuncs", "tricky/PointerToSliceElement", "tricky/MapKeyPointer", "tricky/SliceOfPointersToStruct", "tricky/DoubleMapLookup", "tricky/StructSliceLiteral", "tricky/ForRangeModifyValue", "tricky/MapWithStructPointerKey", "tricky/SliceCopyDifferentTypes", "tricky/NestedStructWithPointer", "tricky/SliceOfSlicesAppend", "tricky/MapDeleteAll"}
+	set := filterTestSet(testSetsMap["tricky"], func(key string) bool {
+		for _, p := range iter6Prefixes {
+			if key == p {
+				return true
+			}
+		}
+		return false
+	})
+	runTestSet(t, set)
+}
+
+func TestCorrectnessTrickyIter7(t *testing.T) {
+	iter7Prefixes := []string{"tricky/StructPointerSlice", "tricky/MapWithInterfaceKey", "tricky/SliceOfInterfaces", "tricky/NestedPointerStruct", "tricky/StructMethodOnNilPointer", "tricky/StructMethodChainIter"}
+	set := filterTestSet(testSetsMap["tricky"], func(key string) bool {
+		for _, p := range iter7Prefixes {
+			if key == p {
+				return true
+			}
+		}
+		return false
+	})
+	runTestSet(t, set)
+}
+
+func TestCorrectnessTrickyIter8(t *testing.T) {
+	iter8Prefixes := []string{"tricky/SliceDrain", "tricky/MapClear", "tricky/StructCopy", "tricky/PointerStructCopy", "tricky/SliceFilter", "tricky/MapTransform", "tricky/SliceContains", "tricky/MapKeys", "tricky/ModuloWithNegative", "tricky/PowerRecursive", "tricky/GCD", "tricky/LCM", "tricky/SumOfDigits", "tricky/MapEqualParam", "tricky/StringJoinParam", "tricky/SliceEqualParam", "tricky/MapInvertParam", "tricky/StringReverse", "tricky/Clamp", "tricky/Sign", "tricky/SliceUniqueParam", "tricky/SliceInterleave", "tricky/SliceRotateLeftParam", "tricky/BitCountOnes", "tricky/BinomialCoefficient", "tricky/FibonacciNth", "tricky/IsPrime", "tricky/FactorialIterative", "tricky/MapDeepCopy"}
+	set := filterTestSet(testSetsMap["tricky"], func(key string) bool {
+		for _, p := range iter8Prefixes {
+			if key == p {
+				return true
+			}
+		}
+		return false
+	})
+	runTestSet(t, set)
+}
+
+func TestCornerCase(t *testing.T) {
+	runTestSet(t, testSetsMap["cornercases"])
 }

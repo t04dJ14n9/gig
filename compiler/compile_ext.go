@@ -109,6 +109,21 @@ func extractReceiverTypeName(recvType types.Type) string {
 	return named.Obj().Name()
 }
 
+// extractNamedType unwraps pointer types to find the underlying *types.Named type.
+// Returns nil if the type is not named (e.g., interface types without a name).
+func extractNamedType(t types.Type) *types.Named {
+	for {
+		switch tt := t.(type) {
+		case *types.Named:
+			return tt
+		case *types.Pointer:
+			t = tt.Elem()
+		default:
+			return nil
+		}
+	}
+}
+
 // compileReturn compiles a Return instruction.
 func (c *compiler) compileReturn(i *ssa.Return) {
 	if len(i.Results) == 0 {

@@ -322,3 +322,17 @@ func FibonacciInitTest() int {
 
 	return 0
 }
+
+// var (
+// 	counter = 0
+// )
+
+// func IncCounter1() int {
+// 	counter++
+// 	return counter
+// }
+
+// func IncCounter2() int {
+// 	counter++
+// 	return counter
+// }

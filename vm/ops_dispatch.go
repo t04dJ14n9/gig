@@ -313,7 +313,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				// instead of []value.Value, so it can be assigned to typed struct fields.
 			}
 			if !made {
-				if rt := typeToReflect(typ); rt != nil {
+				if rt := typeToReflect(typ, vm.program); rt != nil {
 					slice := reflect.MakeSlice(rt, int(lenVal.Int()), int(capVal.Int()))
 					vm.push(value.MakeFromReflect(slice))
 				} else {
@@ -330,7 +330,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		typeIdx := uint16(typeIdxVal.Int())
 		if int(typeIdx) < len(vm.program.Types) {
 			typ := vm.program.Types[typeIdx]
-			if rt := typeToReflect(typ); rt != nil {
+			if rt := typeToReflect(typ, vm.program); rt != nil {
 				m := reflect.MakeMap(rt)
 				_ = sizeVal // Size hint ignored for simplicity
 				vm.push(value.MakeFromReflect(m))
@@ -347,7 +347,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		typeIdx := uint16(typeIdxVal.Int())
 		if int(typeIdx) < len(vm.program.Types) {
 			typ := vm.program.Types[typeIdx]
-			if rt := typeToReflect(typ); rt != nil {
+			if rt := typeToReflect(typ, vm.program); rt != nil {
 				ch := reflect.MakeChan(rt, int(sizeVal.Int()))
 				vm.push(value.MakeFromReflect(ch))
 			} else {
@@ -428,9 +428,27 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			}
 		case value.KindReflect:
 			if rv, ok := container.ReflectValue(); ok {
+				// Validate rv is valid before using
+				if !rv.IsValid() {
+					tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
+					vm.push(value.FromInterface(tuple))
+					break
+				}
 				switch rv.Kind() {
 				case reflect.Map:
+					// Validate map type before accessing
+					if rv.Type().Key() == nil {
+						tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
+						vm.push(value.FromInterface(tuple))
+						break
+					}
 					k := key.ToReflectValue(rv.Type().Key())
+					// Validate key is valid
+					if !k.IsValid() {
+						tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
+						vm.push(value.FromInterface(tuple))
+						break
+					}
 					elem := rv.MapIndex(k)
 					if !elem.IsValid() {
 						zeroVal := value.MakeFromReflect(reflect.Zero(rv.Type().Elem()))
@@ -442,7 +460,13 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				case reflect.Slice, reflect.Array:
 					// For slices/arrays, always return true for ok
 					idx := int(key.Int())
-					vm.push(value.FromInterface([]value.Value{value.MakeFromReflect(rv.Index(idx)), value.MakeBool(true)}))
+					// Validate index is in bounds
+					if idx < 0 || idx >= rv.Len() {
+						tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
+						vm.push(value.FromInterface(tuple))
+					} else {
+						vm.push(value.FromInterface([]value.Value{value.MakeFromReflect(rv.Index(idx)), value.MakeBool(true)}))
+					}
 				default:
 					tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
 					vm.push(value.FromInterface(tuple))
@@ -745,7 +769,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				} else {
 					// Get the underlying value
 					underlying := rv.Elem()
-					targetReflectType := typeToReflect(targetType)
+					targetReflectType := typeToReflect(targetType, vm.program)
 					if targetReflectType == nil {
 						result = value.MakeNil()
 						assertionOk = false
@@ -770,7 +794,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				if rv.Kind() == reflect.Interface && !rv.IsNil() {
 					concreteRV = rv.Elem()
 				}
-				targetReflectType := typeToReflect(targetType)
+				targetReflectType := typeToReflect(targetType, vm.program)
 				if targetReflectType != nil && concreteRV.Type().AssignableTo(targetReflectType) {
 					result = value.MakeFromReflect(concreteRV)
 					assertionOk = true
@@ -1514,7 +1538,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			case *types.Slice:
 				// Use typeToReflect for proper typed slices (including function slices).
 				// This avoids creating []value.Value which can't be assigned to typed fields.
-				if rt := typeToReflect(typ); rt != nil {
+				if rt := typeToReflect(typ, vm.program); rt != nil {
 					newPtr := reflect.New(rt)
 					vm.push(value.MakeFromReflect(newPtr))
 				} else {
@@ -1522,18 +1546,18 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				}
 			case *types.Array:
 				// Use typeToReflect for proper typed arrays (including function arrays).
-				if rt := typeToReflect(typ); rt != nil {
+				if rt := typeToReflect(typ, vm.program); rt != nil {
 					newPtr := reflect.New(rt)
 					vm.push(value.MakeFromReflect(newPtr))
 				} else {
 					vm.push(value.MakeNil())
 				}
-			default:
-				if rt := typeToReflect(typ); rt != nil {
-					// Create a new pointer to zero value of the type
-					newPtr := reflect.New(rt)
-					vm.push(value.MakeFromReflect(newPtr))
-				} else {
+		default:
+			if rt := typeToReflect(typ, vm.program); rt != nil {
+				// Create a new pointer to zero value of the type
+				newPtr := reflect.New(rt)
+				vm.push(value.MakeFromReflect(newPtr))
+			} else {
 					vm.push(value.MakeNil())
 				}
 			}

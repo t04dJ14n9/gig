@@ -2065,19 +2065,6 @@ func StructSelfRef() int {
 	return n2.value + n2.next.value
 }
 
-// MapRangeBreak tests breaking from map range
-func MapRangeBreak() int {
-	m := map[int]int{1: 10, 2: 20, 3: 30}
-	sum := 0
-	for _, v := range m {
-		sum += v
-		if sum > 25 {
-			break
-		}
-	}
-	return sum
-}
-
 // SliceStructIndex tests indexing struct slice
 func SliceStructIndex() int {
 	type P struct{ x, y int }

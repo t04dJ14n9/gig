@@ -12,7 +12,6 @@ import (
 
 	"git.woa.com/youngjin/gig"
 	_ "git.woa.com/youngjin/gig/stdlib/packages"
-	"git.woa.com/youngjin/gig/tests/testdata/tricky"
 )
 
 // KnownIssue represents a test case for a known bug
@@ -64,13 +63,14 @@ func runKnownIssueTest(t *testing.T, name string, tc KnownIssue) {
 
 func TestKnownIssues_Tricky(t *testing.T) {
 	issues := map[string]KnownIssue{
-		"StructEmbeddedInterface": {
-			src:      trickySrc,
-			funcName: "StructEmbeddedInterface",
-			args:     nil,
-			native:   tricky.StructEmbeddedInterface,
-			issue:    "embedded interface field with struct pointer: reflect.StructOf type collision and interface method dispatch",
-		},
+		// All known issues have been resolved!
+		// StructEmbeddedInterface: fixed with embedded interface field method lookup
+		//   + receiver-aware callCompiledMethod + typeToReflect uniqueness for exported fields.
+		// InterfaceMethod: fixed with receiver-aware callCompiledMethod dispatch.
+	}
+
+	if len(issues) == 0 {
+		t.Skip("No known issues - all resolved!")
 	}
 
 	for name, tc := range issues {

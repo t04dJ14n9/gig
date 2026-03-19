@@ -2,6 +2,8 @@ package bytecode
 
 import (
 	"go/types"
+	"reflect"
+	"sync"
 
 	"golang.org/x/tools/go/ssa"
 
@@ -63,6 +65,12 @@ type ExternalMethodInfo struct {
 	// MethodName is the name of the method to call.
 	MethodName string
 
+	// ReceiverTypeName is the fully qualified name of the receiver type
+	// (e.g., "GetterImpl", "AdderStruct"). Used by callCompiledMethod
+	// to disambiguate when multiple compiled methods share the same name.
+	// Empty string means "match any receiver" (backward compatible).
+	ReceiverTypeName string
+
 	// DirectCall is an optional typed wrapper that avoids reflect.Call for this method.
 	// args[0] is the receiver, args[1:] are method arguments.
 	// If nil, the VM will use reflection for the call.
@@ -107,4 +115,27 @@ type Program struct {
 	// New VMs copy this slice as their starting globals so each call sees a
 	// fully-initialised package state.  Nil when there is no init() function.
 	InitialGlobals []value.Value
+
+	// ReflectTypeCache caches types.Type → reflect.Type conversions at the
+	// program level. This prevents reflect.StructOf from returning different
+	// reflect.Type objects for the same types.Type across multiple VM executions,
+	// which would cause "reflect.Set: value not assignable" panics.
+	// Key: types.Type, Value: reflect.Type.
+	ReflectTypeCache sync.Map
+}
+
+// CachedReflectType looks up a cached reflect.Type for the given types.Type.
+// Returns the cached type and true, or nil and false if not cached.
+func (p *Program) CachedReflectType(t types.Type) (reflect.Type, bool) {
+	if v, ok := p.ReflectTypeCache.Load(t); ok {
+		return v.(reflect.Type), true
+	}
+	return nil, false
+}
+
+// CacheReflectType stores a types.Type → reflect.Type mapping.
+// Uses LoadOrStore to handle concurrent writes safely.
+func (p *Program) CacheReflectType(t types.Type, rt reflect.Type) reflect.Type {
+	actual, _ := p.ReflectTypeCache.LoadOrStore(t, rt)
+	return actual.(reflect.Type)
 }

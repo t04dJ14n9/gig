@@ -285,7 +285,15 @@ func (v Value) SetElem(val Value) {
 						return
 					}
 				}
-				targetRV.Set(val.ToReflectValue(elemType))
+				valRV := val.ToReflectValue(elemType)
+				if !valRV.Type().AssignableTo(elemType) {
+					// Auto-unwrap pointer if elem matches
+					if valRV.Kind() == reflect.Ptr && !valRV.IsNil() && valRV.Type().Elem().AssignableTo(elemType) {
+						targetRV.Set(valRV.Elem())
+						return
+					}
+				}
+				targetRV.Set(valRV)
 			}
 			return
 		}
