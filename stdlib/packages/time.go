@@ -235,7 +235,7 @@ func direct_time_Parse(args []value.Value) value.Value {
 func direct_time_ParseDuration(args []value.Value) value.Value {
 	a0 := args[0].String()
 	r0, r1 := time.ParseDuration(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(int64(r0))), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_time_ParseInLocation(args []value.Value) value.Value {
@@ -248,7 +248,7 @@ func direct_time_ParseInLocation(args []value.Value) value.Value {
 
 func direct_time_Since(args []value.Value) value.Value {
 	a0 := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(int64(time.Since(a0))))
+	return value.MakeInt64(int64(time.Since(a0)))
 }
 
 func direct_time_Sleep(args []value.Value) value.Value {
@@ -280,12 +280,12 @@ func direct_time_UnixMilli(args []value.Value) value.Value {
 
 func direct_time_Until(args []value.Value) value.Value {
 	a0 := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(int64(time.Until(a0))))
+	return value.MakeInt64(int64(time.Until(a0)))
 }
 
 func direct_method_time_Duration_Abs(args []value.Value) value.Value {
 	recv := time.Duration(args[0].Int())
-	return value.MakeInt(int64(int64(recv.Abs())))
+	return value.MakeInt64(int64(recv.Abs()))
 }
 
 func direct_method_time_Duration_Hours(args []value.Value) value.Value {
@@ -295,12 +295,12 @@ func direct_method_time_Duration_Hours(args []value.Value) value.Value {
 
 func direct_method_time_Duration_Microseconds(args []value.Value) value.Value {
 	recv := time.Duration(args[0].Int())
-	return value.MakeInt(int64(recv.Microseconds()))
+	return value.MakeInt64(recv.Microseconds())
 }
 
 func direct_method_time_Duration_Milliseconds(args []value.Value) value.Value {
 	recv := time.Duration(args[0].Int())
-	return value.MakeInt(int64(recv.Milliseconds()))
+	return value.MakeInt64(recv.Milliseconds())
 }
 
 func direct_method_time_Duration_Minutes(args []value.Value) value.Value {
@@ -310,13 +310,13 @@ func direct_method_time_Duration_Minutes(args []value.Value) value.Value {
 
 func direct_method_time_Duration_Nanoseconds(args []value.Value) value.Value {
 	recv := time.Duration(args[0].Int())
-	return value.MakeInt(int64(recv.Nanoseconds()))
+	return value.MakeInt64(recv.Nanoseconds())
 }
 
 func direct_method_time_Duration_Round(args []value.Value) value.Value {
 	recv := time.Duration(args[0].Int())
 	a0 := time.Duration(args[1].Int())
-	return value.MakeInt(int64(int64(recv.Round(a0))))
+	return value.MakeInt64(int64(recv.Round(a0)))
 }
 
 func direct_method_time_Duration_Seconds(args []value.Value) value.Value {
@@ -332,7 +332,7 @@ func direct_method_time_Duration_String(args []value.Value) value.Value {
 func direct_method_time_Duration_Truncate(args []value.Value) value.Value {
 	recv := time.Duration(args[0].Int())
 	a0 := time.Duration(args[1].Int())
-	return value.MakeInt(int64(int64(recv.Truncate(a0))))
+	return value.MakeInt64(int64(recv.Truncate(a0)))
 }
 
 func direct_method_time_Location_String(args []value.Value) value.Value {
@@ -540,7 +540,7 @@ func direct_method_time_Time_String(args []value.Value) value.Value {
 func direct_method_time_Time_Sub(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
 	a0 := args[1].Interface().(time.Time)
-	return value.MakeInt(int64(int64(recv.Sub(a0))))
+	return value.MakeInt64(int64(recv.Sub(a0)))
 }
 
 func direct_method_time_Time_Truncate(args []value.Value) value.Value {
@@ -556,22 +556,22 @@ func direct_method_time_Time_UTC(args []value.Value) value.Value {
 
 func direct_method_time_Time_Unix(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(recv.Unix()))
+	return value.MakeInt64(recv.Unix())
 }
 
 func direct_method_time_Time_UnixMicro(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(recv.UnixMicro()))
+	return value.MakeInt64(recv.UnixMicro())
 }
 
 func direct_method_time_Time_UnixMilli(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(recv.UnixMilli()))
+	return value.MakeInt64(recv.UnixMilli())
 }
 
 func direct_method_time_Time_UnixNano(args []value.Value) value.Value {
 	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(recv.UnixNano()))
+	return value.MakeInt64(recv.UnixNano())
 }
 
 func direct_method_time_Time_Weekday(args []value.Value) value.Value {

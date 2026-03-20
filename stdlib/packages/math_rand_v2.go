@@ -101,12 +101,12 @@ func direct_math_rand_v2_Int32N(args []value.Value) value.Value {
 }
 
 func direct_math_rand_v2_Int64(args []value.Value) value.Value {
-	return value.MakeInt(int64(math_rand_v2.Int64()))
+	return value.MakeInt64(math_rand_v2.Int64())
 }
 
 func direct_math_rand_v2_Int64N(args []value.Value) value.Value {
 	a0 := args[0].Int()
-	return value.MakeInt(int64(math_rand_v2.Int64N(a0)))
+	return value.MakeInt64(math_rand_v2.Int64N(a0))
 }
 
 func direct_math_rand_v2_IntN(args []value.Value) value.Value {
@@ -168,12 +168,12 @@ func direct_math_rand_v2_Uint32N(args []value.Value) value.Value {
 }
 
 func direct_math_rand_v2_Uint64(args []value.Value) value.Value {
-	return value.MakeUint(uint64(math_rand_v2.Uint64()))
+	return value.MakeUint64(math_rand_v2.Uint64())
 }
 
 func direct_math_rand_v2_Uint64N(args []value.Value) value.Value {
 	a0 := args[0].Uint()
-	return value.MakeUint(uint64(math_rand_v2.Uint64N(a0)))
+	return value.MakeUint64(math_rand_v2.Uint64N(a0))
 }
 
 func direct_math_rand_v2_UintN(args []value.Value) value.Value {
@@ -212,7 +212,7 @@ func direct_method_math_rand_v2_ChaCha8_Seed(args []value.Value) value.Value {
 
 func direct_method_math_rand_v2_ChaCha8_Uint64(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.ChaCha8)
-	return value.MakeUint(uint64(recv.Uint64()))
+	return value.MakeUint64(recv.Uint64())
 }
 
 func direct_method_math_rand_v2_ChaCha8_UnmarshalBinary(args []value.Value) value.Value {
@@ -246,7 +246,7 @@ func direct_method_math_rand_v2_PCG_Seed(args []value.Value) value.Value {
 
 func direct_method_math_rand_v2_PCG_Uint64(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.PCG)
-	return value.MakeUint(uint64(recv.Uint64()))
+	return value.MakeUint64(recv.Uint64())
 }
 
 func direct_method_math_rand_v2_PCG_UnmarshalBinary(args []value.Value) value.Value {
@@ -297,13 +297,13 @@ func direct_method_math_rand_v2_Rand_Int32N(args []value.Value) value.Value {
 
 func direct_method_math_rand_v2_Rand_Int64(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.Rand)
-	return value.MakeInt(int64(recv.Int64()))
+	return value.MakeInt64(recv.Int64())
 }
 
 func direct_method_math_rand_v2_Rand_Int64N(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.Rand)
 	a0 := args[1].Int()
-	return value.MakeInt(int64(recv.Int64N(a0)))
+	return value.MakeInt64(recv.Int64N(a0))
 }
 
 func direct_method_math_rand_v2_Rand_IntN(args []value.Value) value.Value {
@@ -349,13 +349,13 @@ func direct_method_math_rand_v2_Rand_Uint32N(args []value.Value) value.Value {
 
 func direct_method_math_rand_v2_Rand_Uint64(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.Rand)
-	return value.MakeUint(uint64(recv.Uint64()))
+	return value.MakeUint64(recv.Uint64())
 }
 
 func direct_method_math_rand_v2_Rand_Uint64N(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.Rand)
 	a0 := args[1].Uint()
-	return value.MakeUint(uint64(recv.Uint64N(a0)))
+	return value.MakeUint64(recv.Uint64N(a0))
 }
 
 func direct_method_math_rand_v2_Rand_UintN(args []value.Value) value.Value {
@@ -366,5 +366,5 @@ func direct_method_math_rand_v2_Rand_UintN(args []value.Value) value.Value {
 
 func direct_method_math_rand_v2_Zipf_Uint64(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.Zipf)
-	return value.MakeUint(uint64(recv.Uint64()))
+	return value.MakeUint64(recv.Uint64())
 }

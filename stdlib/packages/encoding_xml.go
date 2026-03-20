@@ -185,7 +185,7 @@ func direct_method_encoding_xml_Decoder_DecodeElement(args []value.Value) value.
 
 func direct_method_encoding_xml_Decoder_InputOffset(args []value.Value) value.Value {
 	recv := args[0].Interface().(*encoding_xml.Decoder)
-	return value.MakeInt(int64(recv.InputOffset()))
+	return value.MakeInt64(recv.InputOffset())
 }
 
 func direct_method_encoding_xml_Decoder_InputPos(args []value.Value) value.Value {

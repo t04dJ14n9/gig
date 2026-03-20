@@ -146,7 +146,13 @@ func PackageImport(path string, outDir string, pkgName string) error {
 				continue
 			}
 			fi := &funcInfo{Name: name, Sig: sig}
-			fi.DirectCall = generateDirectCall(fi, pkgRef)
+			// Check for a hand-written custom override first
+			overrideKey := pkg.Name() + "." + name
+			if customCode, ok := customDirectCalls[overrideKey]; ok {
+				fi.DirectCall = customCode
+			} else {
+				fi.DirectCall = generateDirectCall(fi, pkgRef)
+			}
 			funcs = append(funcs, fi)
 
 		case *types.Const:
@@ -231,6 +237,13 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	if needReflect {
 		b.WriteString("\t\"reflect\"\n")
 	}
+	// fmt package needs extra imports for the gigStructFormatter sanitizer
+	if path == "fmt" {
+		if !needReflect {
+			b.WriteString("\t\"reflect\"\n")
+		}
+		b.WriteString("\t\"strings\"\n")
+	}
 	// Add cross-package imports needed by DirectCall wrappers
 	for impPath, impAlias := range crossPkgImports {
 		if impAlias != "" {
@@ -304,6 +317,13 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	}
 
 	b.WriteString("}\n\n")
+
+	// For the fmt package, inject the sanitizer preamble (gigStructFormatter etc.)
+	// before the DirectCall wrapper functions.
+	if path == "fmt" {
+		b.WriteString(fmtSanitizerPreamble)
+		b.WriteString("\n")
+	}
 
 	for _, fi := range funcs {
 		if fi.DirectCall != "" {

@@ -95,7 +95,7 @@ func direct_io_Copy(args []value.Value) value.Value {
 	a0 := args[0].Interface().(io.Writer)
 	a1 := args[1].Interface().(io.Reader)
 	r0, r1 := io.Copy(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_io_CopyBuffer(args []value.Value) value.Value {
@@ -112,7 +112,7 @@ func direct_io_CopyBuffer(args []value.Value) value.Value {
 		return v.([]byte)
 	}()
 	r0, r1 := io.CopyBuffer(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_io_CopyN(args []value.Value) value.Value {
@@ -120,7 +120,7 @@ func direct_io_CopyN(args []value.Value) value.Value {
 	a1 := args[1].Interface().(io.Reader)
 	a2 := args[2].Int()
 	r0, r1 := io.CopyN(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_io_LimitReader(args []value.Value) value.Value {
@@ -241,7 +241,7 @@ func direct_method_io_OffsetWriter_Seek(args []value.Value) value.Value {
 	a0 := args[1].Int()
 	a1 := int(args[2].Int())
 	r0, r1 := recv.Seek(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_io_OffsetWriter_Write(args []value.Value) value.Value {
@@ -334,7 +334,7 @@ func direct_method_io_PipeWriter_Write(args []value.Value) value.Value {
 func direct_method_io_SectionReader_Outer(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.SectionReader)
 	r0, r1, r2 := recv.Outer()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.MakeInt(int64(r1)), value.MakeInt(int64(r2))})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.MakeInt64(r1), value.MakeInt64(r2)})
 }
 
 func direct_method_io_SectionReader_Read(args []value.Value) value.Value {
@@ -375,10 +375,10 @@ func direct_method_io_SectionReader_Seek(args []value.Value) value.Value {
 	a0 := args[1].Int()
 	a1 := int(args[2].Int())
 	r0, r1 := recv.Seek(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_io_SectionReader_Size(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.SectionReader)
-	return value.MakeInt(int64(recv.Size()))
+	return value.MakeInt64(recv.Size())
 }

@@ -64,6 +64,29 @@ func direct_sort_Find(args []value.Value) value.Value {
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeBool(r1)})
 }
 
+func direct_sort_Float64s(args []value.Value) value.Value {
+	a0 := args[0].Interface().([]float64)
+	sort.Float64s(a0)
+	return value.MakeNil()
+}
+
+func direct_sort_Ints(args []value.Value) value.Value {
+	if s, ok := args[0].IntSlice(); ok {
+		ints := make([]int, len(s))
+		for i, v := range s {
+			ints[i] = int(v)
+		}
+		sort.Ints(ints)
+		for i, v := range ints {
+			s[i] = int64(v)
+		}
+	} else {
+		a0 := args[0].Interface().([]int)
+		sort.Ints(a0)
+	}
+	return value.MakeNil()
+}
+
 func direct_sort_IsSorted(args []value.Value) value.Value {
 	a0 := args[0].Interface().(sort.Interface)
 	return value.MakeBool(sort.IsSorted(a0))
@@ -127,37 +150,6 @@ func direct_sort_Strings(args []value.Value) value.Value {
 func direct_sort_StringsAreSorted(args []value.Value) value.Value {
 	a0 := args[0].Interface().([]string)
 	return value.MakeBool(sort.StringsAreSorted(a0))
-}
-
-// direct_sort_Ints handles sort.Ints with writeback for the VM's []int64 internal representation.
-// The VM stores []int as []int64; Interface() creates a []int copy. After sorting the copy,
-// we must write sorted values back to the original []int64 backing store.
-func direct_sort_Ints(args []value.Value) value.Value {
-	if s, ok := args[0].IntSlice(); ok {
-		// Fast path: source is the native []int64 backing store.
-		// Convert to []int, sort, write back.
-		ints := make([]int, len(s))
-		for i, v := range s {
-			ints[i] = int(v)
-		}
-		sort.Ints(ints)
-		for i, v := range ints {
-			s[i] = int64(v)
-		}
-	} else {
-		// General path: source is already a reflect.Value ([]int).
-		a0 := args[0].Interface().([]int)
-		sort.Ints(a0)
-	}
-	return value.MakeNil()
-}
-
-// direct_sort_Float64s handles sort.Float64s. No writeback needed since
-// []float64 is stored as reflect.Value (not a specialized type like []int64).
-func direct_sort_Float64s(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]float64)
-	sort.Float64s(a0)
-	return value.MakeNil()
 }
 
 func direct_method_sort_Float64Slice_Len(args []value.Value) value.Value {

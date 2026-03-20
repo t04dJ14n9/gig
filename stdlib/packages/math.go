@@ -241,7 +241,7 @@ func direct_math_Float32frombits(args []value.Value) value.Value {
 
 func direct_math_Float64bits(args []value.Value) value.Value {
 	a0 := args[0].Float()
-	return value.MakeUint(uint64(math.Float64bits(a0)))
+	return value.MakeUint64(math.Float64bits(a0))
 }
 
 func direct_math_Float64frombits(args []value.Value) value.Value {

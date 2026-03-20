@@ -192,7 +192,7 @@ func direct_method_encoding_json_Decoder_DisallowUnknownFields(args []value.Valu
 
 func direct_method_encoding_json_Decoder_InputOffset(args []value.Value) value.Value {
 	recv := args[0].Interface().(*encoding_json.Decoder)
-	return value.MakeInt(int64(recv.InputOffset()))
+	return value.MakeInt64(recv.InputOffset())
 }
 
 func direct_method_encoding_json_Decoder_More(args []value.Value) value.Value {
@@ -267,7 +267,7 @@ func direct_method_encoding_json_Number_Float64(args []value.Value) value.Value 
 func direct_method_encoding_json_Number_Int64(args []value.Value) value.Value {
 	recv := encoding_json.Number(args[0].String())
 	r0, r1 := recv.Int64()
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_encoding_json_Number_String(args []value.Value) value.Value {

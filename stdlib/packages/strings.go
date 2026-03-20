@@ -539,12 +539,12 @@ func direct_method_strings_Reader_Seek(args []value.Value) value.Value {
 	a0 := args[1].Int()
 	a1 := int(args[2].Int())
 	r0, r1 := recv.Seek(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_strings_Reader_Size(args []value.Value) value.Value {
 	recv := args[0].Interface().(*strings.Reader)
-	return value.MakeInt(int64(recv.Size()))
+	return value.MakeInt64(recv.Size())
 }
 
 func direct_method_strings_Reader_UnreadByte(args []value.Value) value.Value {
@@ -561,7 +561,7 @@ func direct_method_strings_Reader_WriteTo(args []value.Value) value.Value {
 	recv := args[0].Interface().(*strings.Reader)
 	a0 := args[1].Interface().(io.Writer)
 	r0, r1 := recv.WriteTo(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_strings_Replacer_Replace(args []value.Value) value.Value {

@@ -603,7 +603,7 @@ func direct_method_os_File_ReadFrom(args []value.Value) value.Value {
 	recv := args[0].Interface().(*os.File)
 	a0 := args[1].Interface().(io.Reader)
 	r0, r1 := recv.ReadFrom(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_os_File_Readdir(args []value.Value) value.Value {
@@ -625,7 +625,7 @@ func direct_method_os_File_Seek(args []value.Value) value.Value {
 	a0 := args[1].Int()
 	a1 := int(args[2].Int())
 	r0, r1 := recv.Seek(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_os_File_SetDeadline(args []value.Value) value.Value {
@@ -713,7 +713,7 @@ func direct_method_os_File_WriteTo(args []value.Value) value.Value {
 	recv := args[0].Interface().(*os.File)
 	a0 := args[1].Interface().(io.Writer)
 	r0, r1 := recv.WriteTo(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_os_LinkError_Error(args []value.Value) value.Value {
@@ -785,12 +785,12 @@ func direct_method_os_ProcessState_SysUsage(args []value.Value) value.Value {
 
 func direct_method_os_ProcessState_SystemTime(args []value.Value) value.Value {
 	recv := args[0].Interface().(*os.ProcessState)
-	return value.MakeInt(int64(int64(recv.SystemTime())))
+	return value.MakeInt64(int64(recv.SystemTime()))
 }
 
 func direct_method_os_ProcessState_UserTime(args []value.Value) value.Value {
 	recv := args[0].Interface().(*os.ProcessState)
-	return value.MakeInt(int64(int64(recv.UserTime())))
+	return value.MakeInt64(int64(recv.UserTime()))
 }
 
 func direct_method_os_SyscallError_Error(args []value.Value) value.Value {

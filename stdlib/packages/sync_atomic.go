@@ -118,7 +118,7 @@ func direct_sync_atomic_AddInt32(args []value.Value) value.Value {
 func direct_sync_atomic_AddInt64(args []value.Value) value.Value {
 	a0 := args[0].Interface().(*int64)
 	a1 := args[1].Int()
-	return value.MakeInt(int64(sync_atomic.AddInt64(a0, a1)))
+	return value.MakeInt64(sync_atomic.AddInt64(a0, a1))
 }
 
 func direct_sync_atomic_AddUint32(args []value.Value) value.Value {
@@ -130,7 +130,7 @@ func direct_sync_atomic_AddUint32(args []value.Value) value.Value {
 func direct_sync_atomic_AddUint64(args []value.Value) value.Value {
 	a0 := args[0].Interface().(*uint64)
 	a1 := args[1].Uint()
-	return value.MakeUint(uint64(sync_atomic.AddUint64(a0, a1)))
+	return value.MakeUint64(sync_atomic.AddUint64(a0, a1))
 }
 
 func direct_sync_atomic_AddUintptr(args []value.Value) value.Value {
@@ -148,7 +148,7 @@ func direct_sync_atomic_AndInt32(args []value.Value) value.Value {
 func direct_sync_atomic_AndInt64(args []value.Value) value.Value {
 	a0 := args[0].Interface().(*int64)
 	a1 := args[1].Int()
-	return value.MakeInt(int64(sync_atomic.AndInt64(a0, a1)))
+	return value.MakeInt64(sync_atomic.AndInt64(a0, a1))
 }
 
 func direct_sync_atomic_AndUint32(args []value.Value) value.Value {
@@ -160,7 +160,7 @@ func direct_sync_atomic_AndUint32(args []value.Value) value.Value {
 func direct_sync_atomic_AndUint64(args []value.Value) value.Value {
 	a0 := args[0].Interface().(*uint64)
 	a1 := args[1].Uint()
-	return value.MakeUint(uint64(sync_atomic.AndUint64(a0, a1)))
+	return value.MakeUint64(sync_atomic.AndUint64(a0, a1))
 }
 
 func direct_sync_atomic_AndUintptr(args []value.Value) value.Value {
@@ -211,7 +211,7 @@ func direct_sync_atomic_LoadInt32(args []value.Value) value.Value {
 
 func direct_sync_atomic_LoadInt64(args []value.Value) value.Value {
 	a0 := args[0].Interface().(*int64)
-	return value.MakeInt(int64(sync_atomic.LoadInt64(a0)))
+	return value.MakeInt64(sync_atomic.LoadInt64(a0))
 }
 
 func direct_sync_atomic_LoadUint32(args []value.Value) value.Value {
@@ -221,7 +221,7 @@ func direct_sync_atomic_LoadUint32(args []value.Value) value.Value {
 
 func direct_sync_atomic_LoadUint64(args []value.Value) value.Value {
 	a0 := args[0].Interface().(*uint64)
-	return value.MakeUint(uint64(sync_atomic.LoadUint64(a0)))
+	return value.MakeUint64(sync_atomic.LoadUint64(a0))
 }
 
 func direct_sync_atomic_LoadUintptr(args []value.Value) value.Value {
@@ -238,7 +238,7 @@ func direct_sync_atomic_OrInt32(args []value.Value) value.Value {
 func direct_sync_atomic_OrInt64(args []value.Value) value.Value {
 	a0 := args[0].Interface().(*int64)
 	a1 := args[1].Int()
-	return value.MakeInt(int64(sync_atomic.OrInt64(a0, a1)))
+	return value.MakeInt64(sync_atomic.OrInt64(a0, a1))
 }
 
 func direct_sync_atomic_OrUint32(args []value.Value) value.Value {
@@ -250,7 +250,7 @@ func direct_sync_atomic_OrUint32(args []value.Value) value.Value {
 func direct_sync_atomic_OrUint64(args []value.Value) value.Value {
 	a0 := args[0].Interface().(*uint64)
 	a1 := args[1].Uint()
-	return value.MakeUint(uint64(sync_atomic.OrUint64(a0, a1)))
+	return value.MakeUint64(sync_atomic.OrUint64(a0, a1))
 }
 
 func direct_sync_atomic_OrUintptr(args []value.Value) value.Value {
@@ -303,7 +303,7 @@ func direct_sync_atomic_SwapInt32(args []value.Value) value.Value {
 func direct_sync_atomic_SwapInt64(args []value.Value) value.Value {
 	a0 := args[0].Interface().(*int64)
 	a1 := args[1].Int()
-	return value.MakeInt(int64(sync_atomic.SwapInt64(a0, a1)))
+	return value.MakeInt64(sync_atomic.SwapInt64(a0, a1))
 }
 
 func direct_sync_atomic_SwapUint32(args []value.Value) value.Value {
@@ -315,7 +315,7 @@ func direct_sync_atomic_SwapUint32(args []value.Value) value.Value {
 func direct_sync_atomic_SwapUint64(args []value.Value) value.Value {
 	a0 := args[0].Interface().(*uint64)
 	a1 := args[1].Uint()
-	return value.MakeUint(uint64(sync_atomic.SwapUint64(a0, a1)))
+	return value.MakeUint64(sync_atomic.SwapUint64(a0, a1))
 }
 
 func direct_sync_atomic_SwapUintptr(args []value.Value) value.Value {
@@ -395,13 +395,13 @@ func direct_method_sync_atomic_Int32_Swap(args []value.Value) value.Value {
 func direct_method_sync_atomic_Int64_Add(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync_atomic.Int64)
 	a0 := args[1].Int()
-	return value.MakeInt(int64(recv.Add(a0)))
+	return value.MakeInt64(recv.Add(a0))
 }
 
 func direct_method_sync_atomic_Int64_And(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync_atomic.Int64)
 	a0 := args[1].Int()
-	return value.MakeInt(int64(recv.And(a0)))
+	return value.MakeInt64(recv.And(a0))
 }
 
 func direct_method_sync_atomic_Int64_CompareAndSwap(args []value.Value) value.Value {
@@ -413,13 +413,13 @@ func direct_method_sync_atomic_Int64_CompareAndSwap(args []value.Value) value.Va
 
 func direct_method_sync_atomic_Int64_Load(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync_atomic.Int64)
-	return value.MakeInt(int64(recv.Load()))
+	return value.MakeInt64(recv.Load())
 }
 
 func direct_method_sync_atomic_Int64_Or(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync_atomic.Int64)
 	a0 := args[1].Int()
-	return value.MakeInt(int64(recv.Or(a0)))
+	return value.MakeInt64(recv.Or(a0))
 }
 
 func direct_method_sync_atomic_Int64_Store(args []value.Value) value.Value {
@@ -432,7 +432,7 @@ func direct_method_sync_atomic_Int64_Store(args []value.Value) value.Value {
 func direct_method_sync_atomic_Int64_Swap(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync_atomic.Int64)
 	a0 := args[1].Int()
-	return value.MakeInt(int64(recv.Swap(a0)))
+	return value.MakeInt64(recv.Swap(a0))
 }
 
 func direct_method_sync_atomic_Uint32_Add(args []value.Value) value.Value {
@@ -481,13 +481,13 @@ func direct_method_sync_atomic_Uint32_Swap(args []value.Value) value.Value {
 func direct_method_sync_atomic_Uint64_Add(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync_atomic.Uint64)
 	a0 := args[1].Uint()
-	return value.MakeUint(uint64(recv.Add(a0)))
+	return value.MakeUint64(recv.Add(a0))
 }
 
 func direct_method_sync_atomic_Uint64_And(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync_atomic.Uint64)
 	a0 := args[1].Uint()
-	return value.MakeUint(uint64(recv.And(a0)))
+	return value.MakeUint64(recv.And(a0))
 }
 
 func direct_method_sync_atomic_Uint64_CompareAndSwap(args []value.Value) value.Value {
@@ -499,13 +499,13 @@ func direct_method_sync_atomic_Uint64_CompareAndSwap(args []value.Value) value.V
 
 func direct_method_sync_atomic_Uint64_Load(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync_atomic.Uint64)
-	return value.MakeUint(uint64(recv.Load()))
+	return value.MakeUint64(recv.Load())
 }
 
 func direct_method_sync_atomic_Uint64_Or(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync_atomic.Uint64)
 	a0 := args[1].Uint()
-	return value.MakeUint(uint64(recv.Or(a0)))
+	return value.MakeUint64(recv.Or(a0))
 }
 
 func direct_method_sync_atomic_Uint64_Store(args []value.Value) value.Value {
@@ -518,7 +518,7 @@ func direct_method_sync_atomic_Uint64_Store(args []value.Value) value.Value {
 func direct_method_sync_atomic_Uint64_Swap(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync_atomic.Uint64)
 	a0 := args[1].Uint()
-	return value.MakeUint(uint64(recv.Swap(a0)))
+	return value.MakeUint64(recv.Swap(a0))
 }
 
 func direct_method_sync_atomic_Uintptr_Add(args []value.Value) value.Value {
