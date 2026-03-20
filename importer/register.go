@@ -218,14 +218,19 @@ func (p *ExternalPackage) AddType(name string, typ reflect.Type, doc string) {
 }
 
 // AddMethodDirectCall registers a DirectCall wrapper for a method on a type in this package.
+// The key is package-path-qualified: "pkgPath.TypeName.MethodName" (e.g., "encoding/json.Encoder.Encode").
+// This prevents collisions when different packages define types with the same name
+// (e.g., encoding/json.Encoder vs encoding/xml.Encoder).
 func (p *ExternalPackage) AddMethodDirectCall(typeName, methodName string, dc func([]value.Value) value.Value) {
 	methodDirectCallsMutex.Lock()
 	defer methodDirectCallsMutex.Unlock()
-	key := typeName + "." + methodName
+	key := p.Path + "." + typeName + "." + methodName
 	methodDirectCalls[key] = dc
 }
 
-// LookupMethodDirectCall looks up a method DirectCall wrapper by type name and method name.
+// LookupMethodDirectCall looks up a method DirectCall wrapper by qualified type name and method name.
+// typeName must be package-path-qualified (e.g., "encoding/json.Encoder"), and the lookup key
+// is constructed as "typeName.methodName" (e.g., "encoding/json.Encoder.Encode").
 func LookupMethodDirectCall(typeName, methodName string) (func([]value.Value) value.Value, bool) {
 	methodDirectCallsMutex.RLock()
 	defer methodDirectCallsMutex.RUnlock()

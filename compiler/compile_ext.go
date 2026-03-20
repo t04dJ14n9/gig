@@ -96,8 +96,9 @@ func (c *compiler) compileIndirectCall(i *ssa.Call) {
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
 
-// extractReceiverTypeName extracts the type name from a receiver type.
+// extractReceiverTypeName extracts the package-path-qualified type name from a receiver type.
 // For pointer receivers like *Reader, it unwraps the pointer.
+// Returns "pkgPath.TypeName" (e.g., "encoding/json.Encoder") for use as a DirectCall lookup key.
 func extractReceiverTypeName(recvType types.Type) string {
 	if ptr, ok := recvType.(*types.Pointer); ok {
 		recvType = ptr.Elem()
@@ -106,7 +107,12 @@ func extractReceiverTypeName(recvType types.Type) string {
 	if !ok {
 		return ""
 	}
-	return named.Obj().Name()
+	obj := named.Obj()
+	pkg := obj.Pkg()
+	if pkg != nil {
+		return pkg.Path() + "." + obj.Name()
+	}
+	return obj.Name()
 }
 
 // extractNamedType unwraps pointer types to find the underlying *types.Named type.

@@ -40,6 +40,22 @@ var (
 	srcFmt string
 	//go:embed testdata/thirdparty/patterns.go
 	srcPatterns string
+	//go:embed testdata/thirdparty/hash.go
+	srcHash string
+	//go:embed testdata/thirdparty/compress.go
+	srcCompress string
+	//go:embed testdata/thirdparty/container.go
+	srcContainer string
+	//go:embed testdata/thirdparty/math_big.go
+	srcMathBig string
+	//go:embed testdata/thirdparty/crypto.go
+	srcCrypto string
+	//go:embed testdata/thirdparty/net_url.go
+	srcNetURL string
+	//go:embed testdata/thirdparty/mime.go
+	srcMime string
+	//go:embed testdata/thirdparty/text.go
+	srcText string
 )
 
 // TestCorrectnessThirdparty tests third-party library calls through the interpreter,
@@ -198,7 +214,8 @@ var encodingTests = map[string]testCase{
 	"JsonMarshal":       {srcEncoding, "JsonMarshal", nil, thirdparty.JsonMarshal},
 	"JsonUnmarshal":     {srcEncoding, "JsonUnmarshal", nil, thirdparty.JsonUnmarshal},
 	"JsonMarshalIndent": {srcEncoding, "JsonMarshalIndent", nil, thirdparty.JsonMarshalIndent},
-	// JsonDecode skipped — Bug 8: json.Decoder.Decode vs xml.Decoder.Decode type collision
+	"JsonDecode": {srcEncoding, "JsonDecode", nil, thirdparty.JsonDecode},
+	"JsonEncode": {srcEncoding, "JsonEncode", nil, thirdparty.JsonEncode},
 	"JsonNumber": {srcEncoding, "JsonNumber", nil, thirdparty.JsonNumber},
 	"Base64Encode":      {srcEncoding, "Base64Encode", nil, thirdparty.Base64Encode},
 	"Base64Decode":      {srcEncoding, "Base64Decode", nil, thirdparty.Base64Decode},
@@ -273,6 +290,112 @@ var patternsTests = map[string]testCase{
 	"SelectWithChannels":           {srcPatterns, "SelectWithChannels", nil, thirdparty.SelectWithChannels},
 }
 
+var hashTests = map[string]testCase{
+	"HashAdler32":    {srcHash, "HashAdler32", nil, thirdparty.HashAdler32},
+	"HashAdler32Write": {srcHash, "HashAdler32Write", nil, thirdparty.HashAdler32Write},
+	"HashCrc32":      {srcHash, "HashCrc32", nil, thirdparty.HashCrc32},
+	"HashCrc32IEEE":  {srcHash, "HashCrc32IEEE", nil, thirdparty.HashCrc32IEEE},
+	"HashCrc64ECMA": {srcHash, "HashCrc64ECMA", nil, thirdparty.HashCrc64ECMA},
+	"HashCrc64ISO":  {srcHash, "HashCrc64ISO", nil, thirdparty.HashCrc64ISO},
+	"HashFnv64":     {srcHash, "HashFnv64", nil, thirdparty.HashFnv64},
+	"HashFnv64a":    {srcHash, "HashFnv64a", nil, thirdparty.HashFnv64a},
+}
+
+var compressTests = map[string]testCase{
+	"BinaryWriteRead":        {srcCompress, "BinaryWriteRead", nil, thirdparty.BinaryWriteRead},
+	"BinaryPutGet":           {srcCompress, "BinaryPutGet", nil, thirdparty.BinaryPutGet},
+	"BinaryMultipleValues":   {srcCompress, "BinaryMultipleValues", nil, thirdparty.BinaryMultipleValues},
+	"BinaryLittleEndian":     {srcCompress, "BinaryLittleEndian", nil, thirdparty.BinaryLittleEndian},
+	"CompressGzipRoundtrip":  {srcCompress, "CompressGzipRoundtrip", nil, thirdparty.CompressGzipRoundtrip},
+	"CompressZlibRoundtrip":  {srcCompress, "CompressZlibRoundtrip", nil, thirdparty.CompressZlibRoundtrip},
+}
+
+var containerTests = map[string]testCase{
+	"ContainerListPushFrontBack": {srcContainer, "ContainerListPushFrontBack", nil, thirdparty.ContainerListPushFrontBack},
+	"ContainerListRemove":        {srcContainer, "ContainerListRemove", nil, thirdparty.ContainerListRemove},
+	"ContainerListMove":         {srcContainer, "ContainerListMove", nil, thirdparty.ContainerListMove},
+	"ContainerListIterate":       {srcContainer, "ContainerListIterate", nil, thirdparty.ContainerListIterate},
+	"ContainerListReverseIterate": {srcContainer, "ContainerListReverseIterate", nil, thirdparty.ContainerListReverseIterate},
+	"ContainerRingSum":          {srcContainer, "ContainerRingSum", nil, thirdparty.ContainerRingSum},
+	"ContainerRingMove":         {srcContainer, "ContainerRingMove", nil, thirdparty.ContainerRingMove},
+	"ContainerRingLink":         {srcContainer, "ContainerRingLink", nil, thirdparty.ContainerRingLink},
+	"ContainerRingUnlink":       {srcContainer, "ContainerRingUnlink", nil, thirdparty.ContainerRingUnlink},
+}
+
+var mathBigTests = map[string]testCase{
+	"BigIntAdd":         {srcMathBig, "BigIntAdd", nil, thirdparty.BigIntAdd},
+	"BigIntMul":         {srcMathBig, "BigIntMul", nil, thirdparty.BigIntMul},
+	"BigIntDiv":         {srcMathBig, "BigIntDiv", nil, thirdparty.BigIntDiv},
+	"BigIntMod":         {srcMathBig, "BigIntMod", nil, thirdparty.BigIntMod},
+	"BigIntPow":         {srcMathBig, "BigIntPow", nil, thirdparty.BigIntPow},
+	"BigIntBitwise":     {srcMathBig, "BigIntBitwise", nil, thirdparty.BigIntBitwise},
+	"BigIntGCD":         {srcMathBig, "BigIntGCD", nil, thirdparty.BigIntGCD},
+	"BigIntPrime":       {srcMathBig, "BigIntPrime", nil, thirdparty.BigIntPrime},
+	"BigIntModInverse":  {srcMathBig, "BigIntModInverse", nil, thirdparty.BigIntModInverse},
+	"BigIntShift":       {srcMathBig, "BigIntShift", nil, thirdparty.BigIntShift},
+	"BigIntAbs":         {srcMathBig, "BigIntAbs", nil, thirdparty.BigIntAbs},
+	"BigIntString":      {srcMathBig, "BigIntString", nil, thirdparty.BigIntString},
+	"BigRatBasic":       {srcMathBig, "BigRatBasic", nil, thirdparty.BigRatBasic},
+	"BigRatMul":         {srcMathBig, "BigRatMul", nil, thirdparty.BigRatMul},
+	"BigFloatBasic":     {srcMathBig, "BigFloatBasic", nil, thirdparty.BigFloatBasic},
+	"BigFloatSqrt":      {srcMathBig, "BigFloatSqrt", nil, thirdparty.BigFloatSqrt},
+	"BigFloatExp":       {srcMathBig, "BigFloatExp", nil, thirdparty.BigFloatExp},
+}
+
+var cryptoTests = map[string]testCase{
+	"CryptoMD5Sum":               {srcCrypto, "CryptoMD5Sum", nil, thirdparty.CryptoMD5Sum},
+	"CryptoMD5Write":             {srcCrypto, "CryptoMD5Write", nil, thirdparty.CryptoMD5Write},
+	"CryptoSHA1Sum":              {srcCrypto, "CryptoSHA1Sum", nil, thirdparty.CryptoSHA1Sum},
+	"CryptoSHA1Write":            {srcCrypto, "CryptoSHA1Write", nil, thirdparty.CryptoSHA1Write},
+	"CryptoSHA256Sum":            {srcCrypto, "CryptoSHA256Sum", nil, thirdparty.CryptoSHA256Sum},
+	"CryptoSHA256Write":          {srcCrypto, "CryptoSHA256Write", nil, thirdparty.CryptoSHA256Write},
+	"CryptoSHA512Sum":            {srcCrypto, "CryptoSHA512Sum", nil, thirdparty.CryptoSHA512Sum},
+	"CryptoSHA512_256":           {srcCrypto, "CryptoSHA512_256", nil, thirdparty.CryptoSHA512_256},
+	"CryptoAESEncrypt":           {srcCrypto, "CryptoAESEncrypt", nil, thirdparty.CryptoAESEncrypt},
+	"CryptoAESCBC":               {srcCrypto, "CryptoAESCBC", nil, thirdparty.CryptoAESCBC},
+	"CryptoAESOFB":               {srcCrypto, "CryptoAESOFB", nil, thirdparty.CryptoAESOFB},
+	"CryptoSubtleConstantTimeCompare": {srcCrypto, "CryptoSubtleConstantTimeCompare", nil, thirdparty.CryptoSubtleConstantTimeCompare},
+	"CryptoSubtleConstantTimeCopy":   {srcCrypto, "CryptoSubtleConstantTimeCopy", nil, thirdparty.CryptoSubtleConstantTimeCopy},
+	"CryptoSubtleXORBytes":       {srcCrypto, "CryptoSubtleXORBytes", nil, thirdparty.CryptoSubtleXORBytes},
+}
+
+var netURLTests = map[string]testCase{
+	"NetURLParse":                    {srcNetURL, "NetURLParse", nil, thirdparty.NetURLParse},
+	"NetURLQuery":                    {srcNetURL, "NetURLQuery", nil, thirdparty.NetURLQuery},
+	"NetURLQueryEncode":              {srcNetURL, "NetURLQueryEncode", nil, thirdparty.NetURLQueryEncode},
+	"NetURLResolveReference":          {srcNetURL, "NetURLResolveReference", nil, thirdparty.NetURLResolveReference},
+	"NetURLResolveReferenceRelative":  {srcNetURL, "NetURLResolveReferenceRelative", nil, thirdparty.NetURLResolveReferenceRelative},
+	"NetURLEscape":                   {srcNetURL, "NetURLEscape", nil, thirdparty.NetURLEscape},
+	"NetURLUser":                     {srcNetURL, "NetURLUser", nil, thirdparty.NetURLUser},
+	"NetURLString":                   {srcNetURL, "NetURLString", nil, thirdparty.NetURLString},
+	"NetNetipParseAddr":              {srcNetURL, "NetNetipParseAddr", nil, thirdparty.NetNetipParseAddr},
+	"NetNetipParsePrefix":            {srcNetURL, "NetNetipParsePrefix", nil, thirdparty.NetNetipParsePrefix},
+	"NetNetipIPv6":                   {srcNetURL, "NetNetipIPv6", nil, thirdparty.NetNetipIPv6},
+	"NetNetipIPv6Full":               {srcNetURL, "NetNetipIPv6Full", nil, thirdparty.NetNetipIPv6Full},
+	"NetNetipFrom4":                  {srcNetURL, "NetNetipFrom4", nil, thirdparty.NetNetipFrom4},
+	"NetNetipCompare":                {srcNetURL, "NetNetipCompare", nil, thirdparty.NetNetipCompare},
+	"NetNetipPrefixContains":          {srcNetURL, "NetNetipPrefixContains", nil, thirdparty.NetNetipPrefixContains},
+	"NetNetipMask":                   {srcNetURL, "NetNetipMask", nil, thirdparty.NetNetipMask},
+}
+
+var mimeTests = map[string]testCase{
+	"MimeTypeByExtension":      {srcMime, "MimeTypeByExtension", nil, thirdparty.MimeTypeByExtension},
+	"MimeTypeByExtensionJSON":  {srcMime, "MimeTypeByExtensionJSON", nil, thirdparty.MimeTypeByExtensionJSON},
+	"MimeExtensionsByType":     {srcMime, "MimeExtensionsByType", nil, thirdparty.MimeExtensionsByType},
+	"MimeParseMediaType":        {srcMime, "MimeParseMediaType", nil, thirdparty.MimeParseMediaType},
+	"MimeWordEncoder":           {srcMime, "MimeWordEncoder", nil, thirdparty.MimeWordEncoder},
+	"MimeWordDecoder":           {srcMime, "MimeWordDecoder", nil, thirdparty.MimeWordDecoder},
+	"MultipartFormData":         {srcMime, "MultipartFormData", nil, thirdparty.MultipartFormData},
+}
+
+var textTests = map[string]testCase{
+	"TextScannerBasic":        {srcText, "TextScannerBasic", nil, thirdparty.TextScannerBasic},
+	"TextScannerInts":         {srcText, "TextScannerInts", nil, thirdparty.TextScannerInts},
+	"TextScannerStrings":     {srcText, "TextScannerStrings", nil, thirdparty.TextScannerStrings},
+	"TextScannerPosition":     {srcText, "TextScannerPosition", nil, thirdparty.TextScannerPosition},
+	"TextTabwriterInit":      {srcText, "TextTabwriterInit", nil, thirdparty.TextTabwriterInit},
+}
+
 var thirdpartyTestSets = map[string]testSet{
 	"Bytes":    {name: "Bytes", src: srcBytes, tests: bytesTests},
 	"Strings":  {name: "Strings", src: srcStrings, tests: stringsTests},
@@ -288,4 +411,12 @@ var thirdpartyTestSets = map[string]testSet{
 	"Errors":   {name: "Errors", src: srcErrors, tests: errorsTests},
 	"Fmt":      {name: "Fmt", src: srcFmt, tests: fmtTests},
 	"Patterns": {name: "Patterns", src: srcPatterns, tests: patternsTests},
+	"Hash":     {name: "Hash", src: srcHash, tests: hashTests},
+	"Compress": {name: "Compress", src: srcCompress, tests: compressTests},
+	"Container": {name: "Container", src: srcContainer, tests: containerTests},
+	"MathBig":  {name: "MathBig", src: srcMathBig, tests: mathBigTests},
+	"Crypto":   {name: "Crypto", src: srcCrypto, tests: cryptoTests},
+	"NetURL":   {name: "NetURL", src: srcNetURL, tests: netURLTests},
+	"Mime":     {name: "Mime", src: srcMime, tests: mimeTests},
+	"Text":     {name: "Text", src: srcText, tests: textTests},
 }

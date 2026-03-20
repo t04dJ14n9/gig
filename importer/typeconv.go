@@ -5,11 +5,36 @@ import (
 	"go/token"
 	"go/types"
 	"reflect"
+	"strings"
 	"sync"
 )
 
 // typeCache caches converted types to prevent infinite recursion for self-referential types.
 var typeCache sync.Map // map[reflect.Type]types.Type
+
+// typePkgCache caches *types.Package objects by package path to ensure
+// that the same package path always maps to the same *types.Package instance.
+var typePkgCache sync.Map // map[string]*types.Package
+
+// getOrCreateTypesPackage returns a cached *types.Package for the given
+// package path, creating one if it doesn't exist yet. The package name is
+// derived from the last path segment (e.g., "encoding/json" → "json").
+func getOrCreateTypesPackage(pkgPath string) *types.Package {
+	if pkgPath == "" {
+		return nil
+	}
+	if cached, ok := typePkgCache.Load(pkgPath); ok {
+		return cached.(*types.Package)
+	}
+	// Derive package name from path (last segment)
+	name := pkgPath
+	if idx := strings.LastIndex(pkgPath, "/"); idx >= 0 {
+		name = pkgPath[idx+1:]
+	}
+	pkg := types.NewPackage(pkgPath, name)
+	actual, _ := typePkgCache.LoadOrStore(pkgPath, pkg)
+	return actual.(*types.Package)
+}
 
 func init() {
 	// Initialize typeOf function
@@ -162,8 +187,12 @@ func convertReflectType(rt reflect.Type) types.Type {
 		// For interface types, don't wrap in Named - just return the interface directly
 		// (named interfaces in Go are still interface types, not Named types)
 		if !isBasicAlias && rt.Kind() != reflect.Interface {
-			// Create a placeholder named type to break recursion
-			typeName := types.NewTypeName(0, nil, rt.Name(), nil)
+			// Create a placeholder named type to break recursion.
+			// Use rt.PkgPath() to attach the correct package, so the type checker
+			// and compiler can distinguish types with the same name from different
+			// packages (e.g., encoding/json.Encoder vs encoding/xml.Encoder).
+			pkg := getOrCreateTypesPackage(rt.PkgPath())
+			typeName := types.NewTypeName(0, pkg, rt.Name(), nil)
 			named := types.NewNamed(typeName, types.Typ[types.Invalid], nil)
 			typeCache.Store(rt, named)
 
@@ -274,7 +303,8 @@ func convertReflectType(rt reflect.Type) types.Type {
 	default:
 		// For other named types, create a TypeName
 		if rt.Name() != "" {
-			typeName := types.NewTypeName(0, nil, rt.Name(), nil)
+			pkg := getOrCreateTypesPackage(rt.PkgPath())
+			typeName := types.NewTypeName(0, pkg, rt.Name(), nil)
 			underlying := convertReflectTypeForUnderlying(rt)
 			result := types.NewNamed(typeName, underlying, nil)
 			typeCache.Store(rt, result)
