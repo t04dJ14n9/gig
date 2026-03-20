@@ -921,10 +921,17 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					} else {
 						vm.push(val)
 					}
-				case types.Uint8:
-					if val.Kind() == value.KindString {
-						vm.push(value.MakeBytes([]byte(val.String())))
-					} else {
+			case types.Uint8:
+				if val.Kind() == value.KindString {
+					// Use make+copy to ensure cap==len, matching native Go compiler behavior.
+					// Direct []byte(s) uses runtime's stringtoslicebyte which rounds cap up
+					// to allocator size classes (e.g. 5→8), but the native compiler optimizes
+					// to exact capacity via stack allocation or constant folding.
+					s := val.String()
+					b := make([]byte, len(s))
+					copy(b, s)
+					vm.push(value.MakeBytes(b))
+				} else {
 						vm.push(val)
 					}
 				default:

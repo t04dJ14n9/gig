@@ -3,6 +3,13 @@ package resolved_issue
 // Resolved Issues - Tests that previously failed but now pass
 // These verify that bugs have been fixed and no regressions occur.
 
+import (
+	"bytes"
+	"fmt"
+	"sort"
+	"strconv"
+)
+
 // ── Resolved Issue 1: string([]byte{...}) conversion ───────────────────────────
 
 // BytesToString tests basic byte to string conversion
@@ -434,4 +441,116 @@ func DeferNamedReturnMultiTest() (int, int) {
 		b += 10
 	}()
 	return a, b
+}
+
+// ── Resolved Issue 28: Named-type conversion to external sort types ─────────
+// Previously panicked: sort.IntSlice([]int) conversion not recognized — VM kept
+// []int, sort.Sort panics with "missing method Len".
+// Fix: OpChangeType opcode converts underlying slice to named type via
+// reflect.Value.Convert(), with source-local aliasing to share backing arrays.
+
+// SortIntSliceResolved converts []int to sort.IntSlice and sorts.
+func SortIntSliceResolved() int {
+	s := []int{3, 1, 2}
+	sort.Sort(sort.IntSlice(s))
+	return s[0]
+}
+
+// SortFloat64SliceResolved converts []float64 to sort.Float64Slice and sorts.
+func SortFloat64SliceResolved() int {
+	s := []float64{3.0, 1.0, 2.0}
+	sort.Sort(sort.Float64Slice(s))
+	if s[0] == 1.0 {
+		return 1
+	}
+	return 0
+}
+
+// SortStringSliceResolved converts []string to sort.StringSlice and sorts.
+func SortStringSliceResolved() int {
+	s := []string{"c", "a", "b"}
+	sort.Sort(sort.StringSlice(s))
+	if s[0] == "a" {
+		return 1
+	}
+	return 0
+}
+
+// SortReverseResolved wraps sort.IntSlice in sort.Reverse.
+func SortReverseResolved() int {
+	s := []int{1, 2, 3, 4, 5}
+	sort.Sort(sort.Reverse(sort.IntSlice(s)))
+	return s[0]
+}
+
+// SortIntsInPlaceResolved calls sort.Ints which mutates []int in-place.
+// Previously the VM stored []int as []int64; converted copy was sorted but
+// original unchanged. Fix: direct_sort_Ints with []int64 writeback.
+func SortIntsInPlaceResolved() int {
+	s := []int{3, 1, 4, 1, 5, 9, 2, 6}
+	sort.Ints(s)
+	if s[0] == 1 && s[7] == 9 {
+		return 1
+	}
+	return 0
+}
+
+// ── Resolved Issue 29: fmt.Stringer on interpreted types ────────────────────
+// Previously fmt.Sprintf("%v") ignored String() method on interpreted struct.
+// Fix: gigStructFormatter in stdlib/packages/fmt.go intercepts and calls
+// compiled String() methods via value.RegisterMethodResolver.
+
+type stringerVal struct{ N int }
+
+func (v stringerVal) String() string { return "custom" }
+
+// FmtStringerResolved has a String() method that fmt now calls.
+func FmtStringerResolved() string {
+	return fmt.Sprintf("%v", stringerVal{42})
+}
+
+// ── Resolved Issue 30: fmt.Sprintf %T reports correct type name ─────────────
+// Previously %T reported synthesized struct type with _gig_id.
+// Fix: sprintfWithTypeAwareness() in stdlib/packages/fmt.go intercepts %T.
+
+type rpoint struct{ X, Y int }
+
+// FmtSprintfTypeResolved shows %T for an interpreted struct.
+func FmtSprintfTypeResolved() string {
+	return fmt.Sprintf("%T", rpoint{1, 2})
+}
+
+// ── Resolved Issue 31: fmt.Sprintf %v hides _gig_id field ──────────────────
+// Previously %v included extra _gig_id sentinel field: "{1 2 {}}" vs "{1 2}".
+// Fix: gigStructFormatter.Format() skips _gig_id field.
+
+// FmtSprintfFieldResolved shows %v for an interpreted struct without _gig_id.
+func FmtSprintfFieldResolved() string {
+	return fmt.Sprintf("%v", rpoint{1, 2})
+}
+
+// ── Resolved Issue 32: prog.Run() preserves int64/uint64 return types ───────
+// Previously prog.Run() narrowed int64→int and uint64→uint at boundary.
+// Fix: MakeInt64/MakeUint64 in DirectCall wrappers for strconv.
+
+// StrconvParseIntResolved returns int64 correctly.
+func StrconvParseIntResolved() int64 {
+	n, _ := strconv.ParseInt("42", 10, 64)
+	return n
+}
+
+// StrconvParseUintResolved returns uint64 correctly.
+func StrconvParseUintResolved() uint64 {
+	n, _ := strconv.ParseUint("42", 10, 64)
+	return n
+}
+
+// ── Resolved Issue 33: bytes.Buffer.Cap() returns correct value ─────────────
+// Previously OpConvert string→[]byte used []byte(string) which could produce
+// larger capacity due to runtime allocator size classes. Fix: make+copy.
+
+// BytesBufferCapResolved shows Len()+Cap() returns correct value.
+func BytesBufferCapResolved() int {
+	buf := bytes.NewBuffer([]byte("12345"))
+	return buf.Len() + buf.Cap()
 }

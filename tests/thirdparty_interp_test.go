@@ -4,7 +4,6 @@ import (
 	_ "embed"
 	"testing"
 
-	"git.woa.com/youngjin/gig"
 	thirdparty "git.woa.com/youngjin/gig/tests/testdata/thirdparty"
 )
 
@@ -43,259 +42,196 @@ var (
 	srcPatterns string
 )
 
-// thirdpartyCase holds a function name and expected result.
-type thirdpartyCase struct {
-	name     string
-	expected any
-}
-
-// runCategory builds a source file and runs all test cases against it.
-func runCategory(t *testing.T, categoryName, src string, cases []thirdpartyCase) {
-	t.Helper()
-	t.Run(categoryName, func(t *testing.T) {
-		prog, err := gig.Build(src)
-		if err != nil {
-			t.Fatalf("Build(%s) error: %v", categoryName, err)
-		}
-		for _, tc := range cases {
-			t.Run(tc.name, func(t *testing.T) {
-				result, err := prog.Run(tc.name)
-				if err != nil {
-					t.Errorf("Run(%s) error: %v", tc.name, err)
-					return
-				}
-				if result != tc.expected {
-					t.Errorf("Run(%s) = %v (%T), want %v (%T)",
-						tc.name, result, result, tc.expected, tc.expected)
-				}
-			})
-		}
-	})
-}
-
 // TestCorrectnessThirdparty tests third-party library calls through the interpreter,
-// organized by standard library package category.
+// comparing interpreted results with native Go execution.
 func TestCorrectnessThirdparty(t *testing.T) {
-	runCategory(t, "Bytes", srcBytes, []thirdpartyCase{
-		{"BytesBufferWrite", 11},
-		{"BytesBufferWriteString", 4},
-		{"BytesBufferString", "test string"},
-		{"BytesBufferLen", 13},
-		{"BytesSplit", 3},
-		{"BytesSplitN", 2},
-		{"BytesContains", 1},
-		{"BytesCount", 3},
-		{"BytesIndex", 2},
-		{"BytesLastIndex", 12},
-		{"BytesHasPrefix", 1},
-		{"BytesHasSuffix", 1},
-		{"BytesReplaceAll", 11},
-		{"BytesFields", 3},
-		{"BytesTrimSpace", 5},
-		{"BytesToUpper", 5},
-		{"BytesToLower", 5},
-		{"BytesTrim", 5},
-	})
-
-	runCategory(t, "Strings", srcStrings, []thirdpartyCase{
-		{"StringsBuilder", 11},
-		{"StringsBuilderString", "test"},
-		{"StringsRepeatCount", 100},
-		{"StringsIndexAny", 1},
-		{"StringsCut", 1},
-		{"StringsIndexFuncTest", 3},
-		{"StringsTrimLeft", 1},
-		{"StringsTrimRight", 1},
-	})
-
-	runCategory(t, "Strconv", srcStrconv, []thirdpartyCase{
-		{"StrconvParseBool", 1},
-		{"StrconvFormatBool", "false"},
-		{"StrconvParseInt", int64(12345)},
-		{"StrconvParseUint", uint64(12345)},
-		{"StrconvFormatInt", "-12345"},
-		{"StrconvFormatUint", "12345"},
-		{"StrconvParseFloat", float64(123.45)},
-		{"StrconvFormatFloat", "123.45"},
-		{"StrconvQuote", `"hello\nworld"`},
-		{"StrconvQuoteToASCII", `"hello"`},
-		{"StrconvUnquote", "hello"},
-		{"StrconvAppendInt", "12345"},
-		{"StrconvAppendFloat", "123.45"},
-	})
-
-	runCategory(t, "Math", srcMath, []thirdpartyCase{
-		{"MathAbs", float64(123.45)},
-		{"MathMax", float64(20.3)},
-		{"MathMin", float64(10.5)},
-		{"MathFloor", float64(123)},
-		{"MathCeil", float64(124)},
-		{"MathRound", float64(124)},
-		{"MathPow", float64(1024)},
-		{"MathSqrt", float64(12)},
-		{"MathMod", float64(1)},
-		{"MathSin", float64(1)},
-		{"MathCos", float64(1)},
-		{"MathTan", float64(0)},
-		{"MathLog", float64(1)},
-		{"MathLog10", float64(2)},
-		{"MathInf", 1},
-		{"MathNaN", 1},
-		{"MathCopysign", float64(5)},
-	})
-
-	runCategory(t, "Time", srcTime, []thirdpartyCase{
-		{"TimeNow", 2026},
-		{"TimeFormat", "March"},
-		{"TimeAdd", 2},
-		{"TimeBefore", 1},
-		{"TimeAfter", 1},
-		{"TimeDuration", 330},
-	})
-
-	runCategory(t, "Context", srcContext, []thirdpartyCase{
-		{"ContextBackground", 1},
-		{"ContextTODO", 1},
-		{"ContextWithValue", 1},
-		{"ContextWithCancel", 1},
-	})
-
-	runCategory(t, "Sync", srcSync, []thirdpartyCase{
-		{"SyncMutex", 1},
-		{"SyncMutexCounter", 100},
-		{"SyncRWMutex", 1},
-		{"SyncWaitGroup", 1},
-		{"SyncOnce", 1},
-		{"SyncMap", 1},
-		{"SyncMapLoadOrStore", 1},
-	})
-
-	runCategory(t, "Sort", srcSort, []thirdpartyCase{
-		{"SortStrings", 1},
-		// SortInts skipped: sort.Ints mutates []int in-place but VM stores as []int64 (known issue)
-		{"SortSearchInts", 2},
-		{"SortSearchStrings", 1},
-		{"SortSlice", 1},
-		{"SortIsSorted", 1},
-	})
-
-	runCategory(t, "Encoding", srcEncoding, []thirdpartyCase{
-		{"JsonMarshal", 13},
-		{"JsonUnmarshal", 3},
-		{"JsonNumber", 42},
-		{"Base64Encode", "aGVsbG8="},
-		{"Base64Decode", "hello"},
-		{"Base64URLEncode", "aGVsbG8gd29ybGQ="},
-		{"HexEncodeToString", "68656c6c6f"},
-		{"HexDecodeString", "hello"},
-	})
-
-	runCategory(t, "IO", srcIO, []thirdpartyCase{
-		{"IoReadAll", 11},
-		{"IoCopy", 5},
-		{"IoReadFull", 5},
-		{"IoWriteString", 4},
-	})
-
-	// path/filepath removed from sandbox stdlib
-	// runCategory(t, "Filepath", srcFilepath, []thirdpartyCase{
-	// 	{"FilepathJoin", "dir1/dir2/file.txt"},
-	// 	{"FilepathBase", "file.txt"},
-	// 	{"FilepathDir", "/path/to"},
-	// 	{"FilepathExt", ".txt"},
-	// 	{"FilepathClean", "/path/to/file.txt"},
-	// })
-
-	runCategory(t, "Regexp", srcRegexp, []thirdpartyCase{
-		{"RegexpMatch", 1},
-		{"RegexpCompile", 4},
-		{"RegexpMustCompile", 1},
-		{"RegexpFindString", "foo"},
-		{"RegexpFindAllString", 3},
-		{"RegexpReplaceAllString", "a# b# c#"},
-		{"RegexpSplit", 3},
-		{"RegexpNumSubexp", 2},
-	})
-
-	runCategory(t, "Errors", srcErrors, []thirdpartyCase{
-		{"ErrorsNew", 1},
-		{"ErrorsIs", 1},
-		{"ErrorsJoin", "error1\nerror2"},
-	})
-
-	runCategory(t, "Fmt", srcFmt, []thirdpartyCase{
-		{"FmtSprintfVarious", 19},
-		{"FmtSprintfBool", "true"},
-		{"FmtSprintfHex", "ff"},
-		{"FmtErrorf", "error: 42"},
-	})
-
-	runCategory(t, "Patterns", srcPatterns, []thirdpartyCase{
-		{"ChainBytesToStringToBase64", "aGVsbG8="},
-		{"ChainStringsBuilderToBuffer", 11},
-		{"ChainSortSearch", 30},
-		{"ChainBufferWriteRead", 6},
-		{"ChainContextWithValueChain", 1},
-		{"InterfaceWithPointerReceiver", 1},
-		{"InterfaceSliceOfPointers", 9},
-		{"InterfaceMap", 1},
-		{"VariadicAppend", 5},
-		{"VariadicStringsJoin", "a,b,c"},
-		{"VariadicAppendSlice", 5},
-		{"MethodChainingBuilder", "SELECT id,name FROM users WHERE active = true"},
-		{"TableDrivenOp", 19},
-		{"FunctionValueFromMap", 70},
-		{"DeferWithMutex", 42},
-		{"SelectWithChannels", 42},
-	})
-}
-
-// TestThirdpartyNative runs native Go functions to verify expected values.
-func TestThirdpartyNative(t *testing.T) {
-	nativeTests := []struct {
-		name     string
-		fn       func() any
-		expected any
-	}{
-		// Bytes
-		{"BytesBufferWrite", func() any { return thirdparty.BytesBufferWrite() }, 11},
-		{"BytesBufferString", func() any { return thirdparty.BytesBufferString() }, "test string"},
-		{"BytesSplit", func() any { return thirdparty.BytesSplit() }, 3},
-		{"BytesReplaceAll", func() any { return thirdparty.BytesReplaceAll() }, 11},
-		// Strings
-		{"StringsBuilder", func() any { return thirdparty.StringsBuilder() }, 11},
-		{"StringsIndexFuncTest", func() any { return thirdparty.StringsIndexFuncTest() }, 3},
-		// Strconv
-		{"StrconvParseBool", func() any { return thirdparty.StrconvParseBool() }, 1},
-		{"StrconvParseInt", func() any { return thirdparty.StrconvParseInt() }, int64(12345)},
-		{"StrconvParseUint", func() any { return thirdparty.StrconvParseUint() }, uint64(12345)},
-		// Math
-		{"MathAbs", func() any { return thirdparty.MathAbs() }, float64(123.45)},
-		{"MathCopysign", func() any { return thirdparty.MathCopysign() }, float64(5)},
-		// Sync
-		{"SyncMutex", func() any { return thirdparty.SyncMutex() }, 1},
-		{"SyncOnce", func() any { return thirdparty.SyncOnce() }, 1},
-		// Sort
-		{"SortStrings", func() any { return thirdparty.SortStrings() }, 1},
-		{"SortInts", func() any { return thirdparty.SortInts() }, 1},
-		// Encoding
-		{"JsonMarshal", func() any { return thirdparty.JsonMarshal() }, 13},
-		{"JsonNumber", func() any { return thirdparty.JsonNumber() }, 42},
-		{"Base64Encode", func() any { return thirdparty.Base64Encode() }, "aGVsbG8="},
-		// Context
-		{"ContextWithValue", func() any { return thirdparty.ContextWithValue() }, 1},
-		// Patterns
-		{"TableDrivenOp", func() any { return thirdparty.TableDrivenOp() }, 19},
-		{"FunctionValueFromMap", func() any { return thirdparty.FunctionValueFromMap() }, 70},
-	}
-
-	for _, tt := range nativeTests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := tt.fn()
-			if result != tt.expected {
-				t.Errorf("%s() = %v (%T), want %v (%T)",
-					tt.name, result, result, tt.expected, tt.expected)
-			}
+	for name, set := range thirdpartyTestSets {
+		t.Run(name, func(t *testing.T) {
+			runTestSet(t, set)
 		})
 	}
+}
+
+// ============================================================================
+// Test registrations — native function references, no hardcoded values
+// ============================================================================
+
+var bytesTests = map[string]testCase{
+	"BytesBufferWrite":       {srcBytes, "BytesBufferWrite", nil, thirdparty.BytesBufferWrite},
+	"BytesBufferWriteString": {srcBytes, "BytesBufferWriteString", nil, thirdparty.BytesBufferWriteString},
+	"BytesBufferString":      {srcBytes, "BytesBufferString", nil, thirdparty.BytesBufferString},
+	"BytesBufferLen":         {srcBytes, "BytesBufferLen", nil, thirdparty.BytesBufferLen},
+	"BytesSplit":             {srcBytes, "BytesSplit", nil, thirdparty.BytesSplit},
+	"BytesSplitN":            {srcBytes, "BytesSplitN", nil, thirdparty.BytesSplitN},
+	"BytesContains":          {srcBytes, "BytesContains", nil, thirdparty.BytesContains},
+	"BytesCount":             {srcBytes, "BytesCount", nil, thirdparty.BytesCount},
+	"BytesIndex":             {srcBytes, "BytesIndex", nil, thirdparty.BytesIndex},
+	"BytesLastIndex":         {srcBytes, "BytesLastIndex", nil, thirdparty.BytesLastIndex},
+	"BytesHasPrefix":         {srcBytes, "BytesHasPrefix", nil, thirdparty.BytesHasPrefix},
+	"BytesHasSuffix":         {srcBytes, "BytesHasSuffix", nil, thirdparty.BytesHasSuffix},
+	"BytesReplaceAll":        {srcBytes, "BytesReplaceAll", nil, thirdparty.BytesReplaceAll},
+	"BytesFields":            {srcBytes, "BytesFields", nil, thirdparty.BytesFields},
+	"BytesTrimSpace":         {srcBytes, "BytesTrimSpace", nil, thirdparty.BytesTrimSpace},
+	"BytesToUpper":           {srcBytes, "BytesToUpper", nil, thirdparty.BytesToUpper},
+	"BytesToLower":           {srcBytes, "BytesToLower", nil, thirdparty.BytesToLower},
+	"BytesTrim":              {srcBytes, "BytesTrim", nil, thirdparty.BytesTrim},
+}
+
+var stringsTests = map[string]testCase{
+	"StringsBuilder":       {srcStrings, "StringsBuilder", nil, thirdparty.StringsBuilder},
+	"StringsBuilderString": {srcStrings, "StringsBuilderString", nil, thirdparty.StringsBuilderString},
+	"StringsRepeatCount":   {srcStrings, "StringsRepeatCount", nil, thirdparty.StringsRepeatCount},
+	"StringsIndexAny":      {srcStrings, "StringsIndexAny", nil, thirdparty.StringsIndexAny},
+	"StringsCut":           {srcStrings, "StringsCut", nil, thirdparty.StringsCut},
+	"StringsIndexFuncTest": {srcStrings, "StringsIndexFuncTest", nil, thirdparty.StringsIndexFuncTest},
+	"StringsTrimLeft":      {srcStrings, "StringsTrimLeft", nil, thirdparty.StringsTrimLeft},
+	"StringsTrimRight":     {srcStrings, "StringsTrimRight", nil, thirdparty.StringsTrimRight},
+}
+
+var strconvTests = map[string]testCase{
+	"StrconvParseBool":    {srcStrconv, "StrconvParseBool", nil, thirdparty.StrconvParseBool},
+	"StrconvFormatBool":   {srcStrconv, "StrconvFormatBool", nil, thirdparty.StrconvFormatBool},
+	"StrconvParseInt":     {srcStrconv, "StrconvParseInt", nil, thirdparty.StrconvParseInt},
+	"StrconvParseUint":    {srcStrconv, "StrconvParseUint", nil, thirdparty.StrconvParseUint},
+	"StrconvFormatInt":    {srcStrconv, "StrconvFormatInt", nil, thirdparty.StrconvFormatInt},
+	"StrconvFormatUint":   {srcStrconv, "StrconvFormatUint", nil, thirdparty.StrconvFormatUint},
+	"StrconvParseFloat":   {srcStrconv, "StrconvParseFloat", nil, thirdparty.StrconvParseFloat},
+	"StrconvFormatFloat":  {srcStrconv, "StrconvFormatFloat", nil, thirdparty.StrconvFormatFloat},
+	"StrconvQuote":        {srcStrconv, "StrconvQuote", nil, thirdparty.StrconvQuote},
+	"StrconvQuoteToASCII": {srcStrconv, "StrconvQuoteToASCII", nil, thirdparty.StrconvQuoteToASCII},
+	"StrconvUnquote":      {srcStrconv, "StrconvUnquote", nil, thirdparty.StrconvUnquote},
+	"StrconvAppendInt":    {srcStrconv, "StrconvAppendInt", nil, thirdparty.StrconvAppendInt},
+	"StrconvAppendFloat":  {srcStrconv, "StrconvAppendFloat", nil, thirdparty.StrconvAppendFloat},
+}
+
+var mathTests = map[string]testCase{
+	"MathAbs":      {srcMath, "MathAbs", nil, thirdparty.MathAbs},
+	"MathMax":      {srcMath, "MathMax", nil, thirdparty.MathMax},
+	"MathMin":      {srcMath, "MathMin", nil, thirdparty.MathMin},
+	"MathFloor":    {srcMath, "MathFloor", nil, thirdparty.MathFloor},
+	"MathCeil":     {srcMath, "MathCeil", nil, thirdparty.MathCeil},
+	"MathRound":    {srcMath, "MathRound", nil, thirdparty.MathRound},
+	"MathPow":      {srcMath, "MathPow", nil, thirdparty.MathPow},
+	"MathSqrt":     {srcMath, "MathSqrt", nil, thirdparty.MathSqrt},
+	"MathMod":      {srcMath, "MathMod", nil, thirdparty.MathMod},
+	"MathSin":      {srcMath, "MathSin", nil, thirdparty.MathSin},
+	"MathCos":      {srcMath, "MathCos", nil, thirdparty.MathCos},
+	"MathTan":      {srcMath, "MathTan", nil, thirdparty.MathTan},
+	"MathLog":      {srcMath, "MathLog", nil, thirdparty.MathLog},
+	"MathLog10":    {srcMath, "MathLog10", nil, thirdparty.MathLog10},
+	"MathInf":      {srcMath, "MathInf", nil, thirdparty.MathInf},
+	"MathNaN":      {srcMath, "MathNaN", nil, thirdparty.MathNaN},
+	"MathCopysign": {srcMath, "MathCopysign", nil, thirdparty.MathCopysign},
+}
+
+var timeTests = map[string]testCase{
+	"TimeNow":      {srcTime, "TimeNow", nil, thirdparty.TimeNow},
+	"TimeFormat":   {srcTime, "TimeFormat", nil, thirdparty.TimeFormat},
+	"TimeAdd":      {srcTime, "TimeAdd", nil, thirdparty.TimeAdd},
+	"TimeBefore":   {srcTime, "TimeBefore", nil, thirdparty.TimeBefore},
+	"TimeAfter":    {srcTime, "TimeAfter", nil, thirdparty.TimeAfter},
+	"TimeDuration": {srcTime, "TimeDuration", nil, thirdparty.TimeDuration},
+}
+
+var contextTests = map[string]testCase{
+	"ContextBackground": {srcContext, "ContextBackground", nil, thirdparty.ContextBackground},
+	"ContextTODO":       {srcContext, "ContextTODO", nil, thirdparty.ContextTODO},
+	"ContextWithValue":  {srcContext, "ContextWithValue", nil, thirdparty.ContextWithValue},
+	"ContextWithCancel": {srcContext, "ContextWithCancel", nil, thirdparty.ContextWithCancel},
+}
+
+var syncTests = map[string]testCase{
+	"SyncMutex":          {srcSync, "SyncMutex", nil, thirdparty.SyncMutex},
+	"SyncMutexCounter":   {srcSync, "SyncMutexCounter", nil, thirdparty.SyncMutexCounter},
+	"SyncRWMutex":        {srcSync, "SyncRWMutex", nil, thirdparty.SyncRWMutex},
+	"SyncWaitGroup":      {srcSync, "SyncWaitGroup", nil, thirdparty.SyncWaitGroup},
+	"SyncOnce":           {srcSync, "SyncOnce", nil, thirdparty.SyncOnce},
+	"SyncMap":            {srcSync, "SyncMap", nil, thirdparty.SyncMap},
+	"SyncMapLoadOrStore": {srcSync, "SyncMapLoadOrStore", nil, thirdparty.SyncMapLoadOrStore},
+}
+
+var sortTests = map[string]testCase{
+	"SortStrings":       {srcSort, "SortStrings", nil, thirdparty.SortStrings},
+	"SortSearchInts":    {srcSort, "SortSearchInts", nil, thirdparty.SortSearchInts},
+	"SortSearchStrings": {srcSort, "SortSearchStrings", nil, thirdparty.SortSearchStrings},
+	"SortSlice":         {srcSort, "SortSlice", nil, thirdparty.SortSlice},
+	"SortIsSorted":      {srcSort, "SortIsSorted", nil, thirdparty.SortIsSorted},
+}
+
+var encodingTests = map[string]testCase{
+	"JsonMarshal":       {srcEncoding, "JsonMarshal", nil, thirdparty.JsonMarshal},
+	"JsonUnmarshal":     {srcEncoding, "JsonUnmarshal", nil, thirdparty.JsonUnmarshal},
+	"JsonNumber":        {srcEncoding, "JsonNumber", nil, thirdparty.JsonNumber},
+	"Base64Encode":      {srcEncoding, "Base64Encode", nil, thirdparty.Base64Encode},
+	"Base64Decode":      {srcEncoding, "Base64Decode", nil, thirdparty.Base64Decode},
+	"Base64URLEncode":   {srcEncoding, "Base64URLEncode", nil, thirdparty.Base64URLEncode},
+	"HexEncodeToString": {srcEncoding, "HexEncodeToString", nil, thirdparty.HexEncodeToString},
+	"HexDecodeString":   {srcEncoding, "HexDecodeString", nil, thirdparty.HexDecodeString},
+}
+
+var ioTests = map[string]testCase{
+	"IoReadAll":     {srcIO, "IoReadAll", nil, thirdparty.IoReadAll},
+	"IoCopy":        {srcIO, "IoCopy", nil, thirdparty.IoCopy},
+	"IoReadFull":    {srcIO, "IoReadFull", nil, thirdparty.IoReadFull},
+	"IoWriteString": {srcIO, "IoWriteString", nil, thirdparty.IoWriteString},
+}
+
+var regexpTests = map[string]testCase{
+	"RegexpMatch":            {srcRegexp, "RegexpMatch", nil, thirdparty.RegexpMatch},
+	"RegexpCompile":          {srcRegexp, "RegexpCompile", nil, thirdparty.RegexpCompile},
+	"RegexpMustCompile":      {srcRegexp, "RegexpMustCompile", nil, thirdparty.RegexpMustCompile},
+	"RegexpFindString":       {srcRegexp, "RegexpFindString", nil, thirdparty.RegexpFindString},
+	"RegexpFindAllString":    {srcRegexp, "RegexpFindAllString", nil, thirdparty.RegexpFindAllString},
+	"RegexpReplaceAllString": {srcRegexp, "RegexpReplaceAllString", nil, thirdparty.RegexpReplaceAllString},
+	"RegexpSplit":            {srcRegexp, "RegexpSplit", nil, thirdparty.RegexpSplit},
+	"RegexpNumSubexp":        {srcRegexp, "RegexpNumSubexp", nil, thirdparty.RegexpNumSubexp},
+}
+
+var errorsTests = map[string]testCase{
+	"ErrorsNew":  {srcErrors, "ErrorsNew", nil, thirdparty.ErrorsNew},
+	"ErrorsIs":   {srcErrors, "ErrorsIs", nil, thirdparty.ErrorsIs},
+	"ErrorsJoin": {srcErrors, "ErrorsJoin", nil, thirdparty.ErrorsJoin},
+}
+
+var fmtTests = map[string]testCase{
+	"FmtSprintfVarious": {srcFmt, "FmtSprintfVarious", nil, thirdparty.FmtSprintfVarious},
+	"FmtSprintfBool":    {srcFmt, "FmtSprintfBool", nil, thirdparty.FmtSprintfBool},
+	"FmtSprintfHex":     {srcFmt, "FmtSprintfHex", nil, thirdparty.FmtSprintfHex},
+	"FmtErrorf":         {srcFmt, "FmtErrorf", nil, thirdparty.FmtErrorf},
+}
+
+var patternsTests = map[string]testCase{
+	"ChainBytesToStringToBase64":   {srcPatterns, "ChainBytesToStringToBase64", nil, thirdparty.ChainBytesToStringToBase64},
+	"ChainStringsBuilderToBuffer":  {srcPatterns, "ChainStringsBuilderToBuffer", nil, thirdparty.ChainStringsBuilderToBuffer},
+	"ChainSortSearch":              {srcPatterns, "ChainSortSearch", nil, thirdparty.ChainSortSearch},
+	"ChainBufferWriteRead":         {srcPatterns, "ChainBufferWriteRead", nil, thirdparty.ChainBufferWriteRead},
+	"ChainContextWithValueChain":   {srcPatterns, "ChainContextWithValueChain", nil, thirdparty.ChainContextWithValueChain},
+	"InterfaceWithPointerReceiver": {srcPatterns, "InterfaceWithPointerReceiver", nil, thirdparty.InterfaceWithPointerReceiver},
+	"InterfaceSliceOfPointers":     {srcPatterns, "InterfaceSliceOfPointers", nil, thirdparty.InterfaceSliceOfPointers},
+	"InterfaceMap":                 {srcPatterns, "InterfaceMap", nil, thirdparty.InterfaceMap},
+	"VariadicAppend":               {srcPatterns, "VariadicAppend", nil, thirdparty.VariadicAppend},
+	"VariadicStringsJoin":          {srcPatterns, "VariadicStringsJoin", nil, thirdparty.VariadicStringsJoin},
+	"VariadicAppendSlice":          {srcPatterns, "VariadicAppendSlice", nil, thirdparty.VariadicAppendSlice},
+	"MethodChainingBuilder":        {srcPatterns, "MethodChainingBuilder", nil, thirdparty.MethodChainingBuilder},
+	"TableDrivenOp":                {srcPatterns, "TableDrivenOp", nil, thirdparty.TableDrivenOp},
+	"FunctionValueFromMap":         {srcPatterns, "FunctionValueFromMap", nil, thirdparty.FunctionValueFromMap},
+	"DeferWithMutex":               {srcPatterns, "DeferWithMutex", nil, thirdparty.DeferWithMutex},
+	"SelectWithChannels":           {srcPatterns, "SelectWithChannels", nil, thirdparty.SelectWithChannels},
+}
+
+var thirdpartyTestSets = map[string]testSet{
+	"Bytes":    {name: "Bytes", src: srcBytes, tests: bytesTests},
+	"Strings":  {name: "Strings", src: srcStrings, tests: stringsTests},
+	"Strconv":  {name: "Strconv", src: srcStrconv, tests: strconvTests},
+	"Math":     {name: "Math", src: srcMath, tests: mathTests},
+	"Time":     {name: "Time", src: srcTime, tests: timeTests},
+	"Context":  {name: "Context", src: srcContext, tests: contextTests},
+	"Sync":     {name: "Sync", src: srcSync, tests: syncTests},
+	"Sort":     {name: "Sort", src: srcSort, tests: sortTests},
+	"Encoding": {name: "Encoding", src: srcEncoding, tests: encodingTests},
+	"IO":       {name: "IO", src: srcIO, tests: ioTests},
+	"Regexp":   {name: "Regexp", src: srcRegexp, tests: regexpTests},
+	"Errors":   {name: "Errors", src: srcErrors, tests: errorsTests},
+	"Fmt":      {name: "Fmt", src: srcFmt, tests: fmtTests},
+	"Patterns": {name: "Patterns", src: srcPatterns, tests: patternsTests},
 }

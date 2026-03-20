@@ -798,6 +798,21 @@ var resolved_issueTests = map[string]testCase{
 	"DeferNamedReturnNilTest":      {resolvedIssueSrc, "DeferNamedReturnNilTest", nil, resolved_issue.DeferNamedReturnNilTest},
 	"DeferNamedReturnNilPtrTest":   {resolvedIssueSrc, "DeferNamedReturnNilPtrTest", nil, resolved_issue.DeferNamedReturnNilPtrTest},
 	"DeferNamedReturnMultiTest":    {resolvedIssueSrc, "DeferNamedReturnMultiTest", nil, resolved_issue.DeferNamedReturnMultiTest},
+	// Resolved Issue 28: sort named-type conversion (formerly known issue Bug 1)
+	"SortIntSliceResolved":     {resolvedIssueSrc, "SortIntSliceResolved", nil, resolved_issue.SortIntSliceResolved},
+	"SortFloat64SliceResolved": {resolvedIssueSrc, "SortFloat64SliceResolved", nil, resolved_issue.SortFloat64SliceResolved},
+	"SortStringSliceResolved":  {resolvedIssueSrc, "SortStringSliceResolved", nil, resolved_issue.SortStringSliceResolved},
+	"SortReverseResolved":      {resolvedIssueSrc, "SortReverseResolved", nil, resolved_issue.SortReverseResolved},
+	"SortIntsInPlaceResolved":  {resolvedIssueSrc, "SortIntsInPlaceResolved", nil, resolved_issue.SortIntsInPlaceResolved},
+	// Resolved Issue 29-31: fmt.Stringer, %T, %v (formerly known issues Bug 3-5)
+	"FmtStringerResolved":    {resolvedIssueSrc, "FmtStringerResolved", nil, resolved_issue.FmtStringerResolved},
+	"FmtSprintfTypeResolved":  {resolvedIssueSrc, "FmtSprintfTypeResolved", nil, resolved_issue.FmtSprintfTypeResolved},
+	"FmtSprintfFieldResolved": {resolvedIssueSrc, "FmtSprintfFieldResolved", nil, resolved_issue.FmtSprintfFieldResolved},
+	// Resolved Issue 32: int64/uint64 return type preservation (formerly known issue Bug 6)
+	"StrconvParseIntResolved":  {resolvedIssueSrc, "StrconvParseIntResolved", nil, resolved_issue.StrconvParseIntResolved},
+	"StrconvParseUintResolved": {resolvedIssueSrc, "StrconvParseUintResolved", nil, resolved_issue.StrconvParseUintResolved},
+	// Resolved Issue 33: bytes.Buffer.Cap() (formerly known issue Bug 7)
+	"BytesBufferCapResolved": {resolvedIssueSrc, "BytesBufferCapResolved", nil, resolved_issue.BytesBufferCapResolved},
 }
 
 var scopeTests = map[string]testCase{
