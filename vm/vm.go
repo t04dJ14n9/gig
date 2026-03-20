@@ -32,7 +32,9 @@ package vm
 import (
 	"context"
 	"fmt"
+	"go/types"
 	"reflect"
+	"strings"
 	"sync"
 
 	"git.woa.com/youngjin/gig/bytecode"
@@ -184,6 +186,14 @@ func New(program *bytecode.Program) *VM {
 			globals[idx] = value.FromInterface(ptr)
 		}
 	}
+
+	// Register the method resolver for compiled method calls from DirectCall wrappers
+	// (e.g., fmt.Stringer detection). This captures the program reference so the
+	// resolver can search the compiled function table for matching methods.
+	value.RegisterMethodResolver(func(methodName string, receiver value.Value) (value.Value, bool) {
+		return resolveCompiledMethod(program, methodName, receiver)
+	})
+
 	return &VM{
 		program: program,
 		stack:   make([]value.Value, 1024), // initial stack size
@@ -229,6 +239,101 @@ func (vm *VM) Reset() {
 			vm.globals[idx] = value.FromInterface(ptr)
 		}
 	}
+}
+
+// BindSharedGlobals makes this VM execute against the provided shared globals
+// slice.  All global loads/stores will go through globalsPtr, which points at
+// the Program-owned backing store.  This must be called before Execute and
+// paired with UnbindSharedGlobals after execution finishes.
+
+// resolveCompiledMethod finds a compiled method in the program's function table
+// and executes it with the given receiver. This is used by fmt DirectCall wrappers
+// to detect and call String() methods on interpreted structs.
+func resolveCompiledMethod(program *bytecode.Program, methodName string, receiver value.Value) (value.Value, bool) {
+	// Search for a method with the matching name in the function table.
+	// We need to match by receiver type using the _gig_id PkgPath.
+	rv, ok := receiver.ReflectValue()
+	if !ok {
+		return value.MakeNil(), false
+	}
+	if rv.Kind() == reflect.Interface && !rv.IsNil() {
+		rv = rv.Elem()
+	}
+
+	// Extract the type name from the _gig_id field for matching
+	receiverTypeName := ""
+	if rv.Kind() == reflect.Struct {
+		rt := rv.Type()
+		for i := 0; i < rt.NumField(); i++ {
+			sf := rt.Field(i)
+			if sf.Name == "_gig_id" {
+				if idx := strings.LastIndex(sf.PkgPath, "#"); idx >= 0 {
+					qualName := sf.PkgPath[idx+1:]
+					// Extract just the type name part (e.g., "point" from "known_issues.point")
+					if dotIdx := strings.LastIndex(qualName, "."); dotIdx >= 0 {
+						receiverTypeName = qualName[dotIdx+1:]
+					} else {
+						receiverTypeName = qualName
+					}
+				}
+				break
+			}
+		}
+	}
+
+	if receiverTypeName == "" {
+		return value.MakeNil(), false
+	}
+
+	// Search the compiled function table for a method with matching name and receiver type
+	for _, fn := range program.FuncByIndex {
+		if fn == nil || fn.Source == nil {
+			continue
+		}
+		if fn.Source.Name() != methodName {
+			continue
+		}
+		sig := fn.Source.Signature
+		recv := sig.Recv()
+		if recv == nil {
+			continue
+		}
+		recvType := recv.Type()
+		if ptr, ok := recvType.(*types.Pointer); ok {
+			recvType = ptr.Elem()
+		}
+		named, ok := recvType.(*types.Named)
+		if !ok {
+			continue
+		}
+		if named.Obj().Name() != receiverTypeName {
+			continue
+		}
+		// Found the method! Execute it with a temporary VM.
+		tempVM := &VM{
+			program: program,
+			stack:   make([]value.Value, 256),
+			sp:      0,
+			frames:  make([]*Frame, 64),
+			fp:      0,
+			globals: make([]value.Value, len(program.Globals)),
+			ctx:     context.Background(),
+			extCallCache: &externalCallCache{
+				cache: make([]*extCallCacheEntry, len(program.Constants)),
+			},
+		}
+		if len(program.InitialGlobals) == len(tempVM.globals) {
+			copy(tempVM.globals, program.InitialGlobals)
+		}
+		// Call the method with the receiver as the first argument
+		tempVM.callFunction(fn, []value.Value{receiver}, nil)
+		result, err := tempVM.run()
+		if err != nil {
+			return value.MakeNil(), false
+		}
+		return result, true
+	}
+	return value.MakeNil(), false
 }
 
 // BindSharedGlobals makes this VM execute against the provided shared globals

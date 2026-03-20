@@ -110,8 +110,8 @@ func TestCorrectnessThirdparty(t *testing.T) {
 	runCategory(t, "Strconv", srcStrconv, []thirdpartyCase{
 		{"StrconvParseBool", 1},
 		{"StrconvFormatBool", "false"},
-		{"StrconvParseInt", 12345},
-		{"StrconvParseUint", uint(12345)},
+		{"StrconvParseInt", int64(12345)},
+		{"StrconvParseUint", uint64(12345)},
 		{"StrconvFormatInt", "-12345"},
 		{"StrconvFormatUint", "12345"},
 		{"StrconvParseFloat", float64(123.45)},

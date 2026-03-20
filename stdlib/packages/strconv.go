@@ -303,7 +303,7 @@ func direct_strconv_ParseInt(args []value.Value) value.Value {
 	a1 := int(args[1].Int())
 	a2 := int(args[2].Int())
 	r0, r1 := strconv.ParseInt(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_strconv_ParseUint(args []value.Value) value.Value {
@@ -311,7 +311,7 @@ func direct_strconv_ParseUint(args []value.Value) value.Value {
 	a1 := int(args[1].Int())
 	a2 := int(args[2].Int())
 	r0, r1 := strconv.ParseUint(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeUint64(r0), value.FromInterface(r1)})
 }
 
 func direct_strconv_Quote(args []value.Value) value.Value {

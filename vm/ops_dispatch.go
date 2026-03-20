@@ -933,12 +933,75 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			} else {
 				vm.push(val)
 			}
+		case *types.Named:
+			// Named-type conversion (e.g., []int -> sort.IntSlice, []string -> sort.StringSlice).
+			// Resolve the target reflect.Type via external type registry, then convert via reflect.
+			targetRT := typeToReflect(t, vm.program)
+			if targetRT != nil {
+				// Get a reflect.Value of the source. Use the target's underlying type
+				// so ToReflectValue can do element-type conversion (e.g., []int64 -> []int).
+				rv := val.ToReflectValue(targetRT)
+				if rv.IsValid() {
+					// If ToReflectValue gave us the underlying type (e.g., []float64 instead
+					// of sort.Float64Slice), convert to the actual named type.
+					if rv.Type() != targetRT && rv.Type().ConvertibleTo(targetRT) {
+						rv = rv.Convert(targetRT)
+					}
+					vm.push(value.MakeFromReflect(rv))
+				} else {
+					vm.push(val)
+				}
+			} else {
+				vm.push(val)
+			}
 		default:
 			// For non-basic types, just pass through for now
 			vm.push(val)
 		}
 
 	// Function operations
+	case bytecode.OpChangeType:
+		typeIdx := frame.readUint16()
+		srcLocalIdx := frame.readUint16()
+		targetType := vm.program.Types[typeIdx]
+		val := vm.pop()
+
+		// Named-type conversion (e.g., []int -> sort.IntSlice).
+		if named, ok := targetType.(*types.Named); ok {
+			targetRT := typeToReflect(named, vm.program)
+			if targetRT != nil {
+				// Get a reflect.Value, using the target type so ToReflectValue
+				// handles element-type conversion (e.g., []int64 -> []int).
+				rv := val.ToReflectValue(targetRT)
+				if rv.IsValid() {
+					// If ToReflectValue returned the underlying type, Convert to the named type.
+					if rv.Type() != targetRT && rv.Type().ConvertibleTo(targetRT) {
+						rv = rv.Convert(targetRT)
+					}
+					// For slices: update the source local to share the same backing array.
+					// This ensures that sort.IntSlice(s) and s refer to the same data,
+					// matching Go's semantics where ChangeType on slices shares memory.
+					if srcLocalIdx != 0xFFFF && rv.Kind() == reflect.Slice {
+						if int(srcLocalIdx) < len(frame.locals) {
+							// Create a view of the same backing array as the underlying slice type.
+							// e.g., for sort.IntSlice -> create a []int sharing the same backing.
+							underlyingRV := rv.Convert(reflect.SliceOf(rv.Type().Elem()))
+							frame.locals[srcLocalIdx] = value.MakeFromReflect(underlyingRV)
+						}
+					}
+					vm.push(value.MakeFromReflect(rv))
+				} else {
+					vm.push(val)
+				}
+			} else {
+				// Named type not in external registry (interpreted type) — pass through.
+				vm.push(val)
+			}
+		} else {
+			// Not a named type, fall back to simple pass-through.
+			vm.push(val)
+		}
+
 	case bytecode.OpClosure:
 		funcIdx := frame.readUint16()
 		numFree := frame.readByte()

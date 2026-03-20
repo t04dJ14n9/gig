@@ -507,9 +507,26 @@ func (c *compiler) compileChangeInterface(i *ssa.ChangeInterface) {
 }
 
 // compileChangeType compiles a ChangeType instruction.
+// ChangeType converts between types with identical underlying types (e.g., []int -> sort.IntSlice).
+// We emit OpChangeType which carries both the target type and the source local index,
+// so the VM can update the source variable to share the same backing array after conversion.
 func (c *compiler) compileChangeType(i *ssa.ChangeType) {
 	resultIdx := c.symbolTable.AllocLocal(i)
+	typeIdx := c.addType(i.Type())
+
+	// Try to find the source local index. If the source is a local variable,
+	// we pass its index so the VM can update it for slice aliasing.
+	srcLocalIdx := uint16(0xFFFF) // sentinel: no source local
+	if srcIdx, ok := c.symbolTable.GetLocal(i.X); ok {
+		srcLocalIdx = uint16(srcIdx)
+	}
+
 	c.compileValue(i.X)
+	// Emit OpChangeType with 4 bytes of operands: type_idx(2) + src_local(2)
+	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+		byte(bytecode.OpChangeType),
+		byte(typeIdx>>8), byte(typeIdx),
+		byte(srcLocalIdx>>8), byte(srcLocalIdx))
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
 

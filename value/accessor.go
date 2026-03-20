@@ -23,6 +23,29 @@ func RegisterClosureCaller(caller ClosureCaller) {
 	closureCaller = caller
 }
 
+// MethodResolver is a callback for calling compiled methods on interpreted types.
+// It receives a method name and receiver value, and returns the result if found.
+// This is used by fmt DirectCall wrappers to check for String() methods.
+type MethodResolver func(methodName string, receiver Value) (Value, bool)
+
+// methodResolver is the registered callback for resolving compiled methods.
+var methodResolver MethodResolver //nolint:gochecknoglobals // cross-package callback
+
+// RegisterMethodResolver registers the method resolution callback.
+// This must be called by the vm package during initialization.
+func RegisterMethodResolver(resolver MethodResolver) {
+	methodResolver = resolver
+}
+
+// CallMethod attempts to call a compiled method on the receiver using the registered resolver.
+// Returns (result, true) if the method was found and called, or (zero, false) otherwise.
+func CallMethod(methodName string, receiver Value) (Value, bool) {
+	if methodResolver == nil {
+		return MakeNil(), false
+	}
+	return methodResolver(methodName, receiver)
+}
+
 // Bool returns the bool value. Panics if not KindBool.
 func (v Value) Bool() bool {
 	if v.kind != KindBool {

@@ -3,6 +3,7 @@ package vm
 import (
 	"go/types"
 	"reflect"
+	"strings"
 
 	"git.woa.com/youngjin/gig/bytecode"
 )
@@ -160,7 +161,15 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 		// (fields, PkgPath), so two structs like GetterImpl{v int} and AdderStruct{v int}
 		// would otherwise get the same reflect.Type.
 		typeName := tt.Obj().Name()
-		result := typeToReflectWithCache(tt.Underlying(), cache, "#"+typeName, prog)
+		// Build uniqueSuffix with package-qualified name for _gig_id field:
+		// "#PkgName.TypeName" (e.g., "#known_issues.point").
+		// The _gig_id field uses this full suffix for fmt.Sprintf(%T) support.
+		// Regular unexported fields strip the package prefix to keep type identity stable.
+		qualSuffix := "#" + typeName
+		if pkg := tt.Obj().Pkg(); pkg != nil {
+			qualSuffix = "#" + pkg.Name() + "." + typeName
+		}
+		result := typeToReflectWithCache(tt.Underlying(), cache, qualSuffix, prog)
 		if result != nil {
 			cache[tt] = result
 		}
@@ -203,15 +212,23 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 				if sf.Anonymous {
 					sf.Anonymous = false
 				}
+				// For regular unexported fields, use only the bare type suffix
+				// (e.g., "#TypeName") to maintain type identity stability.
+				// The full qualified suffix ("#PkgName.TypeName") is reserved
+				// for the _gig_id sentinel field only.
+				bareSuffix := uniqueSuffix
+				if idx := strings.LastIndex(bareSuffix, "."); idx > 0 && bareSuffix[0] == '#' {
+					bareSuffix = "#" + bareSuffix[idx+1:]
+				}
 				pkg := f.Pkg()
 				if pkg != nil {
 					pkgPath := pkg.Path()
-					if uniqueSuffix != "" {
-						pkgPath += uniqueSuffix
+					if bareSuffix != "" {
+						pkgPath += bareSuffix
 					}
 					sf.PkgPath = pkgPath
-				} else if uniqueSuffix != "" {
-					sf.PkgPath = "gig/internal" + uniqueSuffix
+				} else if bareSuffix != "" {
+					sf.PkgPath = "gig/internal" + bareSuffix
 				}
 			}
 			if tag := tt.Tag(i); tag != "" {

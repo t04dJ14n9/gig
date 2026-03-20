@@ -701,16 +701,21 @@ func inferReceiverTypeName(receiver value.Value) string {
 		return t.Name()
 	}
 	// For synthesized struct types (from reflect.StructOf via typeToReflect),
-	// the type name is embedded in the field PkgPath as a "#TypeName" suffix.
-	// This is set by typeToReflect's *types.Named → *types.Struct path:
-	//   - unexported fields get PkgPath = "pkg#TypeName"
-	//   - the _gig_id phantom field gets PkgPath = "gig/internal#TypeName"
+	// the type name is embedded in the field PkgPath as a "#PkgName.TypeName" suffix
+	// (or "#TypeName" for backward compat). The _gig_id phantom field has
+	// PkgPath = "gig/internal#PkgName.TypeName". We extract just the bare TypeName
+	// to match against the *types.Named receiver type name.
 	if t.Kind() == reflect.Struct {
 		for i := 0; i < t.NumField(); i++ {
 			f := t.Field(i)
 			pkgPath := f.PkgPath
 			if idx := strings.LastIndex(pkgPath, "#"); idx >= 0 {
-				return pkgPath[idx+1:]
+				qualName := pkgPath[idx+1:]
+				// Strip package prefix if present (e.g., "thirdparty.uppercaseProcessor" → "uppercaseProcessor")
+				if dotIdx := strings.LastIndex(qualName, "."); dotIdx >= 0 {
+					return qualName[dotIdx+1:]
+				}
+				return qualName
 			}
 		}
 	}
