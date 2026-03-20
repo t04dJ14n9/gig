@@ -52,12 +52,15 @@
 package main
 
 import (
+	"bytes"
+	_ "embed"
 	"flag"
 	"fmt"
 	"go/format"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"git.woa.com/youngjin/gig/gentool"
 )
@@ -161,71 +164,24 @@ func runInit() {
 	fmt.Printf("  3. Import in your program: import _ \"%s\"\n", *flagPackage)
 }
 
-func generatePkgsGo(pkgName string) []byte {
-	var b strings.Builder
-	b.WriteString("// Package ")
-	b.WriteString(pkgName)
-	b.WriteString(" declares dependencies for gig interpreter.\n")
-	b.WriteString("// Standard library packages are included by default.\n")
-	b.WriteString("// Add your custom third-party library imports at the end.\n")
-	b.WriteString("package ")
-	b.WriteString(pkgName)
-	b.WriteString("\n\n")
-	b.WriteString("import (\n")
-	b.WriteString("\t// ============================================\n")
-	b.WriteString("\t// Go Standard Library (provided by gig)\n")
-	b.WriteString("\t// ============================================\n")
-	b.WriteString("\t_ \"bytes\"\n")
-	b.WriteString("\t_ \"cmp\"\n")
-	b.WriteString("\t_ \"container/heap\"\n")
-	b.WriteString("\t_ \"container/list\"\n")
-	b.WriteString("\t_ \"container/ring\"\n")
-	b.WriteString("\t_ \"context\"\n")
-	b.WriteString("\t_ \"crypto/hmac\"\n")
-	b.WriteString("\t_ \"crypto/sha256\"\n")
-	b.WriteString("\t_ \"encoding/base64\"\n")
-	b.WriteString("\t_ \"encoding/csv\"\n")
-	b.WriteString("\t_ \"encoding/hex\"\n")
-	b.WriteString("\t_ \"encoding/json\"\n")
-	b.WriteString("\t_ \"encoding/xml\"\n")
-	b.WriteString("\t_ \"errors\"\n")
-	b.WriteString("\t_ \"fmt\"\n")
-	b.WriteString("\t_ \"html\"\n")
-	b.WriteString("\t_ \"html/template\"\n")
-	b.WriteString("\t_ \"io\"\n")
-	b.WriteString("\t_ \"log\"\n")
-	b.WriteString("\t_ \"maps\"\n")
-	b.WriteString("\t_ \"math\"\n")
-	b.WriteString("\t_ \"math/rand\"\n")
-	b.WriteString("\t_ \"net/http\"\n")
-	b.WriteString("\t_ \"net/url\"\n")
-	b.WriteString("\t_ \"os\"\n")
-	b.WriteString("\t_ \"path\"\n")
-	b.WriteString("\t_ \"path/filepath\"\n")
-	b.WriteString("\t_ \"regexp\"\n")
-	b.WriteString("\t_ \"slices\"\n")
-	b.WriteString("\t_ \"sort\"\n")
-	b.WriteString("\t_ \"strconv\"\n")
-	b.WriteString("\t_ \"strings\"\n")
-	b.WriteString("\t_ \"sync\"\n")
-	b.WriteString("\t_ \"sync/atomic\"\n")
-	b.WriteString("\t_ \"text/template\"\n")
-	b.WriteString("\t_ \"time\"\n")
-	b.WriteString("\t_ \"unicode\"\n")
-	b.WriteString("\t_ \"unicode/utf8\"\n")
-	b.WriteString("\t_ \"unicode/utf16\"\n")
-	b.WriteString("\n")
-	b.WriteString("\t// ============================================\n")
-	b.WriteString("\t// Custom third-party libraries (add yours below)\n")
-	b.WriteString("\t// ============================================\n")
-	b.WriteString("\t// _ \"github.com/spf13/cast\"\n")
-	b.WriteString("\t// _ \"github.com/tidwall/gjson\"\n")
-	b.WriteString(")\n")
+//go:embed pkgs_template.go.tmpl
+var pkgsTemplate string
 
-	// Format the code
-	formatted, err := format.Source([]byte(b.String()))
+func generatePkgsGo(pkgName string) []byte {
+	tmpl, err := template.New("pkgs").Parse(pkgsTemplate)
 	if err != nil {
-		return []byte(b.String())
+		panic(fmt.Sprintf("bad pkgs template: %v", err))
+	}
+
+	data := struct{ PackageName string }{PackageName: pkgName}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		panic(fmt.Sprintf("execute pkgs template: %v", err))
+	}
+
+	formatted, err := format.Source(buf.Bytes())
+	if err != nil {
+		return buf.Bytes()
 	}
 	return formatted
 }
