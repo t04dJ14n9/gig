@@ -1282,6 +1282,12 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		switch obj.Kind() {
 		case value.KindString:
 			vm.push(value.MakeInt(int64(len(obj.String()))))
+		case value.KindBytes:
+			if b, ok := obj.Bytes(); ok {
+				vm.push(value.MakeInt(int64(len(b))))
+			} else {
+				vm.push(value.MakeInt(0))
+			}
 		case value.KindSlice:
 			vm.push(value.MakeInt(int64(obj.Len())))
 		case value.KindArray, value.KindMap, value.KindChan:

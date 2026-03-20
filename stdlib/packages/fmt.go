@@ -53,7 +53,11 @@ func direct_fmt_Append(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	varArgs := make([]interface{}, len(args)-1)
 	for i := 1; i < len(args); i++ {
@@ -67,7 +71,11 @@ func direct_fmt_Appendf(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].String()
 	varArgs := make([]interface{}, len(args)-2)
@@ -82,7 +90,11 @@ func direct_fmt_Appendln(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	varArgs := make([]interface{}, len(args)-1)
 	for i := 1; i < len(args); i++ {

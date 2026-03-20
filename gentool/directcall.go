@@ -162,9 +162,9 @@ func canWrapUnderlying(t types.Type) bool {
 	case *types.Basic:
 		return ut.Kind() != types.UnsafePointer && ut.Kind() != types.Invalid
 	case *types.Slice:
-		// Only allow []byte slices — other basic slices ([]int, []float64, etc.) are
-		// stored as []int64/[]float64 in the VM which causes type assertion panics.
-		// Non-basic element slices ([][]byte, []*T) are also excluded.
+		// Only allow []byte and []string slices — other basic slices ([]int,
+		// []float64, etc.) are stored as []int64/[]float64 in the VM which
+		// means in-place mutations (like sort.Ints) won't affect the original.
 		if bt, ok := ut.Elem().Underlying().(*types.Basic); ok {
 			return bt.Kind() == types.Byte || bt.Kind() == types.String
 		}
@@ -269,7 +269,24 @@ func extractArg(t types.Type, valExpr string, pkgRef string) string {
 			return extractUnderlyingWithPkgRef(underlying, valExpr, pkgRef)
 		}
 
-		// Cross-package named type: use .Interface().(pkg.Type) for all cases
+		// Cross-package named type: check if it has a basic underlying type
+		// If so, use a cast (e.g., time.Duration(args[i].Int())) instead of
+		// .Interface().(time.Duration) which panics because the VM stores
+		// named-basic types as their underlying basic kind (e.g., int64).
+		if bt, ok := underlying.(*types.Basic); ok {
+			basicExpr := extractBasic(bt, valExpr)
+			if basicExpr == "" {
+				return ""
+			}
+			qualifiedName := resolveQualifiedName(named, pkgRef)
+			if qualifiedName != "" {
+				return fmt.Sprintf("%s(%s)", qualifiedName, basicExpr)
+			}
+			return ""
+		}
+
+		// For non-basic cross-package types (structs, interfaces, pointers, etc.),
+		// use .Interface().(pkg.Type) type assertion
 		qualifiedName := resolveQualifiedName(named, pkgRef)
 		if qualifiedName != "" {
 			return fmt.Sprintf("%s.Interface().(%s)", valExpr, qualifiedName)
@@ -308,7 +325,14 @@ func extractArg(t types.Type, valExpr string, pkgRef string) string {
 			return extractUnderlyingWithPkgRef(underlying, valExpr, pkgRef)
 		}
 
-		// Cross-package alias: use .Interface()
+		// Cross-package alias: check if basic underlying for cast
+		if bt, ok := underlying.(*types.Basic); ok {
+			basicExpr := extractBasic(bt, valExpr)
+			if basicExpr == "" {
+				return ""
+			}
+			return fmt.Sprintf("%s.%s(%s)", sanitizePkgName(pkg.Path()), obj.Name(), basicExpr)
+		}
 		return fmt.Sprintf("%s.Interface().(%s.%s)", valExpr, sanitizePkgName(pkg.Path()), obj.Name())
 	}
 
@@ -471,8 +495,8 @@ func extractSlice(st *types.Slice, valExpr string) string {
 		switch bt.Kind() {
 		case types.Byte:
 			// Use native KindBytes accessor — zero reflection for []byte params
-			// Falls back to Interface().([]byte) for KindReflect values
-			return fmt.Sprintf("func() []byte { if b, ok := (%s).Bytes(); ok { return b }; return (%s).Interface().([]byte) }()", valExpr, valExpr)
+			// Falls back to Interface() for KindReflect values, with nil-safe assertion
+			return fmt.Sprintf("func() []byte { if b, ok := (%s).Bytes(); ok { return b }; v := (%s).Interface(); if v == nil { return nil }; return v.([]byte) }()", valExpr, valExpr)
 		case types.String:
 			// []string is stored as []string in the VM — safe to assert directly
 			return fmt.Sprintf("%s.Interface().([]string)", valExpr)
@@ -637,7 +661,24 @@ func generateSingleMethodDirectCall(sig *types.Signature, pkgRef string, typeNam
 	if isPtr {
 		recvExpr = fmt.Sprintf("args[0].Interface().(*%s.%s)", pkgRef, typeName)
 	} else {
-		recvExpr = fmt.Sprintf("args[0].Interface().(%s.%s)", pkgRef, typeName)
+		// Check if the receiver's named type has a basic underlying type.
+		// If so, use a cast (e.g., time.Duration(args[0].Int())) instead of
+		// .Interface().(time.Duration) which panics because the VM stores
+		// named-basic types as their underlying basic kind.
+		namedType := recvType
+		if pt, ok := namedType.(*types.Pointer); ok {
+			namedType = pt.Elem()
+		}
+		if bt, ok := namedType.Underlying().(*types.Basic); ok {
+			basicExpr := extractBasic(bt, "args[0]")
+			if basicExpr != "" {
+				recvExpr = fmt.Sprintf("%s.%s(%s)", pkgRef, typeName, basicExpr)
+			} else {
+				recvExpr = fmt.Sprintf("args[0].Interface().(%s.%s)", pkgRef, typeName)
+			}
+		} else {
+			recvExpr = fmt.Sprintf("args[0].Interface().(%s.%s)", pkgRef, typeName)
+		}
 	}
 
 	funcName := fmt.Sprintf("direct_method_%s_%s_%s", pkgRef, typeName, methodName)

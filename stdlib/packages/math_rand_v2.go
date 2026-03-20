@@ -193,7 +193,11 @@ func direct_method_math_rand_v2_ChaCha8_Read(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := recv.Read(a0)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
@@ -217,7 +221,11 @@ func direct_method_math_rand_v2_ChaCha8_UnmarshalBinary(args []value.Value) valu
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(recv.UnmarshalBinary(a0))
 }
@@ -247,7 +255,11 @@ func direct_method_math_rand_v2_PCG_UnmarshalBinary(args []value.Value) value.Va
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(recv.UnmarshalBinary(a0))
 }

@@ -201,7 +201,11 @@ func direct_time_LoadLocationFromTZData(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := time.LoadLocationFromTZData(a0, a1)
 	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
@@ -280,53 +284,53 @@ func direct_time_Until(args []value.Value) value.Value {
 }
 
 func direct_method_time_Duration_Abs(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Duration)
+	recv := time.Duration(args[0].Int())
 	return value.MakeInt(int64(int64(recv.Abs())))
 }
 
 func direct_method_time_Duration_Hours(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Duration)
+	recv := time.Duration(args[0].Int())
 	return value.MakeFloat(float64(recv.Hours()))
 }
 
 func direct_method_time_Duration_Microseconds(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Duration)
+	recv := time.Duration(args[0].Int())
 	return value.MakeInt(int64(recv.Microseconds()))
 }
 
 func direct_method_time_Duration_Milliseconds(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Duration)
+	recv := time.Duration(args[0].Int())
 	return value.MakeInt(int64(recv.Milliseconds()))
 }
 
 func direct_method_time_Duration_Minutes(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Duration)
+	recv := time.Duration(args[0].Int())
 	return value.MakeFloat(float64(recv.Minutes()))
 }
 
 func direct_method_time_Duration_Nanoseconds(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Duration)
+	recv := time.Duration(args[0].Int())
 	return value.MakeInt(int64(recv.Nanoseconds()))
 }
 
 func direct_method_time_Duration_Round(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Duration)
+	recv := time.Duration(args[0].Int())
 	a0 := time.Duration(args[1].Int())
 	return value.MakeInt(int64(int64(recv.Round(a0))))
 }
 
 func direct_method_time_Duration_Seconds(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Duration)
+	recv := time.Duration(args[0].Int())
 	return value.MakeFloat(float64(recv.Seconds()))
 }
 
 func direct_method_time_Duration_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Duration)
+	recv := time.Duration(args[0].Int())
 	return value.MakeString(string(recv.String()))
 }
 
 func direct_method_time_Duration_Truncate(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Duration)
+	recv := time.Duration(args[0].Int())
 	a0 := time.Duration(args[1].Int())
 	return value.MakeInt(int64(int64(recv.Truncate(a0))))
 }
@@ -337,7 +341,7 @@ func direct_method_time_Location_String(args []value.Value) value.Value {
 }
 
 func direct_method_time_Month_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Month)
+	recv := time.Month(int(args[0].Int()))
 	return value.MakeString(string(recv.String()))
 }
 
@@ -385,7 +389,11 @@ func direct_method_time_Time_AppendFormat(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[2].String()
 	return value.MakeBytes([]byte(recv.AppendFormat(a0, a1)))
@@ -599,7 +607,11 @@ func direct_method_time_Time_GobDecode(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(recv.GobDecode(a0))
 }
@@ -610,7 +622,11 @@ func direct_method_time_Time_UnmarshalBinary(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(recv.UnmarshalBinary(a0))
 }
@@ -621,7 +637,11 @@ func direct_method_time_Time_UnmarshalJSON(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(recv.UnmarshalJSON(a0))
 }
@@ -632,7 +652,11 @@ func direct_method_time_Time_UnmarshalText(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(recv.UnmarshalText(a0))
 }
@@ -649,6 +673,6 @@ func direct_method_time_Timer_Stop(args []value.Value) value.Value {
 }
 
 func direct_method_time_Weekday_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Weekday)
+	recv := time.Weekday(int(args[0].Int()))
 	return value.MakeString(string(recv.String()))
 }

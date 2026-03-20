@@ -16,6 +16,13 @@ import (
 type PackageLookup interface {
 	LookupExternalFunc(pkgPath, funcName string) (fn any, directCall func([]value.Value) value.Value, ok bool)
 	LookupMethodDirectCall(typeName, methodName string) (directCall func([]value.Value) value.Value, ok bool)
+	// LookupExternalVar returns the value of an external package variable.
+	// The returned value should be a pointer to the variable (e.g., &time.UTC).
+	LookupExternalVar(pkgPath, varName string) (ptr any, ok bool)
+	// LookupExternalType returns the real reflect.Type for an external named type.
+	// This is used to allocate real Go types (e.g., bytes.Buffer) instead of
+	// synthesized struct types from reflect.StructOf.
+	LookupExternalType(t types.Type) (reflect.Type, bool)
 }
 
 // CompiledFunction represents a function compiled to bytecode.
@@ -115,6 +122,15 @@ type Program struct {
 	// New VMs copy this slice as their starting globals so each call sees a
 	// fully-initialised package state.  Nil when there is no init() function.
 	InitialGlobals []value.Value
+
+	// ExternalVarValues stores external package variable values indexed by global index.
+	// These are resolved at compile time and used to initialize globals in the VM.
+	// The value is a pointer to the external variable (e.g., &time.UTC).
+	ExternalVarValues map[int]any
+
+	// Lookup is the package lookup for resolving external types at runtime.
+	// Used by the VM's typeToReflect to look up real reflect.Type for named types.
+	Lookup PackageLookup
 
 	// ReflectTypeCache caches types.Type → reflect.Type conversions at the
 	// program level. This prevents reflect.StructOf from returning different

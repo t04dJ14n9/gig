@@ -1,6 +1,8 @@
 package compiler
 
 import (
+	"go/types"
+	"reflect"
 	"testing"
 
 	"git.woa.com/youngjin/gig/bytecode"
@@ -97,6 +99,14 @@ func (m *mockLookup) LookupExternalFunc(pkgPath, funcName string) (fn any, direc
 }
 
 func (m *mockLookup) LookupMethodDirectCall(typeName, methodName string) (directCall func([]value.Value) value.Value, ok bool) {
+	return nil, false
+}
+
+func (m *mockLookup) LookupExternalVar(pkgPath, varName string) (ptr any, ok bool) {
+	return nil, false
+}
+
+func (m *mockLookup) LookupExternalType(t types.Type) (reflect.Type, bool) {
 	return nil, false
 }
 

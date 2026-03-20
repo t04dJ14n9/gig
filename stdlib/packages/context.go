@@ -86,14 +86,14 @@ func direct_context_WithDeadlineCause(args []value.Value) value.Value {
 
 func direct_context_WithTimeout(args []value.Value) value.Value {
 	a0 := args[0].Interface().(context.Context)
-	a1 := args[1].Interface().(time.Duration)
+	a1 := time.Duration(args[1].Int())
 	r0, r1 := context.WithTimeout(a0, a1)
 	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_context_WithTimeoutCause(args []value.Value) value.Value {
 	a0 := args[0].Interface().(context.Context)
-	a1 := args[1].Interface().(time.Duration)
+	a1 := time.Duration(args[1].Int())
 	a2 := args[2].Interface().(error)
 	r0, r1 := context.WithTimeoutCause(a0, a1, a2)
 	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})

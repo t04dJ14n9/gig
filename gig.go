@@ -58,6 +58,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -497,4 +498,26 @@ func (a *packageLookupAdapter) LookupExternalFunc(pkgPath, funcName string) (fn 
 // LookupMethodDirectCall resolves a method DirectCall wrapper by type name and method name.
 func (a *packageLookupAdapter) LookupMethodDirectCall(typeName, methodName string) (directCall func([]value.Value) value.Value, ok bool) {
 	return importer.LookupMethodDirectCall(typeName, methodName)
+}
+
+// LookupExternalVar returns the pointer to an external package variable.
+func (a *packageLookupAdapter) LookupExternalVar(pkgPath, varName string) (ptr any, ok bool) {
+	pkg := importer.GetPackageByPath(pkgPath)
+	if pkg == nil {
+		return nil, false
+	}
+	obj, exists := pkg.Objects[varName]
+	if !exists || obj.Kind != importer.ObjectKindVariable {
+		return nil, false
+	}
+	return obj.Value, true
+}
+
+// LookupExternalType returns the real reflect.Type for an external named type.
+func (a *packageLookupAdapter) LookupExternalType(t types.Type) (reflect.Type, bool) {
+	rt := importer.GetExternalType(t)
+	if rt != nil {
+		return rt, true
+	}
+	return nil, false
 }

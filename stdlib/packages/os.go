@@ -516,7 +516,11 @@ func direct_os_WriteFile(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a2 := os.FileMode(uint32(args[2].Uint()))
 	return value.FromInterface(os.WriteFile(a0, a1, a2))
@@ -561,7 +565,11 @@ func direct_method_os_File_Read(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := recv.Read(a0)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
@@ -573,7 +581,11 @@ func direct_method_os_File_ReadAt(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[2].Int()
 	r0, r1 := recv.ReadAt(a0, a1)
@@ -663,7 +675,11 @@ func direct_method_os_File_Write(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := recv.Write(a0)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
@@ -675,7 +691,11 @@ func direct_method_os_File_WriteAt(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[2].Int()
 	r0, r1 := recv.WriteAt(a0, a1)

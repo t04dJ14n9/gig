@@ -23,6 +23,81 @@ func (e *ExternalCallCancelledError) Unwrap() error {
 	return e.Cause
 }
 
+// convertClosureArgsForMethod converts interpreted closure arguments to real Go
+// functions for a method DirectCall. It reflects on the receiver (args[0]) to
+// look up the method signature and wraps any KindFunc arguments via reflect.MakeFunc.
+// args[0] is the receiver, args[1:] are method arguments.
+func convertClosureArgsForMethod(methodName string, args []value.Value) {
+	hasClosure := false
+	for i := 1; i < len(args); i++ {
+		if args[i].Kind() == value.KindFunc {
+			hasClosure = true
+			break
+		}
+	}
+	if !hasClosure {
+		return
+	}
+
+	// Get the receiver's reflect type to look up method signature
+	var rv reflect.Value
+	if rr, ok := args[0].ReflectValue(); ok {
+		rv = rr
+	} else {
+		iface := args[0].Interface()
+		if iface == nil {
+			return
+		}
+		rv = reflect.ValueOf(iface)
+	}
+
+	// Look up the method by name on the receiver
+	method := rv.MethodByName(methodName)
+	if !method.IsValid() {
+		if rv.CanAddr() {
+			method = rv.Addr().MethodByName(methodName)
+		}
+		if !method.IsValid() {
+			return
+		}
+	}
+
+	mt := method.Type()
+	for i := 1; i < len(args); i++ {
+		if args[i].Kind() == value.KindFunc {
+			paramIdx := i - 1 // method args are 0-based (no receiver in method.Type())
+			if paramIdx < mt.NumIn() {
+				paramType := mt.In(paramIdx)
+				if paramType.Kind() == reflect.Func {
+					args[i] = value.MakeFromReflect(args[i].ToReflectValue(paramType))
+				}
+			}
+		}
+	}
+}
+
+// convertClosureArgs scans args for interpreted closures (KindFunc) and converts them
+// to real Go functions using reflect.MakeFunc. This allows DirectCall wrappers to receive
+// proper Go function values instead of *vm.Closure pointers.
+func convertClosureArgs(args []value.Value, fnType reflect.Type) {
+	numIn := fnType.NumIn()
+	for i, arg := range args {
+		if arg.Kind() == value.KindFunc {
+			// Determine the target function type from the external function's signature
+			var targetType reflect.Type
+			if i < numIn {
+				targetType = fnType.In(i)
+			} else if fnType.IsVariadic() && numIn > 0 {
+				// For variadic args, use the element type of the variadic slice
+				targetType = fnType.In(numIn - 1).Elem()
+			}
+			if targetType != nil && targetType.Kind() == reflect.Func {
+				args[i] = value.MakeFromReflect(arg.ToReflectValue(targetType))
+			}
+		}
+	}
+}
+
 // unpackVariadicArgs unpacks the last argument (a packed variadic slice from SSA) into
 // individual value.Value elements. This avoids reflection-based rv.Len()/rv.Index(i) calls
 // for native slice types ([]value.Value, []int64, []byte).
@@ -172,6 +247,11 @@ func (vm *VM) callExternal(funcIdx, numArgs int) error {
 		if cacheEntry.isVariadic && numArgs == cacheEntry.numIn {
 			args = unpackVariadicArgs(args, numArgs)
 		}
+		// Convert interpreted closures to real Go functions before calling DirectCall.
+		// DirectCall wrappers use Interface() which returns *vm.Closure, not a Go func.
+		if cacheEntry.fnType != nil {
+			convertClosureArgs(args, cacheEntry.fnType)
+		}
 		result := cacheEntry.directCall(args)
 		vm.push(result)
 		// Check context after the call for post-call cancellation
@@ -318,6 +398,8 @@ func (vm *VM) callExternalMethod(methodInfo *bytecode.ExternalMethodInfo, args [
 
 	// Fast path: DirectCall wrapper resolved at compile time
 	if methodInfo.DirectCall != nil {
+		// Convert interpreted closures in method args to real Go functions.
+		convertClosureArgsForMethod(methodInfo.MethodName, args)
 		result := methodInfo.DirectCall(args)
 		vm.push(result)
 		// Check context after the call

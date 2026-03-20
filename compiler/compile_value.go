@@ -3,6 +3,7 @@ package compiler
 import (
 	"go/constant"
 	"go/types"
+	"reflect"
 
 	"golang.org/x/tools/go/ssa"
 
@@ -36,11 +37,31 @@ func (c *compiler) compileValue(v ssa.Value) {
 			c.emit(bytecode.OpNil)
 		}
 	case *ssa.Global:
+		// For external package globals, use qualified name (e.g., "time.UTC")
+		// to distinguish from main package globals and enable lookup.
 		globalName := val.Name()
+		isExternal := val.Pkg != nil && val.Pkg.Pkg != nil && val.Pkg.Pkg.Path() != "main"
+		if isExternal {
+			globalName = val.Pkg.Pkg.Path() + "." + globalName
+		}
 		globalIdx, ok := c.globals[globalName]
 		if !ok {
 			globalIdx = len(c.globals)
 			c.globals[globalName] = globalIdx
+
+			// For external variables, look up the variable pointer and dereference it
+			// to get the actual value. SSA represents the global as having an extra
+			// level of indirection, so we need to store the value, not the pointer.
+			if isExternal && c.lookup != nil {
+				if ptr, found := c.lookup.LookupExternalVar(val.Pkg.Pkg.Path(), val.Name()); found {
+					// ptr is a pointer to the external variable (e.g., &time.UTC)
+					// We need to dereference it to get the actual value (e.g., time.UTC)
+					rv := reflect.ValueOf(ptr)
+					if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+						c.externalVarValues[globalIdx] = rv.Elem().Interface()
+					}
+				}
+			}
 		}
 		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
 			byte(bytecode.OpGlobal),
@@ -173,6 +194,59 @@ func (c *compiler) compileConst(cnst *ssa.Const) {
 			}
 		default:
 			v = nil
+		}
+	case *types.Named:
+		// Handle named types by extracting their underlying basic type
+		if cnst.Value != nil {
+			switch underlying := t.Underlying().(type) {
+			case *types.Basic:
+				switch underlying.Kind() { //nolint:exhaustive
+				case types.Int, types.UntypedInt, types.UntypedRune:
+					i, exact := constant.Int64Val(cnst.Value)
+					if exact {
+						v = int(i)
+					} else {
+						v = int(0)
+					}
+				case types.Int8:
+					i, _ := constant.Int64Val(cnst.Value)
+					v = int8(i)
+				case types.Int16:
+					i, _ := constant.Int64Val(cnst.Value)
+					v = int16(i)
+				case types.Int32:
+					i, _ := constant.Int64Val(cnst.Value)
+					v = int32(i)
+				case types.Int64:
+					i, _ := constant.Int64Val(cnst.Value)
+					v = i
+				case types.Uint:
+					u, _ := constant.Uint64Val(cnst.Value)
+					v = uint(u)
+				case types.Uint8:
+					u, _ := constant.Uint64Val(cnst.Value)
+					v = uint8(u)
+				case types.Uint16:
+					u, _ := constant.Uint64Val(cnst.Value)
+					v = uint16(u)
+				case types.Uint32:
+					u, _ := constant.Uint64Val(cnst.Value)
+					v = uint32(u)
+				case types.Uint64:
+					u, _ := constant.Uint64Val(cnst.Value)
+					v = u
+				case types.Float32:
+					f, _ := constant.Float64Val(cnst.Value)
+					v = float32(f)
+				case types.Float64, types.UntypedFloat:
+					f, _ := constant.Float64Val(cnst.Value)
+					v = f
+				case types.String, types.UntypedString:
+					v = constant.StringVal(cnst.Value)
+				case types.Bool, types.UntypedBool:
+					v = cnst.Value != nil && cnst.Value.Kind() == constant.Bool && constant.BoolVal(cnst.Value)
+				}
+			}
 		}
 	default:
 		v = nil

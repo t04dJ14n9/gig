@@ -69,7 +69,11 @@ func direct_strconv_AppendBool(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].Bool()
 	return value.MakeBytes([]byte(strconv.AppendBool(a0, a1)))
@@ -80,7 +84,11 @@ func direct_strconv_AppendFloat(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].Float()
 	a2 := byte(args[2].Uint())
@@ -94,7 +102,11 @@ func direct_strconv_AppendInt(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].Int()
 	a2 := int(args[2].Int())
@@ -106,7 +118,11 @@ func direct_strconv_AppendQuote(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].String()
 	return value.MakeBytes([]byte(strconv.AppendQuote(a0, a1)))
@@ -117,7 +133,11 @@ func direct_strconv_AppendQuoteRune(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := int32(args[1].Int())
 	return value.MakeBytes([]byte(strconv.AppendQuoteRune(a0, a1)))
@@ -128,7 +148,11 @@ func direct_strconv_AppendQuoteRuneToASCII(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := int32(args[1].Int())
 	return value.MakeBytes([]byte(strconv.AppendQuoteRuneToASCII(a0, a1)))
@@ -139,7 +163,11 @@ func direct_strconv_AppendQuoteRuneToGraphic(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := int32(args[1].Int())
 	return value.MakeBytes([]byte(strconv.AppendQuoteRuneToGraphic(a0, a1)))
@@ -150,7 +178,11 @@ func direct_strconv_AppendQuoteToASCII(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].String()
 	return value.MakeBytes([]byte(strconv.AppendQuoteToASCII(a0, a1)))
@@ -161,7 +193,11 @@ func direct_strconv_AppendQuoteToGraphic(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].String()
 	return value.MakeBytes([]byte(strconv.AppendQuoteToGraphic(a0, a1)))
@@ -172,7 +208,11 @@ func direct_strconv_AppendUint(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].Uint()
 	a2 := int(args[2].Int())

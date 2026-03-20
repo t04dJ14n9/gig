@@ -447,7 +447,11 @@ func direct_method_strings_Builder_Write(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := recv.Write(a0)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
@@ -484,7 +488,11 @@ func direct_method_strings_Reader_Read(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := recv.Read(a0)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
@@ -496,7 +504,11 @@ func direct_method_strings_Reader_ReadAt(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[2].Int()
 	r0, r1 := recv.ReadAt(a0, a1)

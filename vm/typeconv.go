@@ -141,6 +141,14 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 		// For the VM, all interfaces are represented as interface{}
 		return reflect.TypeFor[any]()
 	case *types.Named:
+		// Check if this is a registered external type (e.g., bytes.Buffer, strings.Builder).
+		// If so, use the real reflect.Type instead of synthesizing a struct type.
+		if prog != nil && prog.Lookup != nil {
+			if rt, ok := prog.Lookup.LookupExternalType(tt); ok {
+				cache[tt] = rt
+				return rt
+			}
+		}
 		// Mark this named type as being processed BEFORE recursing into the
 		// underlying type. If we encounter it again via a pointer field, the
 		// cache check at the top returns nil, and the *types.Pointer case
@@ -195,11 +203,16 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 				if sf.Anonymous {
 					sf.Anonymous = false
 				}
-				pkgPath := f.Pkg().Path()
-				if uniqueSuffix != "" {
-					pkgPath += uniqueSuffix
+				pkg := f.Pkg()
+				if pkg != nil {
+					pkgPath := pkg.Path()
+					if uniqueSuffix != "" {
+						pkgPath += uniqueSuffix
+					}
+					sf.PkgPath = pkgPath
+				} else if uniqueSuffix != "" {
+					sf.PkgPath = "gig/internal" + uniqueSuffix
 				}
-				sf.PkgPath = pkgPath
 			}
 			if tag := tt.Tag(i); tag != "" {
 				sf.Tag = reflect.StructTag(tag)

@@ -23,12 +23,13 @@ type Compiler interface {
 // The PackageLookup dependency is injected to decouple the compiler from the importer package.
 func NewCompiler(lookup bytecode.PackageLookup) Compiler {
 	return &compiler{
-		lookup:    lookup,
-		constants: make([]any, 0),
-		types:     make([]types.Type, 0),
-		globals:   make(map[string]int),
-		funcs:     make(map[string]*bytecode.CompiledFunction),
-		funcIndex: make(map[*ssa.Function]int),
+		lookup:            lookup,
+		constants:         make([]any, 0),
+		types:             make([]types.Type, 0),
+		globals:           make(map[string]int),
+		externalVarValues: make(map[int]any),
+		funcs:             make(map[string]*bytecode.CompiledFunction),
+		funcIndex:         make(map[*ssa.Function]int),
 	}
 }
 
@@ -50,6 +51,10 @@ type compiler struct {
 
 	// globals maps global names to indices.
 	globals map[string]int
+
+	// externalVarValues stores external variable values indexed by global index.
+	// These are resolved at compile time and used to initialize globals in the VM.
+	externalVarValues map[int]any
 
 	// funcs maps function names to compiled functions.
 	funcs map[string]*bytecode.CompiledFunction
@@ -221,6 +226,8 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 	c.program.Constants = c.constants
 	c.program.Types = c.types
 	c.program.Globals = c.globals
+	c.program.ExternalVarValues = c.externalVarValues
+	c.program.Lookup = c.lookup
 
 	// Pre-bake constants for O(1) OpConst (avoids FromInterface per instruction)
 	c.program.PrebakedConstants = make([]value.Value, len(c.constants))

@@ -183,42 +183,67 @@ func (v Value) Cmp(other Value) int {
 	}
 }
 
+// unwrapForComparison converts a KindReflect/KindInterface value to its underlying
+// primitive Value if possible. This enables correct equality comparisons between
+// interface-wrapped values and primitive values (e.g., ctx.Value("key") == "value").
+func unwrapForComparison(v Value) Value {
+	rv, ok := v.obj.(reflect.Value)
+	if !ok {
+		return v
+	}
+	// Unwrap interface
+	if rv.Kind() == reflect.Interface && !rv.IsNil() {
+		rv = rv.Elem()
+	}
+	return MakeFromReflect(rv)
+}
+
 // Equal returns v == other.
 func (v Value) Equal(other Value) bool {
-	if v.kind != other.kind {
+	// Unwrap interface/reflect values for comparison.
+	// When an external function returns an interface{} holding e.g. a string,
+	// it comes back as KindReflect. We need to compare the underlying value.
+	a, b := v, other
+	if a.kind == KindReflect || a.kind == KindInterface {
+		a = unwrapForComparison(a)
+	}
+	if b.kind == KindReflect || b.kind == KindInterface {
+		b = unwrapForComparison(b)
+	}
+	if a.kind != b.kind {
 		// Handle nil comparison
-		if v.kind == KindNil || other.kind == KindNil {
-			return v.IsNil() && other.IsNil()
+		if a.kind == KindNil || b.kind == KindNil {
+			return a.IsNil() && b.IsNil()
 		}
 		return false
 	}
-	switch v.kind {
+	switch a.kind {
 	case KindNil:
 		return true
 	case KindBool:
-		return v.num == other.num
+		return a.num == b.num
 	case KindInt:
-		return v.num == other.num
+		return a.num == b.num
 	case KindUint:
-		return v.num == other.num
+		return a.num == b.num
 	case KindFloat:
-		return v.Float() == other.Float()
+		return a.Float() == b.Float()
 	case KindString:
-		return v.obj.(string) == other.obj.(string)
+		return a.obj.(string) == b.obj.(string)
 	case KindComplex:
-		return v.obj.(complex128) == other.obj.(complex128)
+		return a.obj.(complex128) == b.obj.(complex128)
 	default:
 		// For pointer types, compare by identity (address), not by value.
 		// Go's == on pointers checks whether they point to the same location.
-		if vp, ok := v.obj.(*Value); ok {
-			if op, ok2 := other.obj.(*Value); ok2 {
+		if vp, ok := a.obj.(*Value); ok {
+			if op, ok2 := b.obj.(*Value); ok2 {
 				return vp == op // pointer identity
 			}
 			return false
 		}
-		if rv, ok := v.obj.(reflect.Value); ok {
+		if rv, ok := a.obj.(reflect.Value); ok {
 			if rv.Kind() == reflect.Ptr {
-				if orv, ok2 := other.obj.(reflect.Value); ok2 && orv.Kind() == reflect.Ptr {
+				if orv, ok2 := b.obj.(reflect.Value); ok2 && orv.Kind() == reflect.Ptr {
 					if rv.IsNil() && orv.IsNil() {
 						return true
 					}
@@ -231,7 +256,7 @@ func (v Value) Equal(other Value) bool {
 			}
 		}
 		// For other complex types, use reflect.DeepEqual
-		return reflect.DeepEqual(v.Interface(), other.Interface())
+		return reflect.DeepEqual(a.Interface(), b.Interface())
 	}
 }
 

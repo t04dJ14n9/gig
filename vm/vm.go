@@ -178,6 +178,12 @@ func New(program *bytecode.Program) *VM {
 	if len(program.InitialGlobals) == len(globals) {
 		copy(globals, program.InitialGlobals)
 	}
+	// Initialize external variable values
+	for idx, ptr := range program.ExternalVarValues {
+		if idx < len(globals) {
+			globals[idx] = value.FromInterface(ptr)
+		}
+	}
 	return &VM{
 		program: program,
 		stack:   make([]value.Value, 1024), // initial stack size
@@ -215,6 +221,12 @@ func (vm *VM) Reset() {
 	} else {
 		for i := range vm.globals {
 			vm.globals[i] = value.Value{}
+		}
+	}
+	// Restore external variable values (they should always be the same)
+	for idx, ptr := range vm.program.ExternalVarValues {
+		if idx < len(vm.globals) {
+			vm.globals[idx] = value.FromInterface(ptr)
 		}
 	}
 }
