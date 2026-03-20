@@ -39,26 +39,25 @@ func init() {
 	pkg.AddType("Source64", reflect.TypeOf((*math_rand.Source64)(nil)).Elem(), "")
 	pkg.AddType("Zipf", reflect.TypeOf(math_rand.Zipf{}), "")
 
-}
+	// Method DirectCalls
+	pkg.AddMethodDirectCall("Rand", "ExpFloat64", direct_method_math_rand_Rand_ExpFloat64)
+	pkg.AddMethodDirectCall("Rand", "Float32", direct_method_math_rand_Rand_Float32)
+	pkg.AddMethodDirectCall("Rand", "Float64", direct_method_math_rand_Rand_Float64)
+	pkg.AddMethodDirectCall("Rand", "Int", direct_method_math_rand_Rand_Int)
+	pkg.AddMethodDirectCall("Rand", "Int31", direct_method_math_rand_Rand_Int31)
+	pkg.AddMethodDirectCall("Rand", "Int31n", direct_method_math_rand_Rand_Int31n)
+	pkg.AddMethodDirectCall("Rand", "Int63", direct_method_math_rand_Rand_Int63)
+	pkg.AddMethodDirectCall("Rand", "Int63n", direct_method_math_rand_Rand_Int63n)
+	pkg.AddMethodDirectCall("Rand", "Intn", direct_method_math_rand_Rand_Intn)
+	pkg.AddMethodDirectCall("Rand", "NormFloat64", direct_method_math_rand_Rand_NormFloat64)
+	pkg.AddMethodDirectCall("Rand", "Perm", direct_method_math_rand_Rand_Perm)
+	pkg.AddMethodDirectCall("Rand", "Read", direct_method_math_rand_Rand_Read)
+	pkg.AddMethodDirectCall("Rand", "Seed", direct_method_math_rand_Rand_Seed)
+	pkg.AddMethodDirectCall("Rand", "Shuffle", direct_method_math_rand_Rand_Shuffle)
+	pkg.AddMethodDirectCall("Rand", "Uint32", direct_method_math_rand_Rand_Uint32)
+	pkg.AddMethodDirectCall("Rand", "Uint64", direct_method_math_rand_Rand_Uint64)
+	pkg.AddMethodDirectCall("Zipf", "Uint64", direct_method_math_rand_Zipf_Uint64)
 
-func direct_math_rand_New(args []value.Value) value.Value {
-	a0 := args[0].Interface().(math_rand.Source)
-	return value.FromInterface(math_rand.New(a0))
-}
-
-func direct_math_rand_NewZipf(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*math_rand.Rand)
-	a1 := args[1].Float()
-	a2 := args[2].Float()
-	a3 := uint64(args[3].Uint())
-	return value.FromInterface(math_rand.NewZipf(a0, a1, a2, a3))
-}
-
-func direct_math_rand_Shuffle(args []value.Value) value.Value {
-	n := int(args[0].Int())
-	swap := args[1].Interface().(func(i, j int))
-	math_rand.Shuffle(n, swap)
-	return value.MakeNil()
 }
 
 func direct_math_rand_ExpFloat64(args []value.Value) value.Value {
@@ -87,12 +86,12 @@ func direct_math_rand_Int31n(args []value.Value) value.Value {
 }
 
 func direct_math_rand_Int63(args []value.Value) value.Value {
-	return value.MakeInt(int64(math_rand.Int63()))
+	return value.MakeInt64(math_rand.Int63())
 }
 
 func direct_math_rand_Int63n(args []value.Value) value.Value {
 	a0 := args[0].Int()
-	return value.MakeInt(int64(math_rand.Int63n(a0)))
+	return value.MakeInt64(math_rand.Int63n(a0))
 }
 
 func direct_math_rand_Intn(args []value.Value) value.Value {
@@ -100,9 +99,22 @@ func direct_math_rand_Intn(args []value.Value) value.Value {
 	return value.MakeInt(int64(math_rand.Intn(a0)))
 }
 
+func direct_math_rand_New(args []value.Value) value.Value {
+	a0 := args[0].Interface().(math_rand.Source)
+	return value.FromInterface(math_rand.New(a0))
+}
+
 func direct_math_rand_NewSource(args []value.Value) value.Value {
 	a0 := args[0].Int()
 	return value.FromInterface(math_rand.NewSource(a0))
+}
+
+func direct_math_rand_NewZipf(args []value.Value) value.Value {
+	a0 := args[0].Interface().(*math_rand.Rand)
+	a1 := args[1].Float()
+	a2 := args[2].Float()
+	a3 := args[3].Uint()
+	return value.FromInterface(math_rand.NewZipf(a0, a1, a2, a3))
 }
 
 func direct_math_rand_NormFloat64(args []value.Value) value.Value {
@@ -115,9 +127,18 @@ func direct_math_rand_Perm(args []value.Value) value.Value {
 }
 
 func direct_math_rand_Read(args []value.Value) value.Value {
-	a0 := args[0].Interface().([]byte)
+	a0 := func() []byte {
+		if b, ok := (args[0]).Bytes(); ok {
+			return b
+		}
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
+	}()
 	r0, r1 := math_rand.Read(a0)
-	return value.FromInterface([]interface{}{r0, r1})
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_math_rand_Seed(args []value.Value) value.Value {
@@ -126,10 +147,122 @@ func direct_math_rand_Seed(args []value.Value) value.Value {
 	return value.MakeNil()
 }
 
+func direct_math_rand_Shuffle(args []value.Value) value.Value {
+	a0 := int(args[0].Int())
+	a1 := args[1].Interface().(func(int, int))
+	math_rand.Shuffle(a0, a1)
+	return value.MakeNil()
+}
+
 func direct_math_rand_Uint32(args []value.Value) value.Value {
 	return value.MakeUint(uint64(math_rand.Uint32()))
 }
 
 func direct_math_rand_Uint64(args []value.Value) value.Value {
-	return value.MakeUint(uint64(math_rand.Uint64()))
+	return value.MakeUint64(math_rand.Uint64())
+}
+
+func direct_method_math_rand_Rand_ExpFloat64(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	return value.MakeFloat(float64(recv.ExpFloat64()))
+}
+
+func direct_method_math_rand_Rand_Float32(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	return value.MakeFloat(float64(recv.Float32()))
+}
+
+func direct_method_math_rand_Rand_Float64(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	return value.MakeFloat(float64(recv.Float64()))
+}
+
+func direct_method_math_rand_Rand_Int(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	return value.MakeInt(int64(recv.Int()))
+}
+
+func direct_method_math_rand_Rand_Int31(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	return value.MakeInt(int64(recv.Int31()))
+}
+
+func direct_method_math_rand_Rand_Int31n(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	a0 := int32(args[1].Int())
+	return value.MakeInt(int64(recv.Int31n(a0)))
+}
+
+func direct_method_math_rand_Rand_Int63(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	return value.MakeInt64(recv.Int63())
+}
+
+func direct_method_math_rand_Rand_Int63n(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	a0 := args[1].Int()
+	return value.MakeInt64(recv.Int63n(a0))
+}
+
+func direct_method_math_rand_Rand_Intn(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	a0 := int(args[1].Int())
+	return value.MakeInt(int64(recv.Intn(a0)))
+}
+
+func direct_method_math_rand_Rand_NormFloat64(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	return value.MakeFloat(float64(recv.NormFloat64()))
+}
+
+func direct_method_math_rand_Rand_Perm(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	a0 := int(args[1].Int())
+	return value.FromInterface(recv.Perm(a0))
+}
+
+func direct_method_math_rand_Rand_Read(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
+	}()
+	r0, r1 := recv.Read(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+func direct_method_math_rand_Rand_Seed(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	a0 := args[1].Int()
+	recv.Seed(a0)
+	return value.MakeNil()
+}
+
+func direct_method_math_rand_Rand_Shuffle(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	a0 := int(args[1].Int())
+	a1 := args[2].Interface().(func(int, int))
+	recv.Shuffle(a0, a1)
+	return value.MakeNil()
+}
+
+func direct_method_math_rand_Rand_Uint32(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	return value.MakeUint(uint64(recv.Uint32()))
+}
+
+func direct_method_math_rand_Rand_Uint64(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Rand)
+	return value.MakeUint64(recv.Uint64())
+}
+
+func direct_method_math_rand_Zipf_Uint64(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_rand.Zipf)
+	return value.MakeUint64(recv.Uint64())
 }

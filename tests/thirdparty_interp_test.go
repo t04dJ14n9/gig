@@ -30,8 +30,9 @@ var (
 	srcEncoding string
 	//go:embed testdata/thirdparty/io.go
 	srcIO string
-	//go:embed testdata/thirdparty/filepath.go
-	srcFilepath string
+	// path/filepath removed from sandbox stdlib (OS-specific, uses filesystem)
+	// //go:embed testdata/thirdparty/filepath.go
+	// srcFilepath string
 	//go:embed testdata/thirdparty/regexp.go
 	srcRegexp string
 	//go:embed testdata/thirdparty/errors.go
@@ -196,13 +197,14 @@ func TestCorrectnessThirdparty(t *testing.T) {
 		{"IoWriteString", 4},
 	})
 
-	runCategory(t, "Filepath", srcFilepath, []thirdpartyCase{
-		{"FilepathJoin", "dir1/dir2/file.txt"},
-		{"FilepathBase", "file.txt"},
-		{"FilepathDir", "/path/to"},
-		{"FilepathExt", ".txt"},
-		{"FilepathClean", "/path/to/file.txt"},
-	})
+	// path/filepath removed from sandbox stdlib
+	// runCategory(t, "Filepath", srcFilepath, []thirdpartyCase{
+	// 	{"FilepathJoin", "dir1/dir2/file.txt"},
+	// 	{"FilepathBase", "file.txt"},
+	// 	{"FilepathDir", "/path/to"},
+	// 	{"FilepathExt", ".txt"},
+	// 	{"FilepathClean", "/path/to/file.txt"},
+	// })
 
 	runCategory(t, "Regexp", srcRegexp, []thirdpartyCase{
 		{"RegexpMatch", 1},

@@ -2,6 +2,7 @@ package gentool
 
 import (
 	"fmt"
+	"go/constant"
 	"go/types"
 	"strings"
 )
@@ -127,6 +128,27 @@ func resolveFuncTypeName(sig *types.Signature, pkgRef string) string {
 }
 
 // --- Utility ---
+
+// needsUintCast checks whether a constant needs a uint64() cast to prevent
+// overflow when passed as an untyped int to AddConstant. This happens when
+// the constant's underlying type is unsigned and its value exceeds math.MaxInt64.
+func needsUintCast(c *types.Const) bool {
+	basic, ok := c.Type().Underlying().(*types.Basic)
+	if !ok {
+		return false
+	}
+	switch basic.Kind() {
+	case types.Uint, types.Uint64, types.Uintptr, types.UntypedInt:
+		// Check if the value overflows int64
+		val := c.Val()
+		if val.Kind() == constant.Int {
+			if v, ok := constant.Uint64Val(val); ok {
+				return v > (1<<63 - 1) // > math.MaxInt64
+			}
+		}
+	}
+	return false
+}
 
 func isEmptyInterface(t types.Type) bool {
 	iface, ok := t.Underlying().(*types.Interface)

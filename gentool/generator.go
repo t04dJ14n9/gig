@@ -246,6 +246,14 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	}
 	// Add cross-package imports needed by DirectCall wrappers
 	for impPath, impAlias := range crossPkgImports {
+		// Skip reflect if already imported above
+		if impPath == "reflect" && (needReflect || path == "fmt") {
+			continue
+		}
+		// Skip the package's own import (already imported at top)
+		if impPath == path {
+			continue
+		}
 		if impAlias != "" {
 			b.WriteString(fmt.Sprintf("\t%s %q\n", impAlias, impPath))
 		} else {
@@ -279,8 +287,10 @@ func PackageImport(path string, outDir string, pkgName string) error {
 		b.WriteString("\t// Constants\n")
 		for _, ci := range consts {
 			constRef := fmt.Sprintf("%s.%s", pkgRef, ci.Name)
-			if ci.Name == "MaxUint64" || ci.Name == "MaxUint" {
-				constRef = fmt.Sprintf("uint(%s)", constRef)
+			// Untyped int constants that are unsigned may overflow int.
+			// Wrap with uint64() to prevent compile errors.
+			if needsUintCast(ci.Obj) {
+				constRef = fmt.Sprintf("uint64(%s)", constRef)
 			}
 			b.WriteString(fmt.Sprintf("\tpkg.AddConstant(%q, %s, \"\")\n", ci.Name, constRef))
 		}
