@@ -5,6 +5,7 @@ package resolved_issue
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -553,4 +554,17 @@ func StrconvParseUintResolved() uint64 {
 func BytesBufferCapResolved() int {
 	buf := bytes.NewBuffer([]byte("12345"))
 	return buf.Len() + buf.Cap()
+}
+
+// ── Resolved Issue 34: json.Encoder method dispatch collision ───────────────
+// Previously, when a program used both json.Encoder and xml.Encoder, the
+// compiled method cache would confuse them because both have an "Encode" method.
+// The reflect.StructOf type identity fix (ReflectTypeCache) resolved this.
+
+// JsonEncodeResolved tests json.NewEncoder.Encode call works correctly.
+func JsonEncodeResolved() int {
+	buf := new(bytes.Buffer)
+	encoder := json.NewEncoder(buf)
+	encoder.Encode(map[string]int{"y": 20})
+	return buf.Len()
 }

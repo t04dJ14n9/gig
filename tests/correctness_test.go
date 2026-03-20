@@ -7,6 +7,7 @@ package tests
 import (
 	_ "embed"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -162,20 +163,29 @@ type testSet struct {
 	tests map[string]testCase // key is just funcName, not full path
 }
 
-// progCache caches compiled programs by source to avoid recompilation
-var progCache = make(map[string]*gig.Program)
+// progCache caches compiled programs by source to avoid recompilation.
+// Using sync.Map for safe concurrent access from parallel test subtests.
+var progCache sync.Map
+
+// loadProgram returns the cached program for src, building and caching it if needed.
+func loadProgram(src string) (*gig.Program, error) {
+	if prog, ok := progCache.Load(src); ok {
+		return prog.(*gig.Program), nil
+	}
+	prog, err := gig.Build(src)
+	if err != nil {
+		return nil, err
+	}
+	progCache.Store(src, prog)
+	return prog, nil
+}
 
 // runTestSet runs all tests in a test set, compiling the source once
 func runTestSet(t *testing.T, set testSet) {
 	t.Helper()
-	prog, ok := progCache[set.src]
-	if !ok {
-		var err error
-		prog, err = gig.Build(set.src)
-		if err != nil {
-			t.Fatalf("Build error: %v", err)
-		}
-		progCache[set.src] = prog
+	prog, err := loadProgram(set.src)
+	if err != nil {
+		t.Fatalf("Build error: %v", err)
 	}
 
 	for fullKey, tc := range set.tests {
@@ -813,6 +823,8 @@ var resolved_issueTests = map[string]testCase{
 	"StrconvParseUintResolved": {resolvedIssueSrc, "StrconvParseUintResolved", nil, resolved_issue.StrconvParseUintResolved},
 	// Resolved Issue 33: bytes.Buffer.Cap() (formerly known issue Bug 7)
 	"BytesBufferCapResolved": {resolvedIssueSrc, "BytesBufferCapResolved", nil, resolved_issue.BytesBufferCapResolved},
+	// Resolved Issue 34: json.Encoder method dispatch collision (formerly known issue Bug 8)
+	"JsonEncodeResolved": {resolvedIssueSrc, "JsonEncodeResolved", nil, resolved_issue.JsonEncodeResolved},
 }
 
 var scopeTests = map[string]testCase{

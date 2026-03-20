@@ -14,6 +14,9 @@ package known_issues
 //   Bug 5 → Resolved Issue 31 (fmt.Sprintf %v _gig_id)
 //   Bug 6 → Resolved Issue 32 (int64/uint64 narrowing)
 //   Bug 7 → Resolved Issue 33 (bytes.Buffer.Cap)
+//   Bug 8 → Resolved Issue 34 (json.Encoder method dispatch collision)
+//
+// ALL KNOWN ISSUES RESOLVED — this file retained for historical reference.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import (

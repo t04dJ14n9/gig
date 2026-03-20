@@ -217,6 +217,11 @@ func (vm *VM) Reset() {
 	vm.panicking = false
 	vm.panicVal = value.MakeNil()
 	vm.ctx = nil
+	// Clear all frames (prevents stale frame references from previous execution).
+	// Frames are allocated fresh on each use; retaining the slice saves one allocation.
+	for i := range vm.frames {
+		vm.frames[i] = nil
+	}
 	// If globalsPtr is set (shared globals from stateful mode or goroutine),
 	// do not restore the local globals copy — the caller manages the shared
 	// state.  Only clear globalsPtr so the VM is detached.
@@ -356,31 +361,54 @@ func (vm *VM) Globals() []value.Value {
 	return vm.globals
 }
 
-// VMPool is a pool of VMs for a given program, eliminating per-call allocation overhead.
+// VMPool is a thread-safe pool of VMs for a given program, eliminating per-call
+// allocation overhead. Each VM is paired with a dedicated mutex so that concurrent
+// callers block until the VM is returned (not during use, but to ensure Get always
+// returns an idle VM).
+//
+// Why not sync.Pool? sync.Pool can return an object that is still in use by another
+// goroutine. When multiple goroutines call Run concurrently on the same cached
+// Program (e.g., from progCache), they share the same VMPool. Without per-VM locking,
+// a goroutine could Get a VM that another goroutine hasn't Put() yet — causing both
+// goroutines to execute on the same VM simultaneously. Since VM state (stack, frames,
+// pc, sp, fp) is mutated during execution, this leads to memory corruption and
+// infinite recursion as seen in the stack overflow failures.
 type VMPool struct {
-	pool sync.Pool
+	mu      sync.Mutex
+	vms     []*VM // available VMs
+	newVM   func() *VM
 }
 
 // NewVMPool creates a VM pool for the given program.
 func NewVMPool(program *bytecode.Program) *VMPool {
 	return &VMPool{
-		pool: sync.Pool{
-			New: func() any {
-				return New(program)
-			},
+		newVM: func() *VM {
+			return New(program)
 		},
 	}
 }
 
-// Get returns a VM from the pool (or creates a new one).
+// Get returns an idle VM from the pool, creating one if the pool is empty.
+// The returned VM is guaranteed to be unused by any other goroutine.
 func (p *VMPool) Get() *VM {
-	return p.pool.Get().(*VM)
+	p.mu.Lock()
+	if len(p.vms) > 0 {
+		vm := p.vms[len(p.vms)-1]
+		p.vms = p.vms[:len(p.vms)-1]
+		p.mu.Unlock()
+		return vm
+	}
+	p.mu.Unlock()
+	return p.newVM()
 }
 
-// Put returns a VM to the pool for reuse.
+// Put returns a VM to the pool for reuse. The VM must no longer be used by any
+// goroutine when Put is called.
 func (p *VMPool) Put(v *VM) {
 	v.Reset()
-	p.pool.Put(v)
+	p.mu.Lock()
+	p.vms = append(p.vms, v)
+	p.mu.Unlock()
 }
 
 // Execute runs the specified function with the given arguments.

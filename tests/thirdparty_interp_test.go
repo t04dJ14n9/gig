@@ -2,8 +2,17 @@ package tests
 
 import (
 	_ "embed"
+
+	"bytes"
+	"compress/gzip"
+	"encoding/csv"
+	"encoding/json"
+	"reflect"
+	"strings"
 	"testing"
 
+	"git.woa.com/youngjin/gig"
+	_ "git.woa.com/youngjin/gig/stdlib/packages"
 	thirdparty "git.woa.com/youngjin/gig/tests/testdata/thirdparty"
 )
 
@@ -56,6 +65,30 @@ var (
 	srcMime string
 	//go:embed testdata/thirdparty/text.go
 	srcText string
+	//go:embed testdata/thirdparty/simple_time.go
+	srcSimpleTime string
+	//go:embed testdata/pass_struct_src/pass_bytes_buffer_write_and_read.go
+	srcPassBytesBufferWriteAndRead string
+	//go:embed testdata/pass_struct_src/pass_bytes_buffer_len.go
+	srcPassBytesBufferLen string
+	//go:embed testdata/pass_struct_src/pass_bytes_buffer_reset.go
+	srcPassBytesBufferReset string
+	//go:embed testdata/pass_struct_src/pass_strings_builder.go
+	srcPassStringsBuilder string
+	//go:embed testdata/pass_struct_src/pass_strings_reader.go
+	srcPassStringsReader string
+	//go:embed testdata/pass_struct_src/pass_json_encoder.go
+	srcPassJsonEncoder string
+	//go:embed testdata/pass_struct_src/pass_json_decoder.go
+	srcPassJsonDecoder string
+	//go:embed testdata/pass_struct_src/pass_csv_writer.go
+	srcPassCSVWriter string
+	//go:embed testdata/pass_struct_src/pass_gzip_writer.go
+	srcPassGzipWriter string
+	//go:embed testdata/pass_struct_src/pass_multiple_structs.go
+	srcPassMultipleStructs string
+	//go:embed testdata/pass_struct_src/pass_and_mutate_bytes_buffer.go
+	srcPassAndMutateBytesBuffer string
 )
 
 // TestCorrectnessThirdparty tests third-party library calls through the interpreter,
@@ -65,6 +98,88 @@ func TestCorrectnessThirdparty(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			runTestSet(t, set)
 		})
+	}
+}
+
+// TestCorrectnessSimpleTime runs simple_time tests (time and context functions
+// via inline gig code, compared against hardcoded expected values).
+// Unlike thirdparty tests that compare interpreter vs native Go via reflection,
+// simple_time tests compare interpreter result against a hardcoded expected value.
+// We use a custom runner to avoid callNative attempting to call the expected
+// value (int) as a function.
+func TestCorrectnessSimpleTime(t *testing.T) {
+	prog, err := gig.Build(srcSimpleTime)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	for name, tc := range simpleTimeTests {
+		t.Run(name, func(t *testing.T) {
+			got, err := prog.Run(tc.funcName, tc.args...)
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.native) {
+				t.Errorf("got %v (%T), want %v (%T)", got, got, tc.native, tc.native)
+			}
+		})
+	}
+}
+
+// TestCorrectnessPassStruct runs host-to-interpreter struct passing tests.
+// Each test has a unique source file, so each is compiled and run independently.
+// The want field is a hardcoded expected value — there is no native Go
+// equivalent for these cross-boundary tests.
+func TestCorrectnessPassStruct(t *testing.T) {
+	for name, tc := range passStructTests {
+		t.Run(name, func(t *testing.T) {
+			prog, err := gig.Build(tc.src)
+			if err != nil {
+				t.Fatalf("Build: %v", err)
+			}
+			args := buildPassStructArgs(name, tc.args)
+			got, err := prog.Run("Test", args...)
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("got %v (%T), want %v (%T)", got, got, tc.want, tc.want)
+			}
+		})
+	}
+}
+
+// buildPassStructArgs creates the host struct arguments for a pass_struct test.
+// The tc.args field carries the "shape" hint (e.g. which types are needed);
+// actual initialized values are constructed here.
+func buildPassStructArgs(name string, hint []any) []any {
+	switch name {
+	case "PassBytesBufferWriteAndRead":
+		buf := bytes.NewBufferString("prefix: ")
+		return []any{buf}
+	case "PassBytesBufferLen":
+		return []any{bytes.NewBufferString("12345")}
+	case "PassBytesBufferReset":
+		return []any{bytes.NewBufferString("old stuff")}
+	case "PassStringsBuilder":
+		b := &strings.Builder{}
+		b.WriteString("hello ")
+		return []any{b}
+	case "PassStringsReader":
+		return []any{strings.NewReader("hello gig")}
+	case "PassJsonEncoder":
+		return []any{json.NewEncoder(&bytes.Buffer{})}
+	case "PassJsonDecoder":
+		return []any{json.NewDecoder(strings.NewReader(`{"value":99}`))}
+	case "PassCSVWriter":
+		return []any{csv.NewWriter(&bytes.Buffer{})}
+	case "PassGzipWriter":
+		return []any{gzip.NewWriter(&bytes.Buffer{})}
+	case "PassMultipleStructs":
+		return []any{new(bytes.Buffer), json.NewEncoder(&bytes.Buffer{})}
+	case "PassAndMutateBytesBuffer":
+		return []any{bytes.NewBufferString("host says hi,")}
+	default:
+		return hint
 	}
 }
 
@@ -396,27 +511,60 @@ var textTests = map[string]testCase{
 	"TextTabwriterInit":      {srcText, "TextTabwriterInit", nil, thirdparty.TextTabwriterInit},
 }
 
+// simpleTimeTests uses hardcoded expected values (not native comparison)
+// since the source is embedded and called via prog.Run.
+var simpleTimeTests = map[string]testCase{
+	"SimpleTimeSub":  {srcSimpleTime, "SimpleTimeSub", nil, 24},
+	"SimpleTimeAdd":  {srcSimpleTime, "SimpleTimeAdd", nil, 2},
+	"SimpleContextValue": {srcSimpleTime, "SimpleContextValue", nil, 1},
+}
+
+// passStructTestCase describes a host-to-interpreter struct passing test.
+type passStructTestCase struct {
+	src  string
+	args []any
+	want any
+}
+
+// passStructTests verify passing real Go structs from host into interpreted code.
+// Each test has its own source file (unique code per test), so they cannot share
+// a single compiled program. The want field is a hardcoded expected value since
+// there is no native Go equivalent to compare against.
+var passStructTests = map[string]passStructTestCase{
+	"PassBytesBufferWriteAndRead": {srcPassBytesBufferWriteAndRead, []any{bytes.NewBufferString("prefix: ")}, "prefix: hello from gig"},
+	"PassBytesBufferLen":          {srcPassBytesBufferLen, []any{bytes.NewBufferString("12345")}, 5},
+	"PassBytesBufferReset":        {srcPassBytesBufferReset, []any{bytes.NewBufferString("old stuff")}, "new content"},
+	"PassStringsBuilder":          {srcPassStringsBuilder, nil, "hello world"},
+	"PassStringsReader":           {srcPassStringsReader, []any{strings.NewReader("hello gig")}, 9},
+	"PassJsonEncoder":             {srcPassJsonEncoder, []any{json.NewEncoder(&bytes.Buffer{})}, 1},
+	"PassJsonDecoder":             {srcPassJsonDecoder, []any{json.NewDecoder(strings.NewReader(`{"value":99}`))}, 99},
+	"PassCSVWriter":               {srcPassCSVWriter, []any{csv.NewWriter(&bytes.Buffer{})}, 1},
+	"PassGzipWriter":             {srcPassGzipWriter, []any{gzip.NewWriter(&bytes.Buffer{})}, 17},
+	"PassMultipleStructs":         {srcPassMultipleStructs, []any{new(bytes.Buffer), json.NewEncoder(&bytes.Buffer{})}, "raw: "},
+	"PassAndMutateBytesBuffer":    {srcPassAndMutateBytesBuffer, nil, 26},
+}
+
 var thirdpartyTestSets = map[string]testSet{
-	"Bytes":    {name: "Bytes", src: srcBytes, tests: bytesTests},
-	"Strings":  {name: "Strings", src: srcStrings, tests: stringsTests},
-	"Strconv":  {name: "Strconv", src: srcStrconv, tests: strconvTests},
-	"Math":     {name: "Math", src: srcMath, tests: mathTests},
-	"Time":     {name: "Time", src: srcTime, tests: timeTests},
-	"Context":  {name: "Context", src: srcContext, tests: contextTests},
-	"Sync":     {name: "Sync", src: srcSync, tests: syncTests},
-	"Sort":     {name: "Sort", src: srcSort, tests: sortTests},
-	"Encoding": {name: "Encoding", src: srcEncoding, tests: encodingTests},
-	"IO":       {name: "IO", src: srcIO, tests: ioTests},
-	"Regexp":   {name: "Regexp", src: srcRegexp, tests: regexpTests},
-	"Errors":   {name: "Errors", src: srcErrors, tests: errorsTests},
-	"Fmt":      {name: "Fmt", src: srcFmt, tests: fmtTests},
-	"Patterns": {name: "Patterns", src: srcPatterns, tests: patternsTests},
-	"Hash":     {name: "Hash", src: srcHash, tests: hashTests},
-	"Compress": {name: "Compress", src: srcCompress, tests: compressTests},
-	"Container": {name: "Container", src: srcContainer, tests: containerTests},
-	"MathBig":  {name: "MathBig", src: srcMathBig, tests: mathBigTests},
-	"Crypto":   {name: "Crypto", src: srcCrypto, tests: cryptoTests},
-	"NetURL":   {name: "NetURL", src: srcNetURL, tests: netURLTests},
-	"Mime":     {name: "Mime", src: srcMime, tests: mimeTests},
-	"Text":     {name: "Text", src: srcText, tests: textTests},
+	"Bytes":     {name: "Bytes", src: srcBytes, tests: bytesTests},
+	"Strings":   {name: "Strings", src: srcStrings, tests: stringsTests},
+	"Strconv":   {name: "Strconv", src: srcStrconv, tests: strconvTests},
+	"Math":      {name: "Math", src: srcMath, tests: mathTests},
+	"Time":      {name: "Time", src: srcTime, tests: timeTests},
+	"Context":   {name: "Context", src: srcContext, tests: contextTests},
+	"Sync":      {name: "Sync", src: srcSync, tests: syncTests},
+	"Sort":      {name: "Sort", src: srcSort, tests: sortTests},
+	"Encoding":  {name: "Encoding", src: srcEncoding, tests: encodingTests},
+	"IO":        {name: "IO", src: srcIO, tests: ioTests},
+	"Regexp":    {name: "Regexp", src: srcRegexp, tests: regexpTests},
+	"errors":    {name: "errors", src: srcErrors, tests: errorsTests},
+	"Fmt":       {name: "Fmt", src: srcFmt, tests: fmtTests},
+	"Patterns":  {name: "Patterns", src: srcPatterns, tests: patternsTests},
+	"Hash":      {name: "Hash", src: srcHash, tests: hashTests},
+	"Compress":  {name: "Compress", src: srcCompress, tests: compressTests},
+	"Container":  {name: "Container", src: srcContainer, tests: containerTests},
+	"MathBig":   {name: "MathBig", src: srcMathBig, tests: mathBigTests},
+	"Crypto":    {name: "Crypto", src: srcCrypto, tests: cryptoTests},
+	"NetURL":    {name: "NetURL", src: srcNetURL, tests: netURLTests},
+	"Mime":      {name: "Mime", src: srcMime, tests: mimeTests},
+	"Text":      {name: "Text", src: srcText, tests: textTests},
 }
