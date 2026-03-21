@@ -27,12 +27,12 @@ type VM interface {
 
 // New creates a new VM for executing the given program.
 func New(program *bytecode.Program) VM {
-	return newVM(program)
+	return newVM(program, nil, NewGoroutineTracker())
 }
 
 // NewWithOptions creates a VM with custom options.
 func NewWithOptions(program *bytecode.Program, opts ...VMOption) VM {
-	v := newVM(program)
+	v := newVM(program, nil, NewGoroutineTracker())
 	for _, opt := range opts {
 		opt(v)
 	}

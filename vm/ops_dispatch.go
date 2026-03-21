@@ -921,17 +921,17 @@ func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocycl
 					} else {
 						v.push(val)
 					}
-			case types.Uint8:
-				if val.Kind() == value.KindString {
-					// Use make+copy to ensure cap==len, matching native Go compiler behavior.
-					// Direct []byte(s) uses runtime's stringtoslicebyte which rounds cap up
-					// to allocator size classes (e.g. 5→8), but the native compiler optimizes
-					// to exact capacity via stack allocation or constant folding.
-					s := val.String()
-					b := make([]byte, len(s))
-					copy(b, s)
-					v.push(value.MakeBytes(b))
-				} else {
+				case types.Uint8:
+					if val.Kind() == value.KindString {
+						// Use make+copy to ensure cap==len, matching native Go compiler behavior.
+						// Direct []byte(s) uses runtime's stringtoslicebyte which rounds cap up
+						// to allocator size classes (e.g. 5→8), but the native compiler optimizes
+						// to exact capacity via stack allocation or constant folding.
+						s := val.String()
+						b := make([]byte, len(s))
+						copy(b, s)
+						v.push(value.MakeBytes(b))
+					} else {
 						v.push(val)
 					}
 				default:
@@ -1020,6 +1020,7 @@ func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocycl
 		if fn != nil {
 			closure := getClosure(fn, int(numFree))
 			closure.Program = v.program
+			closure.InitialGlobals = v.initialGlobals
 			// Get free variables (popped in reverse order)
 			for i := int(numFree) - 1; i >= 0; i-- {
 				v := v.pop()
@@ -1069,7 +1070,7 @@ func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocycl
 			capturedArgs := args
 
 			// Track the goroutine
-			StartGoroutine(func() {
+			v.goroutines.Start(func() {
 				// Create initial frame for the child goroutine
 				childFrame := newFrame(capturedFn, 0, capturedArgs, nil)
 				childVM.frames[0] = childFrame
@@ -1104,7 +1105,7 @@ func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocycl
 			capturedArgs := args
 
 			// Track the goroutine
-			StartGoroutine(func() {
+			v.goroutines.Start(func() {
 				// Create initial frame for the child goroutine with free vars
 				childFrame := newFrame(capturedClosure.Fn, 0, capturedArgs, capturedClosure.FreeVars)
 				childVM.frames[0] = childFrame

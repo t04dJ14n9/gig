@@ -41,64 +41,6 @@ import (
 	"git.woa.com/youngjin/gig/value"
 )
 
-func init() { //nolint:gochecknoinits // registers cross-package callback, must run before any VM usage
-	// Register the closure caller so that value.ToReflectValue can wrap
-	// *vm.Closure objects into real Go functions via reflect.MakeFunc.
-	value.SetClosureCaller(func(closure any, args []reflect.Value, outTypes []reflect.Type) []reflect.Value {
-		c, ok := closure.(*Closure)
-		if !ok {
-			return nil
-		}
-		prog := c.Program
-		if prog == nil {
-			return nil
-		}
-		// Create a temporary VM to execute the closure
-		closureVM := &vm{
-			program: prog,
-			stack:   make([]value.Value, 256),
-			sp:      0,
-			frames:  make([]*Frame, 64),
-			fp:      0,
-			globals: make([]value.Value, len(prog.Globals)),
-			ctx:     context.Background(),
-			extCallCache: &externalCallCache{
-				cache: make([]*extCallCacheEntry, len(prog.Constants)),
-			},
-		}
-		if len(prog.InitialGlobals) == len(closureVM.globals) {
-			copy(closureVM.globals, prog.InitialGlobals)
-		}
-		// Convert reflect.Value args to value.Value args
-		valArgs := make([]value.Value, len(args))
-		for i, arg := range args {
-			valArgs[i] = value.MakeFromReflect(arg)
-		}
-		// Call the closure function with its captured free variables
-		closureVM.callFunction(c.Fn, valArgs, c.FreeVars)
-		result, _ := closureVM.run()
-		// Return the result as an interface{} wrapped in reflect.Value.
-		// reflect.MakeFunc will handle the type conversion from the returned
-		// reflect.Value to the expected function signature return type.
-		if result.Kind() == value.KindNil {
-			return []reflect.Value{}
-		}
-		// If we have expected output types and the result is a closure (KindFunc),
-		// use ToReflectValue to properly wrap it as a real Go function.
-		// This handles nested closures like func() → func() int.
-		if len(outTypes) > 0 {
-			return []reflect.Value{result.ToReflectValue(outTypes[0])}
-		}
-		// Fallback: use reflect.ValueOf + Convert to match the expected return type.
-		// This handles int64 → int conversion etc.
-		iface := result.Interface()
-		if iface == nil {
-			return []reflect.Value{}
-		}
-		return []reflect.Value{reflect.ValueOf(iface)}
-	})
-}
-
 // vm is the bytecode virtual machine struct.
 // It executes compiled programs using a stack-based architecture.
 type vm struct {
@@ -137,6 +79,13 @@ type vm struct {
 	// Uses a shared cache pointer for concurrent access from goroutines.
 	extCallCache *externalCallCache
 
+	// initialGlobals is the post-init globals snapshot.
+	// Used by Reset() to restore globals to their initial state.
+	initialGlobals []value.Value
+
+	// goroutines tracks active interpreter goroutines for this program.
+	goroutines *GoroutineTracker
+
 	// fpool recycles Frame objects to reduce heap allocations.
 	fpool framePool
 }
@@ -167,10 +116,10 @@ type extCallCacheEntry struct {
 }
 
 // newVM creates a new VM for executing the given program.
-func newVM(program *bytecode.Program) *vm {
+func newVM(program *bytecode.Program, initialGlobals []value.Value, goroutines *GoroutineTracker) *vm {
 	globals := make([]value.Value, len(program.Globals))
-	if len(program.InitialGlobals) == len(globals) {
-		copy(globals, program.InitialGlobals)
+	if len(initialGlobals) == len(globals) {
+		copy(globals, initialGlobals)
 	}
 	// Initialize external variable values
 	for idx, ptr := range program.ExternalVarValues {
@@ -179,20 +128,15 @@ func newVM(program *bytecode.Program) *vm {
 		}
 	}
 
-	// Register the method resolver for compiled method calls from DirectCall wrappers
-	// (e.g., fmt.Stringer detection). This captures the program reference so the
-	// resolver can search the compiled function table for matching methods.
-	value.SetMethodResolver(func(methodName string, receiver value.Value) (value.Value, bool) {
-		return resolveCompiledMethod(program, methodName, receiver)
-	})
-
 	return &vm{
-		program: program,
-		stack:   make([]value.Value, 1024), // initial stack size
-		sp:      0,
-		frames:  make([]*Frame, 64), // max call depth
-		fp:      0,
-		globals: globals,
+		program:        program,
+		stack:          make([]value.Value, 1024), // initial stack size
+		sp:             0,
+		frames:         make([]*Frame, 64), // max call depth
+		fp:             0,
+		globals:        globals,
+		initialGlobals: initialGlobals,
+		goroutines:     goroutines,
 		extCallCache: &externalCallCache{
 			cache: make([]*extCallCacheEntry, len(program.Constants)),
 		},
@@ -217,8 +161,8 @@ func (v *vm) Reset() {
 		return
 	}
 	// Stateless mode: restore globals to post-init snapshot, or zero them.
-	if len(v.program.InitialGlobals) == len(v.globals) {
-		copy(v.globals, v.program.InitialGlobals)
+	if len(v.initialGlobals) == len(v.globals) {
+		copy(v.globals, v.initialGlobals)
 	} else {
 		for i := range v.globals {
 			v.globals[i] = value.Value{}
@@ -319,9 +263,9 @@ func resolveCompiledMethod(program *bytecode.Program, methodName string, receive
 				cache: make([]*extCallCacheEntry, len(program.Constants)),
 			},
 		}
-		if len(program.InitialGlobals) == len(tempVM.globals) {
-			copy(tempVM.globals, program.InitialGlobals)
-		}
+		// Note: tempVM does not have initialGlobals since resolveCompiledMethod
+		// is called without a VM context. This is acceptable because method resolution
+		// only needs to execute the method, not full program init.
 		tempVM.callFunction(fn, []value.Value{receiver}, nil)
 		result, err := tempVM.run()
 		if err != nil {
@@ -340,10 +284,10 @@ type VMPool struct {
 }
 
 // NewVMPool creates a VM pool for the given program.
-func NewVMPool(program *bytecode.Program) *VMPool {
+func NewVMPool(program *bytecode.Program, initialGlobals []value.Value, goroutines *GoroutineTracker) *VMPool {
 	return &VMPool{
 		newVM: func() *vm {
-			return newVM(program)
+			return newVM(program, initialGlobals, goroutines)
 		},
 	}
 }
