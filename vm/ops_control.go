@@ -1,0 +1,297 @@
+package vm
+
+import (
+	"fmt"
+	"reflect"
+
+	"git.woa.com/youngjin/gig/bytecode"
+	"git.woa.com/youngjin/gig/value"
+)
+
+// executeControl handles control flow (jump, return), channels, select,
+// defer, panic/recover, print, and halt opcodes.
+func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx
+	switch op {
+	case bytecode.OpJump:
+		offset := frame.readUint16()
+		frame.ip = int(offset)
+
+	case bytecode.OpJumpTrue:
+		offset := frame.readUint16()
+		cond := v.pop()
+		if cond.Bool() {
+			frame.ip = int(offset)
+		}
+
+	case bytecode.OpJumpFalse:
+		offset := frame.readUint16()
+		cond := v.pop()
+		if !cond.Bool() {
+			frame.ip = int(offset)
+		}
+
+	case bytecode.OpReturn:
+		// Pop frame and return it to pool
+		v.fpool.put(frame)
+		v.fp--
+		if v.fp > 0 {
+			// Restore stack pointer
+			prevFrame := v.frames[v.fp-1]
+			v.sp = prevFrame.basePtr
+		}
+		// Push nil for void returns (SSA may expect a value)
+		v.push(value.MakeNil())
+
+	case bytecode.OpReturnVal:
+		// Save return value
+		retVal := v.pop()
+		// Pop frame and return it to pool
+		v.fpool.put(frame)
+		v.fp--
+		if v.fp > 0 {
+			// Restore stack pointer
+			prevFrame := v.frames[v.fp-1]
+			v.sp = prevFrame.basePtr
+		}
+		// Push return value
+		v.push(retVal)
+
+	case bytecode.OpSend:
+		val := v.pop()
+		ch := v.pop()
+		if err := ch.SendContext(v.ctx, val); err != nil {
+			return err
+		}
+
+	case bytecode.OpRecv:
+		ch := v.pop()
+		val, _, err := ch.RecvContext(v.ctx)
+		if err != nil {
+			return err
+		}
+		v.push(val)
+
+	case bytecode.OpRecvOk:
+		// Receive with comma-ok: returns (value, ok) tuple
+		ch := v.pop()
+		val, recvOK, err := ch.RecvContext(v.ctx)
+		if err != nil {
+			return err
+		}
+		// Push as tuple (value, ok)
+		tuple := []value.Value{val, value.MakeBool(recvOK)}
+		v.push(value.FromInterface(tuple))
+
+	case bytecode.OpClose:
+		ch := v.pop()
+		ch.Close()
+
+	case bytecode.OpSelect:
+		// OpSelect performs a select statement using reflect.Select.
+		// Operands: [meta_idx:2]
+		// Stack (bottom to top): for each state, Chan; if send, also SendVal.
+		// Result pushed: tuple (index, recvOk, recv_0, ..., recv_{n-1})
+		metaIdx := frame.readUint16()
+		meta, ok := v.program.Constants[metaIdx].(bytecode.SelectMeta)
+		if !ok {
+			return fmt.Errorf("OpSelect: invalid meta at index %d", metaIdx)
+		}
+
+		// Pop channels and send values from stack (they were pushed in order,
+		// so we need to pop in reverse).
+		type stateData struct {
+			ch      value.Value
+			sendVal value.Value
+			isSend  bool
+		}
+		states := make([]stateData, meta.NumStates)
+		// Pop in reverse order
+		for i := meta.NumStates - 1; i >= 0; i-- {
+			if meta.Dirs[i] { // send
+				states[i].sendVal = v.pop()
+				states[i].ch = v.pop()
+				states[i].isSend = true
+			} else { // recv
+				states[i].ch = v.pop()
+			}
+		}
+
+		// Build reflect.SelectCase slice
+		// Add 1 for default case (non-blocking) or context cancellation case (blocking)
+		numCases := meta.NumStates + 1
+		cases := make([]reflect.SelectCase, numCases)
+		for i := 0; i < meta.NumStates; i++ {
+			rv, _ := states[i].ch.ReflectValue()
+			if states[i].isSend {
+				sendRV := states[i].sendVal.ToReflectValue(rv.Type().Elem())
+				cases[i] = reflect.SelectCase{
+					Dir:  reflect.SelectSend,
+					Chan: rv,
+					Send: sendRV,
+				}
+			} else {
+				cases[i] = reflect.SelectCase{
+					Dir:  reflect.SelectRecv,
+					Chan: rv,
+				}
+			}
+		}
+		if !meta.Blocking {
+			cases[meta.NumStates] = reflect.SelectCase{Dir: reflect.SelectDefault}
+		} else {
+			// Inject context cancellation case for blocking select
+			cases[meta.NumStates] = reflect.SelectCase{
+				Dir:  reflect.SelectRecv,
+				Chan: reflect.ValueOf(v.ctx.Done()),
+			}
+		}
+
+		// Perform the select
+		chosen, recv, recvOK := reflect.Select(cases)
+
+		// Check if context was cancelled (chosen == meta.NumStates in blocking mode)
+		if meta.Blocking && chosen == meta.NumStates {
+			return v.ctx.Err()
+		}
+
+		// Adjust chosen index: if default was selected, chosen == meta.NumStates → map to -1
+		if !meta.Blocking && chosen == meta.NumStates {
+			chosen = -1
+		}
+
+		// Build result tuple: (index, recvOk, recv_0, ..., recv_{n-1})
+		tupleLen := 2 + meta.NumRecv
+		tuple := make([]value.Value, tupleLen)
+		tuple[0] = value.MakeInt(int64(chosen))
+		tuple[1] = value.MakeBool(recvOK)
+
+		// Fill recv values: for each recv state (in order), if it was the chosen one, set the value
+		recvIdx := 0
+		for i := 0; i < meta.NumStates; i++ {
+			if !meta.Dirs[i] { // recv state
+				if i == chosen {
+					tuple[2+recvIdx] = value.MakeFromReflect(recv)
+				} else {
+					tuple[2+recvIdx] = value.MakeNil()
+				}
+				recvIdx++
+			}
+		}
+
+		v.push(value.FromInterface(tuple))
+
+	// Defer/recover
+	case bytecode.OpDefer:
+		funcIdx := frame.readUint16()
+		fn := v.program.FuncByIndex[funcIdx]
+		numArgs := fn.NumParams
+
+		// Pop arguments from stack
+		args := make([]value.Value, numArgs)
+		for i := numArgs - 1; i >= 0; i-- {
+			args[i] = v.pop()
+		}
+
+		// Add to defer list (will be executed in LIFO order on return)
+		frame.defers = append(frame.defers, DeferInfo{
+			fn:   fn,
+			args: args,
+		})
+
+	case bytecode.OpDeferIndirect:
+		numArgs := int(frame.readUint16())
+
+		// Pop arguments from stack (pushed after closure)
+		args := make([]value.Value, numArgs)
+		for i := numArgs - 1; i >= 0; i-- {
+			args[i] = v.pop()
+		}
+
+		// Pop closure from stack
+		closureVal := v.pop()
+		closure, ok := closureVal.RawObj().(*Closure)
+		if !ok {
+			return nil
+		}
+
+		// Add to defer list with closure
+		frame.defers = append(frame.defers, DeferInfo{
+			fn:      closure.Fn,
+			args:    args,
+			closure: closure,
+		})
+
+	case bytecode.OpRunDefers:
+		// Execute all pending deferred calls synchronously in LIFO order.
+		// This is critical for named return values: the code after RunDefers
+		// reads the (potentially modified) return values.
+		for len(frame.defers) > 0 {
+			// Pop the last defer (LIFO)
+			d := frame.defers[len(frame.defers)-1]
+			frame.defers = frame.defers[:len(frame.defers)-1]
+
+			// Get free variables from closure if present
+			var freeVars []*value.Value
+			if d.closure != nil {
+				freeVars = d.closure.FreeVars
+			}
+
+			// Execute the deferred function synchronously using a child VM
+			// that shares the same globals/context/program. This avoids
+			// interference with the parent frame stack.
+			childVM := &vm{
+				program:      v.program,
+				stack:        make([]value.Value, 256),
+				sp:           0,
+				frames:       make([]*Frame, 64),
+				fp:           0,
+				globals:      v.globals,
+				globalsPtr:   v.globalsPtr,
+				ctx:          v.ctx,
+				extCallCache: v.extCallCache,
+			}
+			deferFrame := newFrame(d.fn, 0, d.args, freeVars)
+			childVM.frames[0] = deferFrame
+			childVM.fp = 1
+			_, _ = childVM.run()
+		}
+
+	case bytecode.OpRecover:
+		// Recover from panic
+		if v.panicking {
+			v.push(v.panicVal)
+			v.panicking = false
+			v.panicVal = value.MakeNil()
+		} else {
+			v.push(value.MakeNil())
+		}
+
+	case bytecode.OpPanic:
+		msg := v.pop()
+		v.panicking = true
+		v.panicVal = msg
+
+	case bytecode.OpPrint:
+		n := frame.readByte()
+		for i := 0; i < int(n); i++ {
+			val := v.pop()
+			fmt.Print(val.Interface())
+		}
+
+	case bytecode.OpPrintln:
+		n := frame.readByte()
+		args := make([]any, n)
+		for i := int(n) - 1; i >= 0; i-- {
+			args[i] = v.pop().Interface()
+		}
+		fmt.Println(args...)
+
+	case bytecode.OpHalt:
+		return fmt.Errorf("halt")
+
+	default:
+		return fmt.Errorf("unknown opcode: %v", op)
+	}
+
+	return nil
+}

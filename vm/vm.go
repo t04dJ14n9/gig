@@ -192,8 +192,8 @@ func (v *vm) Globals() []value.Value {
 }
 
 // resolveCompiledMethod finds a compiled method in the program's function table
-// and executes it with the given receiver.
-func resolveCompiledMethod(program *bytecode.Program, methodName string, receiver value.Value) (value.Value, bool) {
+// ResolveCompiledMethod searches for a compiled method and executes it with the given receiver.
+func ResolveCompiledMethod(program *bytecode.Program, methodName string, receiver value.Value) (value.Value, bool) {
 	rv, ok := receiver.ReflectValue()
 	if !ok {
 		return value.MakeNil(), false

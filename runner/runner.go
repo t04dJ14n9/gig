@@ -9,6 +9,7 @@ import (
 	"context"
 	"sync"
 	"time"
+	"unsafe"
 
 	"git.woa.com/youngjin/gig/bytecode"
 	"git.woa.com/youngjin/gig/value"
@@ -73,6 +74,13 @@ func New(program *bytecode.Program, initialGlobals []value.Value, opts ...Runner
 			copy(r.sharedGlobals, initialGlobals)
 		}
 	}
+
+	// Register per-program method resolver for fmt.Stringer support.
+	// Uses program pointer as unique key. Thread-safe via sync.Map.
+	progKey := uintptr(unsafe.Pointer(program))
+	value.RegisterMethodResolver(progKey, func(methodName string, receiver value.Value) (value.Value, bool) {
+		return vm.ResolveCompiledMethod(program, methodName, receiver)
+	})
 
 	return r
 }
