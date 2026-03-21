@@ -477,3 +477,11 @@ func (v Value) ValueSlice() ([]Value, bool) {
 func (v Value) GoString() string {
 	return fmt.Sprintf("value.Value{kind:%v, num:%d, obj:%v}", v.kind, v.num, v.obj)
 }
+
+// ClosureExecutor is implemented by closure objects that can be executed.
+// This interface breaks the circular dependency between value/ and vm/ —
+// vm.Closure implements it, and value.ToReflectValue uses it to convert
+// closures into real Go functions via reflect.MakeFunc.
+type ClosureExecutor interface {
+	Execute(args []reflect.Value, outTypes []reflect.Type) []reflect.Value
+}

@@ -8,36 +8,15 @@ import (
 
 // MethodResolverFunc is a callback for calling compiled methods on interpreted types.
 // It receives a method name and receiver value, and returns the result if found.
-// This is set by the vm package during initialization.
 type MethodResolverFunc func(methodName string, receiver Value) (Value, bool)
 
-// closureCaller is the registered callback for executing closures.
-// Set by vm package via SetClosureCaller.
-var closureCaller func(closure any, args []reflect.Value, outTypes []reflect.Type) []reflect.Value //nolint:gochecknoglobals
-
-// SetClosureCaller registers the closure execution callback.
-// This must be called by the vm package before any closure-to-func conversion occurs.
-func SetClosureCaller(caller func(closure any, args []reflect.Value, outTypes []reflect.Type) []reflect.Value) {
-	closureCaller = caller
-}
-
-// methodResolver is the registered callback for resolving compiled methods.
-// Set by vm package via SetMethodResolver.
-var methodResolver MethodResolverFunc //nolint:gochecknoglobals
-
-// SetMethodResolver registers the method resolution callback.
-// This must be called by the vm package before any method resolution occurs.
-func SetMethodResolver(resolver MethodResolverFunc) {
-	methodResolver = resolver
-}
-
-// CallMethod attempts to call a compiled method on the receiver using the registered resolver.
+// CallMethod attempts to call a compiled method on the receiver using the given resolver.
 // Returns (result, true) if the method was found and called, or (zero, false) otherwise.
-func CallMethod(methodName string, receiver Value) (Value, bool) {
-	if methodResolver == nil {
+func CallMethod(resolver MethodResolverFunc, methodName string, receiver Value) (Value, bool) {
+	if resolver == nil {
 		return MakeNil(), false
 	}
-	return methodResolver(methodName, receiver)
+	return resolver(methodName, receiver)
 }
 
 // Bool returns the bool value. Panics if not KindBool.
@@ -185,31 +164,32 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 		// If the target type is a function type, wrap the closure in a real Go function
 		// using reflect.MakeFunc. This allows closures to be stored in typed containers
 		// (maps, struct fields) that expect concrete function types like func() int.
-		if typ.Kind() == reflect.Func && closureCaller != nil {
-			closure := v.obj
-			numOut := typ.NumOut()
-			outTypes := make([]reflect.Type, numOut)
-			for i := 0; i < numOut; i++ {
-				outTypes[i] = typ.Out(i)
-			}
-			fn := reflect.MakeFunc(typ, func(args []reflect.Value) []reflect.Value {
-				results := closureCaller(closure, args, outTypes)
-				// Convert results to match the expected return types
-				out := make([]reflect.Value, numOut)
+		if typ.Kind() == reflect.Func {
+			if ce, ok := v.obj.(ClosureExecutor); ok {
+				numOut := typ.NumOut()
+				outTypes := make([]reflect.Type, numOut)
 				for i := 0; i < numOut; i++ {
-					if i < len(results) && results[i].IsValid() {
-						if results[i].Type().ConvertibleTo(outTypes[i]) {
-							out[i] = results[i].Convert(outTypes[i])
-						} else {
-							out[i] = results[i]
-						}
-					} else {
-						out[i] = reflect.Zero(outTypes[i])
-					}
+					outTypes[i] = typ.Out(i)
 				}
-				return out
-			})
-			return fn
+				fn := reflect.MakeFunc(typ, func(args []reflect.Value) []reflect.Value {
+					results := ce.Execute(args, outTypes)
+					// Convert results to match the expected return types
+					out := make([]reflect.Value, numOut)
+					for i := 0; i < numOut; i++ {
+						if i < len(results) && results[i].IsValid() {
+							if results[i].Type().ConvertibleTo(outTypes[i]) {
+								out[i] = results[i].Convert(outTypes[i])
+							} else {
+								out[i] = results[i]
+							}
+						} else {
+							out[i] = reflect.Zero(outTypes[i])
+						}
+					}
+					return out
+				})
+				return fn
+			}
 		}
 		return reflect.ValueOf(v.obj)
 	case KindBytes:
