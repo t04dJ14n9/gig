@@ -28,6 +28,8 @@ func init() {
 
 	// Method DirectCalls
 	pkg.AddMethodDirectCall("Regexp", "Copy", direct_method_regexp_Regexp_Copy)
+	pkg.AddMethodDirectCall("Regexp", "Expand", direct_method_regexp_Regexp_Expand)
+	pkg.AddMethodDirectCall("Regexp", "ExpandString", direct_method_regexp_Regexp_ExpandString)
 	pkg.AddMethodDirectCall("Regexp", "Find", direct_method_regexp_Regexp_Find)
 	pkg.AddMethodDirectCall("Regexp", "FindAll", direct_method_regexp_Regexp_FindAll)
 	pkg.AddMethodDirectCall("Regexp", "FindAllIndex", direct_method_regexp_Regexp_FindAllIndex)
@@ -127,6 +129,92 @@ func direct_regexp_QuoteMeta(args []value.Value) value.Value {
 func direct_method_regexp_Regexp_Copy(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp.Regexp)
 	return value.FromInterface(recv.Copy())
+}
+
+func direct_method_regexp_Regexp_Expand(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
+	}()
+	a1 := func() []byte {
+		if b, ok := (args[2]).Bytes(); ok {
+			return b
+		}
+		v := (args[2]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
+	}()
+	a2 := func() []byte {
+		if b, ok := (args[3]).Bytes(); ok {
+			return b
+		}
+		v := (args[3]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
+	}()
+	var _back3 []int64
+	var a3 []int
+	if _s, _ok := args[4].IntSlice(); _ok {
+		_back3 = _s
+		a3 = make([]int, len(_s))
+		for _i, _v := range _s {
+			a3[_i] = int(_v)
+		}
+	} else {
+		a3 = args[4].Interface().([]int)
+	}
+	_ret := recv.Expand(a0, a1, a2, a3)
+	if _back3 != nil {
+		for _i, _v := range a3 {
+			_back3[_i] = int64(_v)
+		}
+	}
+	return value.MakeBytes([]byte(_ret))
+}
+
+func direct_method_regexp_Regexp_ExpandString(args []value.Value) value.Value {
+	recv := args[0].Interface().(*regexp.Regexp)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
+	}()
+	a1 := args[2].String()
+	a2 := args[3].String()
+	var _back3 []int64
+	var a3 []int
+	if _s, _ok := args[4].IntSlice(); _ok {
+		_back3 = _s
+		a3 = make([]int, len(_s))
+		for _i, _v := range _s {
+			a3[_i] = int(_v)
+		}
+	} else {
+		a3 = args[4].Interface().([]int)
+	}
+	_ret := recv.ExpandString(a0, a1, a2, a3)
+	if _back3 != nil {
+		for _i, _v := range a3 {
+			_back3[_i] = int64(_v)
+		}
+	}
+	return value.MakeBytes([]byte(_ret))
 }
 
 func direct_method_regexp_Regexp_Find(args []value.Value) value.Value {

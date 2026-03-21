@@ -858,14 +858,14 @@ func (v *vm) run() (value.Value, error) {
 				if err := v.executeOp(bytecode.OpIndexAddr, frame); err != nil {
 					return value.MakeNil(), err
 				}
-			if err := v.executeOp(bytecode.OpDeref, frame); err != nil {
-				return value.MakeNil(), err
-			}
-			ret := v.pop()
-			intLocals[vIdx] = ret.RawInt()
-			locals[vIdx] = ret
-			sp = v.sp
-			stack = v.stack
+				if err := v.executeOp(bytecode.OpDeref, frame); err != nil {
+					return value.MakeNil(), err
+				}
+				ret := v.pop()
+				intLocals[vIdx] = ret.RawInt()
+				locals[vIdx] = ret
+				sp = v.sp
+				stack = v.stack
 			}
 			continue
 

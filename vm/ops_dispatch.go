@@ -1,11 +1,11 @@
 package vm
 
 import (
-"go/types"
-"reflect"
+	"go/types"
+	"reflect"
 
-"git.woa.com/youngjin/gig/bytecode"
-"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/bytecode"
+	"git.woa.com/youngjin/gig/value"
 )
 
 // executeOp executes a single bytecode instruction.

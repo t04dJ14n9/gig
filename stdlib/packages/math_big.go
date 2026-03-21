@@ -137,6 +137,7 @@ func init() {
 	pkg.AddMethodDirectCall("Int", "Scan", direct_method_math_big_Int_Scan)
 	pkg.AddMethodDirectCall("Int", "Set", direct_method_math_big_Int_Set)
 	pkg.AddMethodDirectCall("Int", "SetBit", direct_method_math_big_Int_SetBit)
+	pkg.AddMethodDirectCall("Int", "SetBits", direct_method_math_big_Int_SetBits)
 	pkg.AddMethodDirectCall("Int", "SetBytes", direct_method_math_big_Int_SetBytes)
 	pkg.AddMethodDirectCall("Int", "SetInt64", direct_method_math_big_Int_SetInt64)
 	pkg.AddMethodDirectCall("Int", "SetString", direct_method_math_big_Int_SetString)
@@ -847,6 +848,28 @@ func direct_method_math_big_Int_SetBit(args []value.Value) value.Value {
 	a1 := int(args[2].Int())
 	a2 := uint(args[3].Uint())
 	return value.FromInterface(recv.SetBit(a0, a1, a2))
+}
+
+func direct_method_math_big_Int_SetBits(args []value.Value) value.Value {
+	recv := args[0].Interface().(*math_big.Int)
+	var _back0 []int64
+	var a0 []math_big.Word
+	if _s, _ok := args[1].IntSlice(); _ok {
+		_back0 = _s
+		a0 = make([]math_big.Word, len(_s))
+		for _i, _v := range _s {
+			a0[_i] = math_big.Word(_v)
+		}
+	} else {
+		a0 = args[1].Interface().([]math_big.Word)
+	}
+	_ret := recv.SetBits(a0)
+	if _back0 != nil {
+		for _i, _v := range a0 {
+			_back0[_i] = int64(_v)
+		}
+	}
+	return value.FromInterface(_ret)
 }
 
 func direct_method_math_big_Int_SetBytes(args []value.Value) value.Value {

@@ -183,7 +183,7 @@ func PassMultiReturnToFunc() int {
 	return addPair(pair())
 }
 
-func pair() (int, int) { return 10, 20 }
+func pair() (int, int)     { return 10, 20 }
 func addPair(a, b int) int { return a + b }
 
 // ChainMultiReturn tests one function returning another's multi-return

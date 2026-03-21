@@ -147,7 +147,10 @@ func FuzzFloatNarrowing(f *testing.F) {
 // ============================================================================
 
 func FuzzBitwise(f *testing.F) {
-	seeds := []struct{ a uint64; b uint64 }{
+	seeds := []struct {
+		a uint64
+		b uint64
+	}{
 		{0, 0}, {1, 0}, {0, 1}, {1, 1},
 		{0xff, 0x00}, {0xff, 0xff}, {0xaa, 0x55},
 		{1 << 63, 1 << 63}, {1<<63 - 1, 1},
@@ -257,7 +260,10 @@ func FuzzStringOps(f *testing.F) {
 // ============================================================================
 
 func FuzzMapOps(f *testing.F) {
-	seeds := []struct{ ki, vi int; ks, vs string }{
+	seeds := []struct {
+		ki, vi int
+		ks, vs string
+	}{
 		{1, 100, "a", "x"}, {0, 0, "", ""}, {-1, -100, "key", "value"},
 	}
 	for _, s := range seeds {
@@ -346,10 +352,10 @@ func FuzzChannelOps(f *testing.F) {
 func FuzzSliceOps(f *testing.F) {
 	// Go fuzz only supports basic types (int, uint, float, bool, string, []byte).
 	// We use two int arguments: n controls the size, seed controls content.
-	f.Add(0, 0)   // empty slice
-	f.Add(1, 0)   // one element
-	f.Add(3, 1)   // slice with 3 elements, idx=1
-	f.Add(10, 5)  // medium slice
+	f.Add(0, 0)    // empty slice
+	f.Add(1, 0)    // one element
+	f.Add(3, 1)    // slice with 3 elements, idx=1
+	f.Add(10, 5)   // medium slice
 	f.Add(100, 50) // large slice
 
 	f.Fuzz(func(t *testing.T, n int, seed int) {

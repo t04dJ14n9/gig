@@ -23,10 +23,10 @@ var knownIssuesSrc string
 
 // KnownIssue represents a test case for a known bug.
 type KnownIssue struct {
-	funcName string        // function name in embedded source
-	native   func() any    // native Go function for comparison
-	issue    string       // bug description
-	panics   bool          // true if interpreter panics (vs. wrong result)
+	funcName string     // function name in embedded source
+	native   func() any // native Go function for comparison
+	issue    string     // bug description
+	panics   bool       // true if interpreter panics (vs. wrong result)
 }
 
 // runKnownIssueTest runs a single known-issue test.

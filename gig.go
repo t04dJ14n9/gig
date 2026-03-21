@@ -17,13 +17,6 @@
 //  2. VM (gig/vm) - Stack-based virtual machine for bytecode execution
 //  3. Value (gig/value) - Tagged-union value system for efficient type handling
 //
-// # Security Model
-//
-// For safety in embedded contexts, Gig bans:
-//   - "unsafe" package - prevents raw memory access
-//   - "reflect" package - prevents type introspection bypass
-//   - "panic" builtin - prevents uncontrolled control flow
-//
 // # Example Usage
 //
 // Basic usage with built-in standard library:

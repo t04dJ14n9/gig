@@ -455,10 +455,11 @@ linters:
       - path: (.+)\.go$
         linters:
           - staticcheck
-      # Exclude govet shadow issues
+      # Exclude govet shadow issues (specific text match, not blanket)
       - path: (.+)\.go$
         linters:
           - govet
+        text: "shadow"
       # Exclude gosec for all files (handled separately)
       - path: (.+)\.go$
         linters:

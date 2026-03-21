@@ -374,6 +374,7 @@ func init() {
 ```
 
 Each registered package provides:
+
 - **Functions**: the function value, its `go/types` signature (resolved from `reflect.Type`), and optionally a DirectCall wrapper
 - **Types**: the `reflect.Type`, converted to `types.Named` with all exported methods added
 - **Variables and constants**: registered similarly
@@ -432,19 +433,45 @@ The receiver is extracted via a type assertion on `Value.Interface()` — still 
 
 The code generator (`gentool/directcall.go`) handles a wide range of parameter types:
 
-| Type | Extraction |
-|---|---|
+| Type                               | Extraction                                   |
+| ---------------------------------- | -------------------------------------------- |
 | `string`, `int`, `bool`, `float64` | `.String()`, `.Int()`, `.Bool()`, `.Float()` |
-| `[]byte` | `.Bytes()` |
-| `io.Reader`, `error` | `.Interface().(io.Reader)` |
-| `*bytes.Buffer` | `.Interface().(*bytes.Buffer)` |
-| `*int32`, `*int64` | `.Interface().(*int32)` |
-| `map[string]bool` | `.Interface().(map[string]bool)` |
-| `any` / `interface{}` | `.Interface()` |
+| `[]byte`                           | `.Bytes()`                                   |
+| `io.Reader`, `error`               | `.Interface().(io.Reader)`                   |
+| `*bytes.Buffer`                    | `.Interface().(*bytes.Buffer)`               |
+| `*int32`, `*int64`                 | `.Interface().(*int32)`                      |
+| `map[string]bool`                  | `.Interface().(map[string]bool)`             |
+| `any` / `interface{}`              | `.Interface()`                               |
 
 Functions with `unsafe.Pointer` parameters or certain complex variadic signatures are left on the reflection path — about 8% of stdlib functions.
 
 In total: **1,162 wrappers** (619 functions + 543 methods) across 20 standard library packages, covering 92% of the standard library surface.
+
+### Fmt Package Sanitization
+
+The `fmt` package requires special handling because Gig's internal `Value` structs would otherwise print as verbose Go struct literals. The solution is **embedded sanitization helpers** in the generated `fmt.go`:
+
+```go
+// Generated into fmt.go by gentool
+func sanitizeArgForFmt(arg any) any {
+    if isGigStruct(arg) {
+        return gigStructFormatter{val: arg}
+    }
+    return arg
+}
+
+func sprintfWithTypeAwareness(format string, args ...any) string {
+    // Wraps args through sanitizeArgForFmt before calling fmt.Sprintf
+}
+```
+
+The generated DirectCall wrappers for `fmt.Sprintf`, `fmt.Printf`, etc. use `sprintfWithTypeAwareness` instead of the raw functions. This ensures that:
+
+- Gig `Value` structs print as their wrapped values (e.g., `42` instead of `value.Value{kind: 1, num: 42, ...}`)
+- Maps and slices print in standard Go syntax
+- No reflection is used in the hot path
+
+The sanitization code is **fully generated** by `gentool` via `fmtSanitizeHelperCode()`, eliminating the need for a separate hand-maintained support file.
 
 ### Inline Caching
 
@@ -499,13 +526,13 @@ This eliminates 3 dispatch cycles, 2 stack pushes, and 2 stack pops. The operand
 
 The optimizer recognizes **17 patterns**, including:
 
-| Pattern | Fused Opcode |
-|---|---|
-| `LOCAL(A) LOCAL(B) ADD SETLOCAL(C)` | `OpLocalLocalAddSetLocal(A,B,C)` |
-| `LOCAL(A) CONST(B) ADD SETLOCAL(C)` | `OpLocalConstAddSetLocal(A,B,C)` |
-| `LOCAL(A) CONST(B) LESS JUMPTRUE(off)` | `OpLessLocalConstJumpTrue(A,B,off)` |
+| Pattern                                   | Fused Opcode                           |
+| ----------------------------------------- | -------------------------------------- |
+| `LOCAL(A) LOCAL(B) ADD SETLOCAL(C)`       | `OpLocalLocalAddSetLocal(A,B,C)`       |
+| `LOCAL(A) CONST(B) ADD SETLOCAL(C)`       | `OpLocalConstAddSetLocal(A,B,C)`       |
+| `LOCAL(A) CONST(B) LESS JUMPTRUE(off)`    | `OpLessLocalConstJumpTrue(A,B,off)`    |
 | `LOCAL(A) CONST(B) LESSEQ JUMPFALSE(off)` | `OpLessEqLocalConstJumpFalse(A,B,off)` |
-| `ADD SETLOCAL(A)` | `OpAddSetLocal(A)` |
+| `ADD SETLOCAL(A)`                         | `OpAddSetLocal(A)`                     |
 
 The rewriting must be offset-aware: when instructions are shortened, all jump targets must be remapped. The optimizer builds an offset map after rewriting and adjusts every jump instruction.
 
@@ -624,6 +651,7 @@ func checkBannedImports(file *ast.File) error {
 ```
 
 By banning `unsafe` and `reflect` at the AST level, interpreted code cannot:
+
 - Read or write arbitrary memory
 - Circumvent type safety
 - Access unexported fields
@@ -661,6 +689,7 @@ We have described the architecture of a Go interpreter that takes a different pa
 The codebase is organized into clean layers: `bytecode/` as the shared kernel, `compiler/` and `vm/` as independent consumers, `value/` as the universal data representation, and `importer/` + `gentool/` bridging the gap to the host Go runtime. The whole thing compiles to a single binary with no external dependencies.
 
 Some areas remain for future work:
+
 - Register-based VM (eliminating stack traffic entirely)
 - JIT compilation for hot functions
 - Escape analysis for smarter frame pooling

@@ -82,5 +82,3 @@ func TextTabwriterInit() int {
 	}
 	return 0
 }
-
-

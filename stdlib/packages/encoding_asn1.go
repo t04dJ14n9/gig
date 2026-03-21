@@ -59,6 +59,7 @@ func init() {
 	// Method DirectCalls
 	pkg.AddMethodDirectCall("BitString", "At", direct_method_encoding_asn1_BitString_At)
 	pkg.AddMethodDirectCall("BitString", "RightAlign", direct_method_encoding_asn1_BitString_RightAlign)
+	pkg.AddMethodDirectCall("ObjectIdentifier", "Equal", direct_method_encoding_asn1_ObjectIdentifier_Equal)
 	pkg.AddMethodDirectCall("ObjectIdentifier", "String", direct_method_encoding_asn1_ObjectIdentifier_String)
 	pkg.AddMethodDirectCall("StructuralError", "Error", direct_method_encoding_asn1_StructuralError_Error)
 	pkg.AddMethodDirectCall("SyntaxError", "Error", direct_method_encoding_asn1_SyntaxError_Error)
@@ -120,6 +121,28 @@ func direct_method_encoding_asn1_BitString_At(args []value.Value) value.Value {
 func direct_method_encoding_asn1_BitString_RightAlign(args []value.Value) value.Value {
 	recv := args[0].Interface().(encoding_asn1.BitString)
 	return value.MakeBytes([]byte(recv.RightAlign()))
+}
+
+func direct_method_encoding_asn1_ObjectIdentifier_Equal(args []value.Value) value.Value {
+	recv := args[0].Interface().(encoding_asn1.ObjectIdentifier)
+	var _back0 []int64
+	var a0 []int
+	if _s, _ok := args[1].IntSlice(); _ok {
+		_back0 = _s
+		a0 = make([]int, len(_s))
+		for _i, _v := range _s {
+			a0[_i] = int(_v)
+		}
+	} else {
+		a0 = args[1].Interface().([]int)
+	}
+	_ret := recv.Equal(a0)
+	if _back0 != nil {
+		for _i, _v := range a0 {
+			_back0[_i] = int64(_v)
+		}
+	}
+	return value.MakeBool(_ret)
 }
 
 func direct_method_encoding_asn1_ObjectIdentifier_String(args []value.Value) value.Value {

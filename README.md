@@ -720,6 +720,18 @@ flowchart TB
 
 ## 更新日志
 
+### v0.3.0 - Fmt Sanitization Integration
+
+**改进**：`fmt` 包的参数清理逻辑现已完全集成到生成的代码中。
+
+此前，`fmt.Sprintf` 等函数在打印 Gig 结构体时会输出冗长的内部表示。此问题通过在生成的 `fmt.go` 中嵌入参数清理辅助函数（`sanitizeArgForFmt`、`sprintfWithTypeAwareness` 等）解决：
+
+- **`gentool/directcall.go`**：新增 `fmtSanitizeHelperCode()` 函数，返回参数清理辅助代码的 Go 源码字符串
+- **`gentool/generator.go`**：在生成 `fmt` 包时，将辅助代码嵌入到生成的文件中
+- **删除 `fmt_sanitize.go`**：不再需要单独维护的支持文件，所有代码均由 `gig gen` 生成
+
+现在 `fmt.go` 是一个完全生成的、自包含的文件，包含 DirectCall 包装器和参数清理辅助函数。
+
 ### v0.2.0 - 外部类型方法支持
 
 **修复**：现在完全支持外部（已注册）类型上的方法。

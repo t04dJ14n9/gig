@@ -18,9 +18,9 @@ import (
 	"git.woa.com/youngjin/gig/tests/testdata/arithmetic"
 	"git.woa.com/youngjin/gig/tests/testdata/autowrap"
 	"git.woa.com/youngjin/gig/tests/testdata/bitwise"
+	"git.woa.com/youngjin/gig/tests/testdata/channels"
 	"git.woa.com/youngjin/gig/tests/testdata/closures"
 	"git.woa.com/youngjin/gig/tests/testdata/closures_advanced"
-	"git.woa.com/youngjin/gig/tests/testdata/channels"
 	"git.woa.com/youngjin/gig/tests/testdata/controlflow"
 	"git.woa.com/youngjin/gig/tests/testdata/cornercases"
 	"git.woa.com/youngjin/gig/tests/testdata/edgecases"
@@ -62,7 +62,7 @@ func TestCorrectnessEdgecases(t *testing.T)     { runTestSet(t, testSetsMap["edg
 func TestCorrectnessExternal(t *testing.T)      { runTestSet(t, testSetsMap["external"]) }
 func TestCorrectnessFunctions(t *testing.T)     { runTestSet(t, testSetsMap["functions"]) }
 func TestCorrectnessGoroutine(t *testing.T)     { runTestSet(t, testSetsMap["goroutine"]) }
-func TestCorrectnessChannels(t *testing.T)       { runTestSet(t, testSetsMap["channels"]) }
+func TestCorrectnessChannels(t *testing.T)      { runTestSet(t, testSetsMap["channels"]) }
 func TestCorrectnessInit(t *testing.T)          { runTestSet(t, testSetsMap["init"]) }
 func TestCorrectnessLeetcodeHard(t *testing.T)  { runTestSet(t, testSetsMap["leetcode_hard"]) }
 func TestCorrectnessMaps(t *testing.T)          { runTestSet(t, testSetsMap["maps"]) }
@@ -646,37 +646,37 @@ var goroutineTests = map[string]testCase{
 }
 
 var channelsTests = map[string]testCase{
-	"ChannelBasic":             {channelsSrc, "ChannelBasic", nil, channels.ChannelBasic},
-	"ChannelBuffered":          {channelsSrc, "ChannelBuffered", nil, channels.ChannelBuffered},
-	"ChannelUnbuffered":        {channelsSrc, "ChannelUnbuffered", nil, channels.ChannelUnbuffered},
-	"ChannelClose":             {channelsSrc, "ChannelClose", nil, channels.ChannelClose},
-	"ChannelNil":               {channelsSrc, "ChannelNil", nil, channels.ChannelNil},
-	"SelectDefault":            {channelsSrc, "SelectDefault", nil, channels.SelectDefault},
-	"SelectSingleCase":         {channelsSrc, "SelectSingleCase", nil, channels.SelectSingleCase},
-	"SelectMultiCase":          {channelsSrc, "SelectMultiCase", nil, channels.SelectMultiCase},
-	"SelectSendReceive":        {channelsSrc, "SelectSendReceive", nil, channels.SelectSendReceive},
-	"SelectLoop":               {channelsSrc, "SelectLoop", nil, channels.SelectLoop},
-	"SelectMultipleChannels":   {channelsSrc, "SelectMultipleChannels", nil, channels.SelectMultipleChannels},
+	"ChannelBasic":            {channelsSrc, "ChannelBasic", nil, channels.ChannelBasic},
+	"ChannelBuffered":         {channelsSrc, "ChannelBuffered", nil, channels.ChannelBuffered},
+	"ChannelUnbuffered":       {channelsSrc, "ChannelUnbuffered", nil, channels.ChannelUnbuffered},
+	"ChannelClose":            {channelsSrc, "ChannelClose", nil, channels.ChannelClose},
+	"ChannelNil":              {channelsSrc, "ChannelNil", nil, channels.ChannelNil},
+	"SelectDefault":           {channelsSrc, "SelectDefault", nil, channels.SelectDefault},
+	"SelectSingleCase":        {channelsSrc, "SelectSingleCase", nil, channels.SelectSingleCase},
+	"SelectMultiCase":         {channelsSrc, "SelectMultiCase", nil, channels.SelectMultiCase},
+	"SelectSendReceive":       {channelsSrc, "SelectSendReceive", nil, channels.SelectSendReceive},
+	"SelectLoop":              {channelsSrc, "SelectLoop", nil, channels.SelectLoop},
+	"SelectMultipleChannels":  {channelsSrc, "SelectMultipleChannels", nil, channels.SelectMultipleChannels},
 	"ChannelDirectionSend":    {channelsSrc, "ChannelDirectionSend", nil, channels.ChannelDirectionSend},
-	"ChannelDirectionReceive":   {channelsSrc, "ChannelDirectionReceive", nil, channels.ChannelDirectionReceive},
-	"ChannelStruct":            {channelsSrc, "ChannelStruct", nil, channels.ChannelStruct},
-	"ChannelStructPointer":     {channelsSrc, "ChannelStructPointer", nil, channels.ChannelStructPointer},
-	"SliceOfChannels":          {channelsSrc, "SliceOfChannels", nil, channels.SliceOfChannels},
-	"MapOfChannels":             {channelsSrc, "MapOfChannels", nil, channels.MapOfChannels},
-	"ChannelDeadlock":          {channelsSrc, "ChannelDeadlock", nil, channels.ChannelDeadlock},
-	"SelectAllBlocked":         {channelsSrc, "SelectAllBlocked", nil, channels.SelectAllBlocked},
-	"SelectClosedChannel":      {channelsSrc, "SelectClosedChannel", nil, channels.SelectClosedChannel},
-	"SelectNilChannel":         {channelsSrc, "SelectNilChannel", nil, channels.SelectNilChannel},
-	"ChannelPipeline":          {channelsSrc, "ChannelPipeline", nil, channels.ChannelPipeline},
-	"SelectWithAssignment":     {channelsSrc, "SelectWithAssignment", nil, channels.SelectWithAssignment},
-	"SelectBreak":              {channelsSrc, "SelectBreak", nil, channels.SelectBreak},
-	"SelectContinue":           {channelsSrc, "SelectContinue", nil, channels.SelectContinue},
-	"ChannelFullCap":           {channelsSrc, "ChannelFullCap", nil, channels.ChannelFullCap},
-	"ChannelEmptyCap":          {channelsSrc, "ChannelEmptyCap", nil, channels.ChannelEmptyCap},
-	"SelectMutex":              {channelsSrc, "SelectMutex", nil, channels.SelectMutex},
-	"ChannelTwoWay":            {channelsSrc, "ChannelTwoWay", nil, channels.ChannelTwoWay},
-	"ChannelFanIn":             {channelsSrc, "ChannelFanIn", nil, channels.ChannelFanIn},
-	"ChannelBufferedsize":       {channelsSrc, "ChannelBufferedsize", nil, channels.ChannelBufferedsize},
+	"ChannelDirectionReceive": {channelsSrc, "ChannelDirectionReceive", nil, channels.ChannelDirectionReceive},
+	"ChannelStruct":           {channelsSrc, "ChannelStruct", nil, channels.ChannelStruct},
+	"ChannelStructPointer":    {channelsSrc, "ChannelStructPointer", nil, channels.ChannelStructPointer},
+	"SliceOfChannels":         {channelsSrc, "SliceOfChannels", nil, channels.SliceOfChannels},
+	"MapOfChannels":           {channelsSrc, "MapOfChannels", nil, channels.MapOfChannels},
+	"ChannelDeadlock":         {channelsSrc, "ChannelDeadlock", nil, channels.ChannelDeadlock},
+	"SelectAllBlocked":        {channelsSrc, "SelectAllBlocked", nil, channels.SelectAllBlocked},
+	"SelectClosedChannel":     {channelsSrc, "SelectClosedChannel", nil, channels.SelectClosedChannel},
+	"SelectNilChannel":        {channelsSrc, "SelectNilChannel", nil, channels.SelectNilChannel},
+	"ChannelPipeline":         {channelsSrc, "ChannelPipeline", nil, channels.ChannelPipeline},
+	"SelectWithAssignment":    {channelsSrc, "SelectWithAssignment", nil, channels.SelectWithAssignment},
+	"SelectBreak":             {channelsSrc, "SelectBreak", nil, channels.SelectBreak},
+	"SelectContinue":          {channelsSrc, "SelectContinue", nil, channels.SelectContinue},
+	"ChannelFullCap":          {channelsSrc, "ChannelFullCap", nil, channels.ChannelFullCap},
+	"ChannelEmptyCap":         {channelsSrc, "ChannelEmptyCap", nil, channels.ChannelEmptyCap},
+	"SelectMutex":             {channelsSrc, "SelectMutex", nil, channels.SelectMutex},
+	"ChannelTwoWay":           {channelsSrc, "ChannelTwoWay", nil, channels.ChannelTwoWay},
+	"ChannelFanIn":            {channelsSrc, "ChannelFanIn", nil, channels.ChannelFanIn},
+	"ChannelBufferedsize":     {channelsSrc, "ChannelBufferedsize", nil, channels.ChannelBufferedsize},
 }
 
 var initTests = map[string]testCase{
@@ -815,7 +815,7 @@ var resolved_issueTests = map[string]testCase{
 	"SortReverseResolved":      {resolvedIssueSrc, "SortReverseResolved", nil, resolved_issue.SortReverseResolved},
 	"SortIntsInPlaceResolved":  {resolvedIssueSrc, "SortIntsInPlaceResolved", nil, resolved_issue.SortIntsInPlaceResolved},
 	// Resolved Issue 29-31: fmt.Stringer, %T, %v (formerly known issues Bug 3-5)
-	"FmtStringerResolved":    {resolvedIssueSrc, "FmtStringerResolved", nil, resolved_issue.FmtStringerResolved},
+	"FmtStringerResolved":     {resolvedIssueSrc, "FmtStringerResolved", nil, resolved_issue.FmtStringerResolved},
 	"FmtSprintfTypeResolved":  {resolvedIssueSrc, "FmtSprintfTypeResolved", nil, resolved_issue.FmtSprintfTypeResolved},
 	"FmtSprintfFieldResolved": {resolvedIssueSrc, "FmtSprintfFieldResolved", nil, resolved_issue.FmtSprintfFieldResolved},
 	// Resolved Issue 32: int64/uint64 return type preservation (formerly known issue Bug 6)

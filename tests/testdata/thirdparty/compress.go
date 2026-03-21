@@ -8,7 +8,6 @@ import (
 	"io"
 )
 
-
 // BinaryWriteRead tests encoding/binary Write and Read.
 func BinaryWriteRead() int {
 	var buf bytes.Buffer
@@ -118,4 +117,3 @@ func CompressZlibRoundtrip() int {
 	}
 	return 0
 }
-

@@ -62,4 +62,4 @@ func Div(a, b int) int { return a / b }
 func Mod(a, b int) int { return a % b }
 
 // ComplexArith returns (a+b)*c - d/e
-func ComplexArith(a, b, c, d, e int) int { return (a + b) * c - d/e }
+func ComplexArith(a, b, c, d, e int) int { return (a+b)*c - d/e }
