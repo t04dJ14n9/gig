@@ -328,66 +328,40 @@ func TestChannelRecvSuccess(t *testing.T) {
 	}
 }
 
-// TestGoroutineWaitContext verifies that WaitGoroutinesContext respects cancellation.
-func TestGoroutineWaitContext(t *testing.T) {
-	// Start a goroutine that takes a while
-	StartGoroutine(func() {
+// TestGoroutineTrackerWaitContext verifies that GoroutineTracker.WaitContext respects cancellation.
+func TestGoroutineTrackerWaitContext(t *testing.T) {
+	gt := NewGoroutineTracker()
+	gt.Start(func() {
 		time.Sleep(100 * time.Millisecond)
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
 
-	err := WaitGoroutinesContext(ctx)
+	err := gt.WaitContext(ctx)
 	if err == nil {
 		t.Error("expected timeout error")
 	}
 
 	// Wait for the goroutine to actually complete to clean up
-	WaitGoroutines()
+	gt.Wait()
 }
 
 // ---------------------------------------------------------------------------
 // Goroutine tracking
 // ---------------------------------------------------------------------------
 
-func TestStartAndWaitGoroutines(t *testing.T) {
+func TestGoroutineTrackerStartAndWait(t *testing.T) {
+	gt := NewGoroutineTracker()
 	var counter int64
 	for i := 0; i < 5; i++ {
-		StartGoroutine(func() {
+		gt.Start(func() {
 			atomic.AddInt64(&counter, 1)
 		})
 	}
-	WaitGoroutines()
+	gt.Wait()
 	if atomic.LoadInt64(&counter) != 5 {
 		t.Errorf("counter = %d, want 5", counter)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// VM Registry
-// ---------------------------------------------------------------------------
-
-func TestVMRegistry(t *testing.T) {
-	vm := &vm{stack: make([]value.Value, 8)}
-	id := RegisterVM(vm)
-	if id <= 0 {
-		t.Fatalf("RegisterVM returned %d", id)
-	}
-
-	vmRegistryMutex.Lock()
-	got, ok := vmRegistry[id]
-	vmRegistryMutex.Unlock()
-	if !ok || got != vm {
-		t.Error("VM not found in registry")
-	}
-
-	UnregisterVM(id)
-	vmRegistryMutex.Lock()
-	_, ok = vmRegistry[id]
-	vmRegistryMutex.Unlock()
-	if ok {
-		t.Error("VM should have been unregistered")
 	}
 }
 
@@ -866,7 +840,7 @@ func TestVMPool_GetPut(t *testing.T) {
 	)
 	prog, name := buildProg("pool_fn", instr, 0, int64(7))
 
-	pool := NewVMPool(prog)
+	pool := NewVMPool(prog, nil, NewGoroutineTracker())
 
 	// First Get: execute to prove the VM works.
 	vm1 := pool.Get()
