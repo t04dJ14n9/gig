@@ -46,10 +46,22 @@ Eliminate all global mutable state by moving per-program concerns into scoped ty
 **Before:** `value.SetMethodResolver(fn)` sets a global; `value.CallMethod()` reads it.
 
 **After:**
-- Remove `value.methodResolver`, `value.SetMethodResolver()`, `value.CallMethod()` from `value/accessor.go`
-- Method resolution becomes a method on `*vm` in `vm/ops_call.go`
-- Where `ops_dispatch.go` currently calls `value.CallMethod()`, it calls `v.resolveCompiledMethod()` instead
-- `resolveCompiledMethod()` already exists on `vm/vm.go` and reads from `v.program` — no global needed
+- Remove `value.methodResolver`, `value.SetMethodResolver()` from `value/accessor.go`
+- **Keep `value.CallMethod()` but change its signature** to accept a resolver:
+  ```go
+  // value/accessor.go
+  type MethodResolverFunc func(methodName string, receiver Value) (Value, bool)
+
+  func CallMethod(resolver MethodResolverFunc, methodName string, receiver Value) (Value, bool) {
+      if resolver == nil {
+          return MakeNil(), false
+      }
+      return resolver(methodName, receiver)
+  }
+  ```
+- The VM creates a `MethodResolverFunc` closure from `v.resolveCompiledMethod` and passes it to call sites
+- **`stdlib/packages/fmt.go` must be regenerated** using `go1.23.1 run ./cmd/gig gen` to use the new `CallMethod` signature. The `gentool/` code generator must also be updated to emit calls with the resolver parameter.
+- `resolveCompiledMethod()` stays on `vm/vm.go`, reads from `v.program` — no global needed
 
 ### 2. Fix Sandbox Registry Bypass (C2)
 
@@ -57,9 +69,17 @@ Eliminate all global mutable state by moving per-program concerns into scoped ty
 
 **After:**
 - `NewImporter(reg PackageRegistry)` — takes a registry parameter
-- `Importer.Import(path)` calls `reg.GetPackageByPath(path)` instead of the global `GetPackageByPath(path)`
+- `Importer` stores the registry as a field:
+  ```go
+  type Importer struct {
+      reg      PackageRegistry
+      packages map[string]*types.Package
+      mutex    sync.RWMutex
+  }
+  ```
+- `Importer.Import(path)` calls `i.reg.GetPackageByPath(path)` instead of the global `GetPackageByPath(path)`
+- `Importer.buildPackage()` calls `i.reg.SetExternalType()` instead of global `SetExternalType()`
 - `compiler/parser/parse.go` passes the registry it receives from Build: `importer.NewImporter(reg)`
-- `Importer.buildPackage()` calls `reg.SetExternalType()` instead of global `SetExternalType()`
 
 ### 3. Fix register.NewType() (C3) & Remove register/ Package
 
@@ -67,8 +87,21 @@ Eliminate all global mutable state by moving per-program concerns into scoped ty
 
 **After:**
 - Delete the `register/` package entirely
-- Users use `importer.RegisterPackage()` or `gig.RegisterPackage()` directly
-- Update any examples/docs that reference `register`
+- Migration path:
+  | Old (`register`) | New (`importer` / `gig`) |
+  |---|---|
+  | `register.AddPackage(path, name)` | `importer.RegisterPackage(path, name)` or `gig.RegisterPackage(path, name)` |
+  | `pkg.NewFunction(name, fn, doc)` | `pkg.AddFunction(name, fn, doc, nil)` |
+  | `pkg.NewFunctionDirect(name, fn, doc, dc)` | `pkg.AddFunction(name, fn, doc, dc)` |
+  | `pkg.NewVar(name, ptr, doc)` | `pkg.AddVariable(name, ptr, doc)` |
+  | `pkg.NewConst(name, val, doc)` | `pkg.AddConstant(name, val, doc)` |
+  | `pkg.NewType(name, typ, doc)` | `pkg.AddType(name, reflect.TypeOf(val), doc)` |
+- Update these files that reference `register`:
+  - `README.md`
+  - `README_EN.md`
+  - `examples/README.md`
+  - `examples/README_CN.md`
+  - Any example code in `examples/` directory
 
 ### 4. Eliminate Closure Caller Global
 
@@ -87,6 +120,17 @@ Eliminate all global mutable state by moving per-program concerns into scoped ty
   ```
   The `vm.Closure` type implements this interface. `ToReflectValue` type-asserts `v.obj.(ClosureExecutor)` instead of calling a global callback.
 
+- **Initial globals access:** `Closure.Execute()` needs initial globals to seed temporary VMs. The `Closure` struct gains an `InitialGlobals []value.Value` field set at closure creation time (when the VM captures the closure). This adds a pointer-sized overhead per closure (a slice header) but avoids the need to look up globals from a global or from `Program`.
+  ```go
+  // vm/closure.go
+  type Closure struct {
+      Fn             *bytecode.CompiledFunction
+      FreeVars       []*value.Value
+      Program        *bytecode.Program
+      InitialGlobals []value.Value  // snapshot for temp VM creation
+  }
+  ```
+
 ### 5. Per-Program Goroutine Tracking
 
 **Before:** `vm.activeGoroutines` is a process-wide `int64`; `WaitGoroutines()` waits for all programs.
@@ -97,13 +141,19 @@ Eliminate all global mutable state by moving per-program concerns into scoped ty
   type GoroutineTracker struct {
       active int64
   }
+  func NewGoroutineTracker() *GoroutineTracker
   func (t *GoroutineTracker) Start(fn func())
   func (t *GoroutineTracker) Wait()
   func (t *GoroutineTracker) WaitContext(ctx context.Context) error
   ```
-- `Runner` creates a `GoroutineTracker` per program
+- `Runner` creates a `GoroutineTracker` per program and exposes `Wait()`/`WaitContext()`:
+  ```go
+  func (r *Runner) Wait()
+  func (r *Runner) WaitContext(ctx context.Context) error
+  ```
 - `vm` receives a `*GoroutineTracker` field, uses it for `go` statement dispatch
 - Remove global `activeGoroutines`, `vmRegistry`, `vmIDCounter`, `RegisterVM`, `UnregisterVM`
+- `vm/vm_test.go` white-box tests will be updated to use `GoroutineTracker` directly
 
 ### 6. Immutable Program
 
@@ -113,7 +163,9 @@ Eliminate all global mutable state by moving per-program concerns into scoped ty
 - `runner.ExecuteInit()` returns `([]value.Value, error)` — the globals snapshot
 - `Runner` stores the snapshot internally: `runner.initialGlobals []value.Value`
 - `bytecode.Program.InitialGlobals` field removed
-- VM receives initial globals from `Runner` (via VMPool constructor or per-Get)
+- `vm` struct gains an `initialGlobals []value.Value` field, set at construction by `newVM()`, used by `Reset()` to restore globals to post-init state
+- `newVM()` signature becomes: `newVM(program *bytecode.Program, initialGlobals []value.Value) *vm`
+- `VMPool` stores the `initialGlobals` and passes them to `newVM()`
 
 ### 7. Runner Constructor Options
 
@@ -157,7 +209,13 @@ Split the 1761-line `executeOp()` switch into category handler methods:
 | `ops_container.go` | MakeSlice, MakeMap, Index, SetIndex, Append, Range, Len, Cap | ~300 |
 | `ops_convert.go` | Convert, TypeAssert, ChangeType, ChangeInterface | ~200 |
 
-Each handler is a method on `*vm`: `v.executeArithmetic(op, frame)`, etc.
+Canonical handler signature (matching current `executeOp` patterns):
+```go
+func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error
+func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error
+// etc.
+```
+Return type is `error` (nil on success). Jump/branch opcodes modify `frame.pc` directly, same as current behavior in `executeOp`.
 
 `run.go` (1048 lines) stays monolithic — it's the inlined hot path and splitting it would harm performance.
 
@@ -169,11 +227,12 @@ Each handler is a method on `*vm`: `v.executeArithmetic(op, frame)`, etc.
 
 | File | Action |
 |---|---|
-| `value/accessor.go` | Remove `closureCaller`, `methodResolver`, `SetClosureCaller`, `SetMethodResolver`, `CallMethod` |
+| `value/accessor.go` | Remove `closureCaller`, `methodResolver`, `SetClosureCaller`, `SetMethodResolver`; update `CallMethod` signature to accept resolver |
 | `value/value.go` | Add `ClosureExecutor` interface |
-| `vm/vm.go` | Remove `init()`, remove `SetMethodResolver` call from `newVM()` |
-| `vm/goroutine.go` | Replace globals with `GoroutineTracker` struct; remove `vmRegistry` |
-| `vm/closure.go` | Add `Execute()` method implementing `ClosureExecutor` |
+| `vm/vm.go` | Remove `init()`, remove `SetMethodResolver` call from `newVM()`; `newVM` takes `initialGlobals`; `vm` struct gets `initialGlobals` field; `Reset()` uses `v.initialGlobals` |
+| `vm/vm_test.go` | Update goroutine/VM registry tests to use `GoroutineTracker` |
+| `vm/goroutine.go` | Replace globals with `GoroutineTracker` struct; remove `vmRegistry`, `RegisterVM`, `UnregisterVM` |
+| `vm/closure.go` | Add `InitialGlobals` field to `Closure`; add `Execute()` method implementing `ClosureExecutor` |
 | `vm/ops_dispatch.go` | Refactor into router; split cases into `ops_*.go` files |
 | `vm/ops_arithmetic.go` | New — arithmetic opcode handlers |
 | `vm/ops_control.go` | New — control flow opcode handlers |
@@ -181,26 +240,32 @@ Each handler is a method on `*vm`: `v.executeArithmetic(op, frame)`, etc.
 | `vm/ops_call.go` | New — call + method resolution handlers |
 | `vm/ops_container.go` | New — container opcode handlers |
 | `vm/ops_convert.go` | New — conversion opcode handlers |
-| `importer/importer.go` | `NewImporter(reg)` — injectable registry |
+| `importer/importer.go` | `NewImporter(reg)` — injectable registry; `Importer` struct gets `reg` field |
 | `importer/register.go` | `ExternalPackage` gets `registry` back-ref; `AddMethodDirectCall` uses instance |
 | `compiler/parser/parse.go` | Pass registry to `NewImporter(reg)` |
-| `runner/runner.go` | Constructor options; store initial globals; own `GoroutineTracker` |
+| `runner/runner.go` | Constructor options; store initial globals; own `GoroutineTracker`; expose `Wait()`/`WaitContext()` |
 | `bytecode/bytecode.go` | Remove `InitialGlobals` field |
 | `bytecode/opcode.go` | Remove duplicate `OperandWidths` map |
 | `gig.go` | Update Build() flow; remove `register` package references |
 | `register/register.go` | **Delete** |
+| `stdlib/packages/fmt.go` | **Regenerate** — update `value.CallMethod` call site to new signature |
+| `gentool/` | Update code generator to emit `CallMethod` with resolver parameter |
+| `README.md` | Update examples: `register` → `importer` / `gig` |
+| `README_EN.md` | Update examples: `register` → `importer` / `gig` |
+| `examples/README.md` | Update examples: `register` → `importer` / `gig` |
+| `examples/README_CN.md` | Update examples: `register` → `importer` / `gig` |
 
 ## Testing Strategy
 
-1. **All existing tests must pass unchanged** — integration tests exercise the public API
-2. **New: Concurrency test** — two programs compiled concurrently, each with methods, both called in goroutines. Validates race condition fix.
-3. **New: Sandbox isolation test** — `WithRegistry(sandbox)` prevents access to globally-registered packages during type-checking
-4. **Run with `-race` flag** — validates no data races in concurrent usage
+1. **All integration tests in `tests/` must pass unchanged** — they exercise the public API through `gig.Build()` + `prog.Run()`
+2. **`vm/vm_test.go` white-box tests will be updated** for `GoroutineTracker` and removed `vmRegistry`
+3. **New: Concurrency test** — two programs compiled concurrently, each with methods, both called in goroutines. Validates race condition fix.
+4. **New: Sandbox isolation test** — `WithRegistry(sandbox)` prevents access to globally-registered packages during type-checking
+5. **Run with `-race` flag** — validates no data races in concurrent usage
 
 ## Scope Boundary (NOT Changing)
 
 - `compiler/` internal structure — already clean with good interfaces
-- `stdlib/packages/` generated wrappers — generated code stays as-is
 - `run.go` hot path — stays monolithic for performance
 - `importer/typeconv.go` global caches — pure caches, safe for concurrent use
-- `importer.globalRegistry` existence — still needed for stdlib init() registration
+- `importer.globalRegistry` existence — still needed for stdlib init() registration (but Importer is now injectable)
