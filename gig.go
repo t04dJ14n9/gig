@@ -105,8 +105,8 @@ func WithStatefulGlobals() BuildOption {
 // Program represents a compiled Go program ready for execution.
 // It delegates execution to a runner.Runner for VM pool management and global state handling.
 type Program struct {
-	runner  *runner.Runner // execution orchestration (VM pool, stateful globals)
-	ssaPkg  *ssa.Package   // SSA package for debugging/inspection
+	runner *runner.Runner // execution orchestration (VM pool, stateful globals)
+	ssaPkg *ssa.Package   // SSA package for debugging/inspection
 }
 
 // InternalProgram exposes the compiled bytecode program for testing/debugging.
@@ -152,15 +152,17 @@ func Build(sourceCode string, opts ...BuildOption) (*Program, error) {
 	}
 
 	// Run init() and snapshot globals if present
-	if err := runner.ExecuteInit(result.Program); err != nil {
+	initialGlobals, err := runner.ExecuteInit(result.Program)
+	if err != nil {
 		return nil, fmt.Errorf("executing init(): %w", err)
 	}
 
-	r := runner.New(result.Program)
+	var runnerOpts []runner.RunnerOption
 	if cfg.statefulGlobals {
-		r.Stateful = true
-		r.InitSharedGlobals()
+		runnerOpts = append(runnerOpts, runner.WithStatefulGlobals())
 	}
+
+	r := runner.New(result.Program, initialGlobals, runnerOpts...)
 
 	return &Program{
 		runner: r,
@@ -237,5 +239,3 @@ func GetPackageByName(name string) *importer.ExternalPackage {
 func GetAllPackages() map[string]*importer.ExternalPackage {
 	return importer.GetAllPackages()
 }
-
-
