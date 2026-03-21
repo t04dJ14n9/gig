@@ -323,6 +323,3 @@ func funcSignature(fn any) *types.Signature {
 	return typeOf(rt).(*types.Signature)
 }
 
-// typeOf is a function that converts reflect.Type to types.Type.
-// It is initialized by the importer package's init function.
-var typeOf func(reflect.Type) types.Type

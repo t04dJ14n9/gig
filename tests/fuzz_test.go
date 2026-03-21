@@ -21,6 +21,7 @@ import (
 // Some Unicode values may trigger SSA compilation errors in edge cases
 // — those are expected and we skip them gracefully.
 func build(t *testing.T, src string) *gig.Program {
+	t.Helper()
 	prog, err := gig.Build(src)
 	if err != nil {
 		t.Skipf("Build error (expected for some Unicode): %v", err)
@@ -30,6 +31,7 @@ func build(t *testing.T, src string) *gig.Program {
 
 // run is a wrapper around prog.Run that skips on error.
 func run(t *testing.T, prog *gig.Program, fn string, args ...any) any {
+	t.Helper()
 	if prog == nil {
 		t.Skip("program is nil (build failed)")
 	}
@@ -403,7 +405,7 @@ func FuzzSliceOps(f *testing.F) {
 		}
 
 		appended := run(t, prog, "SliceAppend", vals, 999)
-		wantAppended := append(vals, 999)
+		wantAppended := append(vals, 999) //nolint:makezero // intentional: testing append with non-zero length slice
 		if !reflect.DeepEqual(appended, wantAppended) {
 			t.Errorf("append() = %v, want %v", appended, wantAppended)
 		}

@@ -25,7 +25,7 @@ var knownIssuesSrc string
 type KnownIssue struct {
 	funcName string     // function name in embedded source
 	native   func() any // native Go function for comparison
-	issue    string     // bug description
+	issue    string     // issue description
 	panics   bool       // true if interpreter panics (vs. wrong result)
 }
 
@@ -78,14 +78,14 @@ func runKnownIssueTest(t *testing.T, prog *gig.Program, name string, tc KnownIss
 func TestKnownIssues_Tricky(t *testing.T) {
 	issues := map[string]KnownIssue{
 		// All known issues have been resolved!
-		// Bug 1  → Resolved Issue 28 (sort named-type conversion)
-		// Bug 2  → fixed in gentool (time.Duration DirectCall)
-		// Bug 3  → Resolved Issue 29 (fmt.Stringer)
-		// Bug 4  → Resolved Issue 30 (fmt.Sprintf %T)
-		// Bug 5  → Resolved Issue 31 (fmt.Sprintf %v _gig_id)
-		// Bug 6  → Resolved Issue 32 (int64/uint64 narrowing)
-		// Bug 7  → Resolved Issue 33 (bytes.Buffer.Cap)
-		// Bug 8  → Resolved Issue 34 (json.Encoder method dispatch collision)
+		// Issue 1  → Resolved Issue 28 (sort named-type conversion)
+		// Issue 2  → fixed in gentool (time.Duration DirectCall)
+		// Issue 3  → Resolved Issue 29 (fmt.Stringer)
+		// Issue 4  → Resolved Issue 30 (fmt.Sprintf %T)
+		// Issue 5  → Resolved Issue 31 (fmt.Sprintf %v _gig_id)
+		// Issue 6  → Resolved Issue 32 (int64/uint64 narrowing)
+		// Issue 7  → Resolved Issue 33 (bytes.Buffer.Cap)
+		// Issue 8  → Resolved Issue 34 (json.Encoder method dispatch collision)
 	}
 
 	if len(issues) == 0 {

@@ -9,6 +9,15 @@ import (
 	"sync"
 )
 
+// typeOf is a function that converts reflect.Type to types.Type.
+// It is initialized by init() to break the circular dependency between
+// register.go (which uses typeOf in AddVariable/AddConstant) and typeconv.go.
+var typeOf func(reflect.Type) types.Type
+
+func init() {
+	typeOf = convertReflectType
+}
+
 // typeCache caches converted types to prevent infinite recursion for self-referential types.
 var typeCache sync.Map // map[reflect.Type]types.Type
 
@@ -34,11 +43,6 @@ func getOrCreateTypesPackage(pkgPath string) *types.Package {
 	pkg := types.NewPackage(pkgPath, name)
 	actual, _ := typePkgCache.LoadOrStore(pkgPath, pkg)
 	return actual.(*types.Package)
-}
-
-func init() {
-	// Initialize typeOf function
-	typeOf = convertReflectType
 }
 
 // convertToConstantValue converts a Go value to a constant.Value for use in types.Const.
