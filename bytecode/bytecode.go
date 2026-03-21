@@ -10,21 +10,6 @@ import (
 	"git.woa.com/youngjin/gig/value"
 )
 
-// PackageLookup resolves external package functions for the compiler.
-// This interface enables dependency injection: the compiler depends on this
-// abstraction rather than importing the importer package directly.
-type PackageLookup interface {
-	LookupExternalFunc(pkgPath, funcName string) (fn any, directCall func([]value.Value) value.Value, ok bool)
-	LookupMethodDirectCall(typeName, methodName string) (directCall func([]value.Value) value.Value, ok bool)
-	// LookupExternalVar returns the value of an external package variable.
-	// The returned value should be a pointer to the variable (e.g., &time.UTC).
-	LookupExternalVar(pkgPath, varName string) (ptr any, ok bool)
-	// LookupExternalType returns the real reflect.Type for an external named type.
-	// This is used to allocate real Go types (e.g., bytes.Buffer) instead of
-	// synthesized struct types from reflect.StructOf.
-	LookupExternalType(t types.Type) (reflect.Type, bool)
-}
-
 // CompiledFunction represents a function compiled to bytecode.
 // It contains the bytecode instructions, local variable count, and metadata.
 type CompiledFunction struct {
@@ -62,8 +47,7 @@ type ExternalFuncInfo struct {
 	Func any
 
 	// DirectCall is a typed wrapper that avoids reflect.Call.
-	// If nil, the VM will use reflection for the call.
-	DirectCall func([]value.Value) value.Value
+	DirectCall func(args []value.Value) value.Value
 }
 
 // ExternalMethodInfo contains method dispatch information.
@@ -79,9 +63,7 @@ type ExternalMethodInfo struct {
 	ReceiverTypeName string
 
 	// DirectCall is an optional typed wrapper that avoids reflect.Call for this method.
-	// args[0] is the receiver, args[1:] are method arguments.
-	// If nil, the VM will use reflection for the call.
-	DirectCall func([]value.Value) value.Value
+	DirectCall func(args []value.Value) value.Value
 }
 
 // Program represents a compiled program ready for execution.
@@ -128,9 +110,10 @@ type Program struct {
 	// The value is a pointer to the external variable (e.g., &time.UTC).
 	ExternalVarValues map[int]any
 
-	// Lookup is the package lookup for resolving external types at runtime.
+	// Lookup resolves external types at runtime.
 	// Used by the VM's typeToReflect to look up real reflect.Type for named types.
-	Lookup PackageLookup
+	// Must implement importer.PackageLookup (stored as any to avoid importing importer).
+	Lookup any
 
 	// ReflectTypeCache caches types.Type → reflect.Type conversions at the
 	// program level. This prevents reflect.StructOf from returning different

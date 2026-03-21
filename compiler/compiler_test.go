@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"git.woa.com/youngjin/gig/bytecode"
+	"git.woa.com/youngjin/gig/importer"
 	"git.woa.com/youngjin/gig/value"
 )
 
@@ -111,4 +111,4 @@ func (m *mockLookup) LookupExternalType(t types.Type) (reflect.Type, bool) {
 }
 
 // Verify mockLookup satisfies the interface.
-var _ bytecode.PackageLookup = (*mockLookup)(nil)
+var _ importer.PackageLookup = (*mockLookup)(nil)

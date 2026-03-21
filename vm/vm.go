@@ -44,7 +44,7 @@ import (
 func init() { //nolint:gochecknoinits // registers cross-package callback, must run before any VM usage
 	// Register the closure caller so that value.ToReflectValue can wrap
 	// *vm.Closure objects into real Go functions via reflect.MakeFunc.
-	value.RegisterClosureCaller(func(closure any, args []reflect.Value, outTypes []reflect.Type) []reflect.Value {
+	value.SetClosureCaller(func(closure any, args []reflect.Value, outTypes []reflect.Type) []reflect.Value {
 		c, ok := closure.(*Closure)
 		if !ok {
 			return nil
@@ -54,7 +54,7 @@ func init() { //nolint:gochecknoinits // registers cross-package callback, must 
 			return nil
 		}
 		// Create a temporary VM to execute the closure
-		closureVM := &VM{
+		closureVM := &vm{
 			program: prog,
 			stack:   make([]value.Value, 256),
 			sp:      0,
@@ -99,15 +99,9 @@ func init() { //nolint:gochecknoinits // registers cross-package callback, must 
 	})
 }
 
-// Executor executes compiled bytecode programs.
-type Executor interface {
-	Execute(funcName string, ctx context.Context, args ...value.Value) (value.Value, error)
-	ExecuteWithValues(funcName string, ctx context.Context, args []value.Value) (value.Value, error)
-}
-
-// VM is the bytecode virtual machine.
+// vm is the bytecode virtual machine struct.
 // It executes compiled programs using a stack-based architecture.
-type VM struct {
+type vm struct {
 	// program is the compiled program to execute.
 	program *bytecode.Program
 
@@ -163,8 +157,7 @@ type extCallCacheEntry struct {
 	// fnType is the function's type.
 	fnType reflect.Type
 
-	// directCall is a typed wrapper that bypasses reflect.Call.
-	directCall func([]value.Value) value.Value
+	directCall func(args []value.Value) value.Value
 
 	// isVariadic indicates if the function takes variadic arguments.
 	isVariadic bool
@@ -173,9 +166,8 @@ type extCallCacheEntry struct {
 	numIn int
 }
 
-// New creates a new VM for executing the given program.
-// The VM is created with an empty stack and call frame array.
-func New(program *bytecode.Program) *VM {
+// newVM creates a new VM for executing the given program.
+func newVM(program *bytecode.Program) *vm {
 	globals := make([]value.Value, len(program.Globals))
 	if len(program.InitialGlobals) == len(globals) {
 		copy(globals, program.InitialGlobals)
@@ -190,11 +182,11 @@ func New(program *bytecode.Program) *VM {
 	// Register the method resolver for compiled method calls from DirectCall wrappers
 	// (e.g., fmt.Stringer detection). This captures the program reference so the
 	// resolver can search the compiled function table for matching methods.
-	value.RegisterMethodResolver(func(methodName string, receiver value.Value) (value.Value, bool) {
+	value.SetMethodResolver(func(methodName string, receiver value.Value) (value.Value, bool) {
 		return resolveCompiledMethod(program, methodName, receiver)
 	})
 
-	return &VM{
+	return &vm{
 		program: program,
 		stack:   make([]value.Value, 1024), // initial stack size
 		sp:      0,
@@ -208,55 +200,56 @@ func New(program *bytecode.Program) *VM {
 }
 
 // Reset prepares the VM for reuse by clearing execution state.
-// The stack, frames, and globals slices are retained (zero-alloc reuse).
-// If the VM is currently bound to shared globals (stateful mode), the shared
-// globals are left untouched and only execution state is cleared.
-func (vm *VM) Reset() {
-	vm.sp = 0
-	vm.fp = 0
-	vm.panicking = false
-	vm.panicVal = value.MakeNil()
-	vm.ctx = nil
+func (v *vm) Reset() {
+	v.sp = 0
+	v.fp = 0
+	v.panicking = false
+	v.panicVal = value.MakeNil()
+	v.ctx = nil
 	// Clear all frames (prevents stale frame references from previous execution).
-	// Frames are allocated fresh on each use; retaining the slice saves one allocation.
-	for i := range vm.frames {
-		vm.frames[i] = nil
+	for i := range v.frames {
+		v.frames[i] = nil
 	}
 	// If globalsPtr is set (shared globals from stateful mode or goroutine),
-	// do not restore the local globals copy — the caller manages the shared
-	// state.  Only clear globalsPtr so the VM is detached.
-	if vm.globalsPtr != nil {
-		// VM was bound to shared globals; detach but don't reset local copy.
-		vm.globalsPtr = nil
+	// do not restore the local globals copy — the caller manages the shared state.
+	if v.globalsPtr != nil {
+		v.globalsPtr = nil
 		return
 	}
 	// Stateless mode: restore globals to post-init snapshot, or zero them.
-	if len(vm.program.InitialGlobals) == len(vm.globals) {
-		copy(vm.globals, vm.program.InitialGlobals)
+	if len(v.program.InitialGlobals) == len(v.globals) {
+		copy(v.globals, v.program.InitialGlobals)
 	} else {
-		for i := range vm.globals {
-			vm.globals[i] = value.Value{}
+		for i := range v.globals {
+			v.globals[i] = value.Value{}
 		}
 	}
 	// Restore external variable values (they should always be the same)
-	for idx, ptr := range vm.program.ExternalVarValues {
-		if idx < len(vm.globals) {
-			vm.globals[idx] = value.FromInterface(ptr)
+	for idx, ptr := range v.program.ExternalVarValues {
+		if idx < len(v.globals) {
+			v.globals[idx] = value.FromInterface(ptr)
 		}
 	}
 }
 
-// BindSharedGlobals makes this VM execute against the provided shared globals
-// slice.  All global loads/stores will go through globalsPtr, which points at
-// the Program-owned backing store.  This must be called before Execute and
-// paired with UnbindSharedGlobals after execution finishes.
+// BindSharedGlobals makes this VM execute against the provided shared globals slice.
+func (v *vm) BindSharedGlobals(globals *[]value.Value) {
+	v.globalsPtr = globals
+}
+
+// UnbindSharedGlobals detaches the VM from shared globals.
+func (v *vm) UnbindSharedGlobals() {
+	v.globalsPtr = nil
+}
+
+// Globals returns the VM's global variable slice.
+func (v *vm) Globals() []value.Value {
+	return v.globals
+}
 
 // resolveCompiledMethod finds a compiled method in the program's function table
-// and executes it with the given receiver. This is used by fmt DirectCall wrappers
-// to detect and call String() methods on interpreted structs.
+// and executes it with the given receiver.
 func resolveCompiledMethod(program *bytecode.Program, methodName string, receiver value.Value) (value.Value, bool) {
-	// Search for a method with the matching name in the function table.
-	// We need to match by receiver type using the _gig_id PkgPath.
 	rv, ok := receiver.ReflectValue()
 	if !ok {
 		return value.MakeNil(), false
@@ -274,7 +267,6 @@ func resolveCompiledMethod(program *bytecode.Program, methodName string, receive
 			if sf.Name == "_gig_id" {
 				if idx := strings.LastIndex(sf.PkgPath, "#"); idx >= 0 {
 					qualName := sf.PkgPath[idx+1:]
-					// Extract just the type name part (e.g., "point" from "known_issues.point")
 					if dotIdx := strings.LastIndex(qualName, "."); dotIdx >= 0 {
 						receiverTypeName = qualName[dotIdx+1:]
 					} else {
@@ -315,7 +307,7 @@ func resolveCompiledMethod(program *bytecode.Program, methodName string, receive
 			continue
 		}
 		// Found the method! Execute it with a temporary VM.
-		tempVM := &VM{
+		tempVM := &vm{
 			program: program,
 			stack:   make([]value.Value, 256),
 			sp:      0,
@@ -330,7 +322,6 @@ func resolveCompiledMethod(program *bytecode.Program, methodName string, receive
 		if len(program.InitialGlobals) == len(tempVM.globals) {
 			copy(tempVM.globals, program.InitialGlobals)
 		}
-		// Call the method with the receiver as the first argument
 		tempVM.callFunction(fn, []value.Value{receiver}, nil)
 		result, err := tempVM.run()
 		if err != nil {
@@ -341,145 +332,99 @@ func resolveCompiledMethod(program *bytecode.Program, methodName string, receive
 	return value.MakeNil(), false
 }
 
-// BindSharedGlobals makes this VM execute against the provided shared globals
-// slice.  All global loads/stores will go through globalsPtr, which points at
-// the Program-owned backing store.  This must be called before Execute and
-// paired with UnbindSharedGlobals after execution finishes.
-func (vm *VM) BindSharedGlobals(globals *[]value.Value) {
-	vm.globalsPtr = globals
-}
-
-// UnbindSharedGlobals detaches the VM from shared globals so that Reset (called
-// when the VM is returned to the pool) does not clobber the shared state.
-func (vm *VM) UnbindSharedGlobals() {
-	vm.globalsPtr = nil
-}
-
-// Globals returns the VM's global variable slice.
-// Used to snapshot global state after init() has run.
-func (vm *VM) Globals() []value.Value {
-	return vm.globals
-}
-
-// VMPool is a thread-safe pool of VMs for a given program, eliminating per-call
-// allocation overhead. Each VM is paired with a dedicated mutex so that concurrent
-// callers block until the VM is returned (not during use, but to ensure Get always
-// returns an idle VM).
-//
-// Why not sync.Pool? sync.Pool can return an object that is still in use by another
-// goroutine. When multiple goroutines call Run concurrently on the same cached
-// Program (e.g., from progCache), they share the same VMPool. Without per-VM locking,
-// a goroutine could Get a VM that another goroutine hasn't Put() yet — causing both
-// goroutines to execute on the same VM simultaneously. Since VM state (stack, frames,
-// pc, sp, fp) is mutated during execution, this leads to memory corruption and
-// infinite recursion as seen in the stack overflow failures.
+// VMPool is a thread-safe pool of VMs for a given program.
 type VMPool struct {
-	mu      sync.Mutex
-	vms     []*VM // available VMs
-	newVM   func() *VM
+	mu    sync.Mutex
+	vms   []*vm // available VMs
+	newVM func() *vm
 }
 
 // NewVMPool creates a VM pool for the given program.
 func NewVMPool(program *bytecode.Program) *VMPool {
 	return &VMPool{
-		newVM: func() *VM {
-			return New(program)
+		newVM: func() *vm {
+			return newVM(program)
 		},
 	}
 }
 
-// Get returns an idle VM from the pool, creating one if the pool is empty.
-// The returned VM is guaranteed to be unused by any other goroutine.
-func (p *VMPool) Get() *VM {
+// Get returns an idle VM from the pool.
+func (p *VMPool) Get() VM {
 	p.mu.Lock()
 	if len(p.vms) > 0 {
-		vm := p.vms[len(p.vms)-1]
+		v := p.vms[len(p.vms)-1]
 		p.vms = p.vms[:len(p.vms)-1]
 		p.mu.Unlock()
-		return vm
+		return v
 	}
 	p.mu.Unlock()
 	return p.newVM()
 }
 
-// Put returns a VM to the pool for reuse. The VM must no longer be used by any
-// goroutine when Put is called.
-func (p *VMPool) Put(v *VM) {
-	v.Reset()
+// Put returns a VM to the pool for reuse.
+func (p *VMPool) Put(x VM) {
+	x.Reset()
 	p.mu.Lock()
-	p.vms = append(p.vms, v)
+	p.vms = append(p.vms, x.(*vm))
 	p.mu.Unlock()
 }
 
 // Execute runs the specified function with the given arguments.
-// It creates an initial call frame and starts the execution loop.
-// Returns the result value or an error if execution fails.
-func (vm *VM) Execute(funcName string, ctx context.Context, args ...value.Value) (value.Value, error) {
-	vm.ctx = ctx
+func (v *vm) Execute(funcName string, ctx context.Context, args ...value.Value) (value.Value, error) {
+	v.ctx = ctx
 
-	// Look up the function
-	fn, ok := vm.program.Functions[funcName]
+	fn, ok := v.program.Functions[funcName]
 	if !ok {
 		return value.MakeNil(), fmt.Errorf("function %q not found", funcName)
 	}
 
-	// Convert args to []value.Value
 	valArgs := make([]value.Value, len(args))
 	copy(valArgs, args)
 
-	// Create initial frame using pool
-	frame := vm.fpool.get(fn, 0, nil)
+	frame := v.fpool.get(fn, 0, nil)
 	for i, arg := range valArgs {
 		if i < fn.NumLocals {
 			frame.locals[i] = arg
-			// Mirror int parameters into intLocals for OpInt* opcodes
 			if frame.intLocals != nil {
 				frame.intLocals[i] = arg.RawInt()
 			}
 		}
 	}
-	vm.frames[0] = frame
-	vm.fp = 1
+	v.frames[0] = frame
+	v.fp = 1
 
-	// Run the VM
-	result, err := vm.run()
+	result, err := v.run()
 	return result, err
 }
 
 // ExecuteWithValues runs the specified function with pre-converted Value arguments.
-// This is more efficient than Execute when the arguments are already Value types.
-func (vm *VM) ExecuteWithValues(funcName string, ctx context.Context, args []value.Value) (value.Value, error) {
-	vm.ctx = ctx
+func (v *vm) ExecuteWithValues(funcName string, ctx context.Context, args []value.Value) (value.Value, error) {
+	v.ctx = ctx
 
-	// Look up the function
-	fn, ok := vm.program.Functions[funcName]
+	fn, ok := v.program.Functions[funcName]
 	if !ok {
 		return value.MakeNil(), fmt.Errorf("function %q not found", funcName)
 	}
 
-	// Create initial frame using pool
-	frame := vm.fpool.get(fn, 0, nil)
+	frame := v.fpool.get(fn, 0, nil)
 	for i, arg := range args {
 		if i < fn.NumLocals {
 			frame.locals[i] = arg
-			// Mirror int parameters into intLocals for OpInt* opcodes
 			if frame.intLocals != nil {
 				frame.intLocals[i] = arg.RawInt()
 			}
 		}
 	}
-	vm.frames[0] = frame
-	vm.fp = 1
+	v.frames[0] = frame
+	v.fp = 1
 
-	// Run the VM
-	return vm.run()
+	return v.run()
 }
 
 // getGlobals returns the globals slice, using the shared pointer if available.
-// This allows goroutines to share globals for communication.
-func (vm *VM) getGlobals() []value.Value {
-	if vm.globalsPtr != nil {
-		return *vm.globalsPtr
+func (v *vm) getGlobals() []value.Value {
+	if v.globalsPtr != nil {
+		return *v.globalsPtr
 	}
-	return vm.globals
+	return v.globals
 }

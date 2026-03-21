@@ -62,7 +62,7 @@ import (
 	"strings"
 	"text/template"
 
-	"git.woa.com/youngjin/gig/gentool"
+	"git.woa.com/youngjin/gig/cmd/gig/gentool"
 )
 
 // Command structure for subcommands

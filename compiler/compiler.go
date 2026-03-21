@@ -11,6 +11,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 
 	"git.woa.com/youngjin/gig/bytecode"
+	"git.woa.com/youngjin/gig/importer"
 	"git.woa.com/youngjin/gig/value"
 )
 
@@ -21,7 +22,7 @@ type Compiler interface {
 
 // NewCompiler creates a new compiler with the given package lookup for resolving external functions.
 // The PackageLookup dependency is injected to decouple the compiler from the importer package.
-func NewCompiler(lookup bytecode.PackageLookup) Compiler {
+func NewCompiler(lookup importer.PackageLookup) Compiler {
 	return &compiler{
 		lookup:            lookup,
 		constants:         make([]any, 0),
@@ -38,7 +39,7 @@ func NewCompiler(lookup bytecode.PackageLookup) Compiler {
 // symbol table, and jump targets that need patching.
 type compiler struct {
 	// lookup resolves external package functions (injected dependency).
-	lookup bytecode.PackageLookup
+	lookup importer.PackageLookup
 
 	// program is the output program being compiled.
 	program *bytecode.Program
@@ -257,6 +258,6 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 
 // Compile is a convenience package-level function that compiles an SSA package.
 // It creates a compiler with the given PackageLookup and invokes compilation.
-func Compile(lookup bytecode.PackageLookup, mainPkg *ssa.Package) (*bytecode.Program, error) {
+func Compile(lookup importer.PackageLookup, mainPkg *ssa.Package) (*bytecode.Program, error) {
 	return NewCompiler(lookup).Compile(mainPkg)
 }

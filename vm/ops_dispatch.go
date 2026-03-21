@@ -12,64 +12,64 @@ import (
 // executeOp executes a single bytecode instruction.
 // This is the heart of the VM - it dispatches to the appropriate handler
 // for each opcode type.
-func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx
+func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx
 	switch op {
 	// Stack operations
 	case bytecode.OpNop:
 		// No operation
 
 	case bytecode.OpPop:
-		vm.pop()
+		v.pop()
 
 	case bytecode.OpDup:
-		val := vm.peek()
-		vm.push(val)
+		val := v.peek()
+		v.push(val)
 
 	// Constants and locals
 	case bytecode.OpConst:
 		idx := frame.readUint16()
-		if int(idx) < len(vm.program.PrebakedConstants) {
-			vm.push(vm.program.PrebakedConstants[idx])
-		} else if int(idx) < len(vm.program.Constants) {
-			vm.push(value.FromInterface(vm.program.Constants[idx]))
+		if int(idx) < len(v.program.PrebakedConstants) {
+			v.push(v.program.PrebakedConstants[idx])
+		} else if int(idx) < len(v.program.Constants) {
+			v.push(value.FromInterface(v.program.Constants[idx]))
 		}
 
 	case bytecode.OpNil:
-		vm.push(value.MakeNil())
+		v.push(value.MakeNil())
 
 	case bytecode.OpTrue:
-		vm.push(value.MakeBool(true))
+		v.push(value.MakeBool(true))
 
 	case bytecode.OpFalse:
-		vm.push(value.MakeBool(false))
+		v.push(value.MakeBool(false))
 
 	case bytecode.OpLocal:
 		idx := frame.readUint16()
 		if int(idx) < len(frame.locals) {
-			vm.push(frame.locals[idx])
+			v.push(frame.locals[idx])
 		}
 
 	case bytecode.OpSetLocal:
 		idx := frame.readUint16()
-		val := vm.pop()
+		val := v.pop()
 		if int(idx) < len(frame.locals) {
 			frame.locals[idx] = val
 		}
 
 	case bytecode.OpGlobal:
 		idx := frame.readUint16()
-		globals := vm.getGlobals()
+		globals := v.getGlobals()
 		if int(idx) < len(globals) {
 			// Push a pointer to the global slot
 			// This allows OpDeref/OpSetDeref to work correctly
 			ptr := &globals[idx]
-			vm.push(value.FromInterface(ptr))
+			v.push(value.FromInterface(ptr))
 		}
 
 	case bytecode.OpSetGlobal:
 		idx := frame.readUint16()
-		val := vm.pop()
-		globals := vm.getGlobals()
+		val := v.pop()
+		globals := v.getGlobals()
 		if int(idx) < len(globals) {
 			globals[idx] = val
 		}
@@ -81,163 +81,163 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			// The freeVars[idx] is a *value.Value pointer to the slot;
 			// dereferencing it gives the captured value (e.g., a reflect *int pointer
 			// for named return values, or any other captured variable).
-			vm.push(*frame.freeVars[idx])
+			v.push(*frame.freeVars[idx])
 		} else {
-			vm.push(value.MakeNil())
+			v.push(value.MakeNil())
 		}
 
 	case bytecode.OpSetFree:
 		idx := frame.readByte()
-		val := vm.pop()
+		val := v.pop()
 		if int(idx) < len(frame.freeVars) && frame.freeVars[idx] != nil {
 			*frame.freeVars[idx] = val
 		}
 
 	// Arithmetic
 	case bytecode.OpAdd:
-		b := vm.pop()
-		a := vm.pop()
+		b := v.pop()
+		a := v.pop()
 		// Fast path for int+int (most common case in loops)
 		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			vm.push(value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize()))
+			v.push(value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize()))
 		} else {
-			vm.push(a.Add(b))
+			v.push(a.Add(b))
 		}
 
 	case bytecode.OpSub:
-		b := vm.pop()
-		a := vm.pop()
+		b := v.pop()
+		a := v.pop()
 		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			vm.push(value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize()))
+			v.push(value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize()))
 		} else {
-			vm.push(a.Sub(b))
+			v.push(a.Sub(b))
 		}
 
 	case bytecode.OpMul:
-		b := vm.pop()
-		a := vm.pop()
+		b := v.pop()
+		a := v.pop()
 		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			vm.push(value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize()))
+			v.push(value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize()))
 		} else {
-			vm.push(a.Mul(b))
+			v.push(a.Mul(b))
 		}
 
 	case bytecode.OpDiv:
-		b := vm.pop()
-		a := vm.pop()
-		vm.push(a.Div(b))
+		b := v.pop()
+		a := v.pop()
+		v.push(a.Div(b))
 
 	case bytecode.OpMod:
-		b := vm.pop()
-		a := vm.pop()
-		vm.push(a.Mod(b))
+		b := v.pop()
+		a := v.pop()
+		v.push(a.Mod(b))
 
 	case bytecode.OpNeg:
-		a := vm.pop()
-		vm.push(a.Neg())
+		a := v.pop()
+		v.push(a.Neg())
 
 	// Bitwise
 	case bytecode.OpAnd:
-		b := vm.pop()
-		a := vm.pop()
-		vm.push(a.And(b))
+		b := v.pop()
+		a := v.pop()
+		v.push(a.And(b))
 
 	case bytecode.OpOr:
-		b := vm.pop()
-		a := vm.pop()
-		vm.push(a.Or(b))
+		b := v.pop()
+		a := v.pop()
+		v.push(a.Or(b))
 
 	case bytecode.OpXor:
-		b := vm.pop()
-		a := vm.pop()
-		vm.push(a.Xor(b))
+		b := v.pop()
+		a := v.pop()
+		v.push(a.Xor(b))
 
 	case bytecode.OpAndNot:
-		b := vm.pop()
-		a := vm.pop()
-		vm.push(a.AndNot(b))
+		b := v.pop()
+		a := v.pop()
+		v.push(a.AndNot(b))
 
 	case bytecode.OpLsh:
-		shiftVal := vm.pop()
+		shiftVal := v.pop()
 		var n uint
 		if shiftVal.Kind() == value.KindUint {
 			n = uint(shiftVal.Uint())
 		} else {
 			n = uint(shiftVal.Int())
 		}
-		a := vm.pop()
-		vm.push(a.Lsh(n))
+		a := v.pop()
+		v.push(a.Lsh(n))
 
 	case bytecode.OpRsh:
-		shiftVal := vm.pop()
+		shiftVal := v.pop()
 		var n uint
 		if shiftVal.Kind() == value.KindUint {
 			n = uint(shiftVal.Uint())
 		} else {
 			n = uint(shiftVal.Int())
 		}
-		a := vm.pop()
-		vm.push(a.Rsh(n))
+		a := v.pop()
+		v.push(a.Rsh(n))
 
 	// Comparison
 	case bytecode.OpEqual:
-		b := vm.pop()
-		a := vm.pop()
+		b := v.pop()
+		a := v.pop()
 		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			vm.push(value.MakeBool(a.RawInt() == b.RawInt()))
+			v.push(value.MakeBool(a.RawInt() == b.RawInt()))
 		} else {
-			vm.push(value.MakeBool(a.Equal(b)))
+			v.push(value.MakeBool(a.Equal(b)))
 		}
 
 	case bytecode.OpNotEqual:
-		b := vm.pop()
-		a := vm.pop()
+		b := v.pop()
+		a := v.pop()
 		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			vm.push(value.MakeBool(a.RawInt() != b.RawInt()))
+			v.push(value.MakeBool(a.RawInt() != b.RawInt()))
 		} else {
-			vm.push(value.MakeBool(!a.Equal(b)))
+			v.push(value.MakeBool(!a.Equal(b)))
 		}
 
 	case bytecode.OpLess:
-		b := vm.pop()
-		a := vm.pop()
+		b := v.pop()
+		a := v.pop()
 		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			vm.push(value.MakeBool(a.RawInt() < b.RawInt()))
+			v.push(value.MakeBool(a.RawInt() < b.RawInt()))
 		} else {
-			vm.push(value.MakeBool(a.Cmp(b) < 0))
+			v.push(value.MakeBool(a.Cmp(b) < 0))
 		}
 
 	case bytecode.OpLessEq:
-		b := vm.pop()
-		a := vm.pop()
+		b := v.pop()
+		a := v.pop()
 		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			vm.push(value.MakeBool(a.RawInt() <= b.RawInt()))
+			v.push(value.MakeBool(a.RawInt() <= b.RawInt()))
 		} else {
-			vm.push(value.MakeBool(a.Cmp(b) <= 0))
+			v.push(value.MakeBool(a.Cmp(b) <= 0))
 		}
 
 	case bytecode.OpGreater:
-		b := vm.pop()
-		a := vm.pop()
+		b := v.pop()
+		a := v.pop()
 		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			vm.push(value.MakeBool(a.RawInt() > b.RawInt()))
+			v.push(value.MakeBool(a.RawInt() > b.RawInt()))
 		} else {
-			vm.push(value.MakeBool(a.Cmp(b) > 0))
+			v.push(value.MakeBool(a.Cmp(b) > 0))
 		}
 
 	case bytecode.OpGreaterEq:
-		b := vm.pop()
-		a := vm.pop()
+		b := v.pop()
+		a := v.pop()
 		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			vm.push(value.MakeBool(a.RawInt() >= b.RawInt()))
+			v.push(value.MakeBool(a.RawInt() >= b.RawInt()))
 		} else {
-			vm.push(value.MakeBool(a.Cmp(b) >= 0))
+			v.push(value.MakeBool(a.Cmp(b) >= 0))
 		}
 
 	// Logical
 	case bytecode.OpNot:
-		a := vm.pop()
-		vm.push(value.MakeBool(!a.Bool()))
+		a := v.pop()
+		v.push(value.MakeBool(!a.Bool()))
 
 	// Control flow
 	case bytecode.OpJump:
@@ -246,14 +246,14 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 
 	case bytecode.OpJumpTrue:
 		offset := frame.readUint16()
-		cond := vm.pop()
+		cond := v.pop()
 		if cond.Bool() {
 			frame.ip = int(offset)
 		}
 
 	case bytecode.OpJumpFalse:
 		offset := frame.readUint16()
-		cond := vm.pop()
+		cond := v.pop()
 		if !cond.Bool() {
 			frame.ip = int(offset)
 		}
@@ -261,43 +261,43 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	case bytecode.OpCall:
 		funcIdx := frame.readUint16()
 		numArgs := frame.readByte()
-		vm.callCompiledFunction(int(funcIdx), int(numArgs))
+		v.callCompiledFunction(int(funcIdx), int(numArgs))
 
 	case bytecode.OpReturn:
 		// Pop frame and return it to pool
-		vm.fpool.put(frame)
-		vm.fp--
-		if vm.fp > 0 {
+		v.fpool.put(frame)
+		v.fp--
+		if v.fp > 0 {
 			// Restore stack pointer
-			prevFrame := vm.frames[vm.fp-1]
-			vm.sp = prevFrame.basePtr
+			prevFrame := v.frames[v.fp-1]
+			v.sp = prevFrame.basePtr
 		}
 		// Push nil for void returns (SSA may expect a value)
-		vm.push(value.MakeNil())
+		v.push(value.MakeNil())
 
 	case bytecode.OpReturnVal:
 		// Save return value
-		retVal := vm.pop()
+		retVal := v.pop()
 		// Pop frame and return it to pool
-		vm.fpool.put(frame)
-		vm.fp--
-		if vm.fp > 0 {
+		v.fpool.put(frame)
+		v.fp--
+		if v.fp > 0 {
 			// Restore stack pointer
-			prevFrame := vm.frames[vm.fp-1]
-			vm.sp = prevFrame.basePtr
+			prevFrame := v.frames[v.fp-1]
+			v.sp = prevFrame.basePtr
 		}
 		// Push return value
-		vm.push(retVal)
+		v.push(retVal)
 
 	// Container operations
 	case bytecode.OpMakeSlice:
-		capVal := vm.pop()
-		lenVal := vm.pop()
-		typeIdxVal := vm.pop()
+		capVal := v.pop()
+		lenVal := v.pop()
+		typeIdxVal := v.pop()
 		typeIdx := uint16(typeIdxVal.Int())
 		// Create slice using the type from the type pool
-		if int(typeIdx) < len(vm.program.Types) {
-			typ := vm.program.Types[typeIdx]
+		if int(typeIdx) < len(v.program.Types) {
+			typ := v.program.Types[typeIdx]
 			made := false
 			if sliceType, ok := typ.(*types.Slice); ok {
 				elemType := sliceType.Elem()
@@ -305,7 +305,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				if basic, isBasic := elemType.(*types.Basic); isBasic {
 					switch basic.Kind() {
 					case types.Int, types.Int64:
-						vm.push(value.MakeIntSlice(make([]int64, int(lenVal.Int()), int(capVal.Int()))))
+						v.push(value.MakeIntSlice(make([]int64, int(lenVal.Int()), int(capVal.Int()))))
 						made = true
 					}
 				}
@@ -313,100 +313,100 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				// instead of []value.Value, so it can be assigned to typed struct fields.
 			}
 			if !made {
-				if rt := typeToReflect(typ, vm.program); rt != nil {
+				if rt := typeToReflect(typ, v.program); rt != nil {
 					slice := reflect.MakeSlice(rt, int(lenVal.Int()), int(capVal.Int()))
-					vm.push(value.MakeFromReflect(slice))
+					v.push(value.MakeFromReflect(slice))
 				} else {
-					vm.push(value.MakeNil())
+					v.push(value.MakeNil())
 				}
 			}
 		} else {
-			vm.push(value.MakeNil())
+			v.push(value.MakeNil())
 		}
 
 	case bytecode.OpMakeMap:
-		sizeVal := vm.pop()
-		typeIdxVal := vm.pop()
+		sizeVal := v.pop()
+		typeIdxVal := v.pop()
 		typeIdx := uint16(typeIdxVal.Int())
-		if int(typeIdx) < len(vm.program.Types) {
-			typ := vm.program.Types[typeIdx]
-			if rt := typeToReflect(typ, vm.program); rt != nil {
+		if int(typeIdx) < len(v.program.Types) {
+			typ := v.program.Types[typeIdx]
+			if rt := typeToReflect(typ, v.program); rt != nil {
 				m := reflect.MakeMap(rt)
 				_ = sizeVal // Size hint ignored for simplicity
-				vm.push(value.MakeFromReflect(m))
+				v.push(value.MakeFromReflect(m))
 			} else {
-				vm.push(value.MakeNil())
+				v.push(value.MakeNil())
 			}
 		} else {
-			vm.push(value.MakeNil())
+			v.push(value.MakeNil())
 		}
 
 	case bytecode.OpMakeChan:
-		sizeVal := vm.pop()
-		typeIdxVal := vm.pop()
+		sizeVal := v.pop()
+		typeIdxVal := v.pop()
 		typeIdx := uint16(typeIdxVal.Int())
-		if int(typeIdx) < len(vm.program.Types) {
-			typ := vm.program.Types[typeIdx]
-			if rt := typeToReflect(typ, vm.program); rt != nil {
+		if int(typeIdx) < len(v.program.Types) {
+			typ := v.program.Types[typeIdx]
+			if rt := typeToReflect(typ, v.program); rt != nil {
 				ch := reflect.MakeChan(rt, int(sizeVal.Int()))
-				vm.push(value.MakeFromReflect(ch))
+				v.push(value.MakeFromReflect(ch))
 			} else {
-				vm.push(value.MakeNil())
+				v.push(value.MakeNil())
 			}
 		} else {
-			vm.push(value.MakeNil())
+			v.push(value.MakeNil())
 		}
 
 	// Index operations
 	case bytecode.OpIndex:
-		key := vm.pop()
-		container := vm.pop()
+		key := v.pop()
+		container := v.pop()
 		switch container.Kind() {
 		case value.KindSlice:
 			// Native int slice fast path
 			if s, ok := container.IntSlice(); ok {
-				vm.push(value.MakeInt(s[int(key.RawInt())]))
+				v.push(value.MakeInt(s[int(key.RawInt())]))
 			} else {
-				vm.push(container.Index(int(key.Int())))
+				v.push(container.Index(int(key.Int())))
 			}
 		case value.KindArray:
 			idx := int(key.Int())
-			vm.push(container.Index(idx))
+			v.push(container.Index(idx))
 		case value.KindMap:
-			vm.push(container.MapIndex(key))
+			v.push(container.MapIndex(key))
 		case value.KindString:
 			idx := int(key.Int())
-			vm.push(container.Index(idx))
+			v.push(container.Index(idx))
 		case value.KindReflect:
 			// Handle reflect.Value containing a slice, array, or map
 			if rv, ok := container.ReflectValue(); ok {
 				switch rv.Kind() {
 				case reflect.Slice, reflect.Array:
 					idx := int(key.Int())
-					vm.push(value.MakeFromReflect(rv.Index(idx)))
+					v.push(value.MakeFromReflect(rv.Index(idx)))
 				case reflect.Map:
 					k := key.ToReflectValue(rv.Type().Key())
 					elem := rv.MapIndex(k)
 					if !elem.IsValid() {
 						// Return zero value of element type, not nil (Go semantics)
-						vm.push(value.MakeFromReflect(reflect.Zero(rv.Type().Elem())))
+						v.push(value.MakeFromReflect(reflect.Zero(rv.Type().Elem())))
 					} else {
-						vm.push(value.MakeFromReflect(elem))
+						v.push(value.MakeFromReflect(elem))
 					}
 				default:
-					vm.push(value.MakeNil())
+					v.push(value.MakeNil())
 				}
 			} else {
-				vm.push(value.MakeNil())
+				v.push(value.MakeNil())
 			}
 		default:
-			vm.push(value.MakeNil())
+			v.push(value.MakeNil())
 		}
 
 	case bytecode.OpIndexOk:
 		// Index with comma-ok: returns (value, ok) tuple for maps
-		key := vm.pop()
-		container := vm.pop()
+		key := v.pop()
+		container := v.pop()
 		switch container.Kind() {
 		case value.KindMap:
 			// For maps, check if key exists
@@ -417,21 +417,21 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					// Key doesn't exist: return (zero_value, false)
 					zeroVal := value.MakeFromReflect(reflect.Zero(rv.Type().Elem()))
 					tuple := []value.Value{zeroVal, value.MakeBool(false)}
-					vm.push(value.FromInterface(tuple))
+					v.push(value.FromInterface(tuple))
 				} else {
 					// Key exists: return (value, true)
-					vm.push(value.FromInterface([]value.Value{value.MakeFromReflect(elem), value.MakeBool(true)}))
+					v.push(value.FromInterface([]value.Value{value.MakeFromReflect(elem), value.MakeBool(true)}))
 				}
 			} else {
 				tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-				vm.push(value.FromInterface(tuple))
+				v.push(value.FromInterface(tuple))
 			}
 		case value.KindReflect:
 			if rv, ok := container.ReflectValue(); ok {
 				// Validate rv is valid before using
 				if !rv.IsValid() {
 					tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-					vm.push(value.FromInterface(tuple))
+					v.push(value.FromInterface(tuple))
 					break
 				}
 				switch rv.Kind() {
@@ -439,23 +439,23 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					// Validate map type before accessing
 					if rv.Type().Key() == nil {
 						tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-						vm.push(value.FromInterface(tuple))
+						v.push(value.FromInterface(tuple))
 						break
 					}
 					k := key.ToReflectValue(rv.Type().Key())
 					// Validate key is valid
 					if !k.IsValid() {
 						tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-						vm.push(value.FromInterface(tuple))
+						v.push(value.FromInterface(tuple))
 						break
 					}
 					elem := rv.MapIndex(k)
 					if !elem.IsValid() {
 						zeroVal := value.MakeFromReflect(reflect.Zero(rv.Type().Elem()))
 						tuple := []value.Value{zeroVal, value.MakeBool(false)}
-						vm.push(value.FromInterface(tuple))
+						v.push(value.FromInterface(tuple))
 					} else {
-						vm.push(value.FromInterface([]value.Value{value.MakeFromReflect(elem), value.MakeBool(true)}))
+						v.push(value.FromInterface([]value.Value{value.MakeFromReflect(elem), value.MakeBool(true)}))
 					}
 				case reflect.Slice, reflect.Array:
 					// For slices/arrays, always return true for ok
@@ -463,27 +463,27 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					// Validate index is in bounds
 					if idx < 0 || idx >= rv.Len() {
 						tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-						vm.push(value.FromInterface(tuple))
+						v.push(value.FromInterface(tuple))
 					} else {
-						vm.push(value.FromInterface([]value.Value{value.MakeFromReflect(rv.Index(idx)), value.MakeBool(true)}))
+						v.push(value.FromInterface([]value.Value{value.MakeFromReflect(rv.Index(idx)), value.MakeBool(true)}))
 					}
 				default:
 					tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-					vm.push(value.FromInterface(tuple))
+					v.push(value.FromInterface(tuple))
 				}
 			} else {
 				tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-				vm.push(value.FromInterface(tuple))
+				v.push(value.FromInterface(tuple))
 			}
 		default:
 			tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-			vm.push(value.FromInterface(tuple))
+			v.push(value.FromInterface(tuple))
 		}
 
 	case bytecode.OpSetIndex:
-		val := vm.pop()
-		key := vm.pop()
-		container := vm.pop()
+		val := v.pop()
+		key := v.pop()
+		container := v.pop()
 		switch container.Kind() {
 		case value.KindSlice:
 			// Native int slice fast path
@@ -511,10 +511,10 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 
 	case bytecode.OpSlice:
 		// Slice operation: container[low:high:max]
-		maxVal := vm.pop()
-		highVal := vm.pop()
-		lowVal := vm.pop()
-		container := vm.pop()
+		maxVal := v.pop()
+		highVal := v.pop()
+		lowVal := v.pop()
+		container := v.pop()
 
 		low := int(lowVal.Int())
 
@@ -524,7 +524,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			if high == 0xFFFF {
 				high = len(container.String())
 			}
-			vm.push(value.MakeString(container.String()[low:high]))
+			v.push(value.MakeString(container.String()[low:high]))
 			break
 		}
 
@@ -535,9 +535,9 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				high = len(s)
 			}
 			if maxVal.Kind() != value.KindNil && maxVal.Int() != 0xFFFF {
-				vm.push(value.MakeIntSlice(s[low:high:int(maxVal.Int())]))
+				v.push(value.MakeIntSlice(s[low:high:int(maxVal.Int())]))
 			} else {
-				vm.push(value.MakeIntSlice(s[low:high]))
+				v.push(value.MakeIntSlice(s[low:high]))
 			}
 			break
 		}
@@ -565,9 +565,9 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					s[i] = rv.Index(i).Int()
 				}
 				if maxVal.Kind() != value.KindNil && maxVal.Int() != 0xFFFF {
-					vm.push(value.MakeIntSlice(s[low:high:int(maxVal.Int())]))
+					v.push(value.MakeIntSlice(s[low:high:int(maxVal.Int())]))
 				} else {
-					vm.push(value.MakeIntSlice(s[low:high]))
+					v.push(value.MakeIntSlice(s[low:high]))
 				}
 				break
 			}
@@ -579,7 +579,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					high = rv.Len()
 				}
 				sliced := rv.Slice(low, high)
-				vm.push(value.MakeFromReflect(sliced))
+				v.push(value.MakeFromReflect(sliced))
 				break
 			}
 
@@ -597,20 +597,20 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				// 2-index slice: container[low:high]
 				sliced = rv.Slice(low, high)
 			}
-			vm.push(value.MakeFromReflect(sliced))
+			v.push(value.MakeFromReflect(sliced))
 		} else {
-			vm.push(value.MakeNil())
+			v.push(value.MakeNil())
 		}
 
 	case bytecode.OpField:
 		fieldIdx := frame.readUint16()
-		obj := vm.pop()
-		vm.push(obj.Field(int(fieldIdx)))
+		obj := v.pop()
+		v.push(obj.Field(int(fieldIdx)))
 
 	case bytecode.OpSetField:
 		fieldIdx := frame.readUint16()
-		val := vm.pop()
-		obj := vm.pop()
+		val := v.pop()
+		obj := v.pop()
 		obj.SetField(int(fieldIdx), val)
 
 	// Pointer operations
@@ -622,15 +622,15 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			frame.addrTaken = true
 			// Create a pointer to the local
 			ptr := &frame.locals[localIdx]
-			vm.push(value.FromInterface(ptr))
+			v.push(value.FromInterface(ptr))
 		} else {
-			vm.push(value.MakeNil())
+			v.push(value.MakeNil())
 		}
 
 	case bytecode.OpFieldAddr:
 		// Get address of a struct field: &struct.field
 		fieldIdx := frame.readUint16()
-		structPtr := vm.pop()
+		structPtr := v.pop()
 		if rv, ok := structPtr.ReflectValue(); ok {
 			// Dereference pointer to get struct
 			s := rv
@@ -653,26 +653,26 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					// Use reflect.NewAt to get a settable pointer even for unexported fields.
 					// This allows the VM to mutate unexported struct fields (pointer-receiver methods).
 					fieldPtr := reflect.NewAt(field.Type(), value.UnsafeAddrOf(field))
-					vm.push(value.MakeFromReflect(fieldPtr))
+					v.push(value.MakeFromReflect(fieldPtr))
 				} else {
-					vm.push(value.MakeFromReflect(field))
+					v.push(value.MakeFromReflect(field))
 				}
 			} else {
-				vm.push(value.MakeNil())
+				v.push(value.MakeNil())
 			}
 		} else {
-			vm.push(value.MakeNil())
+			v.push(value.MakeNil())
 		}
 
 	case bytecode.OpIndexAddr:
 		// Get address of slice/array element: &slice[index]
-		index := vm.pop()
-		container := vm.pop()
+		index := v.pop()
+		container := v.pop()
 		idx := int(index.Int())
 
 		// Native int slice: return *int64 pointer directly (avoids reflect)
 		if s, ok := container.IntSlice(); ok {
-			vm.push(value.MakeIntPtr(&s[idx]))
+			v.push(value.MakeIntPtr(&s[idx]))
 			break
 		}
 
@@ -685,40 +685,40 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			if rv.Kind() == reflect.Slice && rv.Type().Elem() == reflect.TypeOf(value.Value{}) {
 				elem := rv.Index(idx)
 				if elem.CanAddr() {
-					vm.push(value.MakeFromReflect(elem.Addr()))
+					v.push(value.MakeFromReflect(elem.Addr()))
 				} else {
-					vm.push(value.MakeFromReflect(elem))
+					v.push(value.MakeFromReflect(elem))
 				}
 			} else {
 				// Get element address using reflect
 				elem := rv.Index(idx)
 				if elem.CanAddr() {
 					elemPtr := elem.Addr()
-					vm.push(value.MakeFromReflect(elemPtr))
+					v.push(value.MakeFromReflect(elemPtr))
 				} else {
 					// Can't address - set directly
-					vm.push(value.MakeFromReflect(elem))
+					v.push(value.MakeFromReflect(elem))
 				}
 			}
 		} else {
-			vm.push(value.MakeNil())
+			v.push(value.MakeNil())
 		}
 
 	case bytecode.OpDeref:
-		ptr := vm.pop()
+		ptr := v.pop()
 		switch ptr.Kind() {
 		case value.KindPointer:
-			vm.push(ptr.Elem())
+			v.push(ptr.Elem())
 		case value.KindInterface:
 			// For interface values, just pass through (interfaces are already dereferenced)
-			vm.push(ptr)
+			v.push(ptr)
 		case value.KindReflect:
 			if rv, ok := ptr.ReflectValue(); ok && rv.Kind() == reflect.Ptr {
 				if !rv.IsNil() {
 					// Fast path: *value.Value pointer — unwrap directly.
 					if rv.CanInterface() {
 						if vp, ok2 := rv.Interface().(*value.Value); ok2 {
-							vm.push(*vp)
+							v.push(*vp)
 							break
 						}
 					}
@@ -729,30 +729,30 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					// operations on the struct field don't silently mutate this loaded value
 					// (critical for swap patterns like p.a, p.b = p.b, p.a).
 					if elem.Kind() == reflect.Ptr && elem.CanSet() {
-						vm.push(value.MakeFromReflect(reflect.ValueOf(elem.Interface())))
+						v.push(value.MakeFromReflect(reflect.ValueOf(elem.Interface())))
 					} else {
-						vm.push(value.MakeFromReflect(elem))
+						v.push(value.MakeFromReflect(elem))
 					}
 				} else {
-					vm.push(value.MakeNil())
+					v.push(value.MakeNil())
 				}
 			} else {
-				vm.push(ptr)
+				v.push(ptr)
 			}
 		default:
-			vm.push(ptr)
+			v.push(ptr)
 		}
 
 	case bytecode.OpSetDeref:
-		val := vm.pop()
-		ptr := vm.pop()
+		val := v.pop()
+		ptr := v.pop()
 		ptr.SetElem(val)
 
 	// Type operations
 	case bytecode.OpAssert:
 		typeIdx := frame.readUint16()
-		targetType := vm.program.Types[typeIdx]
-		obj := vm.pop()
+		targetType := v.program.Types[typeIdx]
+		obj := v.pop()
 
 		// Type assertion - check if obj can be asserted to targetType
 		// Returns (value, ok) tuple on stack
@@ -769,7 +769,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				} else {
 					// Get the underlying value
 					underlying := rv.Elem()
-					targetReflectType := typeToReflect(targetType, vm.program)
+					targetReflectType := typeToReflect(targetType, v.program)
 					if targetReflectType == nil {
 						result = value.MakeNil()
 						assertionOk = false
@@ -794,7 +794,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				if rv.Kind() == reflect.Interface && !rv.IsNil() {
 					concreteRV = rv.Elem()
 				}
-				targetReflectType := typeToReflect(targetType, vm.program)
+				targetReflectType := typeToReflect(targetType, v.program)
 				if targetReflectType != nil && concreteRV.Type().AssignableTo(targetReflectType) {
 					result = value.MakeFromReflect(concreteRV)
 					assertionOk = true
@@ -828,12 +828,12 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		// Push result as a tuple [result, ok]
 		// Use a slice to represent the tuple
 		tuple := []value.Value{result, value.MakeBool(assertionOk)}
-		vm.push(value.FromInterface(tuple))
+		v.push(value.FromInterface(tuple))
 
 	case bytecode.OpConvert:
 		typeIdx := frame.readUint16()
-		targetType := vm.program.Types[typeIdx]
-		val := vm.pop()
+		targetType := v.program.Types[typeIdx]
+		val := v.pop()
 
 		// Handle type conversion
 		switch t := targetType.(type) {
@@ -844,17 +844,17 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				switch val.Kind() {
 				case value.KindInt:
 					// int -> string: convert rune to string
-					vm.push(value.MakeString(string(rune(val.Int()))))
+					v.push(value.MakeString(string(rune(val.Int()))))
 				case value.KindUint:
 					// byte/uint8 -> string: convert byte to string
-					vm.push(value.MakeString(string(byte(val.Uint()))))
+					v.push(value.MakeString(string(byte(val.Uint()))))
 				case value.KindString:
-					vm.push(val)
+					v.push(val)
 				case value.KindBytes:
 					if b, ok := val.Bytes(); ok {
-						vm.push(value.MakeString(string(b)))
+						v.push(value.MakeString(string(b)))
 					} else {
-						vm.push(value.MakeString(""))
+						v.push(value.MakeString(""))
 					}
 				case value.KindReflect:
 					// Handle string([]rune) / string([]int32)
@@ -865,45 +865,45 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 							for i := 0; i < rv.Len(); i++ {
 								runes[i] = rune(rv.Index(i).Int())
 							}
-							vm.push(value.MakeString(string(runes)))
+							v.push(value.MakeString(string(runes)))
 						} else {
-							vm.push(value.MakeString(fmt.Sprintf("%v", val.Interface())))
+							v.push(value.MakeString(fmt.Sprintf("%v", val.Interface())))
 						}
 					} else {
-						vm.push(value.MakeString(fmt.Sprintf("%v", val.Interface())))
+						v.push(value.MakeString(fmt.Sprintf("%v", val.Interface())))
 					}
 				default:
 					// Use reflection for other types
-					vm.push(value.MakeString(fmt.Sprintf("%v", val.Interface())))
+					v.push(value.MakeString(fmt.Sprintf("%v", val.Interface())))
 				}
 			case types.Int:
-				vm.push(value.MakeInt(toInt64(val)))
+				v.push(value.MakeInt(toInt64(val)))
 			case types.Int8:
-				vm.push(value.MakeInt8(int8(toInt64(val))))
+				v.push(value.MakeInt8(int8(toInt64(val))))
 			case types.Int16:
-				vm.push(value.MakeInt16(int16(toInt64(val))))
+				v.push(value.MakeInt16(int16(toInt64(val))))
 			case types.Int32:
-				vm.push(value.MakeInt32(int32(toInt64(val))))
+				v.push(value.MakeInt32(int32(toInt64(val))))
 			case types.Int64:
-				vm.push(value.MakeInt64(toInt64(val)))
+				v.push(value.MakeInt64(toInt64(val)))
 			case types.Uint:
-				vm.push(value.MakeUint(toUint64(val)))
+				v.push(value.MakeUint(toUint64(val)))
 			case types.Uint8:
-				vm.push(value.MakeUint8(uint8(toUint64(val))))
+				v.push(value.MakeUint8(uint8(toUint64(val))))
 			case types.Uint16:
-				vm.push(value.MakeUint16(uint16(toUint64(val))))
+				v.push(value.MakeUint16(uint16(toUint64(val))))
 			case types.Uint32:
-				vm.push(value.MakeUint32(uint32(toUint64(val))))
+				v.push(value.MakeUint32(uint32(toUint64(val))))
 			case types.Uint64:
-				vm.push(value.MakeUint64(toUint64(val)))
+				v.push(value.MakeUint64(toUint64(val)))
 			case types.Uintptr:
-				vm.push(value.MakeUint64(toUint64(val)))
+				v.push(value.MakeUint64(toUint64(val)))
 			case types.Float32:
-				vm.push(value.MakeFloat32(float32(toFloat64(val))))
+				v.push(value.MakeFloat32(float32(toFloat64(val))))
 			case types.Float64:
-				vm.push(value.MakeFloat(toFloat64(val)))
+				v.push(value.MakeFloat(toFloat64(val)))
 			default:
-				vm.push(val)
+				v.push(val)
 			}
 		case *types.Slice:
 			// Handle string -> []rune or string -> []byte conversions
@@ -917,9 +917,9 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 						for i, r := range runes {
 							rs.Index(i).SetInt(int64(r))
 						}
-						vm.push(value.MakeFromReflect(rs))
+						v.push(value.MakeFromReflect(rs))
 					} else {
-						vm.push(val)
+						v.push(val)
 					}
 			case types.Uint8:
 				if val.Kind() == value.KindString {
@@ -930,20 +930,20 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					s := val.String()
 					b := make([]byte, len(s))
 					copy(b, s)
-					vm.push(value.MakeBytes(b))
+					v.push(value.MakeBytes(b))
 				} else {
-						vm.push(val)
+						v.push(val)
 					}
 				default:
-					vm.push(val)
+					v.push(val)
 				}
 			} else {
-				vm.push(val)
+				v.push(val)
 			}
 		case *types.Named:
 			// Named-type conversion (e.g., []int -> sort.IntSlice, []string -> sort.StringSlice).
 			// Resolve the target reflect.Type via external type registry, then convert via reflect.
-			targetRT := typeToReflect(t, vm.program)
+			targetRT := typeToReflect(t, v.program)
 			if targetRT != nil {
 				// Get a reflect.Value of the source. Use the target's underlying type
 				// so ToReflectValue can do element-type conversion (e.g., []int64 -> []int).
@@ -954,28 +954,28 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					if rv.Type() != targetRT && rv.Type().ConvertibleTo(targetRT) {
 						rv = rv.Convert(targetRT)
 					}
-					vm.push(value.MakeFromReflect(rv))
+					v.push(value.MakeFromReflect(rv))
 				} else {
-					vm.push(val)
+					v.push(val)
 				}
 			} else {
-				vm.push(val)
+				v.push(val)
 			}
 		default:
 			// For non-basic types, just pass through for now
-			vm.push(val)
+			v.push(val)
 		}
 
 	// Function operations
 	case bytecode.OpChangeType:
 		typeIdx := frame.readUint16()
 		srcLocalIdx := frame.readUint16()
-		targetType := vm.program.Types[typeIdx]
-		val := vm.pop()
+		targetType := v.program.Types[typeIdx]
+		val := v.pop()
 
 		// Named-type conversion (e.g., []int -> sort.IntSlice).
 		if named, ok := targetType.(*types.Named); ok {
-			targetRT := typeToReflect(named, vm.program)
+			targetRT := typeToReflect(named, v.program)
 			if targetRT != nil {
 				// Get a reflect.Value, using the target type so ToReflectValue
 				// handles element-type conversion (e.g., []int64 -> []int).
@@ -996,17 +996,17 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 							frame.locals[srcLocalIdx] = value.MakeFromReflect(underlyingRV)
 						}
 					}
-					vm.push(value.MakeFromReflect(rv))
+					v.push(value.MakeFromReflect(rv))
 				} else {
-					vm.push(val)
+					v.push(val)
 				}
 			} else {
 				// Named type not in external registry (interpreted type) — pass through.
-				vm.push(val)
+				v.push(val)
 			}
 		} else {
 			// Not a named type, fall back to simple pass-through.
-			vm.push(val)
+			v.push(val)
 		}
 
 	case bytecode.OpClosure:
@@ -1014,15 +1014,15 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		numFree := frame.readByte()
 		// Look up the function by index (O(1))
 		var fn *bytecode.CompiledFunction
-		if int(funcIdx) < len(vm.program.FuncByIndex) {
-			fn = vm.program.FuncByIndex[funcIdx]
+		if int(funcIdx) < len(v.program.FuncByIndex) {
+			fn = v.program.FuncByIndex[funcIdx]
 		}
 		if fn != nil {
 			closure := getClosure(fn, int(numFree))
-			closure.Program = vm.program
+			closure.Program = v.program
 			// Get free variables (popped in reverse order)
 			for i := int(numFree) - 1; i >= 0; i-- {
-				v := vm.pop()
+				v := v.pop()
 				// Create a new *value.Value slot holding the captured value.
 				// This allows the closure to read/write the slot via OpFree/OpSetFree.
 				// If the captured value is a reflect pointer (e.g., *int from Alloc),
@@ -1031,13 +1031,13 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				*slot = v
 				closure.FreeVars[i] = slot
 			}
-			vm.push(value.MakeFunc(closure))
+			v.push(value.MakeFunc(closure))
 		} else {
 			// Still need to pop free vars to keep stack balanced
 			for i := 0; i < int(numFree); i++ {
-				vm.pop()
+				v.pop()
 			}
-			vm.push(value.MakeNil())
+			v.push(value.MakeNil())
 		}
 
 	// Concurrency
@@ -1051,18 +1051,18 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		// Pop arguments from current goroutine's stack
 		args := make([]value.Value, numArgs)
 		for i := int(numArgs) - 1; i >= 0; i-- {
-			args[i] = vm.pop()
+			args[i] = v.pop()
 		}
 
 		// Get the function to call (O(1))
 		var goFn *bytecode.CompiledFunction
-		if int(funcIdx) < len(vm.program.FuncByIndex) {
-			goFn = vm.program.FuncByIndex[funcIdx]
+		if int(funcIdx) < len(v.program.FuncByIndex) {
+			goFn = v.program.FuncByIndex[funcIdx]
 		}
 
 		if goFn != nil {
 			// Create a child VM with shared globals
-			childVM := vm.newChildVM()
+			childVM := v.newChildVM()
 
 			// Capture for closure
 			capturedFn := goFn
@@ -1089,15 +1089,15 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		// Pop arguments from current goroutine's stack
 		args := make([]value.Value, numArgs)
 		for i := int(numArgs) - 1; i >= 0; i-- {
-			args[i] = vm.pop()
+			args[i] = v.pop()
 		}
 
 		// Pop the closure
-		callee := vm.pop()
+		callee := v.pop()
 
 		if closure, ok := callee.RawObj().(*Closure); ok {
 			// Create a child VM with shared globals
-			childVM := vm.newChildVM()
+			childVM := v.newChildVM()
 
 			// Capture for closure
 			capturedClosure := closure
@@ -1116,33 +1116,33 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		}
 
 	case bytecode.OpSend:
-		val := vm.pop()
-		ch := vm.pop()
-		if err := ch.SendContext(vm.ctx, val); err != nil {
+		val := v.pop()
+		ch := v.pop()
+		if err := ch.SendContext(v.ctx, val); err != nil {
 			return err
 		}
 
 	case bytecode.OpRecv:
-		ch := vm.pop()
-		val, _, err := ch.RecvContext(vm.ctx)
+		ch := v.pop()
+		val, _, err := ch.RecvContext(v.ctx)
 		if err != nil {
 			return err
 		}
-		vm.push(val)
+		v.push(val)
 
 	case bytecode.OpRecvOk:
 		// Receive with comma-ok: returns (value, ok) tuple
-		ch := vm.pop()
-		val, recvOK, err := ch.RecvContext(vm.ctx)
+		ch := v.pop()
+		val, recvOK, err := ch.RecvContext(v.ctx)
 		if err != nil {
 			return err
 		}
 		// Push as tuple (value, ok)
 		tuple := []value.Value{val, value.MakeBool(recvOK)}
-		vm.push(value.FromInterface(tuple))
+		v.push(value.FromInterface(tuple))
 
 	case bytecode.OpClose:
-		ch := vm.pop()
+		ch := v.pop()
 		ch.Close()
 
 	case bytecode.OpSelect:
@@ -1151,7 +1151,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		// Stack (bottom to top): for each state, Chan; if send, also SendVal.
 		// Result pushed: tuple (index, recvOk, recv_0, ..., recv_{n-1})
 		metaIdx := frame.readUint16()
-		meta, ok := vm.program.Constants[metaIdx].(bytecode.SelectMeta)
+		meta, ok := v.program.Constants[metaIdx].(bytecode.SelectMeta)
 		if !ok {
 			return fmt.Errorf("OpSelect: invalid meta at index %d", metaIdx)
 		}
@@ -1167,11 +1167,11 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		// Pop in reverse order
 		for i := meta.NumStates - 1; i >= 0; i-- {
 			if meta.Dirs[i] { // send
-				states[i].sendVal = vm.pop()
-				states[i].ch = vm.pop()
+				states[i].sendVal = v.pop()
+				states[i].ch = v.pop()
 				states[i].isSend = true
 			} else { // recv
-				states[i].ch = vm.pop()
+				states[i].ch = v.pop()
 			}
 		}
 
@@ -1201,7 +1201,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			// Inject context cancellation case for blocking select
 			cases[meta.NumStates] = reflect.SelectCase{
 				Dir:  reflect.SelectRecv,
-				Chan: reflect.ValueOf(vm.ctx.Done()),
+				Chan: reflect.ValueOf(v.ctx.Done()),
 			}
 		}
 
@@ -1210,7 +1210,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 
 		// Check if context was cancelled (chosen == meta.NumStates in blocking mode)
 		if meta.Blocking && chosen == meta.NumStates {
-			return vm.ctx.Err()
+			return v.ctx.Err()
 		}
 
 		// Adjust chosen index: if default was selected, chosen == meta.NumStates → map to -1
@@ -1237,18 +1237,18 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			}
 		}
 
-		vm.push(value.FromInterface(tuple))
+		v.push(value.FromInterface(tuple))
 
 	// Defer/recover
 	case bytecode.OpDefer:
 		funcIdx := frame.readUint16()
-		fn := vm.program.FuncByIndex[funcIdx]
+		fn := v.program.FuncByIndex[funcIdx]
 		numArgs := fn.NumParams
 
 		// Pop arguments from stack
 		args := make([]value.Value, numArgs)
 		for i := numArgs - 1; i >= 0; i-- {
-			args[i] = vm.pop()
+			args[i] = v.pop()
 		}
 
 		// Add to defer list (will be executed in LIFO order on return)
@@ -1263,11 +1263,11 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		// Pop arguments from stack (pushed after closure)
 		args := make([]value.Value, numArgs)
 		for i := numArgs - 1; i >= 0; i-- {
-			args[i] = vm.pop()
+			args[i] = v.pop()
 		}
 
 		// Pop closure from stack
-		closureVal := vm.pop()
+		closureVal := v.pop()
 		closure, ok := closureVal.RawObj().(*Closure)
 		if !ok {
 			return nil
@@ -1298,16 +1298,16 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			// Execute the deferred function synchronously using a child VM
 			// that shares the same globals/context/program. This avoids
 			// interference with the parent frame stack.
-			childVM := &VM{
-				program:      vm.program,
+			childVM := &vm{
+				program:      v.program,
 				stack:        make([]value.Value, 256),
 				sp:           0,
 				frames:       make([]*Frame, 64),
 				fp:           0,
-				globals:      vm.globals,
-				globalsPtr:   vm.globalsPtr,
-				ctx:          vm.ctx,
-				extCallCache: vm.extCallCache,
+				globals:      v.globals,
+				globalsPtr:   v.globalsPtr,
+				ctx:          v.ctx,
+				extCallCache: v.extCallCache,
 			}
 			deferFrame := newFrame(d.fn, 0, d.args, freeVars)
 			childVM.frames[0] = deferFrame
@@ -1317,51 +1317,51 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 
 	case bytecode.OpRecover:
 		// Recover from panic
-		if vm.panicking {
-			vm.push(vm.panicVal)
-			vm.panicking = false
-			vm.panicVal = value.MakeNil()
+		if v.panicking {
+			v.push(v.panicVal)
+			v.panicking = false
+			v.panicVal = value.MakeNil()
 		} else {
-			vm.push(value.MakeNil())
+			v.push(value.MakeNil())
 		}
 
 	// Range operations
 	case bytecode.OpRange:
 		// Create an iterator for the collection
-		collection := vm.pop()
-		vm.push(value.FromInterface(&iterator{collection: collection, index: 0}))
+		collection := v.pop()
+		v.push(value.FromInterface(&iterator{collection: collection, index: 0}))
 
 	case bytecode.OpRangeNext:
 		// Advance iterator and push a tuple (ok, key, value)
-		iterVal := vm.pop()
+		iterVal := v.pop()
 		iter, ok := iterVal.Interface().(*iterator)
 		if !ok {
 			// Return tuple (false, nil, nil)
 			tuple := []value.Value{value.MakeBool(false), value.MakeNil(), value.MakeNil()}
-			vm.push(value.FromInterface(tuple))
+			v.push(value.FromInterface(tuple))
 			return nil
 		}
 		key, val, iterOk := iter.next()
 		// SSA Next returns (ok, key, value) as a tuple
 		tuple := []value.Value{value.MakeBool(iterOk), key, val}
-		vm.push(value.FromInterface(tuple))
+		v.push(value.FromInterface(tuple))
 
 	// Builtins
 	case bytecode.OpLen:
-		obj := vm.pop()
+		obj := v.pop()
 		switch obj.Kind() {
 		case value.KindString:
-			vm.push(value.MakeInt(int64(len(obj.String()))))
+			v.push(value.MakeInt(int64(len(obj.String()))))
 		case value.KindBytes:
 			if b, ok := obj.Bytes(); ok {
-				vm.push(value.MakeInt(int64(len(b))))
+				v.push(value.MakeInt(int64(len(b))))
 			} else {
-				vm.push(value.MakeInt(0))
+				v.push(value.MakeInt(0))
 			}
 		case value.KindSlice:
-			vm.push(value.MakeInt(int64(obj.Len())))
+			v.push(value.MakeInt(int64(obj.Len())))
 		case value.KindArray, value.KindMap, value.KindChan:
-			vm.push(value.MakeInt(int64(obj.Len())))
+			v.push(value.MakeInt(int64(obj.Len())))
 		case value.KindInterface, value.KindReflect:
 			// Handle both interface values and reflect-wrapped values
 			if rv, ok := obj.ReflectValue(); ok {
@@ -1375,48 +1375,48 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				}
 				switch kind {
 				case reflect.Array, reflect.Chan, reflect.Map, reflect.Slice, reflect.String:
-					vm.push(value.MakeInt(int64(rv.Len())))
+					v.push(value.MakeInt(int64(rv.Len())))
 				default:
-					vm.push(value.MakeInt(0))
+					v.push(value.MakeInt(0))
 				}
 			} else {
-				vm.push(value.MakeInt(0))
+				v.push(value.MakeInt(0))
 			}
 		default:
-			vm.push(value.MakeInt(0))
+			v.push(value.MakeInt(0))
 		}
 
 	case bytecode.OpCap:
-		obj := vm.pop()
+		obj := v.pop()
 		switch obj.Kind() {
 		case value.KindSlice, value.KindArray, value.KindChan:
-			vm.push(value.MakeInt(int64(obj.Cap())))
+			v.push(value.MakeInt(int64(obj.Cap())))
 		case value.KindReflect:
 			if rv, ok := obj.ReflectValue(); ok {
-				vm.push(value.MakeInt(int64(rv.Cap())))
+				v.push(value.MakeInt(int64(rv.Cap())))
 			} else {
-				vm.push(value.MakeInt(0))
+				v.push(value.MakeInt(0))
 			}
 		default:
-			vm.push(value.MakeInt(0))
+			v.push(value.MakeInt(0))
 		}
 
 	case bytecode.OpAppend:
-		elem := vm.pop()
-		slice := vm.pop()
+		elem := v.pop()
+		slice := v.pop()
 		// Native int slice fast path
 		if s, ok := slice.IntSlice(); ok {
 			if es, ok2 := elem.IntSlice(); ok2 {
-				vm.push(value.MakeIntSlice(append(s, es...)))
+				v.push(value.MakeIntSlice(append(s, es...)))
 			} else if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice {
 				// elem is a reflect-based integer slice (e.g. []int from a [][]int range).
 				// Convert each element to int64 and spread-append.
 				for i := 0; i < elemRV.Len(); i++ {
 					s = append(s, elemRV.Index(i).Int())
 				}
-				vm.push(value.MakeIntSlice(s))
+				v.push(value.MakeIntSlice(s))
 			} else {
-				vm.push(value.MakeIntSlice(append(s, elem.RawInt())))
+				v.push(value.MakeIntSlice(append(s, elem.RawInt())))
 			}
 			break
 		}
@@ -1433,7 +1433,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				// Now handle the append with the converted slice
 				if elem.Kind() == value.KindInt {
 					newSlice := reflect.Append(intReflectSlice, reflect.ValueOf(int(elem.RawInt())))
-					vm.push(value.MakeFromReflect(newSlice))
+					v.push(value.MakeFromReflect(newSlice))
 				} else if elem.Kind() == value.KindSlice {
 					if elemIntSlice, ok2 := elem.IntSlice(); ok2 {
 						// Element is also []int64, convert to []int
@@ -1442,15 +1442,15 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 							elemReflectSlice.Index(i).SetInt(v)
 						}
 						newSlice := reflect.AppendSlice(intReflectSlice, elemReflectSlice)
-						vm.push(value.MakeFromReflect(newSlice))
+						v.push(value.MakeFromReflect(newSlice))
 					} else {
 						// Element is a different slice type
 						newSlice := reflect.Append(intReflectSlice, elem.ToReflectValue(reflect.TypeOf(int(0))))
-						vm.push(value.MakeFromReflect(newSlice))
+						v.push(value.MakeFromReflect(newSlice))
 					}
 				} else {
 					newSlice := reflect.Append(intReflectSlice, elem.ToReflectValue(reflect.TypeOf(int(0))))
-					vm.push(value.MakeFromReflect(newSlice))
+					v.push(value.MakeFromReflect(newSlice))
 				}
 				break
 			}
@@ -1463,10 +1463,10 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				// Append value.Value element(s) to []value.Value
 				if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice && elemRV.Type().Elem() == sliceElemType {
 					newSlice := reflect.AppendSlice(rv, elemRV)
-					vm.push(value.MakeFromReflect(newSlice))
+					v.push(value.MakeFromReflect(newSlice))
 				} else {
 					newSlice := reflect.Append(rv, reflect.ValueOf(elem))
-					vm.push(value.MakeFromReflect(newSlice))
+					v.push(value.MakeFromReflect(newSlice))
 				}
 			} else {
 				// Check if elem is a native []int64 that needs spread-append
@@ -1476,7 +1476,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 						for _, v := range elemIntSlice {
 							rv = reflect.Append(rv, reflect.ValueOf(int(v)))
 						}
-						vm.push(value.MakeFromReflect(rv))
+						v.push(value.MakeFromReflect(rv))
 						break
 					}
 				}
@@ -1484,17 +1484,17 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice {
 					// The element is a slice of the same element type — spread it
 					newSlice := reflect.AppendSlice(rv, elemRV)
-					vm.push(value.MakeFromReflect(newSlice))
+					v.push(value.MakeFromReflect(newSlice))
 				} else {
 					newSlice := reflect.Append(rv, elem.ToReflectValue(sliceElemType))
-					vm.push(value.MakeFromReflect(newSlice))
+					v.push(value.MakeFromReflect(newSlice))
 				}
 			}
 		} else if slice.IsNil() || slice.Kind() == value.KindInvalid {
 			// Nil slice: create a new slice and append the element.
 			// Fast path: elem is a native []int64 (spread-append to create new []int64).
 			if es, ok2 := elem.IntSlice(); ok2 {
-				vm.push(value.MakeIntSlice(append([]int64(nil), es...)))
+				v.push(value.MakeIntSlice(append([]int64(nil), es...)))
 				break
 			}
 			elemRV, ok2 := elem.ReflectValue()
@@ -1504,13 +1504,13 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					newSlice := make([]value.Value, 0)
 					newRV := reflect.ValueOf(newSlice)
 					result := reflect.AppendSlice(newRV, elemRV)
-					vm.push(value.MakeFromReflect(result))
+					v.push(value.MakeFromReflect(result))
 				} else {
 					// Create new slice of the element's type and spread-append
 					sliceType := reflect.SliceOf(elemRV.Type().Elem())
 					newSlice := reflect.MakeSlice(sliceType, 0, 0)
 					result := reflect.AppendSlice(newSlice, elemRV)
-					vm.push(value.MakeFromReflect(result))
+					v.push(value.MakeFromReflect(result))
 				}
 			} else {
 				// Single-element append to a nil slice: infer element type from the value.
@@ -1520,22 +1520,22 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 					sliceType := reflect.SliceOf(elemRV2.Type())
 					newSlice := reflect.MakeSlice(sliceType, 0, 0)
 					result := reflect.Append(newSlice, elemRV2)
-					vm.push(value.MakeFromReflect(result))
+					v.push(value.MakeFromReflect(result))
 				} else {
-					vm.push(slice)
+					v.push(slice)
 				}
 			}
 		} else {
-			vm.push(slice)
+			v.push(slice)
 		}
 
 	case bytecode.OpCopy:
-		src := vm.pop()
-		dst := vm.pop()
+		src := v.pop()
+		dst := v.pop()
 		// Native int slice fast path
 		if ds, ok := dst.IntSlice(); ok {
 			if ss, ok2 := src.IntSlice(); ok2 {
-				vm.push(value.MakeInt(int64(copy(ds, ss))))
+				v.push(value.MakeInt(int64(copy(ds, ss))))
 				break
 			}
 			// Cross-type: dst is native []int64, src is reflect slice (e.g. []int)
@@ -1547,7 +1547,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				for i := 0; i < n; i++ {
 					ds[i] = srcRV.Index(i).Int()
 				}
-				vm.push(value.MakeInt(int64(n)))
+				v.push(value.MakeInt(int64(n)))
 				break
 			}
 		}
@@ -1555,7 +1555,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		if dstRV, ok := dst.ReflectValue(); ok {
 			if srcRV, ok := src.ReflectValue(); ok {
 				n := reflect.Copy(dstRV, srcRV)
-				vm.push(value.MakeInt(int64(n)))
+				v.push(value.MakeInt(int64(n)))
 			} else if ss, ok2 := src.IntSlice(); ok2 {
 				// Cross-type: dst is reflect slice, src is native []int64
 				n := dstRV.Len()
@@ -1565,28 +1565,28 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				for i := 0; i < n; i++ {
 					dstRV.Index(i).SetInt(ss[i])
 				}
-				vm.push(value.MakeInt(int64(n)))
+				v.push(value.MakeInt(int64(n)))
 			} else {
-				vm.push(value.MakeInt(0))
+				v.push(value.MakeInt(0))
 			}
 		} else {
-			vm.push(value.MakeInt(0))
+			v.push(value.MakeInt(0))
 		}
 
 	case bytecode.OpDelete:
-		key := vm.pop()
-		m := vm.pop()
+		key := v.pop()
+		m := v.pop()
 		m.SetMapIndex(key, value.MakeNil())
 
 	case bytecode.OpPanic:
-		msg := vm.pop()
-		vm.panicking = true
-		vm.panicVal = msg
+		msg := v.pop()
+		v.panicking = true
+		v.panicVal = msg
 
 	case bytecode.OpPrint:
 		n := frame.readByte()
 		for i := 0; i < int(n); i++ {
-			val := vm.pop()
+			val := v.pop()
 			fmt.Print(val.Interface())
 		}
 
@@ -1594,15 +1594,15 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		n := frame.readByte()
 		args := make([]any, n)
 		for i := int(n) - 1; i >= 0; i-- {
-			args[i] = vm.pop().Interface()
+			args[i] = v.pop().Interface()
 		}
 		fmt.Println(args...)
 
 	case bytecode.OpNew:
 		typeIdx := frame.readUint16()
 		// Allocate new pointer to value of the given type
-		if int(typeIdx) < len(vm.program.Types) {
-			typ := vm.program.Types[typeIdx]
+		if int(typeIdx) < len(v.program.Types) {
+			typ := v.program.Types[typeIdx]
 			// For function types, create a pointer to a Value (to store closures)
 			switch t := typ.(type) {
 			case *types.Signature:
@@ -1610,35 +1610,35 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				// Create a pointer to a nil Value
 				var nilVal value.Value
 				newPtr := reflect.ValueOf(&nilVal)
-				vm.push(value.MakeFromReflect(newPtr))
+				v.push(value.MakeFromReflect(newPtr))
 			case *types.Slice:
 				// Use typeToReflect for proper typed slices (including function slices).
 				// This avoids creating []value.Value which can't be assigned to typed fields.
-				if rt := typeToReflect(typ, vm.program); rt != nil {
+				if rt := typeToReflect(typ, v.program); rt != nil {
 					newPtr := reflect.New(rt)
-					vm.push(value.MakeFromReflect(newPtr))
+					v.push(value.MakeFromReflect(newPtr))
 				} else {
-					vm.push(value.MakeNil())
+					v.push(value.MakeNil())
 				}
 			case *types.Array:
 				// Use typeToReflect for proper typed arrays (including function arrays).
-				if rt := typeToReflect(typ, vm.program); rt != nil {
+				if rt := typeToReflect(typ, v.program); rt != nil {
 					newPtr := reflect.New(rt)
-					vm.push(value.MakeFromReflect(newPtr))
+					v.push(value.MakeFromReflect(newPtr))
 				} else {
-					vm.push(value.MakeNil())
+					v.push(value.MakeNil())
 				}
 			default:
-				if rt := typeToReflect(typ, vm.program); rt != nil {
+				if rt := typeToReflect(typ, v.program); rt != nil {
 					// Create a new pointer to zero value of the type
 					newPtr := reflect.New(rt)
-					vm.push(value.MakeFromReflect(newPtr))
+					v.push(value.MakeFromReflect(newPtr))
 				} else {
-					vm.push(value.MakeNil())
+					v.push(value.MakeNil())
 				}
 			}
 		} else {
-			vm.push(value.MakeNil())
+			v.push(value.MakeNil())
 		}
 
 	case bytecode.OpMake:
@@ -1650,7 +1650,7 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 	case bytecode.OpCallExternal:
 		funcIdx := frame.readUint16()
 		numArgs := frame.readByte()
-		if err := vm.callExternal(int(funcIdx), int(numArgs)); err != nil {
+		if err := v.callExternal(int(funcIdx), int(numArgs)); err != nil {
 			return err
 		}
 
@@ -1666,17 +1666,17 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 			args = make([]value.Value, numArgs)
 		}
 		for i := int(numArgs) - 1; i >= 0; i-- {
-			args[i] = vm.pop()
+			args[i] = v.pop()
 		}
 		// Pop the callee
-		callee := vm.pop()
+		callee := v.pop()
 		switch fn := callee.RawObj().(type) {
 		case *Closure:
 			// Call closure: create new frame with free vars
-			vm.callFunction(fn.Fn, args, fn.FreeVars)
+			v.callFunction(fn.Fn, args, fn.FreeVars)
 		case *bytecode.CompiledFunction:
 			// Call compiled function
-			vm.callFunction(fn, args, nil)
+			v.callFunction(fn, args, nil)
 		default:
 			// Check if callee is a reflect-based function (e.g., from a typed container)
 			if rv, ok := callee.ReflectValue(); ok && rv.Kind() == reflect.Func {
@@ -1689,13 +1689,13 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 				}
 				out := rv.Call(in)
 				if len(out) == 0 {
-					vm.push(value.MakeNil())
+					v.push(value.MakeNil())
 				} else {
-					vm.push(value.MakeFromReflect(out[0]))
+					v.push(value.MakeFromReflect(out[0]))
 				}
 			} else {
 				// Not a known callable — push nil
-				vm.push(value.MakeNil())
+				v.push(value.MakeNil())
 			}
 		}
 
@@ -1704,24 +1704,24 @@ func (vm *VM) executeOp(op bytecode.OpCode, frame *Frame) error { //nolint:gocyc
 		// Pop 'count' values from stack and pack into a slice
 		values := make([]value.Value, count)
 		for i := int(count) - 1; i >= 0; i-- {
-			values[i] = vm.pop()
+			values[i] = v.pop()
 		}
-		vm.push(value.FromInterface(values))
+		v.push(value.FromInterface(values))
 
 	case bytecode.OpUnpack:
 		// Pop a slice and push each element onto the stack
-		slice := vm.pop()
+		slice := v.pop()
 		// Fast path: native []value.Value (produced by DirectCall multi-return wrappers)
 		if vals, ok := slice.ValueSlice(); ok {
-			for _, v := range vals {
-				vm.push(v)
+			for _, elem := range vals {
+				v.push(elem)
 			}
 			break
 		}
 		if slice.Kind() == value.KindSlice || slice.Kind() == value.KindReflect {
 			if rv, ok := slice.ReflectValue(); ok {
 				for i := 0; i < rv.Len(); i++ {
-					vm.push(value.MakeFromReflect(rv.Index(i)))
+					v.push(value.MakeFromReflect(rv.Index(i)))
 				}
 			}
 		}

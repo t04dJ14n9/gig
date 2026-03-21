@@ -19,25 +19,25 @@ import (
 // overhead. Less frequent opcodes fall through to executeOp.
 //
 //nolint:gocyclo,cyclop,funlen,maintidx,gocognit
-func (vm *VM) run() (value.Value, error) {
+func (v *vm) run() (value.Value, error) {
 	// Hoist hot fields into local variables for better register allocation.
 	// The Go compiler can keep these in CPU registers across iterations,
-	// avoiding repeated loads from vm.* on each instruction.
-	stack := vm.stack
-	sp := vm.sp
-	prebaked := vm.program.PrebakedConstants
+	// avoiding repeated loads from v.* on each instruction.
+	stack := v.stack
+	sp := v.sp
+	prebaked := v.program.PrebakedConstants
 
-	// Cache current frame state to avoid re-reading from vm.frames[] each iteration.
+	// Cache current frame state to avoid re-reading from v.frames[] each iteration.
 	// These are only invalidated on call/return/executeOp.
 	var frame *Frame
 	var ins []byte
 	var locals []value.Value
 	var intLocals []int64
-	intConsts := vm.program.IntConstants
+	intConsts := v.program.IntConstants
 
 	// loadFrame caches the current frame's hot fields into local variables.
 	loadFrame := func() {
-		frame = vm.frames[vm.fp-1]
+		frame = v.frames[v.fp-1]
 		ins = frame.fn.Instructions
 		locals = frame.locals
 		intLocals = frame.intLocals
@@ -54,18 +54,18 @@ func (vm *VM) run() (value.Value, error) {
 	// instructionCount tracks total instructions executed for periodic context checks.
 	instructionCount := uint64(0)
 
-	if vm.fp > 0 {
+	if v.fp > 0 {
 		loadFrame()
 	}
 
-	for vm.fp > 0 {
+	for v.fp > 0 {
 		// Periodic context check counter
 		instructionCount++
 		if instructionCount&0x3FF == 0 {
 			select {
-			case <-vm.ctx.Done():
-				vm.sp = sp
-				return value.MakeNil(), vm.ctx.Err()
+			case <-v.ctx.Done():
+				v.sp = sp
+				return value.MakeNil(), v.ctx.Err()
 			default:
 			}
 		}
@@ -73,9 +73,9 @@ func (vm *VM) run() (value.Value, error) {
 		// Check for end of function
 		if frame.ip >= len(ins) {
 			// Pop frame and return it to pool
-			vm.fp--
-			vm.fpool.put(frame)
-			if vm.fp > 0 {
+			v.fp--
+			v.fpool.put(frame)
+			if v.fp > 0 {
 				loadFrame()
 			}
 			continue
@@ -105,8 +105,8 @@ func (vm *VM) run() (value.Value, error) {
 			idx := readU16()
 			if int(idx) < len(prebaked) {
 				stack[sp] = prebaked[idx]
-			} else if int(idx) < len(vm.program.Constants) {
-				stack[sp] = value.FromInterface(vm.program.Constants[idx])
+			} else if int(idx) < len(v.program.Constants) {
+				stack[sp] = value.FromInterface(v.program.Constants[idx])
 			}
 			sp++
 			continue
@@ -282,17 +282,17 @@ func (vm *VM) run() (value.Value, error) {
 		case bytecode.OpCall:
 			funcIdx := readU16()
 			numArgs := frame.readByte()
-			vm.sp = sp
-			vm.callCompiledFunction(int(funcIdx), int(numArgs))
-			sp = vm.sp
-			stack = vm.stack
+			v.sp = sp
+			v.callCompiledFunction(int(funcIdx), int(numArgs))
+			sp = v.sp
+			stack = v.stack
 			loadFrame()
 			continue
 
 		case bytecode.OpReturn:
-			vm.fpool.put(frame)
-			vm.fp--
-			if vm.fp > 0 {
+			v.fpool.put(frame)
+			v.fp--
+			if v.fp > 0 {
 				loadFrame()
 				sp = frame.basePtr
 			}
@@ -303,9 +303,9 @@ func (vm *VM) run() (value.Value, error) {
 		case bytecode.OpReturnVal:
 			sp--
 			retVal := stack[sp]
-			vm.fpool.put(frame)
-			vm.fp--
-			if vm.fp > 0 {
+			v.fpool.put(frame)
+			v.fp--
+			if v.fp > 0 {
 				loadFrame()
 				sp = frame.basePtr
 			}
@@ -338,15 +338,15 @@ func (vm *VM) run() (value.Value, error) {
 				continue
 			}
 			// Slow path: go through executeOp
-			vm.sp = sp
-			vm.push(container)
-			vm.push(index)
-			if err := vm.executeOp(op, frame); err != nil {
+			v.sp = sp
+			v.push(container)
+			v.push(index)
+			if err := v.executeOp(op, frame); err != nil {
 				return value.MakeNil(), err
 			}
-			sp = vm.sp
-			stack = vm.stack
-			if vm.fp > 0 {
+			sp = v.sp
+			stack = v.stack
+			if v.fp > 0 {
 				loadFrame()
 			}
 			continue
@@ -361,14 +361,14 @@ func (vm *VM) run() (value.Value, error) {
 				continue
 			}
 			// Slow path: go through executeOp
-			vm.sp = sp
-			vm.push(ptr)
-			if err := vm.executeOp(op, frame); err != nil {
+			v.sp = sp
+			v.push(ptr)
+			if err := v.executeOp(op, frame); err != nil {
 				return value.MakeNil(), err
 			}
-			sp = vm.sp
-			stack = vm.stack
-			if vm.fp > 0 {
+			sp = v.sp
+			stack = v.stack
+			if v.fp > 0 {
 				loadFrame()
 			}
 			continue
@@ -387,14 +387,14 @@ func (vm *VM) run() (value.Value, error) {
 				continue
 			}
 			// Slow path
-			vm.sp = sp
-			vm.push(obj)
-			if err := vm.executeOp(op, frame); err != nil {
+			v.sp = sp
+			v.push(obj)
+			if err := v.executeOp(op, frame); err != nil {
 				return value.MakeNil(), err
 			}
-			sp = vm.sp
-			stack = vm.stack
-			if vm.fp > 0 {
+			sp = v.sp
+			stack = v.stack
+			if v.fp > 0 {
 				loadFrame()
 			}
 			continue
@@ -852,20 +852,20 @@ func (vm *VM) run() (value.Value, error) {
 				locals[vIdx] = value.MakeInt(r)
 			} else {
 				// Fallback: execute as IndexAddr + Deref manually
-				vm.sp = sp
-				vm.push(locals[sIdx])
-				vm.push(value.MakeInt(intLocals[jIdx]))
-				if err := vm.executeOp(bytecode.OpIndexAddr, frame); err != nil {
+				v.sp = sp
+				v.push(locals[sIdx])
+				v.push(value.MakeInt(intLocals[jIdx]))
+				if err := v.executeOp(bytecode.OpIndexAddr, frame); err != nil {
 					return value.MakeNil(), err
 				}
-				if err := vm.executeOp(bytecode.OpDeref, frame); err != nil {
-					return value.MakeNil(), err
-				}
-				v := vm.pop()
-				intLocals[vIdx] = v.RawInt()
-				locals[vIdx] = v
-				sp = vm.sp
-				stack = vm.stack
+			if err := v.executeOp(bytecode.OpDeref, frame); err != nil {
+				return value.MakeNil(), err
+			}
+			ret := v.pop()
+			intLocals[vIdx] = ret.RawInt()
+			locals[vIdx] = ret
+			sp = v.sp
+			stack = v.stack
 			}
 			continue
 
@@ -877,18 +877,18 @@ func (vm *VM) run() (value.Value, error) {
 				s[intLocals[jIdx]] = intLocals[valIdx]
 			} else {
 				// Fallback: execute as IndexAddr + SetDeref manually
-				vm.sp = sp
-				vm.push(locals[sIdx])
-				vm.push(value.MakeInt(intLocals[jIdx]))
-				if err := vm.executeOp(bytecode.OpIndexAddr, frame); err != nil {
+				v.sp = sp
+				v.push(locals[sIdx])
+				v.push(value.MakeInt(intLocals[jIdx]))
+				if err := v.executeOp(bytecode.OpIndexAddr, frame); err != nil {
 					return value.MakeNil(), err
 				}
-				vm.push(value.MakeInt(intLocals[valIdx]))
-				if err := vm.executeOp(bytecode.OpSetDeref, frame); err != nil {
+				v.push(value.MakeInt(intLocals[valIdx]))
+				if err := v.executeOp(bytecode.OpSetDeref, frame); err != nil {
 					return value.MakeNil(), err
 				}
-				sp = vm.sp
-				stack = vm.stack
+				sp = v.sp
+				stack = v.stack
 			}
 			continue
 
@@ -900,35 +900,35 @@ func (vm *VM) run() (value.Value, error) {
 				s[intLocals[jIdx]] = intConsts[cIdx]
 			} else {
 				// Fallback: execute as IndexAddr + SetDeref manually
-				vm.sp = sp
-				vm.push(locals[sIdx])
-				vm.push(value.MakeInt(intLocals[jIdx]))
-				if err := vm.executeOp(bytecode.OpIndexAddr, frame); err != nil {
+				v.sp = sp
+				v.push(locals[sIdx])
+				v.push(value.MakeInt(intLocals[jIdx]))
+				if err := v.executeOp(bytecode.OpIndexAddr, frame); err != nil {
 					return value.MakeNil(), err
 				}
-				vm.push(prebaked[cIdx])
-				if err := vm.executeOp(bytecode.OpSetDeref, frame); err != nil {
+				v.push(prebaked[cIdx])
+				if err := v.executeOp(bytecode.OpSetDeref, frame); err != nil {
 					return value.MakeNil(), err
 				}
-				sp = vm.sp
-				stack = vm.stack
+				sp = v.sp
+				stack = v.stack
 			}
 			continue
 
 		case bytecode.OpCallExternal:
 			funcIdx := readU16()
 			numArgs := int(frame.readByte())
-			prevFP := vm.fp
-			vm.sp = sp
-			if err := vm.callExternal(int(funcIdx), numArgs); err != nil {
+			prevFP := v.fp
+			v.sp = sp
+			if err := v.callExternal(int(funcIdx), numArgs); err != nil {
 				return value.MakeNil(), err
 			}
-			sp = vm.sp
-			stack = vm.stack
+			sp = v.sp
+			stack = v.stack
 			// If callExternal pushed a new compiled frame (e.g., compiled method
 			// dispatch for invoke calls), reload frame state so the main loop
 			// executes the new frame before continuing.
-			if vm.fp != prevFP {
+			if v.fp != prevFP {
 				loadFrame()
 			}
 			continue
@@ -954,10 +954,10 @@ func (vm *VM) run() (value.Value, error) {
 			sp = spLocal
 			// Fast path: direct obj type assertion for *Closure avoids Interface() overhead
 			if closure, ok := callee.RawObj().(*Closure); ok {
-				vm.sp = sp
-				vm.callFunction(closure.Fn, args, closure.FreeVars)
-				sp = vm.sp
-				stack = vm.stack
+				v.sp = sp
+				v.callFunction(closure.Fn, args, closure.FreeVars)
+				sp = v.sp
+				stack = v.stack
 				loadFrame()
 			} else if rv, ok := callee.ReflectValue(); ok && rv.Kind() == reflect.Func {
 				// Reflect-based function (e.g., closure wrapped via reflect.MakeFunc
@@ -987,20 +987,20 @@ func (vm *VM) run() (value.Value, error) {
 		}
 
 		// Non-hot-path: dispatch to the full handler.
-		// Sync sp back before calling executeOp (it uses vm.push/vm.pop).
-		vm.sp = sp
-		if err := vm.executeOp(op, frame); err != nil {
+		// Sync sp back before calling executeOp (it uses v.push/v.pop).
+		v.sp = sp
+		if err := v.executeOp(op, frame); err != nil {
 			return value.MakeNil(), err
 		}
-		sp = vm.sp
-		stack = vm.stack
+		sp = v.sp
+		stack = v.stack
 		// Reload frame state in case executeOp changed it (call/return within executeOp)
-		if vm.fp > 0 {
+		if v.fp > 0 {
 			loadFrame()
 		}
 
 		// Handle panic
-		if vm.panicking {
+		if v.panicking {
 			// Run deferred functions
 			if len(frame.defers) > 0 {
 				// Execute deferred functions in reverse order
@@ -1010,27 +1010,27 @@ func (vm *VM) run() (value.Value, error) {
 						// External defer - not supported for now
 					} else if d.fn != nil {
 						// Internal defer
-						vm.sp = sp
-						vm.callFunction(d.fn, d.args, nil)
-						_, _ = vm.run() // Run the deferred function
-						sp = vm.sp
+						v.sp = sp
+						v.callFunction(d.fn, d.args, nil)
+						_, _ = v.run() // Run the deferred function
+						sp = v.sp
 					}
 				}
 				frame.defers = nil
 			}
 
 			// If this is the last frame, return the panic
-			if vm.fp == 1 {
-				err := fmt.Errorf("panic: %v", vm.panicVal.Interface())
-				vm.panicking = false
-				vm.panicVal = value.MakeNil()
+			if v.fp == 1 {
+				err := fmt.Errorf("panic: %v", v.panicVal.Interface())
+				v.panicking = false
+				v.panicVal = value.MakeNil()
 				return value.MakeNil(), err
 			}
 
 			// Propagate panic to caller
-			vm.fp--
-			vm.fpool.put(frame)
-			if vm.fp > 0 {
+			v.fp--
+			v.fpool.put(frame)
+			if v.fp > 0 {
 				loadFrame()
 			}
 			continue
@@ -1038,10 +1038,10 @@ func (vm *VM) run() (value.Value, error) {
 	}
 
 	// Return top of stack (or nil if empty)
-	vm.sp = sp
+	v.sp = sp
 	if sp > 0 {
 		sp--
-		vm.sp = sp
+		v.sp = sp
 		return stack[sp], nil
 	}
 	return value.MakeNil(), nil

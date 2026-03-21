@@ -14,3 +14,5 @@ require (
 )
 
 replace git.woa.com/youngjin/gig => ../..
+
+replace git.woa.com/youngjin/gig/cmd/gig/gentool => ./gentool

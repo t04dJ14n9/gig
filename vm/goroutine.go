@@ -11,21 +11,21 @@ import (
 
 // newChildVM creates a child VM for goroutine execution.
 // The child VM shares the globals pointer and external call cache with the parent.
-func (vm *VM) newChildVM() *VM {
-	child := &VM{
-		program:      vm.program,
+func (v *vm) newChildVM() *vm {
+	child := &vm{
+		program:      v.program,
 		stack:        make([]value.Value, 1024),
 		sp:           0,
 		frames:       make([]*Frame, 64),
 		fp:           0,
 		globals:      nil, // Not used when globalsPtr is set
-		globalsPtr:   vm.globalsPtr,
-		ctx:          vm.ctx,
-		extCallCache: vm.extCallCache, // Share cache (thread-safe via shared mutex)
+		globalsPtr:   v.globalsPtr,
+		ctx:          v.ctx,
+		extCallCache: v.extCallCache, // Share cache (thread-safe via shared mutex)
 	}
 	// If parent doesn't have a globalsPtr yet, create one for sharing
 	if child.globalsPtr == nil {
-		child.globalsPtr = &vm.globals
+		child.globalsPtr = &v.globals
 	}
 	return child
 }
@@ -77,17 +77,17 @@ func WaitGoroutinesContext(ctx context.Context) error {
 // Global VM registry for concurrent execution.
 var (
 	vmRegistryMutex sync.Mutex
-	vmRegistry      = make(map[int64]*VM)
+	vmRegistry      = make(map[int64]*vm)
 	vmIDCounter     int64
 )
 
 // RegisterVM registers a VM for later use in concurrent execution.
 // Returns a unique ID for the VM.
-func RegisterVM(vm *VM) int64 {
+func RegisterVM(v *vm) int64 {
 	vmRegistryMutex.Lock()
 	defer vmRegistryMutex.Unlock()
 	vmIDCounter++
-	vmRegistry[vmIDCounter] = vm
+	vmRegistry[vmIDCounter] = v
 	return vmIDCounter
 }
 

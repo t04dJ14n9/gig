@@ -1,37 +1,10 @@
-// Package importer provides type information and package registration for the interpreter.
-//
-// The importer package is responsible for:
-//   - Registering external packages for use in interpreted code
-//   - Providing type information for external packages to the type checker
-//   - Converting between Go's reflect.Type and types.Type representations
-//
-// # Package Registration
-//
-// External packages are registered using RegisterPackage:
-//
-//	pkg := importer.RegisterPackage("fmt", "fmt")
-//	pkg.AddFunction("Sprintf", fmt.Sprintf, "", directCallWrapper)
-//	pkg.AddConstant("NoError", "", "")
-//
-// # Object Types
-//
-// The importer supports four types of external objects:
-//   - Functions: Go functions callable from interpreted code
-//   - Variables: Mutable package-level variables
-//   - Constants: Compile-time constant values
-//   - Types: Named types with methods
-//
-// # DirectCall Optimization
-//
-// For frequently-called functions, a DirectCall wrapper can be provided to bypass
-// reflection overhead. The wrapper converts value.Value arguments to native Go types,
-// calls the function, and wraps the result.
 package importer
 
 import (
 	"fmt"
 	"go/types"
 	"reflect"
+	"strings"
 	"sync"
 
 	"git.woa.com/youngjin/gig/value"
@@ -79,8 +52,6 @@ type ExternalObject struct {
 	// Doc is optional documentation text.
 	Doc string
 
-	// DirectCall is an optional typed wrapper that bypasses reflect.Call.
-	// If provided, the VM will use this for faster function dispatch.
 	DirectCall func([]value.Value) value.Value
 }
 
@@ -100,68 +71,139 @@ type ExternalPackage struct {
 	Types map[string]reflect.Type
 }
 
-// Global registry
-var (
-	packagesMutex   sync.RWMutex
-	packagesByName  = make(map[string]*ExternalPackage) // keyed by package path
-	packagesByAlias = make(map[string]*ExternalPackage) // keyed by package name (for auto-import)
-	typesMutex      sync.RWMutex
-	externalTypes   = make(map[types.Type]reflect.Type) // types.Type -> reflect.Type
+// PackageRegistry manages external package registration.
+// It provides methods to register, lookup, and query packages, types, and method DirectCalls.
+type PackageRegistry interface {
+	// RegisterPackage registers a new external package with the given import path and name.
+	RegisterPackage(path, name string) *ExternalPackage
+	GetPackageByPath(path string) *ExternalPackage
+	GetPackageByName(name string) *ExternalPackage
+	GetAllPackages() map[string]*ExternalPackage
 
-	methodDirectCallsMutex sync.RWMutex
-	methodDirectCalls      = make(map[string]func([]value.Value) value.Value) // "pkgPath.TypeName.MethodName" -> DirectCall
-)
+	// Type management
+	SetExternalType(t types.Type, rt reflect.Type)
+	GetExternalType(t types.Type) reflect.Type
 
-// RegisterPackage registers a new external package with the given import path and name.
-// Returns an ExternalPackage for adding functions, variables, constants, and types.
-// Packages are registered globally and can be looked up by path or name.
-func RegisterPackage(path, name string) *ExternalPackage {
+	// Method DirectCall management
+	AddMethodDirectCall(typeName, methodName string, dc func([]value.Value) value.Value)
+	LookupMethodDirectCall(typeName, methodName string) (func([]value.Value) value.Value, bool)
+
+	// Package lookup helpers
+	LookupPackage(name string) (*ExternalPackage, error)
+	AutoImport(name string) (path string, pkg *ExternalPackage, ok bool)
+}
+
+// Registry is the concrete implementation of PackageRegistry.
+// It stores all registered packages, external type mappings, and method DirectCall wrappers.
+type Registry struct {
+	mu             sync.RWMutex
+	packagesByName  map[string]*ExternalPackage // keyed by package path
+	packagesByAlias map[string]*ExternalPackage // keyed by package name (for auto-import)
+
+	typesMu    sync.RWMutex
+	extTypes   map[types.Type]reflect.Type // types.Type -> reflect.Type
+
+	methodsMu sync.RWMutex
+	methods   map[string]func([]value.Value) value.Value // "pkgPath.TypeName.MethodName" -> DirectCall
+}
+
+// NewRegistry creates a new empty package registry.
+func NewRegistry() *Registry {
+	return &Registry{
+		packagesByName:  make(map[string]*ExternalPackage),
+		packagesByAlias: make(map[string]*ExternalPackage),
+		extTypes:        make(map[types.Type]reflect.Type),
+		methods:         make(map[string]func([]value.Value) value.Value),
+	}
+}
+
+func (r *Registry) RegisterPackage(path, name string) *ExternalPackage {
 	pkg := &ExternalPackage{
 		Path:    path,
 		Name:    name,
 		Objects: make(map[string]*ExternalObject),
 		Types:   make(map[string]reflect.Type),
 	}
-
-	packagesMutex.Lock()
-	packagesByName[path] = pkg
-	packagesByAlias[name] = pkg
-	packagesMutex.Unlock()
-
+	r.mu.Lock()
+	r.packagesByName[path] = pkg
+	r.packagesByAlias[name] = pkg
+	r.mu.Unlock()
 	return pkg
 }
 
-// GetPackageByPath returns a registered package by its import path.
-// Returns nil if no package with the given path is registered.
-func GetPackageByPath(path string) *ExternalPackage {
-	packagesMutex.RLock()
-	defer packagesMutex.RUnlock()
-	return packagesByName[path]
+func (r *Registry) GetPackageByPath(path string) *ExternalPackage {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.packagesByName[path]
 }
 
-// GetPackageByName returns a registered package by its name (for auto-import).
-// Returns nil if no package with the given name is registered.
-func GetPackageByName(name string) *ExternalPackage {
-	packagesMutex.RLock()
-	defer packagesMutex.RUnlock()
-	return packagesByAlias[name]
+func (r *Registry) GetPackageByName(name string) *ExternalPackage {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.packagesByAlias[name]
 }
 
-// GetAllPackages returns a copy of all registered packages, keyed by import path.
-func GetAllPackages() map[string]*ExternalPackage {
-	packagesMutex.RLock()
-	defer packagesMutex.RUnlock()
-
-	result := make(map[string]*ExternalPackage, len(packagesByName))
-	for k, v := range packagesByName {
+func (r *Registry) GetAllPackages() map[string]*ExternalPackage {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make(map[string]*ExternalPackage, len(r.packagesByName))
+	for k, v := range r.packagesByName {
 		result[k] = v
 	}
 	return result
 }
 
+func (r *Registry) SetExternalType(t types.Type, rt reflect.Type) {
+	r.typesMu.Lock()
+	defer r.typesMu.Unlock()
+	r.extTypes[t] = rt
+}
+
+func (r *Registry) GetExternalType(t types.Type) reflect.Type {
+	r.typesMu.RLock()
+	defer r.typesMu.RUnlock()
+	return r.extTypes[t]
+}
+
+func (r *Registry) AddMethodDirectCall(typeName, methodName string, dc func([]value.Value) value.Value) {
+	r.methodsMu.Lock()
+	defer r.methodsMu.Unlock()
+	r.methods[typeName+"."+methodName] = dc
+}
+
+func (r *Registry) LookupMethodDirectCall(typeName, methodName string) (func([]value.Value) value.Value, bool) {
+	r.methodsMu.RLock()
+	defer r.methodsMu.RUnlock()
+	dc, ok := r.methods[typeName+"."+methodName]
+	return dc, ok
+}
+
+func (r *Registry) LookupPackage(name string) (*ExternalPackage, error) {
+	if pkg := r.GetPackageByPath(name); pkg != nil {
+		return pkg, nil
+	}
+	if pkg := r.GetPackageByName(name); pkg != nil {
+		return pkg, nil
+	}
+	return nil, fmt.Errorf("package %q not found", name)
+}
+
+func (r *Registry) AutoImport(name string) (path string, pkg *ExternalPackage, ok bool) {
+	if pkg := r.GetPackageByName(name); pkg != nil {
+		return pkg.Path, pkg, true
+	}
+	for p, pkg := range r.GetAllPackages() {
+		parts := strings.Split(p, "/")
+		if parts[len(parts)-1] == name {
+			return p, pkg, true
+		}
+	}
+	return "", nil, false
+}
+
+// --- ExternalPackage methods ---
+
 // AddFunction adds a function to the package.
-// The fn parameter must be a function value.
-// The directCall parameter is an optional typed wrapper for fast dispatch.
 func (p *ExternalPackage) AddFunction(name string, fn any, doc string, directCall func([]value.Value) value.Value) {
 	sig := funcSignature(fn)
 	p.Objects[name] = &ExternalObject{
@@ -175,7 +217,6 @@ func (p *ExternalPackage) AddFunction(name string, fn any, doc string, directCal
 }
 
 // AddVariable adds a variable to the package.
-// The ptr parameter must be a pointer to the variable.
 func (p *ExternalPackage) AddVariable(name string, ptr any, doc string) {
 	typ := typeOf(reflect.TypeOf(ptr).Elem())
 	p.Objects[name] = &ExternalObject{
@@ -188,7 +229,6 @@ func (p *ExternalPackage) AddVariable(name string, ptr any, doc string) {
 }
 
 // AddConstant adds a constant to the package.
-// The val parameter is the constant value.
 func (p *ExternalPackage) AddConstant(name string, val any, doc string) {
 	typ := typeOf(reflect.TypeOf(val))
 	p.Objects[name] = &ExternalObject{
@@ -201,10 +241,8 @@ func (p *ExternalPackage) AddConstant(name string, val any, doc string) {
 }
 
 // AddType adds a named type to the package.
-// The typ parameter is the reflect.Type representation of the type.
 func (p *ExternalPackage) AddType(name string, typ reflect.Type, doc string) {
 	if typ == nil {
-		// Skip nil types (interface placeholders, etc.)
 		return
 	}
 	p.Types[name] = typ
@@ -218,41 +256,56 @@ func (p *ExternalPackage) AddType(name string, typ reflect.Type, doc string) {
 }
 
 // AddMethodDirectCall registers a DirectCall wrapper for a method on a type in this package.
-// The key is package-path-qualified: "pkgPath.TypeName.MethodName" (e.g., "encoding/json.Encoder.Encode").
-// This prevents collisions when different packages define types with the same name
-// (e.g., encoding/json.Encoder vs encoding/xml.Encoder).
+// It delegates to the global registry for backward compatibility.
 func (p *ExternalPackage) AddMethodDirectCall(typeName, methodName string, dc func([]value.Value) value.Value) {
-	methodDirectCallsMutex.Lock()
-	defer methodDirectCallsMutex.Unlock()
-	key := p.Path + "." + typeName + "." + methodName
-	methodDirectCalls[key] = dc
+	globalRegistry.AddMethodDirectCall(p.Path+"."+typeName, methodName, dc)
 }
 
-// LookupMethodDirectCall looks up a method DirectCall wrapper by qualified type name and method name.
-// typeName must be package-path-qualified (e.g., "encoding/json.Encoder"), and the lookup key
-// is constructed as "typeName.methodName" (e.g., "encoding/json.Encoder.Encode").
+// --- Global registry (backward compatibility) ---
+
+// globalRegistry is the default registry used by global convenience functions.
+var globalRegistry = NewRegistry() //nolint:gochecknoglobals // backward compatibility
+
+// GlobalRegistry returns the default global registry.
+// This registry is pre-populated by init() functions in generated package wrappers.
+func GlobalRegistry() PackageRegistry {
+	return globalRegistry
+}
+
+// RegisterPackage registers a new external package with the global registry.
+// This is a convenience function for init() functions in generated package wrappers.
+func RegisterPackage(path, name string) *ExternalPackage {
+	return globalRegistry.RegisterPackage(path, name)
+}
+
+// GetPackageByPath returns a registered package by import path from the global registry.
+func GetPackageByPath(path string) *ExternalPackage {
+	return globalRegistry.GetPackageByPath(path)
+}
+
+// GetPackageByName returns a registered package by name from the global registry.
+func GetPackageByName(name string) *ExternalPackage {
+	return globalRegistry.GetPackageByName(name)
+}
+
+// GetAllPackages returns all registered packages from the global registry.
+func GetAllPackages() map[string]*ExternalPackage {
+	return globalRegistry.GetAllPackages()
+}
+
+// LookupMethodDirectCall looks up a method DirectCall wrapper from the global registry.
 func LookupMethodDirectCall(typeName, methodName string) (func([]value.Value) value.Value, bool) {
-	methodDirectCallsMutex.RLock()
-	defer methodDirectCallsMutex.RUnlock()
-	key := typeName + "." + methodName
-	dc, ok := methodDirectCalls[key]
-	return dc, ok
+	return globalRegistry.LookupMethodDirectCall(typeName, methodName)
 }
 
-// SetExternalType associates a types.Type with a reflect.Type.
-// This mapping is used when the VM needs to allocate or manipulate external types.
+// SetExternalType associates a types.Type with a reflect.Type in the global registry.
 func SetExternalType(t types.Type, rt reflect.Type) {
-	typesMutex.Lock()
-	defer typesMutex.Unlock()
-	externalTypes[t] = rt
+	globalRegistry.SetExternalType(t, rt)
 }
 
-// GetExternalType returns the reflect.Type associated with a types.Type.
-// Returns nil if no association exists.
+// GetExternalType returns the reflect.Type associated with a types.Type from the global registry.
 func GetExternalType(t types.Type) reflect.Type {
-	typesMutex.RLock()
-	defer typesMutex.RUnlock()
-	return externalTypes[t]
+	return globalRegistry.GetExternalType(t)
 }
 
 // funcSignature creates a types.Signature from a function value using reflection.
@@ -261,7 +314,6 @@ func funcSignature(fn any) *types.Signature {
 	if rt.Kind() != reflect.Func {
 		panic(fmt.Sprintf("expected function, got %v", rt.Kind()))
 	}
-
 	return typeOf(rt).(*types.Signature)
 }
 

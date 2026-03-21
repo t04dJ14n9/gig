@@ -6,34 +6,28 @@ import (
 	"reflect"
 )
 
-// ClosureCaller is a callback registered by the vm package to execute a closure.
-// It receives the raw closure object, reflect.Value arguments, and the expected
-// output types. It returns reflect.Value results matching the target function signature.
-// The outTypes parameter enables recursive wrapping of nested closures.
-// This breaks the circular dependency between value and vm packages.
-type ClosureCaller func(closure any, args []reflect.Value, outTypes []reflect.Type) []reflect.Value
+// MethodResolverFunc is a callback for calling compiled methods on interpreted types.
+// It receives a method name and receiver value, and returns the result if found.
+// This is set by the vm package during initialization.
+type MethodResolverFunc func(methodName string, receiver Value) (Value, bool)
 
 // closureCaller is the registered callback for executing closures.
-// It is set by the vm package during initialization.
-var closureCaller ClosureCaller //nolint:gochecknoglobals // cross-package callback, must be global
+// Set by vm package via SetClosureCaller.
+var closureCaller func(closure any, args []reflect.Value, outTypes []reflect.Type) []reflect.Value //nolint:gochecknoglobals
 
-// RegisterClosureCaller registers the closure execution callback.
+// SetClosureCaller registers the closure execution callback.
 // This must be called by the vm package before any closure-to-func conversion occurs.
-func RegisterClosureCaller(caller ClosureCaller) {
+func SetClosureCaller(caller func(closure any, args []reflect.Value, outTypes []reflect.Type) []reflect.Value) {
 	closureCaller = caller
 }
 
-// MethodResolver is a callback for calling compiled methods on interpreted types.
-// It receives a method name and receiver value, and returns the result if found.
-// This is used by fmt DirectCall wrappers to check for String() methods.
-type MethodResolver func(methodName string, receiver Value) (Value, bool)
-
 // methodResolver is the registered callback for resolving compiled methods.
-var methodResolver MethodResolver //nolint:gochecknoglobals // cross-package callback
+// Set by vm package via SetMethodResolver.
+var methodResolver MethodResolverFunc //nolint:gochecknoglobals
 
-// RegisterMethodResolver registers the method resolution callback.
-// This must be called by the vm package during initialization.
-func RegisterMethodResolver(resolver MethodResolver) {
+// SetMethodResolver registers the method resolution callback.
+// This must be called by the vm package before any method resolution occurs.
+func SetMethodResolver(resolver MethodResolverFunc) {
 	methodResolver = resolver
 }
 

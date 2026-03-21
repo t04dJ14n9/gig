@@ -6,6 +6,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 
 	"git.woa.com/youngjin/gig/bytecode"
+	"git.woa.com/youngjin/gig/compiler/optimize"
 )
 
 // isIntType returns true if the type is a signed integer (int, int8..int64).
@@ -139,19 +140,8 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 		}
 	}
 
-	// Peephole optimization: fuse common instruction sequences into superinstructions
-	c.currentFunc.Instructions = optimizeBytecode(c.currentFunc.Instructions)
-
-	// Fuse slice access patterns: LOCAL(s) LOCAL(j) INDEXADDR ... → OpIntSliceGet/Set
-	c.currentFunc.Instructions = fuseSliceOps(c.currentFunc.Instructions, localIsInt, localIsIntSlice)
-
-	// Int-specialization pass: upgrade Value superinstructions to OpInt* variants
-	c.currentFunc.Instructions, c.currentFunc.HasIntLocals = intSpecialize(c.currentFunc.Instructions, localIsInt, constIsInt)
-
-	// Int move-fusion pass: OpIntLocal(A) OpIntSetLocal(B) → OpIntMoveLocal(A, B)
-	if c.currentFunc.HasIntLocals {
-		c.currentFunc.Instructions = fuseIntMoves(c.currentFunc.Instructions)
-	}
+	// Apply all optimization passes (peephole, slice fusion, int-specialization, int move fusion)
+	c.currentFunc.Instructions, c.currentFunc.HasIntLocals = optimize.Optimize(c.currentFunc.Instructions, localIsInt, constIsInt, localIsIntSlice)
 
 	return c.currentFunc, nil
 }
