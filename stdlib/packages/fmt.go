@@ -49,196 +49,6 @@ func init() {
 
 }
 
-// gigStructFormatter wraps an interpreter-synthesized struct for proper fmt formatting.
-// It implements fmt.Formatter and fmt.Stringer to:
-// - Hide the _gig_id sentinel field from %v output
-// - Report the correct type name for %T
-// - Call the interpreted String() method for %v/%s if available
-type gigStructFormatter struct {
-	rv       reflect.Value // the full struct including _gig_id
-	typeName string        // qualified type name (e.g., "known_issues.point")
-	stringer func() string // nil if no String() method
-}
-
-var _ fmt.Formatter = (*gigStructFormatter)(nil)
-
-func (g *gigStructFormatter) Format(f fmt.State, verb rune) {
-	switch verb {
-	case 'T':
-		fmt.Fprint(f, g.typeName)
-	case 'v', 's':
-		if g.stringer != nil && (verb == 's' || (verb == 'v' && !f.Flag('#'))) {
-			fmt.Fprint(f, g.stringer())
-			return
-		}
-		// Print struct fields without _gig_id
-		if verb == 'v' && f.Flag('#') {
-			// %#v: detailed format
-			fmt.Fprintf(f, "%s{", g.typeName)
-		} else {
-			fmt.Fprint(f, "{")
-		}
-		rt := g.rv.Type()
-		first := true
-		for i := 0; i < rt.NumField(); i++ {
-			sf := rt.Field(i)
-			if sf.Name == "_gig_id" {
-				continue
-			}
-			if !first {
-				fmt.Fprint(f, " ")
-			}
-			if verb == 'v' && f.Flag('#') {
-				fmt.Fprintf(f, "%s:", sf.Name)
-			}
-			fmt.Fprintf(f, "%"+string(verb), g.rv.Field(i).Interface())
-			first = false
-		}
-		fmt.Fprint(f, "}")
-	default:
-		// For other verbs, use default formatting of the clean struct
-		fmt.Fprintf(f, "%"+string(verb), g.cleanInterface())
-	}
-}
-
-func (g *gigStructFormatter) String() string {
-	if g.stringer != nil {
-		return g.stringer()
-	}
-	return fmt.Sprintf("%v", g)
-}
-
-// cleanInterface returns the struct value without _gig_id for use with standard fmt.
-func (g *gigStructFormatter) cleanInterface() any {
-	rt := g.rv.Type()
-	fields := make([]reflect.StructField, 0, rt.NumField())
-	for i := 0; i < rt.NumField(); i++ {
-		sf := rt.Field(i)
-		if sf.Name == "_gig_id" {
-			continue
-		}
-		fields = append(fields, sf)
-	}
-	cleanType := reflect.StructOf(fields)
-	cleanVal := reflect.New(cleanType).Elem()
-	fi := 0
-	for i := 0; i < rt.NumField(); i++ {
-		if rt.Field(i).Name == "_gig_id" {
-			continue
-		}
-		cleanVal.Field(fi).Set(g.rv.Field(i))
-		fi++
-	}
-	return cleanVal.Interface()
-}
-
-// isGigStruct checks if a value is an interpreter-synthesized struct with _gig_id field.
-// Returns the reflect.Value and the qualified type name extracted from _gig_id.PkgPath.
-func isGigStruct(v any) (reflect.Value, string, bool) {
-	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Struct {
-		return rv, "", false
-	}
-	rt := rv.Type()
-	for i := 0; i < rt.NumField(); i++ {
-		sf := rt.Field(i)
-		if sf.Name == "_gig_id" {
-			// Extract type name from PkgPath (format: "gig/internal#pkg.TypeName" or "pkg#TypeName")
-			typeName := ""
-			if idx := strings.LastIndex(sf.PkgPath, "#"); idx >= 0 {
-				typeName = sf.PkgPath[idx+1:]
-			}
-			return rv, typeName, true
-		}
-	}
-	return rv, "", false
-}
-
-// sanitizeArgForFmt wraps interpreter-synthesized structs in gigStructFormatter.
-// Takes value.Value to enable compiled method lookup for fmt.Stringer support.
-func sanitizeArgForFmt(v value.Value) any {
-	iface := v.Interface()
-	rv, typeName, ok := isGigStruct(iface)
-	if !ok {
-		return iface
-	}
-	gsf := &gigStructFormatter{
-		rv:       rv,
-		typeName: typeName,
-	}
-	// Check if the interpreted type has a String() method
-	// Pass nil resolver since fmt DirectCall wrapper lacks VM context.
-	// fmt.Stringer for interpreted types via DirectCall was already unreliable.
-	if result, found := value.CallMethod(nil, "String", v); found {
-		str := result.String()
-		gsf.stringer = func() string { return str }
-	}
-	return gsf
-}
-
-// sprintfWithTypeAwareness handles %T correctly for gigStructFormatter values.
-// Standard fmt.Sprintf("%T") bypasses fmt.Formatter, so we intercept it here.
-func sprintfWithTypeAwareness(format string, args []any) string {
-	// Fast path: no %T in format string
-	if !strings.Contains(format, "%T") {
-		return fmt.Sprintf(format, args...)
-	}
-	// Slow path: replace each %T that corresponds to a gigStructFormatter arg
-	// with the correct type name.
-	var result strings.Builder
-	argIdx := 0
-	i := 0
-	for i < len(format) {
-		if format[i] == '%' {
-			if i+1 < len(format) && format[i+1] == '%' {
-				result.WriteString("%%")
-				i += 2
-				continue
-			}
-			// Find the verb
-			j := i + 1
-			// Skip flags, width, precision
-			for j < len(format) && (format[j] == '-' || format[j] == '+' || format[j] == '#' || format[j] == ' ' || format[j] == '0') {
-				j++
-			}
-			// Skip width
-			for j < len(format) && format[j] >= '0' && format[j] <= '9' {
-				j++
-			}
-			// Skip precision
-			if j < len(format) && format[j] == '.' {
-				j++
-				for j < len(format) && format[j] >= '0' && format[j] <= '9' {
-					j++
-				}
-			}
-			if j < len(format) {
-				verb := format[j]
-				if verb == 'T' && argIdx < len(args) {
-					if gsf, ok := args[argIdx].(*gigStructFormatter); ok {
-						result.WriteString(gsf.typeName)
-						argIdx++
-						i = j + 1
-						continue
-					}
-				}
-				// For non-T verbs or non-gig args, use fmt.Sprintf for this single verb
-				if argIdx < len(args) {
-					result.WriteString(fmt.Sprintf(format[i:j+1], args[argIdx]))
-					argIdx++
-				} else {
-					result.WriteString(format[i : j+1])
-				}
-				i = j + 1
-				continue
-			}
-		}
-		result.WriteByte(format[i])
-		i++
-	}
-	return result.String()
-}
-
 func direct_fmt_Append(args []value.Value) value.Value {
 	a0 := func() []byte {
 		if b, ok := (args[0]).Bytes(); ok {
@@ -441,8 +251,7 @@ func direct_fmt_Sprintf(args []value.Value) value.Value {
 	for i := 1; i < len(args); i++ {
 		varArgs[i-1] = sanitizeArgForFmt(args[i])
 	}
-	result := sprintfWithTypeAwareness(a0, varArgs)
-	return value.MakeString(result)
+	return value.MakeString(string(sprintfWithTypeAwareness(a0, varArgs...)))
 }
 
 func direct_fmt_Sprintln(args []value.Value) value.Value {
@@ -482,4 +291,194 @@ func direct_fmt_Sscanln(args []value.Value) value.Value {
 	}
 	r0, r1 := fmt.Sscanln(a0, varArgs...)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+// --- fmt sanitization helpers (generated by gentool) ---
+
+// gigStructFormatter wraps an interpreter-synthesized struct for proper fmt formatting.
+// It implements fmt.Formatter and fmt.Stringer to:
+// - Hide the _gig_id sentinel field from %v output
+// - Report the correct type name for %T
+// - Call the interpreted String() method for %v/%s if available
+type gigStructFormatter struct {
+	rv       reflect.Value // the full struct including _gig_id
+	typeName string        // qualified type name (e.g., "known_issues.point")
+	stringer func() string // nil if no String() method
+}
+
+var _ fmt.Formatter = (*gigStructFormatter)(nil)
+
+func (g *gigStructFormatter) Format(f fmt.State, verb rune) {
+	switch verb {
+	case 'T':
+		fmt.Fprint(f, g.typeName)
+	case 'v', 's':
+		if g.stringer != nil && (verb == 's' || (verb == 'v' && !f.Flag('#'))) {
+			fmt.Fprint(f, g.stringer())
+			return
+		}
+		// Print struct fields without _gig_id
+		if verb == 'v' && f.Flag('#') {
+			// %#v: detailed format
+			fmt.Fprintf(f, "%s{", g.typeName)
+		} else {
+			fmt.Fprint(f, "{")
+		}
+		rt := g.rv.Type()
+		first := true
+		for i := 0; i < rt.NumField(); i++ {
+			sf := rt.Field(i)
+			if sf.Name == "_gig_id" {
+				continue
+			}
+			if !first {
+				fmt.Fprint(f, " ")
+			}
+			if verb == 'v' && f.Flag('#') {
+				fmt.Fprintf(f, "%s:", sf.Name)
+			}
+			fmt.Fprintf(f, "%"+string(verb), g.rv.Field(i).Interface())
+			first = false
+		}
+		fmt.Fprint(f, "}")
+	default:
+		// For other verbs, use default formatting of the clean struct
+		fmt.Fprintf(f, "%"+string(verb), g.cleanInterface())
+	}
+}
+
+func (g *gigStructFormatter) String() string {
+	if g.stringer != nil {
+		return g.stringer()
+	}
+	return fmt.Sprintf("%v", g)
+}
+
+// cleanInterface returns the struct value without _gig_id for use with standard fmt.
+func (g *gigStructFormatter) cleanInterface() any {
+	rt := g.rv.Type()
+	fields := make([]reflect.StructField, 0, rt.NumField())
+	for i := 0; i < rt.NumField(); i++ {
+		sf := rt.Field(i)
+		if sf.Name == "_gig_id" {
+			continue
+		}
+		fields = append(fields, sf)
+	}
+	cleanType := reflect.StructOf(fields)
+	cleanVal := reflect.New(cleanType).Elem()
+	fi := 0
+	for i := 0; i < rt.NumField(); i++ {
+		if rt.Field(i).Name == "_gig_id" {
+			continue
+		}
+		cleanVal.Field(fi).Set(g.rv.Field(i))
+		fi++
+	}
+	return cleanVal.Interface()
+}
+
+// isGigStruct checks if a value is an interpreter-synthesized struct with _gig_id field.
+// Returns the reflect.Value and the qualified type name extracted from _gig_id.PkgPath.
+func isGigStruct(v any) (reflect.Value, string, bool) {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Struct {
+		return rv, "", false
+	}
+	rt := rv.Type()
+	for i := 0; i < rt.NumField(); i++ {
+		sf := rt.Field(i)
+		if sf.Name == "_gig_id" {
+			// Extract type name from PkgPath (format: "gig/internal#pkg.TypeName" or "pkg#TypeName")
+			typeName := ""
+			if idx := strings.LastIndex(sf.PkgPath, "#"); idx >= 0 {
+				typeName = sf.PkgPath[idx+1:]
+			}
+			return rv, typeName, true
+		}
+	}
+	return rv, "", false
+}
+
+// sanitizeArgForFmt wraps interpreter-synthesized structs in gigStructFormatter.
+// Takes value.Value to enable compiled method lookup for fmt.Stringer support.
+func sanitizeArgForFmt(v value.Value) any {
+	iface := v.Interface()
+	rv, typeName, ok := isGigStruct(iface)
+	if !ok {
+		return iface
+	}
+	gsf := &gigStructFormatter{
+		rv:       rv,
+		typeName: typeName,
+	}
+	// Check if the interpreted type has a String() method
+	if result, found := value.CallMethod(nil, "String", v); found {
+		str := result.String()
+		gsf.stringer = func() string { return str }
+	}
+	return gsf
+}
+
+// sprintfWithTypeAwareness handles %T correctly for gigStructFormatter values.
+// Standard fmt.Sprintf("%T") bypasses fmt.Formatter, so we intercept it here.
+func sprintfWithTypeAwareness(format string, args ...any) string {
+	// Fast path: no %T in format string
+	if !strings.Contains(format, "%T") {
+		return fmt.Sprintf(format, args...)
+	}
+	// Slow path: replace each %T that corresponds to a gigStructFormatter arg
+	// with the correct type name.
+	var result strings.Builder
+	argIdx := 0
+	i := 0
+	for i < len(format) {
+		if format[i] == '%' {
+			if i+1 < len(format) && format[i+1] == '%' {
+				result.WriteString("%%")
+				i += 2
+				continue
+			}
+			// Find the verb
+			j := i + 1
+			// Skip flags, width, precision
+			for j < len(format) && (format[j] == '-' || format[j] == '+' || format[j] == '#' || format[j] == ' ' || format[j] == '0') {
+				j++
+			}
+			// Skip width
+			for j < len(format) && format[j] >= '0' && format[j] <= '9' {
+				j++
+			}
+			// Skip precision
+			if j < len(format) && format[j] == '.' {
+				j++
+				for j < len(format) && format[j] >= '0' && format[j] <= '9' {
+					j++
+				}
+			}
+			if j < len(format) {
+				verb := format[j]
+				if verb == 'T' && argIdx < len(args) {
+					if gsf, ok := args[argIdx].(*gigStructFormatter); ok {
+						result.WriteString(gsf.typeName)
+						argIdx++
+						i = j + 1
+						continue
+					}
+				}
+				// For non-T verbs or non-gig args, use fmt.Sprintf for this single verb
+				if argIdx < len(args) {
+					result.WriteString(fmt.Sprintf(format[i:j+1], args[argIdx]))
+					argIdx++
+				} else {
+					result.WriteString(format[i : j+1])
+				}
+				i = j + 1
+				continue
+			}
+		}
+		result.WriteByte(format[i])
+		i++
+	}
+	return result.String()
 }

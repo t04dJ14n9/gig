@@ -231,17 +231,23 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	if needReflect {
 		b.WriteString("\t\"reflect\"\n")
 	}
-	// fmt package needs extra imports for the gigStructFormatter sanitizer
-	if path == "fmt" {
-		if !needReflect {
-			b.WriteString("\t\"reflect\"\n")
-		}
-		b.WriteString("\t\"strings\"\n")
+	// Add extra imports for packages that need fmt sanitization helpers
+	sanitizeImports := map[string]string{}
+	if fmtSanitizePackages[path] {
+		sanitizeImports = fmtSanitizeExtraImports()
 	}
+
+	// Merge sanitize imports into cross-package imports
+	for impPath, impAlias := range sanitizeImports {
+		if _, exists := crossPkgImports[impPath]; !exists {
+			crossPkgImports[impPath] = impAlias
+		}
+	}
+
 	// Add cross-package imports needed by DirectCall wrappers
 	for impPath, impAlias := range crossPkgImports {
 		// Skip reflect if already imported above
-		if impPath == "reflect" && (needReflect || path == "fmt") {
+		if impPath == "reflect" && needReflect {
 			continue
 		}
 		// Skip the package's own import (already imported at top)
@@ -335,6 +341,12 @@ func PackageImport(path string, outDir string, pkgName string) error {
 		b.WriteString("\n")
 	}
 
+	// Emit fmt sanitization helper code for packages that need it
+	if fmtSanitizePackages[path] {
+		b.WriteString(fmtSanitizeHelperCode())
+		b.WriteString("\n")
+	}
+
 	src := b.String()
 	code, err := format.Source([]byte(src))
 	if err != nil {
@@ -344,6 +356,7 @@ func PackageImport(path string, outDir string, pkgName string) error {
 
 	// Output file: outDir/goPkgName.go (e.g., mydep/fmt.go)
 	filename := filepath.Join(outDir, goPkgName+".go")
+
 	fmt.Printf("  -> %s\n", filename)
 	return os.WriteFile(filename, code, 0o666)
 }
