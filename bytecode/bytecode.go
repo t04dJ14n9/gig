@@ -100,11 +100,6 @@ type Program struct {
 	// FuncIndex maps SSA functions to their indices for call instructions.
 	FuncIndex map[*ssa.Function]int
 
-	// InitialGlobals holds the global variable state after init() has run.
-	// New VMs copy this slice as their starting globals so each call sees a
-	// fully-initialised package state.  Nil when there is no init() function.
-	InitialGlobals []value.Value
-
 	// ExternalVarValues stores external package variable values indexed by global index.
 	// These are resolved at compile time and used to initialize globals in the VM.
 	// The value is a pointer to the external variable (e.g., &time.UTC).

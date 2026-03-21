@@ -23,35 +23,68 @@ type Executor interface {
 	InternalProgram() *bytecode.Program
 }
 
-// Runner orchestrates program execution with VM pool management and global state handling.
-type Runner struct {
-	program *bytecode.Program
-	vmPool  *vm.VMPool
-
-	// stateful mode fields (only used when Stateful is true)
-	Stateful      bool          // whether stateful globals mode is enabled
-	sharedGlobals []value.Value // program-owned globals shared across runs
-	runMu         sync.Mutex    // serializes top-level Run calls in stateful mode
+// runnerConfig holds internal options parsed from RunnerOption values.
+type runnerConfig struct {
+	stateful bool
 }
 
-// New creates a new Runner for the given compiled bytecode program.
-// It sets up a VM pool for efficient reuse across executions.
-func New(program *bytecode.Program) *Runner {
-	return &Runner{
-		program: program,
-		vmPool:  vm.NewVMPool(program),
+// RunnerOption configures Runner construction.
+type RunnerOption func(*runnerConfig)
+
+// WithStatefulGlobals enables persistent package-level globals across Run calls.
+func WithStatefulGlobals() RunnerOption {
+	return func(c *runnerConfig) {
+		c.stateful = true
 	}
 }
 
-// Run executes a function in the program with the given arguments.
-// Parameters are automatically converted to value.Value using FromInterface.
+// Runner orchestrates program execution with VM pool management and global state handling.
+type Runner struct {
+	program        *bytecode.Program
+	initialGlobals []value.Value
+	vmPool         *vm.VMPool
+	goroutines     *vm.GoroutineTracker
+
+	// stateful mode fields
+	stateful      bool
+	sharedGlobals []value.Value
+	runMu         sync.Mutex
+}
+
+// New creates a new Runner for the given compiled bytecode program.
+func New(program *bytecode.Program, initialGlobals []value.Value, opts ...RunnerOption) *Runner {
+	cfg := runnerConfig{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	gt := vm.NewGoroutineTracker()
+	r := &Runner{
+		program:        program,
+		initialGlobals: initialGlobals,
+		vmPool:         vm.NewVMPool(program, initialGlobals, gt),
+		goroutines:     gt,
+		stateful:       cfg.stateful,
+	}
+
+	if cfg.stateful {
+		r.sharedGlobals = make([]value.Value, len(program.Globals))
+		if len(initialGlobals) == len(r.sharedGlobals) {
+			copy(r.sharedGlobals, initialGlobals)
+		}
+	}
+
+	return r
+}
+
+// Run executes a function with the default timeout.
 func (r *Runner) Run(funcName string, params ...any) (any, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancel()
 	return r.RunWithContext(ctx, funcName, params...)
 }
 
-// RunWithContext executes a function with context for timeout/cancellation control.
+// RunWithContext executes a function with context for timeout/cancellation.
 func (r *Runner) RunWithContext(ctx context.Context, funcName string, params ...any) (any, error) {
 	args := make([]value.Value, len(params))
 	for i, param := range params {
@@ -65,9 +98,8 @@ func (r *Runner) RunWithContext(ctx context.Context, funcName string, params ...
 }
 
 // RunWithValues executes a function with pre-converted Value arguments.
-// This is more efficient when calling the same function repeatedly with the same types.
 func (r *Runner) RunWithValues(ctx context.Context, funcName string, args []value.Value) (value.Value, error) {
-	if r.Stateful {
+	if r.stateful {
 		r.runMu.Lock()
 		defer r.runMu.Unlock()
 
@@ -85,22 +117,20 @@ func (r *Runner) RunWithValues(ctx context.Context, funcName string, args []valu
 	return result, err
 }
 
+// Wait blocks until all interpreter goroutines for this program have completed.
+func (r *Runner) Wait() {
+	r.goroutines.Wait()
+}
+
+// WaitContext blocks until all goroutines complete or the context is cancelled.
+func (r *Runner) WaitContext(ctx context.Context) error {
+	return r.goroutines.WaitContext(ctx)
+}
+
 // InternalProgram exposes the compiled bytecode program for testing/debugging.
 func (r *Runner) InternalProgram() *bytecode.Program { return r.program }
 
-// InitSharedGlobals initializes the shared globals slice for stateful mode.
-// This should be called after Build() with stateful mode enabled.
-func (r *Runner) InitSharedGlobals() {
-	if r.Stateful {
-		r.sharedGlobals = make([]value.Value, len(r.program.Globals))
-		if len(r.program.InitialGlobals) == len(r.sharedGlobals) {
-			copy(r.sharedGlobals, r.program.InitialGlobals)
-		}
-	}
-}
-
 // UnwrapResult converts internal multi-return value.Value slices to []any.
-// A single return value is unwrapped directly; multiple return values become []any.
 func UnwrapResult(result value.Value) any {
 	iface := result.Interface()
 	if vals, ok := iface.([]value.Value); ok {
@@ -116,19 +146,19 @@ func UnwrapResult(result value.Value) any {
 // DefaultTimeout is the default execution timeout.
 const DefaultTimeout = 10 * time.Second
 
-// ExecuteInit runs the program's init() function if present and snapshots the globals.
-// This must be called after compilation and before any user-facing Run calls.
-func ExecuteInit(program *bytecode.Program) error {
+// ExecuteInit runs the program's init() function if present and returns the globals snapshot.
+// The snapshot should be passed to runner.New as initialGlobals.
+func ExecuteInit(program *bytecode.Program) ([]value.Value, error) {
 	if _, hasInit := program.Functions["init#1"]; hasInit {
 		initVM := vm.New(program)
 		ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 		defer cancel()
 		if _, err := initVM.Execute("init", ctx); err != nil {
-			return err
+			return nil, err
 		}
 		snap := make([]value.Value, len(initVM.Globals()))
 		copy(snap, initVM.Globals())
-		program.InitialGlobals = snap
+		return snap, nil
 	}
-	return nil
+	return nil, nil
 }
