@@ -48,7 +48,7 @@ func Parse(src string, reg importer.PackageRegistry) (*ParseResult, error) {
 	autoImport(file, reg)
 
 	// Create type checker with custom importer
-	imp := importer.NewImporter()
+	imp := importer.NewImporter(reg)
 	typeConfig := &types.Config{
 		Importer: imp,
 		Sizes:    &types.StdSizes{WordSize: 8, MaxAlign: 8},

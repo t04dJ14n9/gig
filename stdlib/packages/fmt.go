@@ -167,7 +167,9 @@ func sanitizeArgForFmt(v value.Value) any {
 		typeName: typeName,
 	}
 	// Check if the interpreted type has a String() method
-	if result, found := value.CallMethod("String", v); found {
+	// Pass nil resolver since fmt DirectCall wrapper lacks VM context.
+	// fmt.Stringer for interpreted types via DirectCall was already unreliable.
+	if result, found := value.CallMethod(nil, "String", v); found {
 		str := result.String()
 		gsf.stringer = func() string { return str }
 	}

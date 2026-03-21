@@ -69,6 +69,9 @@ type ExternalPackage struct {
 
 	// Types maps type names to their reflect.Type representations.
 	Types map[string]reflect.Type
+
+	// registry is a back-reference to the owning registry.
+	registry PackageRegistry
 }
 
 // PackageRegistry manages external package registration.
@@ -96,12 +99,12 @@ type PackageRegistry interface {
 // Registry is the concrete implementation of PackageRegistry.
 // It stores all registered packages, external type mappings, and method DirectCall wrappers.
 type Registry struct {
-	mu             sync.RWMutex
+	mu              sync.RWMutex
 	packagesByName  map[string]*ExternalPackage // keyed by package path
 	packagesByAlias map[string]*ExternalPackage // keyed by package name (for auto-import)
 
-	typesMu    sync.RWMutex
-	extTypes   map[types.Type]reflect.Type // types.Type -> reflect.Type
+	typesMu  sync.RWMutex
+	extTypes map[types.Type]reflect.Type // types.Type -> reflect.Type
 
 	methodsMu sync.RWMutex
 	methods   map[string]func([]value.Value) value.Value // "pkgPath.TypeName.MethodName" -> DirectCall
@@ -119,10 +122,11 @@ func NewRegistry() *Registry {
 
 func (r *Registry) RegisterPackage(path, name string) *ExternalPackage {
 	pkg := &ExternalPackage{
-		Path:    path,
-		Name:    name,
-		Objects: make(map[string]*ExternalObject),
-		Types:   make(map[string]reflect.Type),
+		Path:     path,
+		Name:     name,
+		Objects:  make(map[string]*ExternalObject),
+		Types:    make(map[string]reflect.Type),
+		registry: r,
 	}
 	r.mu.Lock()
 	r.packagesByName[path] = pkg
@@ -256,9 +260,11 @@ func (p *ExternalPackage) AddType(name string, typ reflect.Type, doc string) {
 }
 
 // AddMethodDirectCall registers a DirectCall wrapper for a method on a type in this package.
-// It delegates to the global registry for backward compatibility.
+// It uses the package's owning registry instance.
 func (p *ExternalPackage) AddMethodDirectCall(typeName, methodName string, dc func([]value.Value) value.Value) {
-	globalRegistry.AddMethodDirectCall(p.Path+"."+typeName, methodName, dc)
+	if p.registry != nil {
+		p.registry.AddMethodDirectCall(p.Path+"."+typeName, methodName, dc)
+	}
 }
 
 // --- Global registry (backward compatibility) ---

@@ -201,7 +201,7 @@ func TestGetExternalTypeNotFound(t *testing.T) {
 
 // TestNewImporter verifies that NewImporter creates a valid Importer.
 func TestNewImporter(t *testing.T) {
-	imp := NewImporter()
+	imp := NewImporter(GlobalRegistry())
 	if imp == nil {
 		t.Fatal("NewImporter returned nil")
 	}
@@ -213,7 +213,7 @@ func TestImportRegisteredPackage(t *testing.T) {
 	pkg := RegisterPackage(path, "importable")
 	pkg.AddFunction("Hello", func() string { return "world" }, "", nil)
 
-	imp := NewImporter()
+	imp := NewImporter(GlobalRegistry())
 	typesPkg, err := imp.Import(path)
 	if err != nil {
 		t.Fatalf("Import(%q) error: %v", path, err)
@@ -234,7 +234,7 @@ func TestImportCaching(t *testing.T) {
 	path := "test/cached"
 	RegisterPackage(path, "cached")
 
-	imp := NewImporter()
+	imp := NewImporter(GlobalRegistry())
 	p1, err1 := imp.Import(path)
 	p2, err2 := imp.Import(path)
 	if err1 != nil || err2 != nil {
@@ -247,7 +247,7 @@ func TestImportCaching(t *testing.T) {
 
 // TestImportUnregistered verifies error for unregistered package.
 func TestImportUnregistered(t *testing.T) {
-	imp := NewImporter()
+	imp := NewImporter(GlobalRegistry())
 	_, err := imp.Import("no/such/package/ever")
 	if err == nil {
 		t.Error("expected error for unregistered package")
