@@ -86,6 +86,7 @@ gig init -package mydep
 ```
 
 This creates:
+
 ```
 mydep/
 └── pkgs.go    # Edit this to add/remove packages
@@ -118,6 +119,7 @@ gig gen ./mydep
 ```
 
 This generates:
+
 ```
 mydep/
 ├── pkgs.go
@@ -174,10 +176,10 @@ result, err := prog.RunWithContext(ctx context.Context, funcName string, args ..
 ### Registering Packages (Advanced)
 
 ```go
-import "git.woa.com/youngjin/gig/register"
+import "git.woa.com/youngjin/gig/importer"
 
 // Register a package manually (usually done via generated code)
-pkg := register.RegisterPackage("mypkg", "mypkg")
+pkg := importer.RegisterPackage("mypkg", "mypkg")
 pkg.AddFunction("MyFunc", MyFunc, "", directCall_MyFunc)
 pkg.AddConstant("MyConst", MyConst, "")
 pkg.AddVariable("MyVar", &MyVar, "")
@@ -243,34 +245,34 @@ Real benchmarks comparing **Gig**, **Yaegi** (Go interpreter), **GopherLua** (Lu
 
 ### Core Workloads (Gig vs Yaegi vs GopherLua vs Native Go)
 
-| Workload | Native Go | Gig | Yaegi | GopherLua | Gig vs Yaegi |
-|---|---:|---:|---:|---:|---:|
-| **Fibonacci(25)** recursive | 449 μs | **20.1 ms** | 109 ms | 6.8 ms | **Gig 5.4x faster** |
-| **ArithmeticSum(1K)** loop | 333 ns | **35.4 μs** | 40.9 μs | 18 μs | **Gig 1.2x faster** |
-| **BubbleSort(100)** nested loops | 6.2 μs | **927 μs** | 1.23 ms | 278 μs | **Gig 1.3x faster** |
-| **Sieve(1000)** primes | 1.88 μs | **192 μs** | 205 μs | 172 μs | **Gig 1.1x faster** |
-| **ClosureCalls(1K)** captured var | 661 ns | **320 μs** | 1 ms | 156 μs | **Gig 3.1x faster** |
+| Workload                          | Native Go |         Gig |   Yaegi | GopherLua |        Gig vs Yaegi |
+| --------------------------------- | --------: | ----------: | ------: | --------: | ------------------: |
+| **Fibonacci(25)** recursive       |    449 μs | **20.1 ms** |  109 ms |    6.8 ms | **Gig 5.4x faster** |
+| **ArithmeticSum(1K)** loop        |    333 ns | **35.4 μs** | 40.9 μs |     18 μs | **Gig 1.2x faster** |
+| **BubbleSort(100)** nested loops  |    6.2 μs |  **927 μs** | 1.23 ms |    278 μs | **Gig 1.3x faster** |
+| **Sieve(1000)** primes            |   1.88 μs |  **192 μs** |  205 μs |    172 μs | **Gig 1.1x faster** |
+| **ClosureCalls(1K)** captured var |    661 ns |  **320 μs** |    1 ms |    156 μs | **Gig 3.1x faster** |
 
 ### External Function Calls (Gig vs Yaegi vs Native Go)
 
 Calling Go standard library functions from interpreted code — the most common real-world pattern:
 
-| Workload | Native Go | Gig | Yaegi | Gig vs Yaegi |
-|---|---:|---:|---:|---:|
-| **DirectCall** (strings/strconv) | 27.9 μs | **553 μs** | 1,551 μs | **Gig 2.8x faster** |
-| **Reflect** (fmt/encoding) | 24.1 μs | **356 μs** | 1,001 μs | **Gig 2.8x faster** |
-| **Method** (Builder/Buffer/Regexp) | 18.4 μs | **450 μs** | 1,214 μs | **Gig 2.7x faster** |
-| **Mixed** (functions + methods) | 11.5 μs | **321 μs** | 846 μs | **Gig 2.6x faster** |
+| Workload                           | Native Go |        Gig |    Yaegi |        Gig vs Yaegi |
+| ---------------------------------- | --------: | ---------: | -------: | ------------------: |
+| **DirectCall** (strings/strconv)   |   27.9 μs | **553 μs** | 1,551 μs | **Gig 2.8x faster** |
+| **Reflect** (fmt/encoding)         |   24.1 μs | **356 μs** | 1,001 μs | **Gig 2.8x faster** |
+| **Method** (Builder/Buffer/Regexp) |   18.4 μs | **450 μs** | 1,214 μs | **Gig 2.7x faster** |
+| **Mixed** (functions + methods)    |   11.5 μs | **321 μs** |   846 μs | **Gig 2.6x faster** |
 
 ### Memory Efficiency
 
-| Workload | Gig allocs/op | Yaegi allocs/op | Gig advantage |
-|---|---:|---:|---:|
-| Fibonacci(25) | **7** | 2,138,703 | 305,529x fewer |
-| BubbleSort(100) | **9** | 5,085 | 565x fewer |
-| Sieve(1000) | **7** | 43 | 6x fewer |
-| ExtCallMethod | **6,906** | 13,916 | 2.0x fewer |
-| ExtCallMixed | **4,258** | 9,125 | 2.1x fewer |
+| Workload        | Gig allocs/op | Yaegi allocs/op |  Gig advantage |
+| --------------- | ------------: | --------------: | -------------: |
+| Fibonacci(25)   |         **7** |       2,138,703 | 305,529x fewer |
+| BubbleSort(100) |         **9** |           5,085 |     565x fewer |
+| Sieve(1000)     |         **7** |              43 |       6x fewer |
+| ExtCallMethod   |     **6,906** |          13,916 |     2.0x fewer |
+| ExtCallMixed    |     **4,258** |           9,125 |     2.1x fewer |
 
 ### Analysis
 
@@ -292,19 +294,20 @@ Key optimizations: SSA-to-bytecode compilation, 32-byte tagged-union values, sup
 
 **Why choose Gig over alternatives:**
 
-| | Gig | Yaegi | GopherLua | Expr |
-|---|---|---|---|---|
-| **Language** | Go | Go | Lua | Expression DSL |
-| **Full Go syntax** | ✅ | ✅ | ❌ | ❌ |
-| **Goroutines/Channels** | ✅ | ✅ | ❌ | ❌ |
-| **Security sandbox** | ✅ (bans unsafe/reflect/panic) | ❌ | ❌ | ✅ |
-| **Struct/Interface/Methods** | ✅ | ✅ | ❌ | Limited |
-| **40+ stdlib packages** | ✅ | ✅ | Manual registration | N/A |
-| **Custom Go package import** | ✅ (code-gen) | ✅ (symbols) | Manual wrappers | N/A |
-| **Context cancellation** | ✅ | ❌ | ❌ | ❌ |
-| **Embeddable** | ✅ | ✅ | ✅ | ✅ |
+|                              | Gig                            | Yaegi        | GopherLua           | Expr           |
+| ---------------------------- | ------------------------------ | ------------ | ------------------- | -------------- |
+| **Language**                 | Go                             | Go           | Lua                 | Expression DSL |
+| **Full Go syntax**           | ✅                             | ✅           | ❌                  | ❌             |
+| **Goroutines/Channels**      | ✅                             | ✅           | ❌                  | ❌             |
+| **Security sandbox**         | ✅ (bans unsafe/reflect/panic) | ❌           | ❌                  | ✅             |
+| **Struct/Interface/Methods** | ✅                             | ✅           | ❌                  | Limited        |
+| **40+ stdlib packages**      | ✅                             | ✅           | Manual registration | N/A            |
+| **Custom Go package import** | ✅ (code-gen)                  | ✅ (symbols) | Manual wrappers     | N/A            |
+| **Context cancellation**     | ✅                             | ❌           | ❌                  | ❌             |
+| **Embeddable**               | ✅                             | ✅           | ✅                  | ✅             |
 
 **Reproduce these benchmarks:**
+
 ```bash
 cd benchmarks
 go test -bench=. -benchmem -count=5 -timeout=30m -run='^$'
@@ -313,6 +316,7 @@ go test -bench=. -benchmem -count=5 -timeout=30m -run='^$'
 ## Security
 
 Gig enforces security by banning certain imports:
+
 - `unsafe` - Memory safety
 - `reflect` - Type safety
 - `panic` usage - Controlled execution
@@ -328,30 +332,30 @@ flowchart TB
     subgraph Input["📥 Input"]
         SRC["Go Source Code"]
     end
-    
+
     subgraph Frontend["🔍 Frontend"]
         PARSER["go/parser<br/>AST Generation"]
         TYPECHECK["go/types<br/>Type Checking"]
         SSA["golang.org/x/tools/go/ssa<br/>SSA IR Generation"]
     end
-    
+
     subgraph Compiler["⚙️ Compiler"]
         COMP["SSA → Bytecode<br/>~70 Opcodes"]
         CONST["Constant Pool"]
         TYPES["Type Pool"]
         FUNCS["Function Registry"]
     end
-    
+
     subgraph Runtime["🚀 Runtime"]
         VM["Stack-based VM"]
         VALUE["Tagged-Union<br/>Value System"]
         EXT["External Package<br/>Registry"]
     end
-    
+
     subgraph Output["📤 Output"]
         RESULT["Result<br/>(interface{})"]
     end
-    
+
     SRC --> PARSER
     PARSER --> TYPECHECK
     TYPECHECK --> SSA
@@ -376,19 +380,19 @@ flowchart LR
         UC["gig.Build(source)"]
         UR["prog.Run(func, args...)"]
     end
-    
+
     subgraph "gig.go [Entry Point]"
         BUILD["Build()"]
         SECURITY["Security Check<br/>(unsafe, reflect, panic)"]
         RUN["Run() / RunWithContext()"]
     end
-    
+
     subgraph "Frontend Pipeline"
         PARSE["Parser<br/>go/parser"]
         TC["Type Checker<br/>go/types"]
         SSABUILD["SSA Builder<br/>golang.org/x/tools/go/ssa"]
     end
-    
+
     subgraph "compiler/ [Compiler]"
         COMPILER["Compiler"]
         SYMTAP["Symbol Table"]
@@ -400,37 +404,37 @@ flowchart LR
             CTYPES["Types[]"]
         end
     end
-    
+
     subgraph "vm/ [Virtual Machine]"
         VM["VM"]
         STACK["Stack<br/>(Value[])"]
         FRAMES["Call Frames"]
         OPS["Opcode Handlers<br/>(~70 ops)"]
     end
-    
+
     subgraph "value/ [Value System]"
         VAL["Value (tagged-union)"]
         PRIM["Primitives<br/>(int, float, string, bool)"]
         REF["Reflect Fallback<br/>(complex types)"]
     end
-    
+
     subgraph "importer/ [Package System]"
         IMP["Importer<br/>(types.Importer)"]
         REG["Package Registry"]
         EXTTYPE["ExternalPackage"]
     end
-    
+
     subgraph "register/ [Public API]"
         REGAPI["AddPackage()"]
         REGFUNC["NewFunction()"]
         REGVAR["NewVar()"]
         REGCONST["NewConst()"]
     end
-    
+
     subgraph "packages/ [Stdlib]"
         STDLIB["40+ Packages<br/>(fmt, strings, math, ...)"]
     end
-    
+
     UC --> BUILD
     BUILD --> SECURITY
     SECURITY --> PARSE
@@ -443,7 +447,7 @@ flowchart LR
     PROG --> CFUNC
     PROG --> CCONST
     PROG --> CTYPES
-    
+
     UR --> RUN
     RUN --> VM
     VM --> STACK
@@ -452,16 +456,16 @@ flowchart LR
     OPS --> VAL
     VAL --> PRIM
     VAL --> REF
-    
+
     TC --> IMP
     IMP --> REG
     REG --> EXTTYPE
-    
+
     REGAPI --> REG
     REGFUNC --> EXTTYPE
     REGVAR --> EXTTYPE
     REGCONST --> EXTTYPE
-    
+
     STDLIB --> REG
 ```
 
@@ -476,7 +480,7 @@ sequenceDiagram
     participant VM as Virtual Machine
     participant Value as Value System
     participant Ext as External Packages
-    
+
     User->>Gig: Build(source)
     Gig->>Frontend: Parse(source)
     Frontend-->>Gig: AST
@@ -489,7 +493,7 @@ sequenceDiagram
     Gig->>Comp: Compile(SSA)
     Comp-->>Gig: Program{Functions, Constants, Types}
     Gig-->>User: *Program
-    
+
     User->>Gig: Run(funcName, args)
     Gig->>Value: FromInterface(args)
     Value-->>Gig: []Value
@@ -511,32 +515,32 @@ flowchart TB
     subgraph Input
         SRC["Go Source"]
     end
-    
+
     subgraph "Stage 1: Parsing"
         P1["Lexer/Parser<br/>go/parser"]
         AST["Abstract Syntax Tree"]
     end
-    
+
     subgraph "Stage 2: Type Checking"
         P2["Type Checker<br/>go/types"]
         TCINFO["types.Info<br/>(Types, Defs, Uses, Scopes)"]
         PKG["types.Package"]
     end
-    
+
     subgraph "Stage 3: SSA Generation"
         P3["SSA Builder<br/>golang.org/x/tools/go/ssa"]
         SSAFN["ssa.Function"]
         SSABLK["ssa.BasicBlock"]
         SSAINST["ssa.Instruction"]
     end
-    
+
     subgraph "Stage 4: Bytecode Compilation"
         P4["Compiler"]
         SYM["Symbol Table<br/>(Value → Local Slot)"]
         PHI["Phi Elimination"]
         JMP["Jump Patching"]
     end
-    
+
     subgraph Output
         PROG["Program"]
         FN["CompiledFunction"]
@@ -544,7 +548,7 @@ flowchart TB
         CONSTPOOL["Constant Pool"]
         TYPEPOOL["Type Pool"]
     end
-    
+
     SRC --> P1 --> AST
     AST --> P2 --> TCINFO --> PKG
     PKG --> P3 --> SSAFN --> SSABLK --> SSAINST
@@ -568,7 +572,7 @@ flowchart TB
             FP["Frame Pointer"]
             GLOBALS["Globals"]
         end
-        
+
         subgraph Frame["Call Frame"]
             FN["Function"]
             IP["Instruction Pointer"]
@@ -576,7 +580,7 @@ flowchart TB
             FREE["FreeVars[]"]
             DEFER["Deferred Calls"]
         end
-        
+
         subgraph Execution["Execution Loop"]
             FETCH["Fetch Opcode"]
             DECODE["Decode Operands"]
@@ -584,7 +588,7 @@ flowchart TB
             CHECK["Context Check<br/>(every 1024 instructions)"]
         end
     end
-    
+
     subgraph Opcodes["Opcode Categories"]
         STACK_OP["Stack Ops<br/>(Push, Pop, Dup)"]
         ARITH["Arithmetic<br/>(Add, Sub, Mul, Div)"]
@@ -594,7 +598,7 @@ flowchart TB
         FUNC["Function<br/>(Closure, CallExternal)"]
         BUILTIN["Builtins<br/>(Len, Append, Make)"]
     end
-    
+
     STACK --> FETCH --> DECODE --> EXEC --> CHECK --> FETCH
     EXEC --> STACK_OP
     EXEC --> ARITH
@@ -603,7 +607,7 @@ flowchart TB
     EXEC --> CONTAINER
     EXEC --> FUNC
     EXEC --> BUILTIN
-    
+
     FRAMES --> Frame
     Frame --> LOCALS --> STACK
 ```
@@ -619,12 +623,12 @@ flowchart LR
         STR["str (string)"]
         OBJ["obj (any)"]
     end
-    
+
     subgraph Kinds["Value Kinds"]
         PRIM["Primitives<br/>(Zero allocation)"]
         COMP["Composite<br/>(Reflect fallback)"]
     end
-    
+
     subgraph Primitives["Primitive Fast Path"]
         BOOL["KindBool<br/>num: 0|1"]
         INT["KindInt<br/>num: int64"]
@@ -633,7 +637,7 @@ flowchart LR
         STRV["KindString<br/>str: string"]
         CPLX["KindComplex<br/>num+num2: real+imag"]
     end
-    
+
     subgraph Composite["Composite Slow Path"]
         SLICE["KindSlice/Array<br/>obj: reflect.Value"]
         MAP["KindMap<br/>obj: reflect.Value"]
@@ -642,7 +646,7 @@ flowchart LR
         IFACE["KindInterface<br/>obj: interface{}"]
         REFLECT["KindReflect<br/>obj: reflect.Value"]
     end
-    
+
     KIND --> Kinds
     Kinds --> PRIM
     Kinds --> COMP
@@ -660,14 +664,14 @@ flowchart TB
         GEN["gig gen"]
         GENERATED["packages/*.go<br/>(generated)"]
     end
-    
+
     subgraph Runtime["Runtime Integration"]
         REG["Package Registry"]
         IMPORT["Importer<br/>(types.Importer)"]
         TYPECONV["Type Converter<br/>(reflect.Type → types.Type)"]
         METHOD["Method Introspection<br/>(addMethodsToNamed)"]
     end
-    
+
     subgraph Execution["VM Execution"]
         CALL["OpCallExternal"]
         CACHE["Inline Cache"]
@@ -675,11 +679,11 @@ flowchart TB
         REFLECT["reflect.Call<br/>(slow path)"]
         METHODCALL["Method Dispatch<br/>(MethodByName)"]
     end
-    
+
     CLI --> PKGS --> GEN --> GENERATED
     GENERATED --> REG
     REG --> IMPORT --> TYPECONV --> METHOD
-    
+
     IMPORT --> CALL
     CALL --> CACHE
     CACHE --> DIRECT
@@ -691,16 +695,16 @@ flowchart TB
 
 ### Component Summary
 
-| Component | Package | Purpose |
-|-----------|---------|---------|
-| **Entry Point** | `gig.go` | Public API: `Build()`, `Run()`, `RunWithContext()` |
-| **Compiler** | `compiler/` | SSA to bytecode compilation (~70 opcodes) |
-| **Virtual Machine** | `vm/` | Stack-based bytecode execution |
-| **Value System** | `value/` | Tagged-union values with zero-allocation primitives |
-| **Importer** | `importer/` | External package type resolution |
-| **Register** | `register/` | Public API for package registration |
-| **Packages** | `packages/` | 40+ pre-registered stdlib packages |
-| **CLI** | `cmd/gig` | Code generation tool |
+| Component           | Package     | Purpose                                             |
+| ------------------- | ----------- | --------------------------------------------------- |
+| **Entry Point**     | `gig.go`    | Public API: `Build()`, `Run()`, `RunWithContext()`  |
+| **Compiler**        | `compiler/` | SSA to bytecode compilation (~70 opcodes)           |
+| **Virtual Machine** | `vm/`       | Stack-based bytecode execution                      |
+| **Value System**    | `value/`    | Tagged-union values with zero-allocation primitives |
+| **Importer**        | `importer/` | External package type resolution                    |
+| **Register**        | `register/` | Public API for package registration                 |
+| **Packages**        | `packages/` | 40+ pre-registered stdlib packages                  |
+| **CLI**             | `cmd/gig`   | Code generation tool                                |
 
 ### Key Design Decisions
 

@@ -6,9 +6,9 @@ This directory contains examples demonstrating how to use Gig, a high-performanc
 
 ## Examples Overview
 
-| Example | Description | Difficulty |
-|---------|-------------|------------|
-| [simple](./simple) | Using Gig with built-in standard library | Beginner |
+| Example            | Description                                    | Difficulty   |
+| ------------------ | ---------------------------------------------- | ------------ |
+| [simple](./simple) | Using Gig with built-in standard library       | Beginner     |
 | [custom](./custom) | Using Gig with custom/third-party dependencies | Intermediate |
 
 ## Quick Start
@@ -40,6 +40,7 @@ go run main.go
 **Use Case:** Quick prototyping, scripting, rule engines with standard library only.
 
 **Key Features Demonstrated:**
+
 - Basic computation with loops and variables
 - Using standard library packages (`fmt`, `strings`, `math`, `time`)
 - Context-based timeout control
@@ -65,25 +66,25 @@ import (
 func main() {
     source := `
     package main
-    
+
     import "fmt"
     import "strings"
-    
+
     func Greet(name string) string {
         return fmt.Sprintf("Hello, %s!", strings.ToUpper(name))
     }
     `
-    
+
     prog, err := gig.Build(source)
     if err != nil {
         panic(err)
     }
-    
+
     result, err := prog.Run("Greet", "world")
     if err != nil {
         panic(err)
     }
-    
+
     fmt.Println(result) // Output: Hello, WORLD!
 }
 ```
@@ -92,17 +93,17 @@ func main() {
 
 Gig's built-in standard library includes:
 
-| Category | Packages |
-|----------|----------|
-| **I/O** | `fmt`, `io`, `bufio`, `bytes`, `strings` |
-| **Encoding** | `encoding/json`, `encoding/base64`, `encoding/hex`, `encoding/xml` |
-| **Text** | `strings`, `strconv`, `text/template`, `regexp` |
-| **Math** | `math`, `math/rand` |
-| **Time** | `time` |
-| **Collections** | `sort`, `container/list`, `container/heap` |
-| **Network** | `net/url`, `net/http` (partial) |
-| **Crypto** | `crypto/hmac`, `crypto/sha256` |
-| **Other** | `errors`, `sync`, `context`, `path`, `path/filepath`, `os` (partial) |
+| Category        | Packages                                                             |
+| --------------- | -------------------------------------------------------------------- |
+| **I/O**         | `fmt`, `io`, `bufio`, `bytes`, `strings`                             |
+| **Encoding**    | `encoding/json`, `encoding/base64`, `encoding/hex`, `encoding/xml`   |
+| **Text**        | `strings`, `strconv`, `text/template`, `regexp`                      |
+| **Math**        | `math`, `math/rand`                                                  |
+| **Time**        | `time`                                                               |
+| **Collections** | `sort`, `container/list`, `container/heap`                           |
+| **Network**     | `net/url`, `net/http` (partial)                                      |
+| **Crypto**      | `crypto/hmac`, `crypto/sha256`                                       |
+| **Other**       | `errors`, `sync`, `context`, `path`, `path/filepath`, `os` (partial) |
 
 ### Context Timeout
 
@@ -125,6 +126,7 @@ if errors.Is(err, context.DeadlineExceeded) {
 **Use Case:** Production applications requiring third-party libraries, minimal dependency footprint, or custom package subsets.
 
 **Key Features Demonstrated:**
+
 - Using third-party libraries (github.com/tidwall/gjson)
 - Method calls on external types (`.String()`, `.Int()`, `.Bool()`)
 - Custom dependency package generation workflow
@@ -160,6 +162,7 @@ gig init -package mydep
 ```
 
 This creates:
+
 ```
 mydep/
 └── pkgs.go    # Edit this to declare dependencies
@@ -191,6 +194,7 @@ gig gen ./mydep
 ```
 
 This generates:
+
 ```
 mydep/
 ├── pkgs.go
@@ -213,14 +217,14 @@ import (
 func main() {
     source := `
     package main
-    
+
     import "github.com/tidwall/gjson"
-    
+
     func GetValue(json string, path string) string {
         return gjson.Get(json, path).String()
     }
     `
-    
+
     prog, _ := gig.Build(source)
     result, _ := prog.Run("GetValue", `{"name":"Alice"}`, "name")
     fmt.Println(result) // Output: Alice
@@ -244,6 +248,7 @@ func GetUserAge(json string) int64 {
 ```
 
 Supported method patterns:
+
 - Value receiver methods: `.String()`, `.Int()`, `.Bool()`, `.Float()`
 - Pointer receiver methods: `.Scan()`, `.ForEach()`
 - Chained method calls: `gjson.Get(json, "arr").Array()[0].String()`
@@ -252,14 +257,14 @@ Supported method patterns:
 
 ## Comparison: Simple vs Custom
 
-| Aspect | Simple | Custom |
-|--------|--------|--------|
-| **Setup** | None (just import) | CLI tool + code generation |
-| **Dependencies** | 40+ stdlib packages | Only what you need |
-| **Third-party libs** | Not supported | Fully supported |
-| **Binary size** | Larger | Smaller (tree-shaking) |
-| **Build time** | Faster (pre-built) | Slower (code generation) |
-| **Use case** | Prototyping, scripts | Production, embedded |
+| Aspect               | Simple               | Custom                     |
+| -------------------- | -------------------- | -------------------------- |
+| **Setup**            | None (just import)   | CLI tool + code generation |
+| **Dependencies**     | 40+ stdlib packages  | Only what you need         |
+| **Third-party libs** | Not supported        | Fully supported            |
+| **Binary size**      | Larger               | Smaller (tree-shaking)     |
+| **Build time**       | Faster (pre-built)   | Slower (code generation)   |
+| **Use case**         | Prototyping, scripts | Production, embedded       |
 
 ---
 
@@ -285,12 +290,12 @@ result, err := prog.RunWithContext(ctx context.Context, funcName string, args ..
 ### Package Registration
 
 ```go
-import "git.woa.com/youngjin/gig/register"
+import "git.woa.com/youngjin/gig/importer"
 
-pkg := register.AddPackage("mypkg", "mypkg")
-pkg.NewFunction("MyFunc", MyFunc, "documentation")
-pkg.NewConst("MyConst", MyConst, "documentation")
-pkg.NewVar("MyVar", &MyVar, "documentation")
+pkg := importer.RegisterPackage("mypkg", "mypkg")
+pkg.AddFunction("MyFunc", MyFunc, "documentation", nil)
+pkg.AddConstant("MyConst", MyConst, "documentation")
+pkg.AddVariable("MyVar", &MyVar, "documentation")
 ```
 
 ---
@@ -299,33 +304,33 @@ pkg.NewVar("MyVar", &MyVar, "documentation")
 
 Gig enforces security by banning certain imports in interpreted code:
 
-| Banned | Reason |
-|--------|--------|
-| `unsafe` | Memory safety |
-| `reflect` | Type safety |
-| `panic` | Controlled execution |
+| Banned    | Reason               |
+| --------- | -------------------- |
+| `unsafe`  | Memory safety        |
+| `reflect` | Type safety          |
+| `panic`   | Controlled execution |
 
 ---
 
 ## Supported Language Features
 
-| Feature | Status |
-|---------|--------|
-| Arithmetic operations | Fully supported |
-| Variables and assignments | Fully supported |
+| Feature                             | Status          |
+| ----------------------------------- | --------------- |
+| Arithmetic operations               | Fully supported |
+| Variables and assignments           | Fully supported |
 | Control flow (if/else, for, switch) | Fully supported |
-| Functions and recursion | Fully supported |
-| Multiple return values | Fully supported |
-| Closures | Fully supported |
-| String operations | Fully supported |
-| Slices and arrays | Fully supported |
-| Maps | Fully supported |
-| Structs and methods | Fully supported |
-| Interfaces | Fully supported |
-| Goroutines | Basic support |
-| Channels | Basic support |
-| Context-based timeouts | Fully supported |
-| External Go function calls | Fully supported |
+| Functions and recursion             | Fully supported |
+| Multiple return values              | Fully supported |
+| Closures                            | Fully supported |
+| String operations                   | Fully supported |
+| Slices and arrays                   | Fully supported |
+| Maps                                | Fully supported |
+| Structs and methods                 | Fully supported |
+| Interfaces                          | Fully supported |
+| Goroutines                          | Basic support   |
+| Channels                            | Basic support   |
+| Context-based timeouts              | Fully supported |
+| External Go function calls          | Fully supported |
 
 ---
 
@@ -336,6 +341,7 @@ Gig enforces security by banning certain imports in interpreted code:
 **Problem:** You're importing a package that Gig doesn't know about.
 
 **Solution:**
+
 - For stdlib: Make sure you imported `_ "git.woa.com/youngjin/gig/stdlib/packages"`
 - For third-party: Use the CLI to generate registration code
 
@@ -350,6 +356,7 @@ Gig enforces security by banning certain imports in interpreted code:
 **Problem:** Function execution times out.
 
 **Solution:**
+
 - Increase timeout: `context.WithTimeout(ctx, longerDuration)`
 - Check for infinite loops in your interpreted code
 
