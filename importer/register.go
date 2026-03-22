@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"git.woa.com/youngjin/gig/value"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // ObjectKind represents the kind of external object (function, variable, constant, or type).
@@ -322,4 +322,3 @@ func funcSignature(fn any) *types.Signature {
 	}
 	return typeOf(rt).(*types.Signature)
 }
-

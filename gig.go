@@ -51,11 +51,11 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/compiler"
-	"git.woa.com/youngjin/gig/importer"
-	"git.woa.com/youngjin/gig/runner"
-	"git.woa.com/youngjin/gig/value"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/compiler"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/runner"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // DefaultTimeout is the default execution timeout.

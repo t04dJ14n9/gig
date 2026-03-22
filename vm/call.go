@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"strings"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // ExternalCallCancelledError is returned when a context is cancelled before/after an external call.

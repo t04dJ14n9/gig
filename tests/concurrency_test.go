@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"git.woa.com/youngjin/gig"
+	"github.com/t04dJ14n9/gig"
 )
 
 // TestConcurrentProgramMethodResolution verifies that two programs compiled

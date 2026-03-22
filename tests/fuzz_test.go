@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"git.woa.com/youngjin/gig"
-	_ "git.woa.com/youngjin/gig/stdlib/packages"
+	"github.com/t04dJ14n9/gig"
+	_ "github.com/t04dJ14n9/gig/stdlib/packages"
 )
 
 // build compiles source and skips the test if compilation fails.

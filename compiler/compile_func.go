@@ -5,8 +5,8 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/compiler/optimize"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/compiler/optimize"
 )
 
 // isIntType returns true if the type is a signed integer (int, int8..int64).

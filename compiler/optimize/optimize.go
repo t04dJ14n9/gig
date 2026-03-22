@@ -1,8 +1,8 @@
 package optimize
 
 import (
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/compiler/peephole"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/compiler/peephole"
 )
 
 // Optimize applies all optimization passes to compiled bytecode in the correct order:

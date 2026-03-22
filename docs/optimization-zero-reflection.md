@@ -530,10 +530,10 @@ import (
     "context"
     "encoding/json"
 
-    "git.woa.com/youngjin/gig"
-    "git.woa.com/youngjin/gig/importer"
-    "git.woa.com/youngjin/gig/value"
-    _ "git.woa.com/youngjin/gig/stdlib/packages"
+    "github.com/t04dJ14n9/gig"
+    "github.com/t04dJ14n9/gig/importer"
+    "github.com/t04dJ14n9/gig/value"
+    _ "github.com/t04dJ14n9/gig/stdlib/packages"
 )
 
 // 1. Register a custom operator with a DirectCall wrapper

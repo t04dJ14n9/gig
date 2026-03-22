@@ -352,13 +352,13 @@ case bytecode.OpFieldAddr:
 ### 测试结果
 ```
 $ go test -race ./...
-ok   git.woa.com/youngjin/gig              1.055s
-ok   git.woa.com/youngjin/gig/bytecode     1.014s
-ok   git.woa.com/youngjin/gig/compiler     1.013s
-ok   git.woa.com/youngjin/gig/importer     1.014s
-ok   git.woa.com/youngjin/gig/tests       49.273s
-ok   git.woa.com/youngjin/gig/value        1.014s
-ok   git.woa.com/youngjin/gig/vm           1.124s
+ok   github.com/t04dJ14n9/gig              1.055s
+ok   github.com/t04dJ14n9/gig/bytecode     1.014s
+ok   github.com/t04dJ14n9/gig/compiler     1.013s
+ok   github.com/t04dJ14n9/gig/importer     1.014s
+ok   github.com/t04dJ14n9/gig/tests       49.273s
+ok   github.com/t04dJ14n9/gig/value        1.014s
+ok   github.com/t04dJ14n9/gig/vm           1.124s
 ```
 
 ### Lint 结果

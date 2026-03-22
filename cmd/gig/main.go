@@ -17,9 +17,9 @@
 //     package mydep
 //
 //     import (
-//       _ "encoding/json"
-//       _ "fmt"
-//       _ "github.com/spf13/cast"
+//     _ "encoding/json"
+//     _ "fmt"
+//     _ "github.com/spf13/cast"
 //     )
 //
 //  3. Generate registration code:

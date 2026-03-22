@@ -59,8 +59,8 @@ simple/
 
 ```go
 import (
-    "git.woa.com/youngjin/gig"
-    _ "git.woa.com/youngjin/gig/stdlib/packages" // Import built-in stdlib (40+ packages)
+    "github.com/t04dJ14n9/gig"
+    _ "github.com/t04dJ14n9/gig/stdlib/packages" // Import built-in stdlib (40+ packages)
 )
 
 func main() {
@@ -152,7 +152,7 @@ custom/
 #### Step 1: Install the CLI
 
 ```bash
-go install git.woa.com/youngjin/gig/cmd/gig@latest
+go install github.com/t04dJ14n9/gig/cmd/gig@latest
 ```
 
 #### Step 2: Initialize a Dependency Package
@@ -210,7 +210,7 @@ mydep/
 
 ```go
 import (
-    "git.woa.com/youngjin/gig"
+    "github.com/t04dJ14n9/gig"
     _ "myapp/mydep/packages" // Your custom dependency package
 )
 
@@ -290,7 +290,7 @@ result, err := prog.RunWithContext(ctx context.Context, funcName string, args ..
 ### Package Registration
 
 ```go
-import "git.woa.com/youngjin/gig/importer"
+import "github.com/t04dJ14n9/gig/importer"
 
 pkg := importer.RegisterPackage("mypkg", "mypkg")
 pkg.AddFunction("MyFunc", MyFunc, "documentation", nil)
@@ -342,7 +342,7 @@ Gig enforces security by banning certain imports in interpreted code:
 
 **Solution:**
 
-- For stdlib: Make sure you imported `_ "git.woa.com/youngjin/gig/stdlib/packages"`
+- For stdlib: Make sure you imported `_ "github.com/t04dJ14n9/gig/stdlib/packages"`
 - For third-party: Use the CLI to generate registration code
 
 ### "method not found on external type"

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	_ "git.woa.com/youngjin/gig/stdlib/packages" // register stdlib packages
+	_ "github.com/t04dJ14n9/gig/stdlib/packages" // register stdlib packages
 )
 
 // TestAutoImport_SinglePackage verifies that a program referencing fmt without

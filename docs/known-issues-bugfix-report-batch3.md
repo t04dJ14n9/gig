@@ -311,13 +311,13 @@ PASS
 Full test suite passes with zero failures:
 ```
 $ go test ./...
-ok   git.woa.com/youngjin/gig              0.014s
-ok   git.woa.com/youngjin/gig/bytecode     (cached)
-ok   git.woa.com/youngjin/gig/compiler     (cached)
-ok   git.woa.com/youngjin/gig/importer     0.003s
-ok   git.woa.com/youngjin/gig/tests       40.856s
-ok   git.woa.com/youngjin/gig/value        (cached)
-ok   git.woa.com/youngjin/gig/vm           (cached)
+ok   github.com/t04dJ14n9/gig              0.014s
+ok   github.com/t04dJ14n9/gig/bytecode     (cached)
+ok   github.com/t04dJ14n9/gig/compiler     (cached)
+ok   github.com/t04dJ14n9/gig/importer     0.003s
+ok   github.com/t04dJ14n9/gig/tests       40.856s
+ok   github.com/t04dJ14n9/gig/value        (cached)
+ok   github.com/t04dJ14n9/gig/vm           (cached)
 ```
 
 ### Test Architecture Note

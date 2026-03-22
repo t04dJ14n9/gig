@@ -5,10 +5,10 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/compiler/parser"
-	ssabuilder "git.woa.com/youngjin/gig/compiler/ssa"
-	"git.woa.com/youngjin/gig/importer"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/compiler/parser"
+	ssabuilder "github.com/t04dJ14n9/gig/compiler/ssa"
+	"github.com/t04dJ14n9/gig/importer"
 )
 
 // BuildResult holds the output of the full compilation pipeline.

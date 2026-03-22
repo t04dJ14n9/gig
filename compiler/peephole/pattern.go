@@ -1,6 +1,6 @@
 package peephole
 
-import "git.woa.com/youngjin/gig/bytecode"
+import "github.com/t04dJ14n9/gig/bytecode"
 
 // Pattern is the interface every peephole rule must implement.
 // Match is called at position i in code; it returns the number of bytes consumed

@@ -14,8 +14,8 @@ import (
 	"reflect"
 	"testing"
 
-	"git.woa.com/youngjin/gig"
-	_ "git.woa.com/youngjin/gig/stdlib/packages"
+	"github.com/t04dJ14n9/gig"
+	_ "github.com/t04dJ14n9/gig/stdlib/packages"
 )
 
 //go:embed testdata/known_issues/main.go

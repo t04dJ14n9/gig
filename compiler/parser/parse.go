@@ -13,7 +13,7 @@ import (
 	"go/types"
 	"strings"
 
-	"git.woa.com/youngjin/gig/importer"
+	"github.com/t04dJ14n9/gig/importer"
 )
 
 // ParseResult holds the output of parsing and type-checking a source file.

@@ -6,10 +6,10 @@ The `gig` command-line tool provides three main functionalities: dependency pack
 
 ```bash
 # Install the CLI tool
-go install git.woa.com/youngjin/gig/cmd/gig@latest
+go install github.com/t04dJ14n9/gig/cmd/gig@latest
 
 # Or run directly (Go 1.21+)
-go run git.woa.com/youngjin/gig/cmd/gig@latest --help
+go run github.com/t04dJ14n9/gig/cmd/gig@latest --help
 ```
 
 ## Commands

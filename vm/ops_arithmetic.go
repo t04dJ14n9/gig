@@ -1,8 +1,8 @@
 package vm
 
 import (
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // executeArithmetic handles arithmetic, bitwise, comparison, and logical opcodes.

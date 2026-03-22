@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"strings"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/importer"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/importer"
 )
 
 // typeToReflect converts a go/types.Type to reflect.Type using the program-level

@@ -3,8 +3,8 @@ package vm
 import (
 	"context"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // VM is the interface for the bytecode virtual machine.

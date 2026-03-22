@@ -158,8 +158,8 @@ import (
 	"reflect"
 	"sync"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // Closure represents a closure with captured free variables.
@@ -280,7 +280,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"git.woa.com/youngjin/gig/value"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // GoroutineTracker tracks active interpreter goroutines for a single program.
@@ -670,9 +670,9 @@ import (
 	"sync"
 	"time"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
-	"git.woa.com/youngjin/gig/vm"
+	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/vm"
 )
 
 // Executor is the main execution interface for running compiled programs.
@@ -1231,7 +1231,7 @@ import (
 	"sync"
 	"testing"
 
-	"git.woa.com/youngjin/gig"
+	"github.com/t04dJ14n9/gig"
 )
 
 // TestConcurrentProgramMethodResolution verifies that two programs compiled
@@ -1313,8 +1313,8 @@ package tests
 import (
 	"testing"
 
-	"git.woa.com/youngjin/gig"
-	"git.woa.com/youngjin/gig/importer"
+	"github.com/t04dJ14n9/gig"
+	"github.com/t04dJ14n9/gig/importer"
 )
 
 // TestSandboxIsolation verifies that WithRegistry(sandbox) prevents access

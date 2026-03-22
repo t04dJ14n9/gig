@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"git.woa.com/youngjin/gig/cmd/gig/gentool"
+	"github.com/t04dJ14n9/gig/cmd/gig/gentool"
 )
 
 // runGen implements the "gig gen" subcommand.

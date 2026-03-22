@@ -6,8 +6,8 @@ import (
 	"log"
 	"reflect"
 
-	"git.woa.com/youngjin/gig/importer"
-	"git.woa.com/youngjin/gig/value"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 func init() {

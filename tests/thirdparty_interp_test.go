@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"git.woa.com/youngjin/gig"
-	_ "git.woa.com/youngjin/gig/stdlib/packages"
-	thirdparty "git.woa.com/youngjin/gig/tests/testdata/thirdparty"
+	"github.com/t04dJ14n9/gig"
+	_ "github.com/t04dJ14n9/gig/stdlib/packages"
+	thirdparty "github.com/t04dJ14n9/gig/tests/testdata/thirdparty"
 )
 
 // Embed each category source file for interpreter testing.
