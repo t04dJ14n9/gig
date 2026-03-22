@@ -40,3 +40,25 @@ func isPowerOfTwo(n int) int {
 	}
 	return 0
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// BitAnd returns a & b
+func BitAnd(a, b int) int { return a & b }
+
+// BitOr returns a | b
+func BitOr(a, b int) int { return a | b }
+
+// BitXor returns a ^ b
+func BitXor(a, b int) int { return a ^ b }
+
+// BitLeftShift returns a << b
+func BitLeftShift(a, b int) int { return a << b }
+
+// BitRightShift returns a >> b
+func BitRightShift(a, b int) int { return a >> b }
+
+// IsPowerOfTwo returns 1 if n is power of 2, else 0
+func IsPowerOfTwo(n int) int { return isPowerOfTwo(n) }

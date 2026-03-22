@@ -82,3 +82,13 @@ func makeAccumulator(init int) func(int) int {
 		return total
 	}
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// MakeAdder returns a function that adds base to its argument
+func MakeAdder(base int) func(int) int { return makeAdder(base) }
+
+// MakeAccumulator returns an accumulator function starting at init
+func MakeAccumulator(init int) func(int) int { return makeAccumulator(init) }

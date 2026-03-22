@@ -17,13 +17,6 @@
 //  2. VM (gig/vm) - Stack-based virtual machine for bytecode execution
 //  3. Value (gig/value) - Tagged-union value system for efficient type handling
 //
-// # Security Model
-//
-// For safety in embedded contexts, Gig bans:
-//   - "unsafe" package - prevents raw memory access
-//   - "reflect" package - prevents type introspection bypass
-//   - "panic" builtin - prevents uncontrolled control flow
-//
 // # Example Usage
 //
 // Basic usage with built-in standard library:
@@ -54,11 +47,6 @@ package gig
 import (
 	"context"
 	"fmt"
-	"go/ast"
-	"go/parser"
-	"go/token"
-	"go/types"
-	"strings"
 	"time"
 
 	"golang.org/x/tools/go/ssa"
@@ -66,8 +54,8 @@ import (
 	"github.com/t04dJ14n9/gig/bytecode"
 	"github.com/t04dJ14n9/gig/compiler"
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/runner"
 	"github.com/t04dJ14n9/gig/value"
-	"github.com/t04dJ14n9/gig/vm"
 )
 
 // DefaultTimeout is the default execution timeout.
@@ -76,21 +64,53 @@ const DefaultTimeout = 10 * time.Second
 // ErrTimeout is returned when execution times out.
 var ErrTimeout = context.DeadlineExceeded
 
+// buildConfig holds internal configuration parsed from BuildOption values.
+type buildConfig struct {
+	registry        importer.PackageRegistry
+	statefulGlobals bool
+}
+
+// BuildOption configures the behaviour of Build.
+// Use the With* functions to obtain concrete options.
+type BuildOption func(*buildConfig)
+
+// WithRegistry sets a custom PackageRegistry for resolving external packages.
+// If not provided, Build uses the global registry (pre-populated by init() functions).
+func WithRegistry(r importer.PackageRegistry) BuildOption {
+	return func(c *buildConfig) {
+		c.registry = r
+	}
+}
+
+// WithStatefulGlobals enables persistent package-level globals across Run calls.
+// When enabled, mutations to package-level variables in one Run call are visible
+// to subsequent Run calls on the same Program.  Top-level Run calls are serialized
+// so that shared global state remains deterministic.
+//
+// By default (when this option is not passed), each Run starts from the
+// post-init() global state snapshot and mutations are discarded after the call.
+func WithStatefulGlobals() BuildOption {
+	return func(c *buildConfig) {
+		c.statefulGlobals = true
+	}
+}
+
 // Program represents a compiled Go program ready for execution.
-// It contains the compiled bytecode, constant pool, type information, and SSA package reference.
+// It delegates execution to a runner.Runner for VM pool management and global state handling.
 type Program struct {
-	program *bytecode.Program // compiled bytecode and metadata
-	ssaPkg  *ssa.Package      // SSA package for debugging/inspection
-	vmPool  *vm.VMPool        // reusable VM pool (eliminates 32KB alloc per Run)
+	runner *runner.Runner // execution orchestration (VM pool, stateful globals)
+	ssaPkg *ssa.Package   // SSA package for debugging/inspection
 }
 
 // InternalProgram exposes the compiled bytecode program for testing/debugging.
-func (p *Program) InternalProgram() *bytecode.Program { return p.program }
+func (p *Program) InternalProgram() *bytecode.Program { return p.runner.InternalProgram() }
 
 // Build compiles Go source code into a Program.
 //
 // The source must define a function that can be called via Run/RunWithContext.
 // If the source does not start with a package declaration, "package main" is prepended automatically.
+//
+// Options control runtime behaviour; see WithStatefulGlobals and other With* functions.
 //
 // The compilation process:
 //  1. Parse source code into AST
@@ -108,100 +128,38 @@ func (p *Program) InternalProgram() *bytecode.Program { return p.program }
 //		}
 //	`)
 //	result, _ := prog.Run("Add", 1, 2) // result = 3
-func Build(sourceCode string, packages ...string) (*Program, error) {
-	// Auto-wrap with "package main" if no package declaration
-	sourceCode = strings.TrimSpace(sourceCode)
-	if !strings.HasPrefix(sourceCode, "package ") {
-		sourceCode = "package main\n\n" + sourceCode
+func Build(sourceCode string, opts ...BuildOption) (*Program, error) {
+	// Parse options
+	cfg := buildConfig{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	if cfg.registry == nil {
+		cfg.registry = importer.GlobalRegistry()
 	}
 
-	// Create file set
-	fset := token.NewFileSet()
-
-	// Parse source code
-	file, err := parser.ParseFile(fset, "main.go", sourceCode, parser.AllErrors|parser.ParseComments)
+	// Compile: parse → SSA → bytecode (full pipeline owned by compiler package)
+	result, err := compiler.Build(sourceCode, cfg.registry)
 	if err != nil {
-		return nil, fmt.Errorf("parse error: %w", err)
-	}
-
-	// Check for banned imports (unsafe, reflect)
-	if err := checkBannedImports(file); err != nil {
 		return nil, err
 	}
 
-	// Auto-import registered packages if needed
-	autoImport(file)
-
-	// Create type checker with custom importer
-	imp := importer.NewImporter()
-	typeConfig := &types.Config{
-		Importer: imp,
-		Sizes:    &types.StdSizes{WordSize: 8, MaxAlign: 8},
-	}
-
-	// Type check
-	info := &types.Info{
-		Types:      make(map[ast.Expr]types.TypeAndValue),
-		Defs:       make(map[*ast.Ident]types.Object),
-		Uses:       make(map[*ast.Ident]types.Object),
-		Implicits:  make(map[ast.Node]types.Object),
-		Selections: make(map[*ast.SelectorExpr]*types.Selection),
-		Scopes:     make(map[ast.Node]*types.Scope),
-	}
-
-	pkg, err := typeConfig.Check("main", fset, []*ast.File{file}, info)
+	// Run init() and snapshot globals if present
+	initialGlobals, err := runner.ExecuteInit(result.Program)
 	if err != nil {
-		return nil, fmt.Errorf("type check error: %w", err)
+		return nil, fmt.Errorf("executing init(): %w", err)
 	}
 
-	// Check for panic usage (banned)
-	if err := checkPanicUsage(file, info); err != nil {
-		return nil, err
+	var runnerOpts []runner.RunnerOption
+	if cfg.statefulGlobals {
+		runnerOpts = append(runnerOpts, runner.WithStatefulGlobals())
 	}
 
-	// Build SSA
-	// Create a new SSA program
-	prog := ssa.NewProgram(fset, ssa.SanityCheckFunctions|ssa.GlobalDebug)
-
-	// Create SSA packages for all imported packages
-	for _, imp := range pkg.Imports() {
-		prog.CreatePackage(imp, nil, nil, true)
-	}
-
-	// Create the main package from the type-checked package
-	ssaPkg := prog.CreatePackage(pkg, []*ast.File{file}, info, true)
-	if ssaPkg == nil {
-		return nil, fmt.Errorf("failed to create SSA package")
-	}
-
-	// Build the package
-	ssaPkg.Build()
-
-	// Compile to bytecode
-	lookup := newPackageLookupAdapter()
-	compiled, err := compiler.Compile(lookup, ssaPkg)
-	if err != nil {
-		return nil, fmt.Errorf("compile error: %w", err)
-	}
-
-	// If the program defines an init() function, run it once and snapshot the
-	// resulting globals so every subsequent VM starts with initialised state.
-	if _, hasInit := compiled.Functions["init#1"]; hasInit {
-		initVM := vm.New(compiled)
-		initCtx, initCancel := context.WithTimeout(context.Background(), DefaultTimeout)
-		defer initCancel()
-		if _, err := initVM.Execute("init", initCtx); err != nil {
-			return nil, fmt.Errorf("executing init(): %w", err)
-		}
-		snap := make([]value.Value, len(initVM.Globals()))
-		copy(snap, initVM.Globals())
-		compiled.InitialGlobals = snap
-	}
+	r := runner.New(result.Program, initialGlobals, runnerOpts...)
 
 	return &Program{
-		program: compiled,
-		ssaPkg:  ssaPkg,
-		vmPool:  vm.NewVMPool(compiled),
+		runner: r,
+		ssaPkg: result.SSAPkg,
 	}, nil
 }
 
@@ -213,9 +171,7 @@ func Build(sourceCode string, packages ...string) (*Program, error) {
 //
 //	result, err := prog.Run("Add", 1, 2)
 func (p *Program) Run(funcName string, params ...any) (any, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
-	defer cancel()
-	return p.RunWithContext(ctx, funcName, params...)
+	return p.runner.Run(funcName, params...)
 }
 
 // RunWithContext executes a function in the program with context for timeout control.
@@ -228,21 +184,7 @@ func (p *Program) Run(funcName string, params ...any) (any, error) {
 //	defer cancel()
 //	result, err := prog.RunWithContext(ctx, "LongRunningTask", input)
 func (p *Program) RunWithContext(ctx context.Context, funcName string, params ...any) (any, error) {
-	// Convert params to Value
-	args := make([]value.Value, len(params))
-	for i, param := range params {
-		args[i] = value.FromInterface(param)
-	}
-
-	// Get VM from pool, execute, and return to pool
-	virtualMachine := p.vmPool.Get()
-	result, err := virtualMachine.ExecuteWithValues(funcName, ctx, args)
-	p.vmPool.Put(virtualMachine)
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Interface(), nil
+	return p.runner.RunWithContext(ctx, funcName, params...)
 }
 
 // RunWithValues executes a function with pre-converted Value arguments.
@@ -250,160 +192,43 @@ func (p *Program) RunWithContext(ctx context.Context, funcName string, params ..
 // multiple times with the same parameter types, as it avoids repeated type conversion.
 // Context is the first parameter following Go idioms.
 func (p *Program) RunWithValues(ctx context.Context, funcName string, args []value.Value) (value.Value, error) {
-	virtualMachine := p.vmPool.Get()
-	result, err := virtualMachine.ExecuteWithValues(funcName, ctx, args)
-	p.vmPool.Put(virtualMachine)
-	return result, err
+	return p.runner.RunWithValues(ctx, funcName, args)
 }
 
-// checkBannedImports checks for banned imports (unsafe, reflect).
-// These packages are banned because they can bypass the interpreter's safety guarantees.
-// Returns an error if any banned import is found.
-func checkBannedImports(file *ast.File) error {
-	for _, imp := range file.Imports {
-		path := strings.Trim(imp.Path.Value, `"`)
-		if path == "unsafe" {
-			return fmt.Errorf("import of \"unsafe\" is not allowed")
-		}
-		if path == "reflect" {
-			return fmt.Errorf("import of \"reflect\" is not allowed")
-		}
-	}
-	return nil
-}
-
-// autoImport automatically adds imports for registered packages if used.
-// This allows users to reference package names without explicit import declarations.
-// It scans the AST for selector expressions (e.g., fmt.Println) and checks if
-// the identifier matches a registered package name.
-func autoImport(file *ast.File) {
-	// Collect already-imported paths to avoid duplicates
-	alreadyImported := make(map[string]bool)
-	for _, imp := range file.Imports {
-		path := strings.Trim(imp.Path.Value, `"`)
-		alreadyImported[path] = true
-	}
-
-	// Scan for identifiers that match package names
-	usedPackages := make(map[string]bool)
-	ast.Inspect(file, func(n ast.Node) bool {
-		switch node := n.(type) {
-		case *ast.SelectorExpr:
-			if ident, ok := node.X.(*ast.Ident); ok {
-				// Check if this is a known package
-				if pkgPath, _, ok := importer.AutoImport(ident.Name); ok {
-					usedPackages[pkgPath] = true
-				}
-			}
-		}
-		return true
-	})
-
-	// Inject import declarations into the AST for packages not already imported
-	for pkgPath := range usedPackages {
-		if alreadyImported[pkgPath] {
-			continue
-		}
-
-		// Build a new import spec: import "pkgPath"
-		importSpec := &ast.ImportSpec{
-			Path: &ast.BasicLit{
-				Kind:  token.STRING,
-				Value: `"` + pkgPath + `"`,
-			},
-		}
-
-		// Wrap it in a GenDecl and prepend to file.Decls
-		importDecl := &ast.GenDecl{
-			Tok:   token.IMPORT,
-			Specs: []ast.Spec{importSpec},
-		}
-		file.Decls = append([]ast.Decl{importDecl}, file.Decls...)
-		file.Imports = append(file.Imports, importSpec)
-
-		alreadyImported[pkgPath] = true
-	}
-}
-
-// checkPanicUsage checks for panic usage in the code.
-// Panic is banned because it can cause uncontrolled control flow that bypasses
-// the interpreter's execution model.
-// Returns an error if the builtin panic function is called.
-func checkPanicUsage(file *ast.File, info *types.Info) error {
-	found := false
-
-	ast.Inspect(file, func(n ast.Node) bool {
-		if call, ok := n.(*ast.CallExpr); ok {
-			if ident, ok := call.Fun.(*ast.Ident); ok {
-				if ident.Name == "panic" {
-					// Check if it's the builtin panic
-					if obj := info.Uses[ident]; obj != nil {
-						if _, isBuiltin := obj.(*types.Builtin); isBuiltin {
-							found = true
-							return false
-						}
-					}
-				}
-			}
-		}
-		return true
-	})
-
-	if found {
-		return fmt.Errorf("use of \"panic\" is not allowed")
-	}
-	return nil
+// NewSandboxRegistry creates a fresh, empty PackageRegistry for sandboxed execution.
+// Unlike the global registry (which is pre-populated by stdlib init() functions),
+// a sandbox registry starts empty, allowing the caller to register only the
+// packages they want to expose to interpreted code.
+//
+// Example:
+//
+//	reg := gig.NewSandboxRegistry()
+//	gig.RegisterPackage("fmt", "fmt") // registers to global registry, not sandbox
+//	prog, err := gig.Build(source, gig.WithRegistry(reg))
+func NewSandboxRegistry() importer.PackageRegistry {
+	return importer.NewRegistry()
 }
 
 // RegisterPackage registers an external package for use in interpreted code.
-// This is typically called by init() functions in generated package wrappers.
-// The path is the import path (e.g., "fmt"), and name is the package identifier (e.g., "fmt").
+// Delegates to the global importer registry.
 func RegisterPackage(path, name string) *importer.ExternalPackage {
 	return importer.RegisterPackage(path, name)
 }
 
 // GetPackageByPath returns a registered package by import path.
-// Returns nil if no package with the given path is registered.
+// Delegates to the global importer registry.
 func GetPackageByPath(path string) *importer.ExternalPackage {
 	return importer.GetPackageByPath(path)
 }
 
 // GetPackageByName returns a registered package by name.
-// This is used for auto-import functionality.
-// Returns nil if no package with the given name is registered.
+// Delegates to the global importer registry.
 func GetPackageByName(name string) *importer.ExternalPackage {
 	return importer.GetPackageByName(name)
 }
 
 // GetAllPackages returns all registered packages.
-// The returned map is keyed by import path.
+// Delegates to the global importer registry.
 func GetAllPackages() map[string]*importer.ExternalPackage {
 	return importer.GetAllPackages()
-}
-
-// packageLookupAdapter implements bytecode.PackageLookup using the importer registry.
-// It serves as the DI bridge between the compiler and the importer.
-type packageLookupAdapter struct{}
-
-// newPackageLookupAdapter creates a new PackageLookup adapter.
-func newPackageLookupAdapter() bytecode.PackageLookup {
-	return &packageLookupAdapter{}
-}
-
-// LookupExternalFunc resolves an external function by package path and function name.
-func (a *packageLookupAdapter) LookupExternalFunc(pkgPath, funcName string) (fn any, directCall func([]value.Value) value.Value, ok bool) {
-	pkg := importer.GetPackageByPath(pkgPath)
-	if pkg == nil {
-		return nil, nil, false
-	}
-	obj, exists := pkg.Objects[funcName]
-	if !exists || obj.Kind != importer.ObjectKindFunction {
-		return nil, nil, false
-	}
-	return obj.Value, obj.DirectCall, true
-}
-
-// LookupMethodDirectCall resolves a method DirectCall wrapper by type name and method name.
-func (a *packageLookupAdapter) LookupMethodDirectCall(typeName, methodName string) (directCall func([]value.Value) value.Value, ok bool) {
-	return importer.LookupMethodDirectCall(typeName, methodName)
 }

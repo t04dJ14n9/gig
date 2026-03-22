@@ -11,6 +11,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 
 	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/importer"
 	"github.com/t04dJ14n9/gig/value"
 )
 
@@ -21,14 +22,15 @@ type Compiler interface {
 
 // NewCompiler creates a new compiler with the given package lookup for resolving external functions.
 // The PackageLookup dependency is injected to decouple the compiler from the importer package.
-func NewCompiler(lookup bytecode.PackageLookup) Compiler {
+func NewCompiler(lookup importer.PackageLookup) Compiler {
 	return &compiler{
-		lookup:    lookup,
-		constants: make([]any, 0),
-		types:     make([]types.Type, 0),
-		globals:   make(map[string]int),
-		funcs:     make(map[string]*bytecode.CompiledFunction),
-		funcIndex: make(map[*ssa.Function]int),
+		lookup:            lookup,
+		constants:         make([]any, 0),
+		types:             make([]types.Type, 0),
+		globals:           make(map[string]int),
+		externalVarValues: make(map[int]any),
+		funcs:             make(map[string]*bytecode.CompiledFunction),
+		funcIndex:         make(map[*ssa.Function]int),
 	}
 }
 
@@ -37,7 +39,7 @@ func NewCompiler(lookup bytecode.PackageLookup) Compiler {
 // symbol table, and jump targets that need patching.
 type compiler struct {
 	// lookup resolves external package functions (injected dependency).
-	lookup bytecode.PackageLookup
+	lookup importer.PackageLookup
 
 	// program is the output program being compiled.
 	program *bytecode.Program
@@ -50,6 +52,10 @@ type compiler struct {
 
 	// globals maps global names to indices.
 	globals map[string]int
+
+	// externalVarValues stores external variable values indexed by global index.
+	// These are resolved at compile time and used to initialize globals in the VM.
+	externalVarValues map[int]any
 
 	// funcs maps function names to compiled functions.
 	funcs map[string]*bytecode.CompiledFunction
@@ -221,6 +227,8 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 	c.program.Constants = c.constants
 	c.program.Types = c.types
 	c.program.Globals = c.globals
+	c.program.ExternalVarValues = c.externalVarValues
+	c.program.Lookup = c.lookup
 
 	// Pre-bake constants for O(1) OpConst (avoids FromInterface per instruction)
 	c.program.PrebakedConstants = make([]value.Value, len(c.constants))
@@ -231,7 +239,16 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 	// Build int-specialized constant pool for OpInt* superinstructions
 	c.program.IntConstants = make([]int64, len(c.constants))
 	for i, k := range c.constants {
-		if v, ok := k.(int64); ok {
+		switch v := k.(type) {
+		case int:
+			c.program.IntConstants[i] = int64(v)
+		case int8:
+			c.program.IntConstants[i] = int64(v)
+		case int16:
+			c.program.IntConstants[i] = int64(v)
+		case int32:
+			c.program.IntConstants[i] = int64(v)
+		case int64:
 			c.program.IntConstants[i] = v
 		}
 	}
@@ -241,6 +258,6 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 
 // Compile is a convenience package-level function that compiles an SSA package.
 // It creates a compiler with the given PackageLookup and invokes compilation.
-func Compile(lookup bytecode.PackageLookup, mainPkg *ssa.Package) (*bytecode.Program, error) {
+func Compile(lookup importer.PackageLookup, mainPkg *ssa.Package) (*bytecode.Program, error) {
 	return NewCompiler(lookup).Compile(mainPkg)
 }

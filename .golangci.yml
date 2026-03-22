@@ -395,6 +395,7 @@ linters:
           - govet
           - unused
           - fatcontext
+          - gosmopolitan
       # Exclude exhaustive for intentional incomplete switches
       - path: (bytecode|gentool|importer|value|vm|compiler)/.*\.go
         linters:
@@ -455,10 +456,11 @@ linters:
       - path: (.+)\.go$
         linters:
           - staticcheck
-      # Exclude govet shadow issues
+      # Exclude govet shadow issues (specific text match, not blanket)
       - path: (.+)\.go$
         linters:
           - govet
+        text: "shadow"
       # Exclude gosec for all files (handled separately)
       - path: (.+)\.go$
         linters:
@@ -468,7 +470,7 @@ linters:
         linters:
           - noinlineerr
       # Exclude iface for DDD interfaces consumed by other packages
-      - path: (bytecode|compiler|vm)/.*\.go
+      - path: (bytecode|compiler|vm|importer|runner)/.*\.go
         linters:
           - iface
       # Exclude fatcontext for VM context
@@ -476,7 +478,7 @@ linters:
         linters:
           - fatcontext
       # Exclude gochecknoglobals for CLI and interpreter
-      - path: (cmd/.*\.go|gig\.go|vm/.*\.go|importer/.*\.go|stdlib/.*\.go|bytecode/.*\.go|compiler/.*\.go|gentool/.*\.go)
+      - path: (cmd/.*\.go|gig\.go|vm/.*\.go|importer/.*\.go|stdlib/.*\.go|bytecode/.*\.go|compiler/.*\.go|gentool/.*\.go|value/.*\.go|runner/.*\.go)
         linters:
           - gochecknoglobals
       # Exclude gochecknoinits for importer

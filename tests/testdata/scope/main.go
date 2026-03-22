@@ -70,3 +70,10 @@ func ClosureCapturesOuterScope() int {
 	x = 150
 	return add()
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// Abs returns the absolute value of x
+func Abs(x int) int { return abs(x) }

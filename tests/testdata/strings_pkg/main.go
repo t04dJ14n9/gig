@@ -59,3 +59,27 @@ func EmptyCheck() int {
 	}
 	return 0
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// StrConcat concatenates two strings
+func StrConcat(a, b string) string { return a + b }
+
+// StrLen returns the length of s
+func StrLen(s string) int { return len(s) }
+
+// StrCompare returns -1 if a<b, 0 if a==b, 1 if a>b
+func StrCompare(a, b string) int {
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
+}
+
+// StrEqual returns true if a == b
+func StrEqual(a, b string) bool { return a == b }

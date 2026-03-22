@@ -91,7 +91,11 @@ func direct_encoding_xml_Escape(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	encoding_xml.Escape(a0, a1)
 	return value.MakeNil()
@@ -103,7 +107,11 @@ func direct_encoding_xml_EscapeText(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(encoding_xml.EscapeText(a0, a1))
 }
@@ -142,7 +150,11 @@ func direct_encoding_xml_Unmarshal(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].Interface()
 	return value.FromInterface(encoding_xml.Unmarshal(a0, a1))
@@ -173,7 +185,7 @@ func direct_method_encoding_xml_Decoder_DecodeElement(args []value.Value) value.
 
 func direct_method_encoding_xml_Decoder_InputOffset(args []value.Value) value.Value {
 	recv := args[0].Interface().(*encoding_xml.Decoder)
-	return value.MakeInt(int64(recv.InputOffset()))
+	return value.MakeInt64(recv.InputOffset())
 }
 
 func direct_method_encoding_xml_Decoder_InputPos(args []value.Value) value.Value {
@@ -267,7 +279,7 @@ func direct_method_encoding_xml_TagPathError_Error(args []value.Value) value.Val
 }
 
 func direct_method_encoding_xml_UnmarshalError_Error(args []value.Value) value.Value {
-	recv := args[0].Interface().(encoding_xml.UnmarshalError)
+	recv := encoding_xml.UnmarshalError(args[0].String())
 	return value.MakeString(string(recv.Error()))
 }
 

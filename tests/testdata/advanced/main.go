@@ -268,3 +268,34 @@ func ComplexExpressions() int {
 	c := 30
 	return (a+b)*(c-a) + b/a - c%b
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// FindFirst returns the index of target in s, or -1
+func FindFirst(s []int, target int) int { return findFirst(s, target) }
+
+// Bsearch returns the index of target in sorted s, or -1
+func Bsearch(s []int, target int) int { return bsearch(s, target) }
+
+// Gcd computes the greatest common divisor of a and b
+func Gcd(a, b int) int { return gcd(a, b) }
+
+// Identity returns x unchanged
+func Identity(x int) int { return identity(x) }
+
+// Minmax returns (min, max) of slice s
+func Minmax(s []int) (int, int) { return minmax(s) }
+
+// Countdown returns n (counting down recursively)
+func Countdown(n int) int { return countdown(n) }
+
+// Add returns a + b
+func Add(a, b int) int { return add(a, b) }
+
+// Mul returns a * b
+func Mul(a, b int) int { return a * b }
+
+// Sub returns a - b
+func Sub(a, b int) int { return a - b }

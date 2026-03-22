@@ -2,19 +2,13 @@ package bytecode
 
 import (
 	"go/types"
+	"reflect"
+	"sync"
 
 	"golang.org/x/tools/go/ssa"
 
 	"github.com/t04dJ14n9/gig/value"
 )
-
-// PackageLookup resolves external package functions for the compiler.
-// This interface enables dependency injection: the compiler depends on this
-// abstraction rather than importing the importer package directly.
-type PackageLookup interface {
-	LookupExternalFunc(pkgPath, funcName string) (fn any, directCall func([]value.Value) value.Value, ok bool)
-	LookupMethodDirectCall(typeName, methodName string) (directCall func([]value.Value) value.Value, ok bool)
-}
 
 // CompiledFunction represents a function compiled to bytecode.
 // It contains the bytecode instructions, local variable count, and metadata.
@@ -53,8 +47,7 @@ type ExternalFuncInfo struct {
 	Func any
 
 	// DirectCall is a typed wrapper that avoids reflect.Call.
-	// If nil, the VM will use reflection for the call.
-	DirectCall func([]value.Value) value.Value
+	DirectCall func(args []value.Value) value.Value
 }
 
 // ExternalMethodInfo contains method dispatch information.
@@ -63,10 +56,14 @@ type ExternalMethodInfo struct {
 	// MethodName is the name of the method to call.
 	MethodName string
 
+	// ReceiverTypeName is the fully qualified name of the receiver type
+	// (e.g., "GetterImpl", "AdderStruct"). Used by callCompiledMethod
+	// to disambiguate when multiple compiled methods share the same name.
+	// Empty string means "match any receiver" (backward compatible).
+	ReceiverTypeName string
+
 	// DirectCall is an optional typed wrapper that avoids reflect.Call for this method.
-	// args[0] is the receiver, args[1:] are method arguments.
-	// If nil, the VM will use reflection for the call.
-	DirectCall func([]value.Value) value.Value
+	DirectCall func(args []value.Value) value.Value
 }
 
 // Program represents a compiled program ready for execution.
@@ -103,8 +100,36 @@ type Program struct {
 	// FuncIndex maps SSA functions to their indices for call instructions.
 	FuncIndex map[*ssa.Function]int
 
-	// InitialGlobals holds the global variable state after init() has run.
-	// New VMs copy this slice as their starting globals so each call sees a
-	// fully-initialised package state.  Nil when there is no init() function.
-	InitialGlobals []value.Value
+	// ExternalVarValues stores external package variable values indexed by global index.
+	// These are resolved at compile time and used to initialize globals in the VM.
+	// The value is a pointer to the external variable (e.g., &time.UTC).
+	ExternalVarValues map[int]any
+
+	// Lookup resolves external types at runtime.
+	// Used by the VM's typeToReflect to look up real reflect.Type for named types.
+	// Must implement importer.PackageLookup (stored as any to avoid importing importer).
+	Lookup any
+
+	// ReflectTypeCache caches types.Type → reflect.Type conversions at the
+	// program level. This prevents reflect.StructOf from returning different
+	// reflect.Type objects for the same types.Type across multiple VM executions,
+	// which would cause "reflect.Set: value not assignable" panics.
+	// Key: types.Type, Value: reflect.Type.
+	ReflectTypeCache sync.Map
+}
+
+// CachedReflectType looks up a cached reflect.Type for the given types.Type.
+// Returns the cached type and true, or nil and false if not cached.
+func (p *Program) CachedReflectType(t types.Type) (reflect.Type, bool) {
+	if v, ok := p.ReflectTypeCache.Load(t); ok {
+		return v.(reflect.Type), true
+	}
+	return nil, false
+}
+
+// CacheReflectType stores a types.Type → reflect.Type mapping.
+// Uses LoadOrStore to handle concurrent writes safely.
+func (p *Program) CacheReflectType(t types.Type, rt reflect.Type) reflect.Type {
+	actual, _ := p.ReflectTypeCache.LoadOrStore(t, rt)
+	return actual.(reflect.Type)
 }

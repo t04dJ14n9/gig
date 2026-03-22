@@ -162,7 +162,16 @@ func (c *compiler) compileUnOp(i *ssa.UnOp) {
 	case token.NOT:
 		op = bytecode.OpNot
 	case token.XOR:
-		op = bytecode.OpXor
+		// Unary ^ (bitwise NOT) is not a single-stack op — it requires
+		// pushing an all-ones constant then XORing. e.g. ^x = x ^ allOnes.
+		// We must NOT emit OpXor directly here; that would pop 2 values
+		// when only 1 (the operand) is on the stack, causing a panic.
+		allOnes := allOnesConstant(i.X.Type())
+		c.emit(bytecode.OpConst, uint16(c.addConstant(allOnes)))
+		c.emit(bytecode.OpXor)
+		resultIdx := c.symbolTable.AllocLocal(i)
+		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+		return
 	case token.ARROW:
 		if i.CommaOk {
 			op = bytecode.OpRecvOk
@@ -177,6 +186,41 @@ func (c *compiler) compileUnOp(i *ssa.UnOp) {
 
 	resultIdx := c.symbolTable.AllocLocal(i)
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+}
+
+// allOnesConstant returns the "all ones" value for a given numeric type,
+// used to implement unary ^ (bitwise NOT) as x ^ allOnes.
+// Returns an any so it can be passed to addConstant, which calls FromInterface
+// to create the correct value.Kind (KindUint for unsigned, KindInt for signed).
+func allOnesConstant(t types.Type) any {
+	switch u := t.Underlying().(type) {
+	case *types.Basic:
+		switch u.Kind() {
+		case types.Uint8:
+			return uint8(0xFF)
+		case types.Uint16:
+			return uint16(0xFFFF)
+		case types.Uint32:
+			return uint32(0xFFFFFFFF)
+		case types.Uint:
+			return uint(^uint(0))
+		case types.Uint64:
+			return uint64(^uint64(0))
+		case types.Uintptr:
+			return uintptr(^uintptr(0))
+		case types.Int8:
+			return int8(-1)
+		case types.Int16:
+			return int16(-1)
+		case types.Int32:
+			return int32(-1)
+		case types.Int:
+			return int(^int(0))
+		case types.Int64:
+			return int64(-1)
+		}
+	}
+	return int64(-1) // fallback
 }
 
 // compileCall compiles a function call instruction.
@@ -195,6 +239,21 @@ func (c *compiler) compileCall(i *ssa.Call) {
 		}
 		methodInfo := &bytecode.ExternalMethodInfo{
 			MethodName: i.Call.Method.Name(),
+		}
+		// For invoke calls, try to extract the concrete receiver type from the
+		// interface value. This helps callCompiledMethod disambiguate methods
+		// when multiple types define the same method name (e.g., Get, Add).
+		if recvType := i.Call.Value.Type(); recvType != nil {
+			// The receiver is an interface type; the concrete type is unknown statically.
+			// However, the interface's method set constrains which types are valid.
+			// We store the interface type name as a hint for fallback dispatch.
+			if iface, ok := recvType.Underlying().(*types.Interface); ok {
+				_ = iface // interface type available for future use
+			}
+			// If the value itself has a known concrete type (rare for invoke), use it.
+			if named := extractNamedType(recvType); named != nil {
+				methodInfo.ReceiverTypeName = named.Obj().Name()
+			}
 		}
 		funcIdx := c.addConstant(methodInfo)
 		numArgs := len(i.Call.Args) + 1 // +1 for receiver

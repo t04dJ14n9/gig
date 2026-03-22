@@ -1,9 +1,11 @@
 package compiler
 
 import (
+	"go/types"
+	"reflect"
 	"testing"
 
-	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/importer"
 	"github.com/t04dJ14n9/gig/value"
 )
 
@@ -100,5 +102,13 @@ func (m *mockLookup) LookupMethodDirectCall(typeName, methodName string) (direct
 	return nil, false
 }
 
+func (m *mockLookup) LookupExternalVar(pkgPath, varName string) (ptr any, ok bool) {
+	return nil, false
+}
+
+func (m *mockLookup) LookupExternalType(t types.Type) (reflect.Type, bool) {
+	return nil, false
+}
+
 // Verify mockLookup satisfies the interface.
-var _ bytecode.PackageLookup = (*mockLookup)(nil)
+var _ importer.PackageLookup = (*mockLookup)(nil)

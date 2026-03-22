@@ -57,3 +57,25 @@ func StrconvAtoi() int {
 	n, _ := strconv.Atoi("123")
 	return n
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// FmtSprintfInt returns fmt.Sprintf("value: %d", n)
+func FmtSprintfInt(n int) string { return fmt.Sprintf("value: %d", n) }
+
+// StringsToUpperStr returns strings.ToUpper(s)
+func StringsToUpperStr(s string) string { return strings.ToUpper(s) }
+
+// StringsToLowerStr returns strings.ToLower(s)
+func StringsToLowerStr(s string) string { return strings.ToLower(s) }
+
+// StringsContainsStr returns true if s contains substr
+func StringsContainsStr(s, substr string) bool { return strings.Contains(s, substr) }
+
+// StrconvItoaN returns strconv.Itoa(n)
+func StrconvItoaN(n int) string { return strconv.Itoa(n) }
+
+// StrconvAtoiStr returns the integer parsed from s
+func StrconvAtoiStr(s string) (int, error) { return strconv.Atoi(s) }

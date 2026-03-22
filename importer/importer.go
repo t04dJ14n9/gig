@@ -12,6 +12,9 @@ import (
 // Importer implements types.Importer for registered external packages.
 // It allows the Go type checker to resolve imports to registered packages.
 type Importer struct {
+	// reg is the package registry to use for resolution.
+	reg PackageRegistry
+
 	// packages caches resolved types.Package values.
 	packages map[string]*types.Package
 
@@ -20,8 +23,9 @@ type Importer struct {
 }
 
 // NewImporter creates a new Importer for resolving registered packages.
-func NewImporter() *Importer {
+func NewImporter(reg PackageRegistry) *Importer {
 	return &Importer{
+		reg:      reg,
 		packages: make(map[string]*types.Package),
 	}
 }
@@ -41,10 +45,10 @@ func (i *Importer) Import(path string) (*types.Package, error) {
 	i.mutex.RUnlock()
 
 	// Check if it's a registered external package
-	extPkg := GetPackageByPath(path)
+	extPkg := i.reg.GetPackageByPath(path)
 	if extPkg == nil {
 		// Try to find by name (for auto-imported packages)
-		extPkg = GetPackageByName(path)
+		extPkg = i.reg.GetPackageByName(path)
 		if extPkg == nil {
 			return nil, fmt.Errorf("package %q not registered", path)
 		}
@@ -109,7 +113,7 @@ func (i *Importer) buildPackage(extPkg *ExternalPackage) *types.Package {
 		}
 
 		pkg.Scope().Insert(typeName)
-		SetExternalType(t, rt)
+		i.reg.SetExternalType(t, rt)
 	}
 
 	// Mark the package as complete so the type checker can use it

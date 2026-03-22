@@ -68,17 +68,17 @@ Package type info (go/types)
 
 ### Parameter Type Support
 
-| Type Category | Example | Extraction |
-|---|---|---|
-| Basic types | `int`, `string`, `bool`, `float64` | `.Int()`, `.String()`, `.Bool()`, `.Float()` |
-| Named (same-pkg) | `Regexp`, `Template` | `.Interface().(TypeName)` |
-| Named (cross-pkg) | `time.Time`, `io.Reader` | `.Interface().(pkg.Type)` |
-| Pointer to named | `*bytes.Buffer`, `*http.Request` | `.Interface().(*pkg.Type)` |
-| Pointer to basic | `*int32`, `*int64` | `.Interface().(*int32)` |
-| Slice types | `[]byte`, `[]string` | `.Bytes()`, `.Interface().([]string)` |
-| Map types | `map[string]bool` | `.Interface().(map[string]bool)` |
-| Empty interface | `any` / `interface{}` | `.Interface()` |
-| Error interface | `error` | Converted via `value.ErrorFromValue()` |
+| Type Category     | Example                            | Extraction                                   |
+| ----------------- | ---------------------------------- | -------------------------------------------- |
+| Basic types       | `int`, `string`, `bool`, `float64` | `.Int()`, `.String()`, `.Bool()`, `.Float()` |
+| Named (same-pkg)  | `Regexp`, `Template`               | `.Interface().(TypeName)`                    |
+| Named (cross-pkg) | `time.Time`, `io.Reader`           | `.Interface().(pkg.Type)`                    |
+| Pointer to named  | `*bytes.Buffer`, `*http.Request`   | `.Interface().(*pkg.Type)`                   |
+| Pointer to basic  | `*int32`, `*int64`                 | `.Interface().(*int32)`                      |
+| Slice types       | `[]byte`, `[]string`               | `.Bytes()`, `.Interface().([]string)`        |
+| Map types         | `map[string]bool`                  | `.Interface().(map[string]bool)`             |
+| Empty interface   | `any` / `interface{}`              | `.Interface()`                               |
+| Error interface   | `error`                            | Converted via `value.ErrorFromValue()`       |
 
 ### Compile-Time Resolution
 
@@ -95,11 +95,11 @@ We solved this by keying the method DirectCall registry on `typeName.methodName`
 
 ## Coverage
 
-| Category | Wrappers | Coverage |
-|---|---|---|
-| Function DirectCall | 619 / 671 | 92.2% |
-| Method DirectCall | 543 | All eligible methods |
-| **Total** | **1,162** | — |
+| Category            | Wrappers  | Coverage             |
+| ------------------- | --------- | -------------------- |
+| Function DirectCall | 619 / 671 | 92.2%                |
+| Method DirectCall   | 543       | All eligible methods |
+| **Total**           | **1,162** | —                    |
 
 Remaining ~8% of functions use parameter types that can't be statically wrapped
 (e.g., `unsafe.Pointer`, variadic with complex element types).
@@ -108,12 +108,12 @@ Remaining ~8% of functions use parameter types that can't be statically wrapped
 
 ### External Call Benchmarks (5 runs, `benchstat`)
 
-| Benchmark | Baseline (ns/op) | Optimized (ns/op) | Speedup | Memory Δ | Allocs Δ |
-|---|---|---|---|---|---|
-| ExtCallReflect | 1,319,800 | 359,100 | **3.7x** (−72.8%) | −62.9% | −64.6% |
-| ExtCallMethod | 1,216,000 | 460,100 | **2.6x** (−62.2%) | −49.0% | −50.3% |
-| ExtCallMixed | 730,300 | 330,500 | **2.2x** (−54.8%) | −39.4% | −45.1% |
-| ExtCallDirectCall | 588,000 | 583,500 | ~same | ~ | ~ |
+| Benchmark         | Baseline (ns/op) | Optimized (ns/op) | Speedup           | Memory Δ | Allocs Δ |
+| ----------------- | ---------------- | ----------------- | ----------------- | -------- | -------- |
+| ExtCallReflect    | 1,319,800        | 359,100           | **3.7x** (−72.8%) | −62.9%   | −64.6%   |
+| ExtCallMethod     | 1,216,000        | 460,100           | **2.6x** (−62.2%) | −49.0%   | −50.3%   |
+| ExtCallMixed      | 730,300          | 330,500           | **2.2x** (−54.8%) | −39.4%   | −45.1%   |
+| ExtCallDirectCall | 588,000          | 583,500           | ~same             | ~        | ~        |
 
 ExtCallDirectCall was already using function DirectCall in the baseline — the improvement
 there came in previous work. The massive gains in the other three benchmarks come from
@@ -121,12 +121,12 @@ there came in previous work. The massive gains in the other three benchmarks com
 
 ### Gig vs Yaegi (post-optimization)
 
-| Benchmark | Gig (ns/op) | Yaegi (ns/op) | Gig advantage |
-|---|---|---|---|
-| ExtCallDirectCall | 583,500 | 1,551,000 | **2.7x faster** |
-| ExtCallReflect | 359,100 | 1,001,500 | **2.8x faster** |
-| ExtCallMethod | 460,100 | 1,214,000 | **2.6x faster** |
-| ExtCallMixed | 330,500 | 845,900 | **2.6x faster** |
+| Benchmark         | Gig (ns/op) | Yaegi (ns/op) | Gig advantage   |
+| ----------------- | ----------- | ------------- | --------------- |
+| ExtCallDirectCall | 583,500     | 1,551,000     | **2.7x faster** |
+| ExtCallReflect    | 359,100     | 1,001,500     | **2.8x faster** |
+| ExtCallMethod     | 460,100     | 1,214,000     | **2.6x faster** |
+| ExtCallMixed      | 330,500     | 845,900       | **2.6x faster** |
 
 ### Core VM Benchmarks (no regression)
 
@@ -135,15 +135,25 @@ statistically significant change — the optimization is purely additive.
 
 ## Files Changed
 
-| File | Role |
-|---|---|
-| `gentool/directcall.go` | Core wrapper generation for functions and methods |
-| `gentool/generator.go` | Orchestrates generation, outputs method wrappers |
-| `gentool/resolve.go` | Cross-package import collection for method signatures |
-| `bytecode/bytecode.go` | Added `ExternalMethodInfo.DirectCall` field |
-| `compiler/compile_ext.go` | Compile-time DirectCall resolution for methods |
-| `vm/call.go` | Runtime fast path: `DirectCall != nil` → call directly |
-| `importer/register.go` | Method DirectCall registry (`AddMethodDirectCall` / `LookupMethodDirectCall`) |
-| `gig.go` | `packageLookupAdapter` wiring for method DirectCall |
-| `stdlib/packages/*.go` | 20 regenerated packages with 1,162 total wrappers |
-| `benchmarks/bench_test.go` | 12 new benchmarks (4 Gig + 4 Yaegi + 4 Native) |
+| File                       | Role                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------- |
+| `gentool/directcall.go`    | Core wrapper generation for functions and methods                             |
+| `gentool/generator.go`     | Orchestrates generation, outputs method wrappers                              |
+| `gentool/resolve.go`       | Cross-package import collection for method signatures                         |
+| `bytecode/bytecode.go`     | Added `ExternalMethodInfo.DirectCall` field                                   |
+| `compiler/compile_ext.go`  | Compile-time DirectCall resolution for methods                                |
+| `vm/call.go`               | Runtime fast path: `DirectCall != nil` → call directly                        |
+| `importer/register.go`     | Method DirectCall registry (`AddMethodDirectCall` / `LookupMethodDirectCall`) |
+| `gig.go`                   | `packageLookupAdapter` wiring for method DirectCall                           |
+| `stdlib/packages/*.go`     | 20 regenerated packages with 1,162 total wrappers                             |
+| `benchmarks/bench_test.go` | 12 new benchmarks (4 Gig + 4 Yaegi + 4 Native)                                |
+
+## Fmt Package Sanitization (v0.3.0)
+
+The `fmt` package requires special handling because Gig's internal `Value` structs would print as verbose Go struct literals. The solution is **embedded sanitization helpers** in the generated `fmt.go`:
+
+- `fmtSanitizeHelperCode()` in `gentool/directcall.go` returns the Go source code for sanitization helpers
+- `generator.go` embeds this code when generating the `fmt` package
+- The generated wrappers for `fmt.Sprintf`, `fmt.Printf`, etc. use `sprintfWithTypeAwareness` to sanitize arguments
+
+This eliminates the need for a separate hand-maintained `fmt_sanitize.go` file — all code is now fully generated.

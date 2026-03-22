@@ -341,6 +341,13 @@ const (
 	// Stack: [... value] -> [... converted_value]
 	OpConvert
 
+	// OpChangeType performs a named-type conversion (ChangeType in SSA).
+	// Unlike OpConvert, this also updates the source local variable so that
+	// slice aliasing works correctly (e.g., sort.IntSlice(s) shares s's backing array).
+	// Operands: [type_idx:2] [src_local:2]
+	// Stack: [... value] -> [... converted_value]
+	OpChangeType
+
 	// ========================================
 	// Function Operations
 	// ========================================
@@ -701,6 +708,7 @@ func buildOperandWidthTable() [256]int {
 	t[OpFieldAddr] = 2
 	t[OpAssert] = 2
 	t[OpConvert] = 2
+	t[OpChangeType] = 4
 	t[OpClosure] = 3 // func_idx(2) + num_free(1)
 	t[OpMethod] = 2
 	t[OpMethodCall] = 3 // method_idx(2) + num_args(1)
@@ -884,6 +892,8 @@ func (op OpCode) String() string {
 		return "ASSERT"
 	case OpConvert:
 		return "CONVERT"
+	case OpChangeType:
+		return "CHANGETYPE"
 	case OpClosure:
 		return "CLOSURE"
 	case OpMethod:
@@ -1031,34 +1041,6 @@ func (op OpCode) String() string {
 	default:
 		return "UNKNOWN"
 	}
-}
-
-// OperandWidths maps opcodes to their operand widths (kept for backward compatibility).
-// Prefer using OperandWidth(op) for new code.
-var OperandWidths = map[OpCode]int{
-	OpConst: 2, OpLocal: 2, OpSetLocal: 2, OpGlobal: 2, OpSetGlobal: 2,
-	OpFree: 1, OpSetFree: 1, OpJump: 2, OpJumpTrue: 2, OpJumpFalse: 2,
-	OpCall: 3, OpMakeArray: 2, OpMakeStruct: 2, OpField: 2, OpSetField: 2,
-	OpAddr: 2, OpFieldAddr: 2, OpAssert: 2, OpConvert: 2, OpClosure: 3,
-	OpMethod: 2, OpMethodCall: 3, OpDefer: 2, OpDeferIndirect: 2, OpCallExternal: 3,
-	OpCallIndirect: 1, OpGoCall: 3, OpGoCallIndirect: 1, OpSelect: 2,
-	OpPack: 2, OpNew: 2, OpMake: 4, OpPrint: 1, OpPrintln: 1,
-	OpAddLocalLocal: 4, OpSubLocalLocal: 4, OpMulLocalLocal: 4,
-	OpAddLocalConst: 4, OpSubLocalConst: 4,
-	OpLessLocalLocalJumpTrue: 6, OpLessLocalConstJumpTrue: 6,
-	OpLessEqLocalConstJumpTrue: 6, OpGreaterLocalLocalJumpTrue: 6,
-	OpLessLocalLocalJumpFalse: 6, OpLessLocalConstJumpFalse: 6,
-	OpLessEqLocalConstJumpFalse: 6, OpAddSetLocal: 2, OpSubSetLocal: 2,
-	OpLocalLocalAddSetLocal: 6, OpLocalConstAddSetLocal: 6, OpLocalConstSubSetLocal: 6,
-	OpIntLocalConstAddSetLocal: 6, OpIntLocalConstSubSetLocal: 6,
-	OpIntLocalLocalAddSetLocal: 6, OpIntLessLocalConstJumpFalse: 6,
-	OpIntLessEqLocalConstJumpTrue: 6, OpIntLessEqLocalConstJumpFalse: 6,
-	OpIntLessLocalLocalJumpFalse: 6, OpIntGreaterLocalLocalJumpTrue: 6,
-	OpIntSetLocal: 2, OpIntLocal: 2, OpIntLessLocalConstJumpTrue: 6,
-	OpIntLessLocalLocalJumpTrue: 6, OpIntMoveLocal: 4,
-	OpIntSliceGet: 6, OpIntSliceSet: 6, OpIntSliceSetConst: 6,
-	OpLocalLocalSubSetLocal: 6, OpLocalLocalMulSetLocal: 6, OpLocalConstMulSetLocal: 6,
-	OpIntLocalLocalSubSetLocal: 6, OpIntLocalLocalMulSetLocal: 6, OpIntLocalConstMulSetLocal: 6,
 }
 
 // OperandWidth returns the operand byte width for an opcode using O(1) array lookup.

@@ -297,9 +297,18 @@ func TestInterface(t *testing.T) {
 	}{
 		{MakeNil(), nil},
 		{MakeBool(true), true},
-		{MakeInt(7), int64(7)},
-		{MakeUint(8), uint64(8)},
+		{MakeInt(7), int(7)},
+		{MakeInt64(7), int64(7)},
+		{MakeInt8(7), int8(7)},
+		{MakeInt16(7), int16(7)},
+		{MakeInt32(7), int32(7)},
+		{MakeUint(8), uint(8)},
+		{MakeUint8(8), uint8(8)},
+		{MakeUint16(8), uint16(8)},
+		{MakeUint32(8), uint32(8)},
+		{MakeUint64(8), uint64(8)},
 		{MakeFloat(1.5), 1.5},
+		{MakeFloat32(1.5), float32(1.5)},
 		{MakeString("s"), "s"},
 	}
 	for _, tt := range tests {
@@ -338,4 +347,64 @@ func TestValueSize(t *testing.T) {
 		t.Errorf("Value size = %d bytes, want <= 32", size)
 	}
 	t.Logf("Value size: %d bytes", size)
+}
+
+func TestSizePreservation(t *testing.T) {
+	// Arithmetic should preserve the size from the left operand
+	a := MakeInt8(10)
+	b := MakeInt8(3)
+	sum := a.Add(b)
+	if got := sum.Interface(); got != int8(13) {
+		t.Errorf("int8(10) + int8(3) = %v (%T), want int8(13)", got, got)
+	}
+
+	a32 := MakeInt32(100)
+	b32 := MakeInt32(50)
+	diff := a32.Sub(b32)
+	if got := diff.Interface(); got != int32(50) {
+		t.Errorf("int32(100) - int32(50) = %v (%T), want int32(50)", got, got)
+	}
+
+	f32 := MakeFloat32(2.5)
+	g32 := MakeFloat32(1.0)
+	prod := f32.Mul(g32)
+	if got := prod.Interface(); got != float32(2.5) {
+		t.Errorf("float32(2.5) * float32(1.0) = %v (%T), want float32(2.5)", got, got)
+	}
+
+	u16 := MakeUint16(100)
+	v16 := MakeUint16(10)
+	quotient := u16.Div(v16)
+	if got := quotient.Interface(); got != uint16(10) {
+		t.Errorf("uint16(100) / uint16(10) = %v (%T), want uint16(10)", got, got)
+	}
+}
+
+func TestFromInterfaceRoundTrip(t *testing.T) {
+	// FromInterface should preserve the exact type through Interface()
+	tests := []struct {
+		in   any
+		want any
+	}{
+		{int(42), int(42)},
+		{int8(42), int8(42)},
+		{int16(42), int16(42)},
+		{int32(42), int32(42)},
+		{int64(42), int64(42)},
+		{uint(42), uint(42)},
+		{uint8(42), uint8(42)},
+		{uint16(42), uint16(42)},
+		{uint32(42), uint32(42)},
+		{uint64(42), uint64(42)},
+		{float32(3.14), float32(3.14)},
+		{float64(3.14), float64(3.14)},
+	}
+	for _, tt := range tests {
+		v := FromInterface(tt.in)
+		got := v.Interface()
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("FromInterface(%v (%T)).Interface() = %v (%T), want %v (%T)",
+				tt.in, tt.in, got, got, tt.want, tt.want)
+		}
+	}
 }

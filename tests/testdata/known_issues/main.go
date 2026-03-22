@@ -1,107 +1,44 @@
 package known_issues
 
-// BytesToStringHi converts []byte{104, 105} to a string.
-// Expected: "hi"
-func BytesToStringHi() string {
-	return string([]byte{104, 105})
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// KNOWN ISSUES
+//
+// Resolved bugs are documented in testdata/resolved_issue/main.go as
+// regression tests. This file tracks bugs awaiting fixes.
+//
+// Resolution mapping:
+//   Bug 1 → Resolved Issue 28 (sort named-type conversion)
+//   Bug 2 → fixed in gentool (time.Duration DirectCall)
+//   Bug 3 → Resolved Issue 29 (fmt.Stringer)
+//   Bug 4 → Resolved Issue 30 (fmt.Sprintf %T)
+//   Bug 5 → Resolved Issue 31 (fmt.Sprintf %v _gig_id)
+//   Bug 6 → Resolved Issue 32 (int64/uint64 narrowing)
+//   Bug 7 → Resolved Issue 33 (bytes.Buffer.Cap)
+//   Bug 8 → Resolved Issue 34 (json.Encoder method dispatch collision)
+//
+// ALL KNOWN ISSUES RESOLVED — this file retained for historical reference.
+// ─────────────────────────────────────────────────────────────────────────────
 
-// BytesToStringGo converts []byte{71, 111} to a string.
-// Expected: "Go"
-func BytesToStringGo() string {
-	return string([]byte{71, 111})
-}
+import (
+	"bytes"
+	"encoding/json"
+)
 
-// BytesToStringSingle converts []byte{65} to a string.
-// Expected: "A"
-func BytesToStringSingle() string {
-	return string([]byte{65})
-}
+// Bug 8: Method dispatch type collision — json.Encoder.Encode vs xml.Encoder.Encode
+//
+// When a program uses both json.Encoder and xml.Encoder, the compiled program
+// contains methods with the same name "Encode" on different receiver types.
+// The method resolver picks xml.Encoder.Encode for json.Encoder.Encode calls,
+// causing: panic: interface {} is *json.Encoder, not *xml.Encoder
+//
+// This is the same reflect.StructOf type identity issue that was partially
+// fixed for other cases. The fix likely requires making the method cache
+// key include the full receiver type, not just the method name.
 
-// BytesToStringEmpty converts an empty byte slice to a string.
-// Expected: ""
-func BytesToStringEmpty() string {
-	return string([]byte{})
-}
-
-// counter is a package-level type so we can define methods on it.
-type counter struct{ n int }
-
-func (c *counter) inc() { c.n++ }
-
-// PointerReceiverMutation calls a pointer-receiver method twice and returns the result.
-// Expected: 2
-func PointerReceiverMutation() int {
-	c := &counter{}
-	c.inc()
-	c.inc()
-	return c.n
-}
-
-// box is a helper for the Set/Get test.
-type box struct{ val int }
-
-func (b *box) set(v int) { b.val = v }
-func (b box) get() int   { return b.val }
-
-// PointerReceiverSetGet calls a pointer-receiver setter then a value-receiver getter.
-// Expected: 99
-func PointerReceiverSetGet() int {
-	b := &box{}
-	b.set(99)
-	return b.get()
-}
-
-var initVal int
-var initRegistry []string
-
-func init() {
-	initVal = 42
-	initRegistry = append(initRegistry, "alpha")
-	initRegistry = append(initRegistry, "beta")
-}
-
-// InitFuncResult returns the value set by init().
-// Expected: 42
-func InitFuncResult() int {
-	return initVal
-}
-
-// InitSliceLen returns the length of the slice populated by init().
-// Expected: 2
-func InitSliceLen() int {
-	return len(initRegistry)
-}
-
-// RangeStringRune sums rune values when ranging over an ASCII string.
-// 'a'=97, 'b'=98, 'c'=99 -> 294
-// Expected: 294
-func RangeStringRune() int {
-	sum := 0
-	for _, r := range "abc" {
-		sum += int(r)
-	}
-	return sum
-}
-
-// RangeStringIndex sums byte indices when ranging over a 3-char ASCII string.
-// indices: 0, 1, 2 -> 3
-// Expected: 3
-func RangeStringIndex() int {
-	sum := 0
-	for i := range "xyz" {
-		sum += i
-	}
-	return sum
-}
-
-// RangeStringMultibyte sums rune values for a multi-byte UTF-8 string.
-// '中'=0x4E2D=20013, '文'=0x6587=25991 -> 46004
-// Expected: 46004
-func RangeStringMultibyte() int {
-	sum := 0
-	for _, r := range "中文" {
-		sum += int(r)
-	}
-	return sum
+// JsonEncodeBug8 tests json.NewEncoder.Encode call.
+func JsonEncodeBug8() int {
+	buf := new(bytes.Buffer)
+	encoder := json.NewEncoder(buf)
+	encoder.Encode(map[string]int{"y": 20})
+	return buf.Len()
 }

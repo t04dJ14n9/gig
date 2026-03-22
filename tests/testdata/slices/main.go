@@ -85,3 +85,10 @@ func LenCap() int {
 	s := make([]int, 3, 10)
 	return len(s)*100 + cap(s)
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// SumSlice returns the sum of all elements in s
+func SumSlice(s []int) int { return sumSlice(s) }

@@ -6,6 +6,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 
 	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/compiler/optimize"
 )
 
 // isIntType returns true if the type is a signed integer (int, int8..int64).
@@ -130,27 +131,17 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 	// Patch jump targets
 	c.patchJumps(blockOffsets)
 
-	// Build const-is-int map
+	// Build const-is-int map (must recognize all integer types stored by compileConst)
 	constIsInt := make([]bool, len(c.constants))
 	for i, k := range c.constants {
-		if _, ok := k.(int64); ok {
+		switch k.(type) {
+		case int, int8, int16, int32, int64:
 			constIsInt[i] = true
 		}
 	}
 
-	// Peephole optimization: fuse common instruction sequences into superinstructions
-	c.currentFunc.Instructions = optimizeBytecode(c.currentFunc.Instructions)
-
-	// Fuse slice access patterns: LOCAL(s) LOCAL(j) INDEXADDR ... → OpIntSliceGet/Set
-	c.currentFunc.Instructions = fuseSliceOps(c.currentFunc.Instructions, localIsInt, localIsIntSlice)
-
-	// Int-specialization pass: upgrade Value superinstructions to OpInt* variants
-	c.currentFunc.Instructions, c.currentFunc.HasIntLocals = intSpecialize(c.currentFunc.Instructions, localIsInt, constIsInt)
-
-	// Int move-fusion pass: OpIntLocal(A) OpIntSetLocal(B) → OpIntMoveLocal(A, B)
-	if c.currentFunc.HasIntLocals {
-		c.currentFunc.Instructions = fuseIntMoves(c.currentFunc.Instructions)
-	}
+	// Apply all optimization passes (peephole, slice fusion, int-specialization, int move fusion)
+	c.currentFunc.Instructions, c.currentFunc.HasIntLocals = optimize.Optimize(c.currentFunc.Instructions, localIsInt, constIsInt, localIsIntSlice)
 
 	return c.currentFunc, nil
 }
@@ -172,8 +163,23 @@ func (c *compiler) compileBlock(block *ssa.BasicBlock) {
 			c.emitJump(block.Succs[0])
 		case *ssa.If:
 			c.compileValue(term.Cond)
+			// Emit OpJumpTrue with a placeholder offset — we'll patch it after
+			// emitting the false-branch phi moves so they only execute when
+			// the condition is false.
+			jumpTrueOffset := len(c.currentFunc.Instructions)
+			c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+				byte(bytecode.OpJumpTrue), 0, 0)
+
+			// False branch: phi moves + jump (only reached when condition is false)
 			c.emitPhiMoves(block, block.Succs[1])
-			c.emitJumpFalse(block.Succs[1])
+			c.emitJump(block.Succs[1])
+
+			// Patch the OpJumpTrue to land here (true branch)
+			trueLandingOffset := len(c.currentFunc.Instructions)
+			c.currentFunc.Instructions[jumpTrueOffset+1] = byte(trueLandingOffset >> 8)
+			c.currentFunc.Instructions[jumpTrueOffset+2] = byte(trueLandingOffset)
+
+			// True branch: phi moves + jump (only reached when condition is true)
 			c.emitPhiMoves(block, block.Succs[0])
 			c.emitJump(block.Succs[0])
 		case *ssa.Panic:

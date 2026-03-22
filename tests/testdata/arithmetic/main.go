@@ -41,3 +41,25 @@ func Overflow() int {
 
 // Precedence tests operator precedence
 func Precedence() int { return 2 + 3*4 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// Add returns a + b
+func Add(a, b int) int { return a + b }
+
+// Sub returns a - b
+func Sub(a, b int) int { return a - b }
+
+// Mul returns a * b
+func Mul(a, b int) int { return a * b }
+
+// Div returns a / b
+func Div(a, b int) int { return a / b }
+
+// Mod returns a % b
+func Mod(a, b int) int { return a % b }
+
+// ComplexArith returns (a+b)*c - d/e
+func ComplexArith(a, b, c, d, e int) int { return (a+b)*c - d/e }

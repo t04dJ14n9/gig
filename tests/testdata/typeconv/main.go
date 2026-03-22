@@ -34,3 +34,16 @@ func StringIntConversion() int {
 	n, _ := strconv.Atoi("54321")
 	return n
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// IntToString converts int to string using strconv.Itoa
+func IntToString(n int) string { return strconv.Itoa(n) }
+
+// StringToInt converts string to int using strconv.Atoi
+func StringToInt(s string) (int, error) { return strconv.Atoi(s) }
+
+// IntToFloatToInt converts int to float64 and back
+func IntToFloatToInt(x int) int { return int(float64(x)) }

@@ -118,3 +118,10 @@ func BooleanAndOr() int {
 	}
 	return result
 }
+
+// ============================================================================
+// Exported wrappers for parameterized testing
+// ============================================================================
+
+// Classify returns -1 for negative, 0 for zero, 1 for positive
+func Classify(x int) int { return classify(x) }

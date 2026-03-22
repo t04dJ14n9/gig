@@ -1,4 +1,3 @@
-
 package cornercases
 
 // ------------------------------------------------------------------------
@@ -599,7 +598,7 @@ func Convert_Int64ToInt32() int32 {
 // ------------------------------------------------------------------------
 
 func Expr_ComplexArithmetic() int {
-	return (10 + 5) * 2 - 3
+	return (10+5)*2 - 3
 }
 
 func Expr_ChainedComparison() bool {

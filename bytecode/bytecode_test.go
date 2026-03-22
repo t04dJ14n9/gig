@@ -37,33 +37,26 @@ func TestReadWriteUint16(t *testing.T) {
 	}
 }
 
-// TestOperandWidths ensures every opcode that has defined operand widths
-// returns a non-nil slice, and that undeclared opcodes return nil.
-func TestOperandWidths(t *testing.T) {
+// TestOperandWidth ensures OperandWidth returns correct values for known opcodes.
+func TestOperandWidth(t *testing.T) {
 	// Spot-check a few well-known opcodes.
-	// OperandWidths maps OpCode to a single int (total operand byte size).
 	checks := []struct {
 		op    OpCode
 		name  string
 		width int
-		inMap bool
 	}{
-		{OpNop, "OpNop", 0, false},
-		{OpConst, "OpConst", 2, true},
-		{OpLocal, "OpLocal", 2, true},
-		{OpJump, "OpJump", 2, true},
-		{OpFree, "OpFree", 1, true},
+		{OpNop, "OpNop", 0},
+		{OpConst, "OpConst", 2},
+		{OpLocal, "OpLocal", 2},
+		{OpJump, "OpJump", 2},
+		{OpFree, "OpFree", 1},
 	}
 
 	for _, c := range checks {
 		t.Run(c.name, func(t *testing.T) {
-			got, ok := OperandWidths[c.op]
-			if ok != c.inMap {
-				t.Errorf("in map: got %v, want %v", ok, c.inMap)
-				return
-			}
-			if c.inMap && got != c.width {
-				t.Errorf("width: got %d, want %d", got, c.width)
+			got := OperandWidth(c.op)
+			if got != c.width {
+				t.Errorf("OperandWidth(%s) = %d, want %d", c.name, got, c.width)
 			}
 		})
 	}

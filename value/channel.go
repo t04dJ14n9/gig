@@ -16,19 +16,28 @@ func (v Value) Send(val Value) {
 
 // SendContext sends a value on a channel with context cancellation support.
 // Returns ctx.Err() if the context is cancelled before the send completes.
+//
+// NOTE: We must NOT use TrySend as a fast path here. In a concurrent setting
+// (e.g. "go func(){ v := <-ch; ch <- v*2 }(); ch <- 10; return <-ch"),
+// TrySend can fill the buffer before the goroutine runs, and a subsequent
+// TryRecv on the same goroutine steals the value back — causing the child
+// goroutine to block forever (deadlock). reflect.Select properly participates
+// in Go's channel scheduling and avoids this race.
 func (v Value) SendContext(ctx context.Context, val Value) error {
 	rv, ok := v.obj.(reflect.Value)
 	if !ok {
 		panic("invalid reflect.Value in SendContext()")
 	}
 
-	// Fast path: non-blocking try send
-	if rv.TrySend(val.ToReflectValue(rv.Type().Elem())) {
+	sendRV := val.ToReflectValue(rv.Type().Elem())
+
+	done := ctx.Done()
+	if done == nil {
+		// No cancellation possible — blocking send.
+		rv.Send(sendRV)
 		return nil
 	}
 
-	// Slow path: use select with context cancellation
-	sendRV := val.ToReflectValue(rv.Type().Elem())
 	cases := []reflect.SelectCase{
 		{
 			Dir:  reflect.SelectSend,
@@ -37,7 +46,7 @@ func (v Value) SendContext(ctx context.Context, val Value) error {
 		},
 		{
 			Dir:  reflect.SelectRecv,
-			Chan: reflect.ValueOf(ctx.Done()),
+			Chan: reflect.ValueOf(done),
 		},
 	}
 
@@ -67,18 +76,23 @@ func (v Value) Recv() (Value, bool) {
 
 // RecvContext receives a value from a channel with context cancellation support.
 // Returns (value, received, error) where error is ctx.Err() if cancelled.
+//
+// NOTE: We must NOT use TryRecv as a fast path here. See SendContext comment
+// for the full explanation — TryRecv races with goroutine scheduling and can
+// steal values from the buffer before the intended consumer runs.
 func (v Value) RecvContext(ctx context.Context) (Value, bool, error) {
 	rv, ok := v.obj.(reflect.Value)
 	if !ok {
 		panic("invalid reflect.Value in RecvContext()")
 	}
 
-	// Fast path: non-blocking try receive
-	if val, ok := rv.TryRecv(); ok {
-		return MakeFromReflect(val), true, nil
+	done := ctx.Done()
+	if done == nil {
+		// No cancellation possible — blocking receive.
+		recv, recvOK := rv.Recv()
+		return MakeFromReflect(recv), recvOK, nil
 	}
 
-	// Slow path: use select with context cancellation
 	cases := []reflect.SelectCase{
 		{
 			Dir:  reflect.SelectRecv,
@@ -86,7 +100,7 @@ func (v Value) RecvContext(ctx context.Context) (Value, bool, error) {
 		},
 		{
 			Dir:  reflect.SelectRecv,
-			Chan: reflect.ValueOf(ctx.Done()),
+			Chan: reflect.ValueOf(done),
 		},
 	}
 

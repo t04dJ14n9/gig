@@ -62,7 +62,7 @@ func (v Value) Index(i int) Value {
 	switch v.kind {
 	case KindString:
 		// s[i] returns a byte (uint8), not a string
-		return MakeUint(uint64(v.obj.(string)[i]))
+		return MakeUint8(v.obj.(string)[i])
 	case KindSlice:
 		// Native int slice fast path
 		if s, ok := v.obj.([]int64); ok {
@@ -123,9 +123,10 @@ func (v Value) SetIndex(i int, val Value) {
 	}
 	if rv, ok := v.obj.(reflect.Value); ok {
 		elemType := rv.Type().Elem()
-		// For function element types, store the Value directly (closures are *Closure)
+		// For function element types, convert via ToReflectValue to wrap closures
+		// with reflect.MakeFunc (ClosureCaller) for proper typed function values.
 		if elemType.Kind() == reflect.Func {
-			rv.Index(i).Set(reflect.ValueOf(val))
+			rv.Index(i).Set(val.ToReflectValue(elemType))
 			return
 		}
 		// For []value.Value slices (used for function slices)
@@ -246,7 +247,7 @@ func (v Value) SetElem(val Value) {
 			// Handle pointer case
 			elemType := rv.Type().Elem()
 			if elemType.Kind() == reflect.Func {
-				rv.Elem().Set(reflect.ValueOf(val))
+				rv.Elem().Set(val.ToReflectValue(elemType))
 				return
 			}
 			if elemType.Name() == "Value" && elemType.PkgPath() == "github.com/t04dJ14n9/gig/value" {
@@ -255,8 +256,14 @@ func (v Value) SetElem(val Value) {
 				return
 			}
 			// If val contains a pointer type and elemType is not, unwrap it
+			// But NOT if elemType is interface{} - interfaces can hold pointers
 			if val.Kind() == KindReflect {
 				if valRV, ok := val.obj.(reflect.Value); ok && valRV.Kind() == reflect.Ptr {
+					// Special case: if elemType is interface{}, we can assign any value to it
+					if elemType.Kind() == reflect.Interface {
+						rv.Elem().Set(valRV)
+						return
+					}
 					// val is a pointer, check if it points to elemType
 					if valRV.Type().Elem() == elemType {
 						rv.Elem().Set(valRV.Elem())
@@ -278,7 +285,15 @@ func (v Value) SetElem(val Value) {
 						return
 					}
 				}
-				targetRV.Set(val.ToReflectValue(elemType))
+				valRV := val.ToReflectValue(elemType)
+				if !valRV.Type().AssignableTo(elemType) {
+					// Auto-unwrap pointer if elem matches
+					if valRV.Kind() == reflect.Ptr && !valRV.IsNil() && valRV.Type().Elem().AssignableTo(elemType) {
+						targetRV.Set(valRV.Elem())
+						return
+					}
+				}
+				targetRV.Set(valRV)
 			}
 			return
 		}
