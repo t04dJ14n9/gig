@@ -24,7 +24,7 @@ type BuildResult struct {
 //  3. Compile SSA to bytecode (codegen)
 //
 // PackageRegistry is the compiler's primary dependency — it provides package
-// resolution for both the type checker and the codegen phase (via PackageLookup).
+// resolution for both the type checker and the codegen phase.
 func Build(source string, reg importer.PackageRegistry) (*BuildResult, error) {
 	// 1. Parse + type-check + validate
 	parseResult, err := parser.Parse(source, reg)
@@ -38,10 +38,8 @@ func Build(source string, reg importer.PackageRegistry) (*BuildResult, error) {
 		return nil, err
 	}
 
-	// 3. Compile SSA to bytecode — PackageLookup is derived from PackageRegistry
-	// because resolving external functions/methods is a compiler responsibility.
-	lookup := importer.NewPackageLookup(reg)
-	compiled, err := NewCompiler(lookup).Compile(ssaResult.Pkg)
+	// 3. Compile SSA to bytecode
+	compiled, err := NewCompiler(reg).Compile(ssaResult.Pkg)
 	if err != nil {
 		return nil, fmt.Errorf("compile error: %w", err)
 	}

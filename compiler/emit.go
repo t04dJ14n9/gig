@@ -9,42 +9,42 @@ import (
 )
 
 // emit appends an opcode and its operands to the current function's bytecode.
-func (c *compiler) emit(op bytecode.OpCode, operands ...uint16) {
-	c.currentFunc.Instructions = append(c.currentFunc.Instructions, byte(op))
+func (ctx *funcContext) emit(op bytecode.OpCode, operands ...uint16) {
+	ctx.cf.Instructions = append(ctx.cf.Instructions, byte(op))
 
 	width := bytecode.OperandWidth(op)
 
 	for _, operand := range operands {
 		switch width {
 		case 2:
-			c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+			ctx.cf.Instructions = append(ctx.cf.Instructions,
 				byte(operand>>8), byte(operand))
 		case 1:
-			c.currentFunc.Instructions = append(c.currentFunc.Instructions, byte(operand))
+			ctx.cf.Instructions = append(ctx.cf.Instructions, byte(operand))
 		default:
 			if operand > 0xFF {
-				c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+				ctx.cf.Instructions = append(ctx.cf.Instructions,
 					byte(operand>>8), byte(operand))
 			} else {
-				c.currentFunc.Instructions = append(c.currentFunc.Instructions, byte(operand))
+				ctx.cf.Instructions = append(ctx.cf.Instructions, byte(operand))
 			}
 		}
 	}
 }
 
 // emitJump emits an unconditional jump instruction.
-func (c *compiler) emitJump(target *ssa.BasicBlock) {
-	offset := len(c.currentFunc.Instructions)
-	c.currentFunc.Instructions = append(c.currentFunc.Instructions, byte(bytecode.OpJump), 0, 0)
-	c.jumps = append(c.jumps, jumpInfo{offset: offset, targetBlock: target})
+func (ctx *funcContext) emitJump(target *ssa.BasicBlock) {
+	offset := len(ctx.cf.Instructions)
+	ctx.cf.Instructions = append(ctx.cf.Instructions, byte(bytecode.OpJump), 0, 0)
+	ctx.jumps = append(ctx.jumps, jumpInfo{offset: offset, targetBlock: target})
 }
 
 // patchJumps resolves jump targets with actual bytecode offsets.
-func (c *compiler) patchJumps(blockOffsets map[*ssa.BasicBlock]int) {
-	for _, jump := range c.jumps {
+func (ctx *funcContext) patchJumps(blockOffsets map[*ssa.BasicBlock]int) {
+	for _, jump := range ctx.jumps {
 		targetOffset := blockOffsets[jump.targetBlock]
-		c.currentFunc.Instructions[jump.offset+1] = byte(targetOffset >> 8)
-		c.currentFunc.Instructions[jump.offset+2] = byte(targetOffset)
+		ctx.cf.Instructions[jump.offset+1] = byte(targetOffset >> 8)
+		ctx.cf.Instructions[jump.offset+2] = byte(targetOffset)
 	}
 }
 

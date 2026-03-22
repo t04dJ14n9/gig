@@ -61,9 +61,8 @@ Go Source → go/parser → go/types (type check) → go/ssa (SSA IR) → compil
 | `compiler/peephole/` | Pattern-based superinstruction fusion (17 patterns) |
 | `vm/` | Stack-based VM: fetch-decode-execute loop, frame pooling, goroutine spawning |
 | `value/` | 32-byte tagged-union `Value` struct — zero allocation for primitives |
-| `importer/` | `types.Importer` implementation, `reflect.Type` ↔ `types.Type` conversion |
-| `register/` | Public API for registering external Go packages with the interpreter |
-| `gentool/` | Code generation: DirectCall wrappers, registration code |
+| `importer/` | `PackageRegistry` interface, `ExternalPackage`/`ExternalObject` types, global registry |
+| `cmd/gig/gentool/` | Code generation: DirectCall wrappers, registration code |
 | `stdlib/packages/` | ~40 pre-generated stdlib wrappers (1,162 DirectCall wrappers) |
 | `cmd/gig` | CLI: `init`, `gen`, `repl` |
 

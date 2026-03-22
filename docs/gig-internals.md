@@ -696,3 +696,128 @@ Some areas remain for future work:
 - More aggressive constant folding at compile time
 
 From: youngjin, 28 Feb 2026
+
+## Appendix: Go Source → SSA → Bytecode Example
+
+To make the compilation pipeline concrete, let's trace a single Go function through all three stages.
+
+### Go Source
+
+```go
+package main
+
+func SumAndCheck(a, b int) (int, bool) {
+    sum := a + b
+    ok := sum > 10
+    return sum, ok
+}
+```
+
+This function adds two integers, checks if the result exceeds 10, and returns both values.
+
+### SSA (Static Single Assignment)
+
+The `go/ssa` library transforms the source into SSA form — a control-flow graph of basic blocks where every value is assigned exactly once. Phi nodes at block entry points merge values from different predecessors.
+
+```
+func SumAndCheck(a int, b int) (int, bool):
+  Entry Block:
+    t0 = a + b                    # binop
+    t1 = t0 > 10                  # comparison (produces bool)
+    jump IfTrue
+
+  IfTrue Block:
+    t2 = phi [t0 ← Entry]         # phi: merges t0 from Entry
+    t3 = phi [t1 ← Entry]         # phi: merges t1 from Entry
+    return t2, t3
+```
+
+Key SSA properties to notice:
+- **Each value is assigned exactly once** (`t0`, `t1`, `t2`, `t3`). No variable is ever reassigned.
+- **Phi nodes** (`phi`) appear at the top of the `IfTrue` block to merge values from different control-flow predecessors. Even though there's only one predecessor here, SSA still generates phis as part of its lowering.
+- **Types are explicit** — every operation carries full type information from `go/types`.
+
+### Symbol Table Construction
+
+Before emitting bytecode, the compiler builds a symbol table that maps each SSA value to a local variable slot:
+
+| Slot | SSA Value | Source |
+|------|-----------|--------|
+| 0 | `a` | parameter |
+| 1 | `b` | parameter |
+| 2 | `t0` | `a + b` |
+| 3 | `t1` | `t0 > 10` |
+| 4 | `t2` | phi node |
+| 5 | `t3` | phi node |
+
+Parameters get the first slots, then phi nodes, then temporaries.
+
+### Bytecode
+
+After phi elimination and jump patching, the compiler produces this bytecode (before optimization):
+
+```
+Entry Block:
+  OpLocal   0x00 0x01      # push local[1] (b)          ← slot for b
+  OpLocal   0x00 0x00      # push local[0] (a)          ← slot for a
+  OpAdd                    # a + b
+  OpSetLocal 0x00 0x02     # local[2] = result           ← t0 = a + b
+
+  OpConst   0x00 0x03      # push constants[3] = 10
+  OpLocal   0x00 0x02      # push local[2] (t0)
+  OpGreater                # t0 > 10
+  OpSetLocal 0x00 0x03     # local[3] = result           ← t1 = t0 > 10
+
+  # Phi elimination: copy phi inputs before the jump
+  OpLocal   0x00 0x02      # push t0
+  OpSetLocal 0x00 0x04     # local[4] = t0              ← t2 = phi(t0)
+  OpLocal   0x00 0x03      # push t1
+  OpSetLocal 0x00 0x05     # local[5] = t1              ← t3 = phi(t1)
+
+  OpJump    0x00 0x1E      # jump to IfTrue block
+
+IfTrue Block (offset 0x1E):
+  OpLocal   0x00 0x05      # push t3 (bool)
+  OpLocal   0x00 0x04      # push t2 (int)
+  OpPack    0x01           # pack 2 values into tuple
+  OpReturnVal              # return the tuple
+```
+
+**Instruction format**: Each instruction is 1 byte opcode + 0-2 bytes operands (big-endian). For example, `OpLocal 0x00 0x02` is 3 bytes total.
+
+**Key observations**:
+- The stack is used for expression evaluation: push operands, execute operator, result is on stack.
+- Phi nodes are eliminated by inserting explicit copies (`OpLocal` + `OpSetLocal`) before each jump to a target block that has phis.
+- The jump offset (`0x1E`) is patched after compilation when the target block's start address is known.
+- Multiple return values are packed with `OpPack` into a single `[]value.Value` tuple.
+
+### After Optimization
+
+After 4 optimization passes, the bytecode is significantly simplified:
+
+```
+  OpIntLocal  0x01          # push intLocal[1] (b)       ← 8-byte direct access
+  OpIntLocal  0x00          # push intLocal[0] (a)       ← no value.Value boxing
+  OpIntAddLocalSetLocal 0x00 0x02  # intLocal[2] = intLocal[0] + intLocal[1]
+
+  OpIntLocal  0x02          # push intLocal[2]
+  OpIntConst  0x00 0x03     # push intConstants[3] = 10
+  OpIntGreaterLocalSetLocal 0x03  # intLocal[3] = intLocal[2] > 10
+
+  OpIntMoveLocal 0x02 0x04  # intLocal[4] = intLocal[2]  ← move fusion
+  OpIntMoveLocal 0x03 0x05  # intLocal[5] = intLocal[3]
+
+  OpJump     0x00 0x10
+
+  OpBoolLocal 0x05          # push t3 as bool
+  OpIntLocal  0x04          # push t2
+  OpPack     0x01
+  OpReturnVal
+```
+
+**What changed**:
+- `OpLocal`/`OpSetLocal`/`OpAdd` → fused into single `OpIntAddLocalSetLocal` (peephole + int specialization)
+- `OpConst` + comparison → fused into `OpIntGreaterLocalSetLocal`
+- Phi copies → fused into `OpIntMoveLocal` (move fusion)
+- All integer operations use `intLocal` shadow array (8 bytes/slot instead of 32 bytes) — **4x less memory**, no `value.Value` boxing/unboxing
+

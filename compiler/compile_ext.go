@@ -10,10 +10,9 @@ import (
 )
 
 // compileExternalStaticCall compiles a call to an external package function.
-// It uses the injected PackageLookup to resolve the function, avoiding direct importer dependency.
-func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resultIdx int) {
+func (ctx *funcContext) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resultIdx int) {
 	for _, arg := range i.Call.Args {
-		c.compileValue(arg)
+		ctx.compileValue(arg)
 	}
 
 	sig := fn.Signature
@@ -34,30 +33,30 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 		}
 
 		// Try to resolve method DirectCall at compile time
-		if c.lookup != nil {
+		if ctx.c.registry != nil {
 			typeName := extractReceiverTypeName(sig.Recv().Type())
 			if typeName != "" {
-				if dc, ok := c.lookup.LookupMethodDirectCall(typeName, methodName); ok {
+				if dc, ok := ctx.c.registry.LookupMethodDirectCall(typeName, methodName); ok {
 					methodInfo.DirectCall = dc
 				}
 			}
 		}
 
-		funcIdx := c.addConstant(methodInfo)
+		funcIdx := ctx.c.addConstant(methodInfo)
 		numArgs := len(i.Call.Args)
-		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+		ctx.cf.Instructions = append(ctx.cf.Instructions,
 			byte(bytecode.OpCallExternal),
 			byte(funcIdx>>8), byte(funcIdx),
 			byte(numArgs))
-		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+		ctx.emit(bytecode.OpSetLocal, uint16(resultIdx))
 		return
 	}
 
-	// Use injected PackageLookup instead of direct importer access
+	// Resolve external function
 	var extFuncInfo *bytecode.ExternalFuncInfo
-	if fn.Pkg != nil && c.lookup != nil {
+	if fn.Pkg != nil && ctx.c.registry != nil {
 		pkgPath := fn.Pkg.Pkg.Path()
-		if fnVal, directCall, ok := c.lookup.LookupExternalFunc(pkgPath, fn.Name()); ok {
+		if fnVal, directCall, ok := ctx.c.registry.LookupExternalFunc(pkgPath, fn.Name()); ok {
 			extFuncInfo = &bytecode.ExternalFuncInfo{
 				Func:       fnVal,
 				DirectCall: directCall,
@@ -72,28 +71,28 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 		}
 	}
 
-	funcIdx := c.addConstant(extFuncInfo)
+	funcIdx := ctx.c.addConstant(extFuncInfo)
 	numArgs := len(i.Call.Args)
-	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+	ctx.cf.Instructions = append(ctx.cf.Instructions,
 		byte(bytecode.OpCallExternal),
 		byte(funcIdx>>8), byte(funcIdx),
 		byte(numArgs))
-	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	ctx.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
 
 // compileIndirectCall compiles an indirect call (closure or function value).
-func (c *compiler) compileIndirectCall(i *ssa.Call) {
-	resultIdx := c.symbolTable.AllocLocal(i)
+func (ctx *funcContext) compileIndirectCall(i *ssa.Call) {
+	resultIdx := ctx.symbolTable.AllocLocal(i)
 
-	c.compileValue(i.Call.Value)
+	ctx.compileValue(i.Call.Value)
 
 	for _, arg := range i.Call.Args {
-		c.compileValue(arg)
+		ctx.compileValue(arg)
 	}
 
 	numArgs := len(i.Call.Args)
-	c.emit(bytecode.OpCallIndirect, uint16(numArgs))
-	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	ctx.emit(bytecode.OpCallIndirect, uint16(numArgs))
+	ctx.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
 
 // extractReceiverTypeName extracts the package-path-qualified type name from a receiver type.
@@ -131,22 +130,22 @@ func extractNamedType(t types.Type) *types.Named {
 }
 
 // compileReturn compiles a Return instruction.
-func (c *compiler) compileReturn(i *ssa.Return) {
+func (ctx *funcContext) compileReturn(i *ssa.Return) {
 	if len(i.Results) == 0 {
-		c.emit(bytecode.OpReturn)
+		ctx.emit(bytecode.OpReturn)
 		return
 	}
 
 	if len(i.Results) == 1 {
-		c.compileValue(i.Results[0])
-		c.emit(bytecode.OpReturnVal)
+		ctx.compileValue(i.Results[0])
+		ctx.emit(bytecode.OpReturnVal)
 		return
 	}
 
 	for _, result := range i.Results {
-		c.compileValue(result)
+		ctx.compileValue(result)
 	}
 
-	c.emit(bytecode.OpPack, uint16(len(i.Results)))
-	c.emit(bytecode.OpReturnVal)
+	ctx.emit(bytecode.OpPack, uint16(len(i.Results)))
+	ctx.emit(bytecode.OpReturnVal)
 }

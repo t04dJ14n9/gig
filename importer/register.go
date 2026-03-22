@@ -94,6 +94,10 @@ type PackageRegistry interface {
 	// Package lookup helpers
 	LookupPackage(name string) (*ExternalPackage, error)
 	AutoImport(name string) (path string, pkg *ExternalPackage, ok bool)
+
+	// Function and variable lookup (used by compiler and VM)
+	LookupExternalFunc(pkgPath, funcName string) (fn any, directCall func([]value.Value) value.Value, ok bool)
+	LookupExternalVar(pkgPath, varName string) (ptr any, ok bool)
 }
 
 // Registry is the concrete implementation of PackageRegistry.
@@ -180,6 +184,30 @@ func (r *Registry) LookupMethodDirectCall(typeName, methodName string) (func([]v
 	defer r.methodsMu.RUnlock()
 	dc, ok := r.methods[typeName+"."+methodName]
 	return dc, ok
+}
+
+func (r *Registry) LookupExternalFunc(pkgPath, funcName string) (fn any, directCall func([]value.Value) value.Value, ok bool) {
+	pkg := r.GetPackageByPath(pkgPath)
+	if pkg == nil {
+		return nil, nil, false
+	}
+	obj, exists := pkg.Objects[funcName]
+	if !exists || obj.Kind != ObjectKindFunction {
+		return nil, nil, false
+	}
+	return obj.Value, obj.DirectCall, true
+}
+
+func (r *Registry) LookupExternalVar(pkgPath, varName string) (ptr any, ok bool) {
+	pkg := r.GetPackageByPath(pkgPath)
+	if pkg == nil {
+		return nil, false
+	}
+	obj, exists := pkg.Objects[varName]
+	if !exists || obj.Kind != ObjectKindVariable {
+		return nil, false
+	}
+	return obj.Value, true
 }
 
 func (r *Registry) LookupPackage(name string) (*ExternalPackage, error) {

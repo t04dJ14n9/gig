@@ -20,11 +20,10 @@ type Compiler interface {
 	Compile(mainPkg *ssa.Package) (*bytecode.Program, error)
 }
 
-// NewCompiler creates a new compiler with the given package lookup for resolving external functions.
-// The PackageLookup dependency is injected to decouple the compiler from the importer package.
-func NewCompiler(lookup importer.PackageLookup) Compiler {
+// NewCompiler creates a new compiler with the given package registry for resolving external functions.
+func NewCompiler(reg importer.PackageRegistry) Compiler {
 	return &compiler{
-		lookup:            lookup,
+		registry:          reg,
 		constants:         make([]any, 0),
 		types:             make([]types.Type, 0),
 		globals:           make(map[string]int),
@@ -34,12 +33,30 @@ func NewCompiler(lookup importer.PackageLookup) Compiler {
 	}
 }
 
+// funcContext holds per-function compilation state. Created as a local variable
+// in compileFunction() and passed to all per-function compilation methods.
+type funcContext struct {
+	// cf is the bytecode function being compiled.
+	cf *bytecode.CompiledFunction
+
+	// symbolTable tracks SSA values to local slots.
+	symbolTable *SymbolTable
+
+	// jumps tracks jump instructions needing target patching.
+	jumps []jumpInfo
+
+	// phiSlots maps Phi nodes to their allocated local slots.
+	phiSlots map[*ssa.Phi]int
+
+	// c is a back-reference to the compiler for program-level state.
+	c *compiler
+}
+
 // compiler is the concrete implementation of the Compiler interface.
-// It maintains state during compilation including the current function,
-// symbol table, and jump targets that need patching.
+// It maintains program-level state during compilation.
 type compiler struct {
-	// lookup resolves external package functions (injected dependency).
-	lookup importer.PackageLookup
+	// registry resolves external package functions (injected dependency).
+	registry importer.PackageRegistry
 
 	// program is the output program being compiled.
 	program *bytecode.Program
@@ -62,18 +79,6 @@ type compiler struct {
 
 	// funcIndex maps SSA functions to call indices.
 	funcIndex map[*ssa.Function]int
-
-	// currentFunc is the function being compiled.
-	currentFunc *bytecode.CompiledFunction
-
-	// symbolTable tracks SSA values to local slots.
-	symbolTable *SymbolTable
-
-	// jumps tracks jump instructions needing target patching.
-	jumps []jumpInfo
-
-	// phiSlots maps Phi nodes to their allocated local slots.
-	phiSlots map[*ssa.Phi]int
 }
 
 // jumpInfo tracks a jump instruction that needs its target patched.
@@ -228,7 +233,7 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 	c.program.Types = c.types
 	c.program.Globals = c.globals
 	c.program.ExternalVarValues = c.externalVarValues
-	c.program.Lookup = c.lookup
+	c.program.Lookup = c.registry
 
 	// Pre-bake constants for O(1) OpConst (avoids FromInterface per instruction)
 	c.program.PrebakedConstants = make([]value.Value, len(c.constants))
@@ -257,7 +262,7 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 }
 
 // Compile is a convenience package-level function that compiles an SSA package.
-// It creates a compiler with the given PackageLookup and invokes compilation.
-func Compile(lookup importer.PackageLookup, mainPkg *ssa.Package) (*bytecode.Program, error) {
-	return NewCompiler(lookup).Compile(mainPkg)
+// It creates a compiler with the given PackageRegistry and invokes compilation.
+func Compile(reg importer.PackageRegistry, mainPkg *ssa.Package) (*bytecode.Program, error) {
+	return NewCompiler(reg).Compile(mainPkg)
 }

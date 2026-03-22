@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"fmt"
 	"go/types"
 	"reflect"
 	"testing"
@@ -53,8 +54,8 @@ func TestSymbolTableAlloc(t *testing.T) {
 // TestNewCompilerReturnsInterface verifies that NewCompiler returns a value
 // that satisfies the Compiler interface.
 func TestNewCompilerReturnsInterface(t *testing.T) {
-	lookup := &mockLookup{}
-	c := NewCompiler(lookup)
+	reg := &mockRegistry{}
+	c := NewCompiler(reg)
 	if c == nil {
 		t.Fatal("NewCompiler returned nil")
 	}
@@ -65,8 +66,8 @@ func TestNewCompilerReturnsInterface(t *testing.T) {
 // TestCompilerInterfaceContract verifies the Compiler interface contract:
 // calling Compile with nil should result in a panic or error, not a hang.
 func TestCompilerInterfaceContract(t *testing.T) {
-	lookup := &mockLookup{}
-	c := NewCompiler(lookup)
+	reg := &mockRegistry{}
+	c := NewCompiler(reg)
 
 	defer func() {
 		if r := recover(); r == nil {
@@ -85,30 +86,59 @@ func TestPackageLevelCompile(t *testing.T) {
 		}
 	}()
 
-	_, _ = Compile(&mockLookup{}, nil)
+	_, _ = Compile(&mockRegistry{}, nil)
 }
 
 // ---------------------------------------------------------------------------
-// Mock PackageLookup
+// Mock PackageRegistry
 // ---------------------------------------------------------------------------
 
-type mockLookup struct{}
+type mockRegistry struct{}
 
-func (m *mockLookup) LookupExternalFunc(pkgPath, funcName string) (fn any, directCall func([]value.Value) value.Value, ok bool) {
+func (m *mockRegistry) RegisterPackage(path, name string) *importer.ExternalPackage {
+	return nil
+}
+
+func (m *mockRegistry) GetPackageByPath(path string) *importer.ExternalPackage {
+	return nil
+}
+
+func (m *mockRegistry) GetPackageByName(name string) *importer.ExternalPackage {
+	return nil
+}
+
+func (m *mockRegistry) GetAllPackages() map[string]*importer.ExternalPackage {
+	return nil
+}
+
+func (m *mockRegistry) SetExternalType(t types.Type, rt reflect.Type) {}
+
+func (m *mockRegistry) GetExternalType(t types.Type) reflect.Type {
+	return nil
+}
+
+func (m *mockRegistry) AddMethodDirectCall(typeName, methodName string, dc func([]value.Value) value.Value) {
+}
+
+func (m *mockRegistry) LookupMethodDirectCall(typeName, methodName string) (func([]value.Value) value.Value, bool) {
+	return nil, false
+}
+
+func (m *mockRegistry) LookupPackage(name string) (*importer.ExternalPackage, error) {
+	return nil, fmt.Errorf("not found")
+}
+
+func (m *mockRegistry) AutoImport(name string) (path string, pkg *importer.ExternalPackage, ok bool) {
+	return "", nil, false
+}
+
+func (m *mockRegistry) LookupExternalFunc(pkgPath, funcName string) (fn any, directCall func([]value.Value) value.Value, ok bool) {
 	return nil, nil, false
 }
 
-func (m *mockLookup) LookupMethodDirectCall(typeName, methodName string) (directCall func([]value.Value) value.Value, ok bool) {
+func (m *mockRegistry) LookupExternalVar(pkgPath, varName string) (ptr any, ok bool) {
 	return nil, false
 }
 
-func (m *mockLookup) LookupExternalVar(pkgPath, varName string) (ptr any, ok bool) {
-	return nil, false
-}
-
-func (m *mockLookup) LookupExternalType(t types.Type) (reflect.Type, bool) {
-	return nil, false
-}
-
-// Verify mockLookup satisfies the interface.
-var _ importer.PackageLookup = (*mockLookup)(nil)
+// Verify mockRegistry satisfies the interface.
+var _ importer.PackageRegistry = (*mockRegistry)(nil)

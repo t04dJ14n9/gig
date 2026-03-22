@@ -146,7 +146,7 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 		// Check if this is a registered external type (e.g., bytes.Buffer, strings.Builder).
 		// If so, use the real reflect.Type instead of synthesizing a struct type.
 		if prog != nil && prog.Lookup != nil {
-			if rt, ok := prog.Lookup.(importer.PackageLookup).LookupExternalType(tt); ok {
+			if rt := prog.Lookup.(importer.PackageRegistry).GetExternalType(tt); rt != nil {
 				cache[tt] = rt
 				return rt
 			}

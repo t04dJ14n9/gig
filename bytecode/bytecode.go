@@ -107,7 +107,7 @@ type Program struct {
 
 	// Lookup resolves external types at runtime.
 	// Used by the VM's typeToReflect to look up real reflect.Type for named types.
-	// Must implement importer.PackageLookup (stored as any to avoid importing importer).
+	// Must implement importer.PackageRegistry (stored as any to avoid importing importer).
 	Lookup any
 
 	// ReflectTypeCache caches types.Type → reflect.Type conversions at the
