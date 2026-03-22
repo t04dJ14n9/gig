@@ -322,4 +322,3 @@ func funcSignature(fn any) *types.Signature {
 	}
 	return typeOf(rt).(*types.Signature)
 }
-
