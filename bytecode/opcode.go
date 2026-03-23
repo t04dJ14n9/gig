@@ -1047,17 +1047,6 @@ func OperandWidth(op OpCode) int {
 	return operandWidthTable[op]
 }
 
-// ReadUint16 reads a 2-byte operand from the bytecode.
-func ReadUint16(code []byte, ip int) uint16 {
-	return uint16(code[ip])<<8 | uint16(code[ip+1])
-}
-
-// WriteUint16 writes a 2-byte operand to the bytecode.
-func WriteUint16(code []byte, offset int, val uint16) {
-	code[offset] = byte(val >> 8)
-	code[offset+1] = byte(val)
-}
-
 // SelectMeta stores metadata for a select statement.
 // It is stored in the constant pool and referenced by OpSelect.
 type SelectMeta struct {
