@@ -23,6 +23,6 @@ func (p arithSetPattern) Match(code []byte, i int) (int, []byte, bool) {
 	if bytecode.OpCode(code[i+1]) != bytecode.OpSetLocal {
 		return 0, nil, false
 	}
-	a := ReadU16(code, i+2)
+	a := bytecode.ReadU16(code, i+2)
 	return size, Make1Op(p.fused, a), true
 }

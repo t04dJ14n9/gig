@@ -29,40 +29,6 @@ func TestMatchOp(t *testing.T) {
 	// Note: MatchOp does not handle negative offsets, so we don't test that case
 }
 
-func TestReadU16(t *testing.T) {
-	code := []byte{0x12, 0x34, 0x56, 0x78}
-
-	tests := []struct {
-		offset int
-		want   uint16
-	}{
-		{0, 0x1234},
-		{1, 0x3456},
-		{2, 0x5678},
-	}
-
-	for _, tt := range tests {
-		got := ReadU16(code, tt.offset)
-		if got != tt.want {
-			t.Errorf("ReadU16(code, %d) = 0x%04x, want 0x%04x", tt.offset, got, tt.want)
-		}
-	}
-}
-
-func TestWriteU16(t *testing.T) {
-	code := make([]byte, 4)
-
-	WriteU16(code, 0, 0x1234)
-	WriteU16(code, 2, 0x5678)
-
-	if code[0] != 0x12 || code[1] != 0x34 {
-		t.Errorf("WriteU16 to offset 0: got [%02x, %02x], want [12, 34]", code[0], code[1])
-	}
-	if code[2] != 0x56 || code[3] != 0x78 {
-		t.Errorf("WriteU16 to offset 2: got [%02x, %02x], want [56, 78]", code[2], code[3])
-	}
-}
-
 func TestMake1Op(t *testing.T) {
 	result := Make1Op(bytecode.OpLocal, 0x1234)
 

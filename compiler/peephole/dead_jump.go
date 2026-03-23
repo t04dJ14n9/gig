@@ -18,7 +18,7 @@ func (deadJumpPattern) Match(code []byte, i int) (int, []byte, bool) {
 	if instrEnd > len(code) {
 		return 0, nil, false
 	}
-	target := ReadU16(code, i+1)
+	target := bytecode.ReadU16(code, i+1)
 	if int(target) == instrEnd {
 		return instrEnd - i, nil, true // nil newBytes → delete
 	}

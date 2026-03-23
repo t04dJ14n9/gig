@@ -39,39 +39,6 @@ func TestSafeIdxEmptyFlags(t *testing.T) {
 	// Note: safeIdx does not handle negative indices, so we don't test that case
 }
 
-func TestReadU16(t *testing.T) {
-	code := []byte{0xAB, 0xCD, 0xEF, 0x01}
-
-	if got := readU16(code, 0); got != 0xABCD {
-		t.Errorf("readU16(code, 0) = 0x%04x, want 0xABCD", got)
-	}
-	// At offset 1: bytes are 0xCD, 0xEF → 0xCDEF
-	if got := readU16(code, 1); got != 0xCDEF {
-		t.Errorf("readU16(code, 1) = 0x%04x, want 0xCDEF", got)
-	}
-	if got := readU16(code, 2); got != 0xEF01 {
-		t.Errorf("readU16(code, 2) = 0x%04x, want 0xEF01", got)
-	}
-}
-
-func TestWriteU16(t *testing.T) {
-	code := make([]byte, 6)
-
-	writeU16(code, 0, 0x1234)
-	writeU16(code, 2, 0x5678)
-	writeU16(code, 4, 0x9ABC)
-
-	if code[0] != 0x12 || code[1] != 0x34 {
-		t.Errorf("writeU16 to 0: got [%02x, %02x], want [12, 34]", code[0], code[1])
-	}
-	if code[2] != 0x56 || code[3] != 0x78 {
-		t.Errorf("writeU16 to 2: got [%02x, %02x], want [56, 78]", code[2], code[3])
-	}
-	if code[4] != 0x9A || code[5] != 0xBC {
-		t.Errorf("writeU16 to 4: got [%02x, %02x], want [9A, BC]", code[4], code[5])
-	}
-}
-
 func TestOpcodeWidth(t *testing.T) {
 	tests := []struct {
 		op    bytecode.OpCode
