@@ -2,6 +2,7 @@ package vm
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"git.woa.com/youngjin/gig/bytecode"
@@ -20,7 +21,7 @@ func TestExternalCallCancelledError(t *testing.T) {
 		t.Errorf("Error() = %q, want %q", err.Error(), "external call cancelled: test cause")
 	}
 
-	if err.Unwrap() != cause {
+	if !errors.Is(err.Unwrap(), cause) {
 		t.Error("Unwrap() did not return the cause")
 	}
 }

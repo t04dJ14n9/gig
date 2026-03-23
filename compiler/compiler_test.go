@@ -25,10 +25,10 @@ type mockSSAValue struct {
 	referrers []ssa.Instruction
 }
 
-func (m *mockSSAValue) Name() string           { return m.name }
+func (m *mockSSAValue) Name() string          { return m.name }
 func (m *mockSSAValue) String() string        { return m.str }
-func (m *mockSSAValue) Type() types.Type       { return m.typ }
-func (m *mockSSAValue) Parent() *ssa.Function  { return m.parent }
+func (m *mockSSAValue) Type() types.Type      { return m.typ }
+func (m *mockSSAValue) Parent() *ssa.Function { return m.parent }
 func (m *mockSSAValue) Referrers() *[]ssa.Instruction {
 	if m.referrers == nil {
 		return nil
@@ -176,24 +176,24 @@ func TestIsIntSliceTypePtr(t *testing.T) {
 
 func TestExtractReceiverTypeName(t *testing.T) {
 	tests := []struct {
-		name    string
-		recv    types.Type
-		want    string
+		name string
+		recv types.Type
+		want string
 	}{
 		{
-			name:    "nil",
-			recv:    nil,
-			want:    "",
+			name: "nil",
+			recv: nil,
+			want: "",
 		},
 		{
-			name:    "int (non-pointer, non-named)",
-			recv:    types.Typ[types.Int],
-			want:    "",
+			name: "int (non-pointer, non-named)",
+			recv: types.Typ[types.Int],
+			want: "",
 		},
 		{
-			name:    "*int pointer to basic",
-			recv:    types.NewPointer(types.Typ[types.Int]),
-			want:    "",
+			name: "*int pointer to basic",
+			recv: types.NewPointer(types.Typ[types.Int]),
+			want: "",
 		},
 	}
 
@@ -497,8 +497,6 @@ func TestSymbolTableFreeVars(t *testing.T) {
 // Compiler interface and NewCompiler
 // ---------------------------------------------------------------------------
 
-
-
 func TestNewCompilerFields(t *testing.T) {
 	lookup := &mockLookup{}
 	c := NewCompiler(lookup).(*compiler)
@@ -698,13 +696,9 @@ func TestNewCompilerWithNilLookup(t *testing.T) {
 	}
 }
 
-
-
 // ---------------------------------------------------------------------------
 // Compiler.Interface implementation verification
 // ---------------------------------------------------------------------------
-
-
 
 // ---------------------------------------------------------------------------
 // Emit helper tests (reversePostorder edge cases)

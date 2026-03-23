@@ -46,52 +46,78 @@ import (
 	"git.woa.com/youngjin/gig/tests/testdata/variables"
 )
 
-// Individual test functions for each package - allows running specific suites
-func TestCorrectnessAlgorithms(t *testing.T)       { runTestSet(t, testSetsMap["algorithms"]) }
-func TestCorrectnessAdvanced(t *testing.T)         { runTestSet(t, testSetsMap["advanced"]) }
-func TestCorrectnessArithmetic(t *testing.T)       { runTestSet(t, testSetsMap["arithmetic"]) }
-func TestCorrectnessAutowrap(t *testing.T)         { runTestSet(t, testSetsMap["autowrap"]) }
-func TestCorrectnessBitwise(t *testing.T)          { runTestSet(t, testSetsMap["bitwise"]) }
-func TestCorrectnessClosures(t *testing.T)         { runTestSet(t, testSetsMap["closures"]) }
-func TestCorrectnessClosuresAdvanced(t *testing.T) { runTestSet(t, testSetsMap["closures_advanced"]) }
-func TestCorrectnessControlflow(t *testing.T)      { runTestSet(t, testSetsMap["controlflow"]) }
-func TestCorrectnessCornercases(t *testing.T) {
-	runTestSet(t, testSetsMap["cornercases"])
+func TestAdvanced(t *testing.T)   { runTestSet(t, testSet{src: advancedSrc, tests: advancedTests}) }
+func TestAlgorithms(t *testing.T) { runTestSet(t, testSet{src: algorithmsSrc, tests: algorithmsTests}) }
+func TestArithmetic(t *testing.T) { runTestSet(t, testSet{src: arithmeticSrc, tests: arithmeticTests}) }
+func TestAutowrap(t *testing.T)   { runTestSet(t, testSet{src: autowrapSrc, tests: autowrapTests}) }
+func TestBitwise(t *testing.T)    { runTestSet(t, testSet{src: bitwiseSrc, tests: bitwiseTests}) }
+func TestClosures(t *testing.T)   { runTestSet(t, testSet{src: closuresSrc, tests: closuresTests}) }
+func TestClosuresAdvanced(t *testing.T) {
+	runTestSet(t, testSet{src: closuresAdvancedSrc, tests: closures_advancedTests})
 }
-func TestCorrectnessEdgecases(t *testing.T)     { runTestSet(t, testSetsMap["edgecases"]) }
-func TestCorrectnessExternal(t *testing.T)      { runTestSet(t, testSetsMap["external"]) }
-func TestCorrectnessFunctions(t *testing.T)     { runTestSet(t, testSetsMap["functions"]) }
-func TestCorrectnessGoroutine(t *testing.T)     { runTestSet(t, testSetsMap["goroutine"]) }
-func TestCorrectnessChannels(t *testing.T)      { runTestSet(t, testSetsMap["channels"]) }
-func TestCorrectnessInit(t *testing.T)          { runTestSet(t, testSetsMap["init"]) }
-func TestCorrectnessLeetcodeHard(t *testing.T)  { runTestSet(t, testSetsMap["leetcode_hard"]) }
-func TestCorrectnessMaps(t *testing.T)          { runTestSet(t, testSetsMap["maps"]) }
-func TestCorrectnessMapadvanced(t *testing.T)   { runTestSet(t, testSetsMap["mapadvanced"]) }
-func TestCorrectnessMultiassign(t *testing.T)   { runTestSet(t, testSetsMap["multiassign"]) }
-func TestCorrectnessNamedreturn(t *testing.T)   { runTestSet(t, testSetsMap["namedreturn"]) }
-func TestCorrectnessRecursion(t *testing.T)     { runTestSet(t, testSetsMap["recursion"]) }
-func TestCorrectnessResolvedIssue(t *testing.T) { runTestSet(t, testSetsMap["resolved_issue"]) }
-func TestCorrectnessScope(t *testing.T)         { runTestSet(t, testSetsMap["scope"]) }
-func TestCorrectnessSlices(t *testing.T)        { runTestSet(t, testSetsMap["slices"]) }
-func TestCorrectnessSlicing(t *testing.T)       { runTestSet(t, testSetsMap["slicing"]) }
-func TestCorrectnessStringsPkg(t *testing.T)    { runTestSet(t, testSetsMap["strings_pkg"]) }
-func TestCorrectnessStructs(t *testing.T)       { runTestSet(t, testSetsMap["structs"]) }
-func TestCorrectnessSwitch(t *testing.T)        { runTestSet(t, testSetsMap["switch"]) }
-func TestCorrectnessTypeconv(t *testing.T)      { runTestSet(t, testSetsMap["typeconv"]) }
-func TestCorrectnessVariables(t *testing.T)     { runTestSet(t, testSetsMap["variables"]) }
 
-// Tricky tests - split by category
-func TestCorrectnessTrickyClosures(t *testing.T)    { runTestSet(t, testSetsMap["tricky/closures"]) }
-func TestCorrectnessTrickyDefer(t *testing.T)       { runTestSet(t, testSetsMap["tricky/defer"]) }
-func TestCorrectnessTrickyInterfaces(t *testing.T)  { runTestSet(t, testSetsMap["tricky/interfaces"]) }
-func TestCorrectnessTrickyMaps(t *testing.T)        { runTestSet(t, testSetsMap["tricky/maps"]) }
-func TestCorrectnessTrickyMultiassign(t *testing.T) { runTestSet(t, testSetsMap["tricky/multiassign"]) }
-func TestCorrectnessTrickyNested(t *testing.T)      { runTestSet(t, testSetsMap["tricky/nested"]) }
-func TestCorrectnessTrickyPointers(t *testing.T)    { runTestSet(t, testSetsMap["tricky/pointers"]) }
-func TestCorrectnessTrickySlices(t *testing.T)      { runTestSet(t, testSetsMap["tricky/slices"]) }
-func TestCorrectnessTrickyStructs(t *testing.T)     { runTestSet(t, testSetsMap["tricky/structs"]) }
+func TestControlflow(t *testing.T) {
+	runTestSet(t, testSet{src: controlflowSrc, tests: controlflowTests})
+}
 
-func TestCornerCase(t *testing.T) { runTestSet(t, testSetsMap["cornercases"]) }
+func TestCornercases(t *testing.T) {
+	runTestSet(t, testSet{src: cornercasesSrc, tests: cornercasesTests})
+}
+func TestEdgecases(t *testing.T)  { runTestSet(t, testSet{src: edgecasesSrc, tests: edgecasesTests}) }
+func TestExternal(t *testing.T)   { runTestSet(t, testSet{src: externalSrc, tests: externalTests}) }
+func TestFunctions(t *testing.T)  { runTestSet(t, testSet{src: functionsSrc, tests: functionsTests}) }
+func TestGoroutine(t *testing.T)  { runTestSet(t, testSet{src: goroutineSrc, tests: goroutineTests}) }
+func TestChannels(t *testing.T)   { runTestSet(t, testSet{src: channelsSrc, tests: channelsTests}) }
+func TestInit(t *testing.T)       { runTestSet(t, testSet{src: initSrc, tests: initTests}) }
+func TestInitialize(t *testing.T) { runTestSet(t, testSet{src: initializeSrc, tests: initializeTests}) }
+func TestLeetcodeHard(t *testing.T) {
+	runTestSet(t, testSet{src: leetcodeHardSrc, tests: leetcode_hardTests})
+}
+
+func TestMapadvanced(t *testing.T) {
+	runTestSet(t, testSet{src: mapadvancedSrc, tests: mapadvancedTests})
+}
+func TestMaps(t *testing.T) { runTestSet(t, testSet{src: mapsSrc, tests: mapsTests}) }
+func TestMultiassign(t *testing.T) {
+	runTestSet(t, testSet{src: multiassignSrc, tests: multiassignTests})
+}
+
+func TestNamedreturn(t *testing.T) {
+	runTestSet(t, testSet{src: namedreturnSrc, tests: namedreturnTests})
+}
+func TestRecursion(t *testing.T) { runTestSet(t, testSet{src: recursionSrc, tests: recursionTests}) }
+func TestResolvedIssue(t *testing.T) {
+	runTestSet(t, testSet{src: resolvedIssueSrc, tests: resolved_issueTests})
+}
+func TestScope(t *testing.T)   { runTestSet(t, testSet{src: scopeSrc, tests: scopeTests}) }
+func TestSlices(t *testing.T)  { runTestSet(t, testSet{src: slicesSrc, tests: slicesTests}) }
+func TestSlicing(t *testing.T) { runTestSet(t, testSet{src: slicingSrc, tests: slicingTests}) }
+func TestStringsPkg(t *testing.T) {
+	runTestSet(t, testSet{src: stringsPkgSrc, tests: strings_pkgTests})
+}
+func TestStructs(t *testing.T) { runTestSet(t, testSet{src: structsSrc, tests: structsTests}) }
+func TestSwitch(t *testing.T)  { runTestSet(t, testSet{src: switchSrc, tests: switchTests}) }
+func TestTrickyClosures(t *testing.T) {
+	runTestSet(t, testSet{src: trickySrc, tests: trickyClosuresTests})
+}
+func TestTrickyDefer(t *testing.T) { runTestSet(t, testSet{src: trickySrc, tests: trickyDeferTests}) }
+func TestTrickyInterfaces(t *testing.T) {
+	runTestSet(t, testSet{src: trickySrc, tests: trickyInterfacesTests})
+}
+func TestTrickyMaps(t *testing.T) { runTestSet(t, testSet{src: trickySrc, tests: trickyMapsTests}) }
+func TestTrickyMultiassign(t *testing.T) {
+	runTestSet(t, testSet{src: trickySrc, tests: trickyMultiassignTests})
+}
+func TestTrickyNested(t *testing.T) { runTestSet(t, testSet{src: trickySrc, tests: trickyNestedTests}) }
+func TestTrickyPointers(t *testing.T) {
+	runTestSet(t, testSet{src: trickySrc, tests: trickyPointersTests})
+}
+func TestTrickySlices(t *testing.T) { runTestSet(t, testSet{src: trickySrc, tests: trickySlicesTests}) }
+func TestTrickyStructs(t *testing.T) {
+	runTestSet(t, testSet{src: trickySrc, tests: trickyStructsTests})
+}
+func TestTypeconv(t *testing.T)  { runTestSet(t, testSet{src: typeconvSrc, tests: typeconvTests}) }
+func TestVariables(t *testing.T) { runTestSet(t, testSet{src: variablesSrc, tests: variablesTests}) }
 
 // ============================================================================
 // Helper Functions
@@ -158,7 +184,6 @@ func compareCorrectnessResults(t *testing.T, got, expected any) {
 
 // testSet represents a group of tests that share the same source file
 type testSet struct {
-	name  string
 	src   string
 	tests map[string]testCase // key is just funcName, not full path
 }
@@ -1805,47 +1830,4 @@ var variablesTests = map[string]testCase{
 	"Multiply":   {variablesSrc, "Multiply", []any{6, 7}, variables.Multiply},
 	"Max":        {variablesSrc, "Max", []any{100, 42}, variables.Max},
 	"IsPositive": {variablesSrc, "IsPositive", []any{5}, variables.IsPositive},
-}
-
-var testSetsMap = map[string]testSet{
-	"advanced":           {name: "advanced", src: advancedSrc, tests: advancedTests},
-	"algorithms":         {name: "algorithms", src: algorithmsSrc, tests: algorithmsTests},
-	"arithmetic":         {name: "arithmetic", src: arithmeticSrc, tests: arithmeticTests},
-	"autowrap":           {name: "autowrap", src: autowrapSrc, tests: autowrapTests},
-	"bitwise":            {name: "bitwise", src: bitwiseSrc, tests: bitwiseTests},
-	"closures":           {name: "closures", src: closuresSrc, tests: closuresTests},
-	"closures_advanced":  {name: "closures_advanced", src: closuresAdvancedSrc, tests: closures_advancedTests},
-	"controlflow":        {name: "controlflow", src: controlflowSrc, tests: controlflowTests},
-	"cornercases":        {name: "cornercases", src: cornercasesSrc, tests: cornercasesTests},
-	"edgecases":          {name: "edgecases", src: edgecasesSrc, tests: edgecasesTests},
-	"external":           {name: "external", src: externalSrc, tests: externalTests},
-	"functions":          {name: "functions", src: functionsSrc, tests: functionsTests},
-	"goroutine":          {name: "goroutine", src: goroutineSrc, tests: goroutineTests},
-	"channels":           {name: "channels", src: channelsSrc, tests: channelsTests},
-	"init":               {name: "init", src: initSrc, tests: initTests},
-	"initialize":         {name: "initialize", src: initializeSrc, tests: initializeTests},
-	"leetcode_hard":      {name: "leetcode_hard", src: leetcodeHardSrc, tests: leetcode_hardTests},
-	"mapadvanced":        {name: "mapadvanced", src: mapadvancedSrc, tests: mapadvancedTests},
-	"maps":               {name: "maps", src: mapsSrc, tests: mapsTests},
-	"multiassign":        {name: "multiassign", src: multiassignSrc, tests: multiassignTests},
-	"namedreturn":        {name: "namedreturn", src: namedreturnSrc, tests: namedreturnTests},
-	"recursion":          {name: "recursion", src: recursionSrc, tests: recursionTests},
-	"resolved_issue":     {name: "resolved_issue", src: resolvedIssueSrc, tests: resolved_issueTests},
-	"scope":              {name: "scope", src: scopeSrc, tests: scopeTests},
-	"slices":             {name: "slices", src: slicesSrc, tests: slicesTests},
-	"slicing":            {name: "slicing", src: slicingSrc, tests: slicingTests},
-	"strings_pkg":        {name: "strings_pkg", src: stringsPkgSrc, tests: strings_pkgTests},
-	"structs":            {name: "structs", src: structsSrc, tests: structsTests},
-	"switch":             {name: "switch", src: switchSrc, tests: switchTests},
-	"tricky/closures":    {name: "tricky/closures", src: trickySrc, tests: trickyClosuresTests},
-	"tricky/defer":       {name: "tricky/defer", src: trickySrc, tests: trickyDeferTests},
-	"tricky/interfaces":  {name: "tricky/interfaces", src: trickySrc, tests: trickyInterfacesTests},
-	"tricky/maps":        {name: "tricky/maps", src: trickySrc, tests: trickyMapsTests},
-	"tricky/multiassign": {name: "tricky/multiassign", src: trickySrc, tests: trickyMultiassignTests},
-	"tricky/nested":      {name: "tricky/nested", src: trickySrc, tests: trickyNestedTests},
-	"tricky/pointers":    {name: "tricky/pointers", src: trickySrc, tests: trickyPointersTests},
-	"tricky/slices":      {name: "tricky/slices", src: trickySrc, tests: trickySlicesTests},
-	"tricky/structs":     {name: "tricky/structs", src: trickySrc, tests: trickyStructsTests},
-	"typeconv":           {name: "typeconv", src: typeconvSrc, tests: typeconvTests},
-	"variables":          {name: "variables", src: variablesSrc, tests: variablesTests},
 }

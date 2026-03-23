@@ -87,8 +87,6 @@ func TestOpcodeConstants(t *testing.T) {
 	}
 }
 
-
-
 // TestOpCodeString tests opcode String() methods.
 func TestOpCodeString(t *testing.T) {
 	tests := []struct {
@@ -332,8 +330,6 @@ func TestProgramWithValues(t *testing.T) {
 		t.Errorf("Expected 2 globals, got %d", len(p.Globals))
 	}
 }
-
-
 
 // TestReadWriteU16ByteOrder verifies big-endian byte order.
 func TestReadWriteU16ByteOrder(t *testing.T) {
