@@ -98,16 +98,17 @@ type PackageRegistry interface {
 
 // Registry is the concrete implementation of PackageRegistry.
 // It stores all registered packages, external type mappings, and method DirectCall wrappers.
+//
+// All mutable state is protected by a single RWMutex. Registration happens at init
+// time; reads happen during compilation — there's no contention benefit from separate locks.
 type Registry struct {
 	mu              sync.RWMutex
-	packagesByName  map[string]*ExternalPackage // keyed by package path
-	packagesByAlias map[string]*ExternalPackage // keyed by package name (for auto-import)
+	packagesByName  map[string]*ExternalPackage                // keyed by package path
+	packagesByAlias map[string]*ExternalPackage                // keyed by package name (for auto-import)
+	extTypes        map[types.Type]reflect.Type                // types.Type -> reflect.Type
+	methods         map[string]func([]value.Value) value.Value // "pkgPath.TypeName.MethodName" -> DirectCall
 
-	typesMu  sync.RWMutex
-	extTypes map[types.Type]reflect.Type // types.Type -> reflect.Type
-
-	methodsMu sync.RWMutex
-	methods   map[string]func([]value.Value) value.Value // "pkgPath.TypeName.MethodName" -> DirectCall
+	frozen bool // if true, mutations panic
 }
 
 // NewRegistry creates a new empty package registry.
@@ -120,6 +121,30 @@ func NewRegistry() *Registry {
 	}
 }
 
+// Freeze makes the registry read-only. Any subsequent mutation (RegisterPackage,
+// SetExternalType, AddMethodDirectCall) will panic. This is called after all stdlib
+// init() registrations are complete to prevent cross-program pollution.
+func (r *Registry) Freeze() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.frozen = true
+}
+
+// IsFrozen reports whether the registry has been frozen.
+func (r *Registry) IsFrozen() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.frozen
+}
+
+// checkFrozen panics if the registry is frozen. Safe to call under any lock
+// since frozen transitions from false→true exactly once and never back.
+func (r *Registry) checkFrozen() {
+	if r.frozen {
+		panic("importer: mutation on frozen registry; the global registry is read-only after init")
+	}
+}
+
 func (r *Registry) RegisterPackage(path, name string) *ExternalPackage {
 	pkg := &ExternalPackage{
 		Path:     path,
@@ -129,6 +154,7 @@ func (r *Registry) RegisterPackage(path, name string) *ExternalPackage {
 		registry: r,
 	}
 	r.mu.Lock()
+	r.checkFrozen()
 	r.packagesByName[path] = pkg
 	r.packagesByAlias[name] = pkg
 	r.mu.Unlock()
@@ -158,26 +184,28 @@ func (r *Registry) GetAllPackages() map[string]*ExternalPackage {
 }
 
 func (r *Registry) SetExternalType(t types.Type, rt reflect.Type) {
-	r.typesMu.Lock()
-	defer r.typesMu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.checkFrozen()
 	r.extTypes[t] = rt
 }
 
 func (r *Registry) GetExternalType(t types.Type) reflect.Type {
-	r.typesMu.RLock()
-	defer r.typesMu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return r.extTypes[t]
 }
 
 func (r *Registry) AddMethodDirectCall(typeName, methodName string, dc func([]value.Value) value.Value) {
-	r.methodsMu.Lock()
-	defer r.methodsMu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.checkFrozen()
 	r.methods[typeName+"."+methodName] = dc
 }
 
 func (r *Registry) LookupMethodDirectCall(typeName, methodName string) (func([]value.Value) value.Value, bool) {
-	r.methodsMu.RLock()
-	defer r.methodsMu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	dc, ok := r.methods[typeName+"."+methodName]
 	return dc, ok
 }

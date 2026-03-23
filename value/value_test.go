@@ -340,8 +340,6 @@ func TestFloatNaN(t *testing.T) {
 	}
 }
 
-
-
 func TestSizePreservation(t *testing.T) {
 	// Arithmetic should preserve the size from the left operand
 	a := MakeInt8(10)

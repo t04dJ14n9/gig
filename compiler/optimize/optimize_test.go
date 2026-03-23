@@ -224,7 +224,7 @@ func TestOptimizeNoChanges(t *testing.T) {
 func TestOptimizeWithIntSpecialization(t *testing.T) {
 	// OpSetLocal can be upgraded to OpIntSetLocal when intUsed is true
 	code := []byte{byte(bytecode.OpSetLocal), 0x00, 0x00}
-	localIsInt := []bool{true}  // local 0 is int
+	localIsInt := []bool{true} // local 0 is int
 	constIsInt := []bool{false}
 	localIsIntSlice := []bool{false}
 
