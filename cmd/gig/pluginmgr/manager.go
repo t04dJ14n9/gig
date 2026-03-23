@@ -1,6 +1,4 @@
-// Package main provides the gig CLI tool.
-//
-// The plugin module provides hot-loading of external Go packages via the
+// Package pluginmgr provides hot-loading of external Go packages via the
 // Go plugin system. This allows users to import third-party libraries
 // directly in the REPL without manual code generation.
 //
@@ -30,7 +28,7 @@
 //	│           ├── cast.so      # Compiled plugin
 //	│           └── wrapper.go   # Generated wrapper code
 //	└── go.mod                   # Plugin module file
-package main
+package pluginmgr
 
 import (
 	"context"
@@ -44,6 +42,8 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
+	"unicode"
 
 	"git.woa.com/youngjin/gig"
 )
@@ -55,29 +55,29 @@ var (
 	ErrPluginBuildFailed  = errors.New("failed to build plugin")
 )
 
-// PluginManager manages hot-loading of external packages.
-type PluginManager struct {
+// Manager manages hot-loading of external packages.
+type Manager struct {
 	mu        sync.RWMutex
 	pluginDir string                      // ~/.gig/plugins
 	loaded    map[string]bool             // Set of loaded package paths
-	registry  map[string]PluginMetadata   // Package path -> metadata
+	registry  map[string]pluginMetadata   // Package path -> metadata
 	symbols   map[string]*ExportedSymbols // Package path -> cached symbols
 }
 
-// PluginMetadata stores information about a loaded plugin.
-type PluginMetadata struct {
+// pluginMetadata stores information about a loaded plugin.
+type pluginMetadata struct {
 	Path      string `json:"path"`       // Package import path
 	SOPath    string `json:"so_path"`    // Path to .so file
 	BuildTime string `json:"build_time"` // When it was built
 }
 
-// NewPluginManager creates a new plugin manager.
-func NewPluginManager() *PluginManager {
+// NewManager creates a new plugin manager.
+func NewManager() *Manager {
 	pluginDir := getPluginDir()
-	pm := &PluginManager{
+	pm := &Manager{
 		pluginDir: pluginDir,
 		loaded:    make(map[string]bool),
-		registry:  make(map[string]PluginMetadata),
+		registry:  make(map[string]pluginMetadata),
 		symbols:   make(map[string]*ExportedSymbols),
 	}
 	pm.loadRegistry()
@@ -94,7 +94,7 @@ func getPluginDir() string {
 }
 
 // loadRegistry loads the plugin registry from disk.
-func (pm *PluginManager) loadRegistry() {
+func (pm *Manager) loadRegistry() {
 	registryPath := filepath.Join(pm.pluginDir, "plugin_registry.json")
 	data, err := os.ReadFile(registryPath)
 	if err != nil {
@@ -105,7 +105,7 @@ func (pm *PluginManager) loadRegistry() {
 }
 
 // saveRegistry saves the plugin registry to disk.
-func (pm *PluginManager) saveRegistry() error {
+func (pm *Manager) saveRegistry() error {
 	if err := os.MkdirAll(pm.pluginDir, 0o755); err != nil {
 		return err
 	}
@@ -126,7 +126,7 @@ func mustMarshalJSON(v any) []byte {
 // LoadPackage attempts to load an external package.
 // It checks if the package is already registered, then attempts to load
 // it via the plugin system if supported by the platform.
-func (pm *PluginManager) LoadPackage(pkgPath string) error {
+func (pm *Manager) LoadPackage(pkgPath string) error {
 	// Check if already registered in gig
 	if gig.GetPackageByPath(pkgPath) != nil {
 		return nil
@@ -162,7 +162,7 @@ func (pm *PluginManager) LoadPackage(pkgPath string) error {
 }
 
 // buildAndLoad downloads, builds, and loads a package as a plugin.
-func (pm *PluginManager) buildAndLoad(pkgPath string) error {
+func (pm *Manager) buildAndLoad(pkgPath string) error {
 	// Step 1: Ensure package is downloaded
 	if err := pm.downloadPackage(pkgPath); err != nil {
 		return err
@@ -187,7 +187,7 @@ func (pm *PluginManager) buildAndLoad(pkgPath string) error {
 
 	// Step 5: Update registry
 	pm.loaded[pkgPath] = true
-	pm.registry[pkgPath] = PluginMetadata{
+	pm.registry[pkgPath] = pluginMetadata{
 		Path:      pkgPath,
 		SOPath:    soPath,
 		BuildTime: fmt.Sprintf("%d", getCurrentTime()),
@@ -198,7 +198,7 @@ func (pm *PluginManager) buildAndLoad(pkgPath string) error {
 }
 
 // downloadPackage ensures the package is available locally.
-func (pm *PluginManager) downloadPackage(pkgPath string) error {
+func (pm *Manager) downloadPackage(pkgPath string) error {
 	ctx := context.Background()
 	// Try to get package info first
 	cmd := exec.CommandContext(ctx, "go", "list", pkgPath)
@@ -215,7 +215,7 @@ func (pm *PluginManager) downloadPackage(pkgPath string) error {
 }
 
 // generateWrapper generates plugin wrapper code for a package.
-func (pm *PluginManager) generateWrapper(pkgPath string) (string, error) {
+func (pm *Manager) generateWrapper(pkgPath string) (string, error) {
 	// Create package directory
 	pkgDir := filepath.Join(pm.pluginDir, strings.ReplaceAll(pkgPath, "/", string(filepath.Separator)))
 	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
@@ -239,7 +239,7 @@ func (pm *PluginManager) generateWrapper(pkgPath string) (string, error) {
 
 // generatePluginCode generates the Go source code for a plugin.
 // It uses go/types to discover exported symbols and generates registration code.
-func (pm *PluginManager) generatePluginCode(pkgPath string) ([]byte, error) {
+func (pm *Manager) generatePluginCode(pkgPath string) ([]byte, error) {
 	pkgAlias := sanitizePkgNameForImport(pkgPath)
 	pkgBaseName := filepath.Base(pkgPath)
 
@@ -340,7 +340,7 @@ type ExportedSymbols struct {
 }
 
 // getExportedSymbols uses go list to discover exported symbols.
-func (pm *PluginManager) getExportedSymbols(pkgPath string) (*ExportedSymbols, error) {
+func (pm *Manager) getExportedSymbols(pkgPath string) (*ExportedSymbols, error) {
 	ctx := context.Background()
 	// Use go doc to get package documentation which lists exports
 	cmd := exec.CommandContext(ctx, "go", "doc", "-short", pkgPath)
@@ -449,50 +449,19 @@ func (pm *PluginManager) getExportedSymbols(pkgPath string) (*ExportedSymbols, e
 
 // generateReflectPluginCode generates minimal code that just registers the package.
 // This is a fallback when symbol discovery fails.
-func (pm *PluginManager) generateReflectPluginCode(pkgPath, pkgAlias, pkgBaseName string) ([]byte, error) {
-	ctx := context.Background()
-	// Try to get at least one symbol to reference
-	cmd := exec.CommandContext(ctx, "go", "doc", "-short", pkgPath)
-	output, _ := cmd.CombinedOutput()
-
-	// Find any exported symbol to reference
-	var symbolToUse string
-	lines := strings.Split(string(output), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		// Look for any exported declaration
-		if strings.HasPrefix(line, "func ") {
-			rest := strings.TrimPrefix(line, "func ")
-			var name string
-			for i, c := range rest {
-				if c == '(' || c == '[' {
-					name = rest[:i]
-					break
-				}
-			}
-			name = strings.TrimSpace(name)
-			if isExported(name) {
-				symbolToUse = name
-				break
-			}
-		}
-		if strings.HasPrefix(line, "type ") {
-			rest := strings.TrimPrefix(line, "type ")
-			var name string
-			for i, c := range rest {
-				if c == ' ' || c == '[' || c == '{' {
-					name = rest[:i]
-					break
-				}
-			}
-			if name == "" {
-				name = strings.Fields(rest)[0]
-			}
-			name = strings.TrimSpace(name)
-			if isExported(name) {
-				symbolToUse = name
-				break
-			}
+func (pm *Manager) generateReflectPluginCode(pkgPath, pkgAlias, pkgBaseName string) ([]byte, error) {
+	// Try to find at least one exported symbol for the blank import reference
+	symbolToUse := ""
+	if symbols, err := pm.getExportedSymbols(pkgPath); err == nil {
+		switch {
+		case len(symbols.Funcs) > 0:
+			symbolToUse = symbols.Funcs[0]
+		case len(symbols.Types) > 0:
+			symbolToUse = symbols.Types[0]
+		case len(symbols.Consts) > 0:
+			symbolToUse = symbols.Consts[0]
+		case len(symbols.Vars) > 0:
+			symbolToUse = symbols.Vars[0]
 		}
 	}
 
@@ -537,8 +506,7 @@ func isExported(name string) bool {
 	if len(name) == 0 {
 		return false
 	}
-	c := name[0]
-	return c >= 'A' && c <= 'Z'
+	return unicode.IsUpper(rune(name[0]))
 }
 
 // sanitizePkgNameForImport creates a valid Go identifier for package import alias.
@@ -557,7 +525,7 @@ func sanitizePkgNameForImport(path string) string {
 }
 
 // buildPlugin compiles the wrapper as a .so shared library.
-func (pm *PluginManager) buildPlugin(pkgPath, wrapperPath string) (string, error) {
+func (pm *Manager) buildPlugin(pkgPath, wrapperPath string) (string, error) {
 	ctx := context.Background()
 	pkgDir := filepath.Dir(wrapperPath)
 	soPath := filepath.Join(pkgDir, filepath.Base(pkgPath)+".so")
@@ -618,13 +586,13 @@ func findGigRoot() string {
 }
 
 // loadPlugin loads a .so file and calls its Register function.
-// The actual implementation is in platform-specific files (plugin_unix.go, plugin_windows.go).
-func (pm *PluginManager) loadPlugin(soPath, pkgPath string) error {
+// The actual implementation is in platform-specific files (load_unix.go, load_windows.go).
+func (pm *Manager) loadPlugin(soPath, pkgPath string) error {
 	return pm.loadPluginInternal(soPath, pkgPath)
 }
 
 // ListLoaded returns a list of loaded plugin paths.
-func (pm *PluginManager) ListLoaded() []string {
+func (pm *Manager) ListLoaded() []string {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 
@@ -637,7 +605,7 @@ func (pm *PluginManager) ListLoaded() []string {
 
 // GetSymbols returns the exported symbols for a package path.
 // This is used for tab completion.
-func (pm *PluginManager) GetSymbols(pkgPath string) []string {
+func (pm *Manager) GetSymbols(pkgPath string) []string {
 	pm.mu.RLock()
 	symbols, ok := pm.symbols[pkgPath]
 	pm.mu.RUnlock()
@@ -656,5 +624,5 @@ func (pm *PluginManager) GetSymbols(pkgPath string) []string {
 
 // getCurrentTime returns the current Unix timestamp.
 func getCurrentTime() int64 {
-	return 0 // Placeholder for time.Now().Unix()
+	return time.Now().Unix()
 }

@@ -1,17 +1,19 @@
-package main
+// Package commands implements the CLI subcommands for the gig tool.
+package commands
 
 import (
 	"flag"
 	"fmt"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"git.woa.com/youngjin/gig/cmd/gig/gentool"
 )
 
-// runGen implements the "gig gen" subcommand.
-func runGen(fs *flag.FlagSet, args []string) error {
+// RunGen implements the "gig gen" subcommand.
+func RunGen(fs *flag.FlagSet, args []string) error {
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: gig gen <dir>\n\n")
 		fmt.Fprintf(os.Stderr, "Generates dependency registration code from <dir>/pkgs.go.\n")
@@ -77,24 +79,13 @@ func parsePkgsGo(path string) ([]string, string, error) {
 		return nil, "", err
 	}
 
-	content, err := os.ReadFile(path)
+	// Use go/parser to extract the package name reliably
+	file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.PackageClauseOnly)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("parsing package clause: %w", err)
 	}
 
-	lines := strings.Split(string(content), "\n")
-	var pkgName string
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "package ") {
-			pkgName = strings.TrimSpace(strings.TrimPrefix(line, "package "))
-			if idx := strings.Index(pkgName, "//"); idx >= 0 {
-				pkgName = strings.TrimSpace(pkgName[:idx])
-			}
-			break
-		}
-	}
-
+	pkgName := file.Name.Name
 	if pkgName == "" {
 		return nil, "", fmt.Errorf("could not find package declaration")
 	}

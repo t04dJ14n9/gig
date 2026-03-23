@@ -35,30 +35,32 @@ import (
 	"flag"
 	"fmt"
 	"os"
+
+	"git.woa.com/youngjin/gig/cmd/gig/commands"
 )
 
-// Command defines a CLI subcommand with its own flag set and execution logic.
-type Command struct {
+// command defines a CLI subcommand with its own flag set and execution logic.
+type command struct {
 	Name  string
 	Usage string
 	Run   func(fs *flag.FlagSet, args []string) error
 }
 
 func main() {
-	commands := []Command{
-		{Name: "init", Usage: "gig init -package <name>", Run: runInit},
-		{Name: "gen", Usage: "gig gen <dir>", Run: runGen},
-		{Name: "repl", Usage: "gig repl", Run: runREPL},
+	cmds := []command{
+		{Name: "init", Usage: "gig init -package <name>", Run: commands.RunInit},
+		{Name: "gen", Usage: "gig gen <dir>", Run: commands.RunGen},
+		{Name: "repl", Usage: "gig repl", Run: commands.RunREPL},
 	}
 
-	flag.Usage = printUsage(commands)
+	flag.Usage = printUsage(cmds)
 
 	if len(os.Args) < 2 {
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	for _, cmd := range commands {
+	for _, cmd := range cmds {
 		if cmd.Name == os.Args[1] {
 			fs := flag.NewFlagSet(cmd.Name, flag.ExitOnError)
 			if err := cmd.Run(fs, os.Args[2:]); err != nil {
@@ -74,13 +76,13 @@ func main() {
 	os.Exit(1)
 }
 
-func printUsage(commands []Command) func() {
+func printUsage(cmds []command) func() {
 	return func() {
 		fmt.Fprintf(os.Stderr, "gig - generate gig dependency packages and run REPL\n\n")
 		fmt.Fprintf(os.Stderr, "Usage:\n")
 		fmt.Fprintf(os.Stderr, "  gig <command> [arguments]\n\n")
 		fmt.Fprintf(os.Stderr, "Commands:\n")
-		for _, cmd := range commands {
+		for _, cmd := range cmds {
 			fmt.Fprintf(os.Stderr, "  %s\n", cmd.Usage)
 		}
 		fmt.Fprintf(os.Stderr, "\nWorkflow:\n")

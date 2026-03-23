@@ -1,13 +1,16 @@
-package main
+// Package commands implements the CLI subcommands for the gig tool.
+package commands
 
 import (
 	"flag"
 	"fmt"
 	"os"
+
+	"git.woa.com/youngjin/gig/cmd/gig/repl"
 )
 
-// runREPL implements the "gig repl" subcommand.
-func runREPL(fs *flag.FlagSet, args []string) error {
+// RunREPL implements the "gig repl" subcommand.
+func RunREPL(fs *flag.FlagSet, args []string) error {
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: gig repl\n\n")
 		fmt.Fprintf(os.Stderr, "Starts an interactive Go REPL (Read-Eval-Print Loop).\n")
@@ -23,7 +26,7 @@ func runREPL(fs *flag.FlagSet, args []string) error {
 		return err
 	}
 
-	session := NewSession()
+	session := repl.NewSession()
 	session.Run()
 	return nil
 }
