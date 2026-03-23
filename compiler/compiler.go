@@ -124,9 +124,7 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 	c.program = &bytecode.Program{
 		Functions: make(map[string]*bytecode.CompiledFunction),
 		Globals:   make(map[string]int),
-		MainPkg:   mainPkg,
 		Types:     make([]types.Type, 0),
-		FuncIndex: make(map[*ssa.Function]int),
 	}
 
 	// Collect all functions (including anonymous/nested and methods)
@@ -206,7 +204,6 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 	// First pass: assign indices to all functions
 	for idx, fn := range allFuncs {
 		c.funcIndex[fn] = idx
-		c.program.FuncIndex[fn] = idx
 	}
 
 	// Second pass: compile each function and build direct-index lookup table
@@ -228,7 +225,7 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 	c.program.Types = c.types
 	c.program.Globals = c.globals
 	c.program.ExternalVarValues = c.externalVarValues
-	c.program.Lookup = c.lookup
+	c.program.TypeResolver = c.lookup
 
 	// Pre-bake constants for O(1) OpConst (avoids FromInterface per instruction)
 	c.program.PrebakedConstants = make([]value.Value, len(c.constants))

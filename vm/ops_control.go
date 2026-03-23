@@ -79,8 +79,7 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 			return err
 		}
 		// Push as tuple (value, ok)
-		tuple := []value.Value{val, value.MakeBool(recvOK)}
-		v.push(value.FromInterface(tuple))
+		v.pushCommaOk(val, recvOK)
 
 	case bytecode.OpClose:
 		ch := v.pop()

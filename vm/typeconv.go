@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/t04dJ14n9/gig/bytecode"
-	"github.com/t04dJ14n9/gig/importer"
 )
 
 // typeToReflect converts a go/types.Type to reflect.Type using the program-level
@@ -145,8 +144,8 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 	case *types.Named:
 		// Check if this is a registered external type (e.g., bytes.Buffer, strings.Builder).
 		// If so, use the real reflect.Type instead of synthesizing a struct type.
-		if prog != nil && prog.Lookup != nil {
-			if rt, ok := prog.Lookup.(importer.PackageLookup).LookupExternalType(tt); ok {
+		if prog != nil && prog.TypeResolver != nil {
+			if rt, ok := prog.TypeResolver.LookupExternalType(tt); ok {
 				cache[tt] = rt
 				return rt
 			}

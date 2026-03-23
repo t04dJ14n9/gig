@@ -32,7 +32,6 @@ package vm
 import (
 	"context"
 	"fmt"
-	"go/types"
 	"reflect"
 	"strings"
 	"sync"
@@ -228,26 +227,13 @@ func ResolveCompiledMethod(program *bytecode.Program, methodName string, receive
 
 	// Search the compiled function table for a method with matching name and receiver type
 	for _, fn := range program.FuncByIndex {
-		if fn == nil || fn.Source == nil {
+		if fn == nil || !fn.HasReceiver {
 			continue
 		}
-		if fn.Source.Name() != methodName {
+		if fn.Name != methodName {
 			continue
 		}
-		sig := fn.Source.Signature
-		recv := sig.Recv()
-		if recv == nil {
-			continue
-		}
-		recvType := recv.Type()
-		if ptr, ok := recvType.(*types.Pointer); ok {
-			recvType = ptr.Elem()
-		}
-		named, ok := recvType.(*types.Named)
-		if !ok {
-			continue
-		}
-		if named.Obj().Name() != receiverTypeName {
+		if fn.ReceiverTypeName != receiverTypeName {
 			continue
 		}
 		// Found the method! Execute it with a temporary VM.

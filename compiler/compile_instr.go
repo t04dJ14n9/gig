@@ -293,17 +293,44 @@ func (c *compiler) compileCall(i *ssa.Call) {
 	c.compileIndirectCall(i)
 }
 
+// builtinOps maps simple builtin names to their single-opcode implementations.
+// Builtins not in this map have custom compilation logic in compileBuiltinCall.
+var builtinOps = map[string]bytecode.OpCode{
+	"len":   bytecode.OpLen,
+	"cap":   bytecode.OpCap,
+	"copy":  bytecode.OpCopy,
+	"panic": bytecode.OpPanic,
+	"close": bytecode.OpClose,
+}
+
 // compileBuiltinCall compiles a call to a builtin function.
 func (c *compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, resultIdx int) {
 	name := builtin.Name()
 
+	// Fast path: single-opcode builtins with 1 arg that push a value
+	if op, ok := builtinOps[name]; ok {
+		switch name {
+		case "len", "cap":
+			c.compileValue(args[0])
+			c.emit(op)
+		case "copy":
+			c.compileValue(args[0])
+			c.compileValue(args[1])
+			c.emit(op)
+		case "panic":
+			c.compileValue(args[0])
+			c.emit(op)
+			return
+		case "close":
+			c.compileValue(args[0])
+			c.emit(op)
+			return
+		}
+		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+		return
+	}
+
 	switch name {
-	case "len":
-		c.compileValue(args[0])
-		c.emit(bytecode.OpLen)
-	case "cap":
-		c.compileValue(args[0])
-		c.emit(bytecode.OpCap)
 	case "append":
 		for i, arg := range args {
 			c.compileValue(arg)
@@ -311,18 +338,10 @@ func (c *compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, re
 				c.emit(bytecode.OpAppend)
 			}
 		}
-	case "copy":
-		c.compileValue(args[0])
-		c.compileValue(args[1])
-		c.emit(bytecode.OpCopy)
 	case "delete":
 		c.compileValue(args[0])
 		c.compileValue(args[1])
 		c.emit(bytecode.OpDelete)
-		return
-	case "panic":
-		c.compileValue(args[0])
-		c.emit(bytecode.OpPanic)
 		return
 	case "print":
 		for _, arg := range args {
@@ -341,14 +360,7 @@ func (c *compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, re
 		c.emit(bytecode.OpNew, uint16(typeIdx))
 	case "make":
 		c.compileMakeBuiltin(args)
-	case "close":
-		c.compileValue(args[0])
-		c.emit(bytecode.OpClose)
-		return
 	case "ssa:wrapnilchk":
-		// ssa:wrapnilchk checks that its argument is non-nil.
-		// In our VM, we simply pass through the value (the nil check
-		// is an optimization/safety check that we skip).
 		c.compileValue(args[0])
 	default:
 		c.emit(bytecode.OpNil)

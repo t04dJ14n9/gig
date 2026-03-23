@@ -1,7 +1,6 @@
 package vm
 
 import (
-	"go/types"
 	"reflect"
 	"strings"
 
@@ -583,50 +582,37 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 	// If we have a receiver type hint, first try to match both name and receiver type.
 	if receiverTypeName != "" {
 		for _, fn := range v.program.FuncByIndex {
-			if fn == nil || fn.Source == nil {
+			if fn == nil || !fn.HasReceiver {
 				continue
 			}
-			if fn.Source.Name() != methodName {
+			if fn.Name != methodName {
 				continue
 			}
-			sig := fn.Source.Signature
-			if sig.Recv() == nil {
-				continue
-			}
-			// Check if the receiver type name matches
-			recvName := extractCompiledReceiverTypeName(sig)
-			if recvName == receiverTypeName {
+			if fn.ReceiverTypeName == receiverTypeName {
 				for _, arg := range args {
 					v.push(arg)
 				}
-				v.callCompiledFunction(v.program.FuncIndex[fn.Source], len(args))
+				v.callCompiledFunction(fn.FuncIdx, len(args))
 				return nil
 			}
 		}
 	}
 
 	// Fallback: try to infer receiver type from the actual runtime value in args[0].
-	// When the receiver is a reflect.Value wrapping a concrete struct, we can extract
-	// the type name from the SSA function's receiver and match it against compiled methods.
 	if len(args) > 0 {
 		if concreteTypeName := inferReceiverTypeName(args[0]); concreteTypeName != "" {
 			for _, fn := range v.program.FuncByIndex {
-				if fn == nil || fn.Source == nil {
+				if fn == nil || !fn.HasReceiver {
 					continue
 				}
-				if fn.Source.Name() != methodName {
+				if fn.Name != methodName {
 					continue
 				}
-				sig := fn.Source.Signature
-				if sig.Recv() == nil {
-					continue
-				}
-				recvName := extractCompiledReceiverTypeName(sig)
-				if recvName == concreteTypeName {
+				if fn.ReceiverTypeName == concreteTypeName {
 					for _, arg := range args {
 						v.push(arg)
 					}
-					v.callCompiledFunction(v.program.FuncIndex[fn.Source], len(args))
+					v.callCompiledFunction(fn.FuncIdx, len(args))
 					return nil
 				}
 			}
@@ -634,49 +620,24 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 	}
 
 	// Last resort: match by method name only (original behavior).
-	// Search for a compiled function whose SSA name matches the method name
-	// and that has a receiver (i.e., is actually a method, not a plain function).
 	for _, fn := range v.program.FuncByIndex {
-		if fn == nil || fn.Source == nil {
+		if fn == nil || !fn.HasReceiver {
 			continue
 		}
-		if fn.Source.Name() != methodName {
-			continue
-		}
-		sig := fn.Source.Signature
-		if sig.Recv() == nil {
+		if fn.Name != methodName {
 			continue
 		}
 		// Found a matching compiled method — call it with args as a compiled function.
-		// Push args onto the stack (receiver first, then method args).
 		for _, arg := range args {
 			v.push(arg)
 		}
-		v.callCompiledFunction(v.program.FuncIndex[fn.Source], len(args))
+		v.callCompiledFunction(fn.FuncIdx, len(args))
 		return nil
 	}
 
 	// No compiled method found — push nil
 	v.push(value.MakeNil())
 	return nil
-}
-
-// extractCompiledReceiverTypeName extracts the receiver type name from an SSA
-// function signature. For pointer receivers like (*Reader), it unwraps the pointer.
-func extractCompiledReceiverTypeName(sig *types.Signature) string {
-	recv := sig.Recv()
-	if recv == nil {
-		return ""
-	}
-	recvType := recv.Type()
-	// Unwrap pointer
-	if ptr, ok := recvType.(*types.Pointer); ok {
-		recvType = ptr.Elem()
-	}
-	if named, ok := recvType.(*types.Named); ok {
-		return named.Obj().Name()
-	}
-	return ""
 }
 
 // inferReceiverTypeName tries to extract a type name from a runtime value.Value

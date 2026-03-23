@@ -1,10 +1,9 @@
 package tests
 
 import (
-	_ "embed"
-
 	"bytes"
 	"compress/gzip"
+	_ "embed"
 	"encoding/csv"
 	"encoding/json"
 	"reflect"
@@ -545,26 +544,26 @@ var passStructTests = map[string]passStructTestCase{
 }
 
 var thirdpartyTestSets = map[string]testSet{
-	"Bytes":     {name: "Bytes", src: srcBytes, tests: bytesTests},
-	"Strings":   {name: "Strings", src: srcStrings, tests: stringsTests},
-	"Strconv":   {name: "Strconv", src: srcStrconv, tests: strconvTests},
-	"Math":      {name: "Math", src: srcMath, tests: mathTests},
-	"Time":      {name: "Time", src: srcTime, tests: timeTests},
-	"Context":   {name: "Context", src: srcContext, tests: contextTests},
-	"Sync":      {name: "Sync", src: srcSync, tests: syncTests},
-	"Sort":      {name: "Sort", src: srcSort, tests: sortTests},
-	"Encoding":  {name: "Encoding", src: srcEncoding, tests: encodingTests},
-	"IO":        {name: "IO", src: srcIO, tests: ioTests},
-	"Regexp":    {name: "Regexp", src: srcRegexp, tests: regexpTests},
-	"errors":    {name: "errors", src: srcErrors, tests: errorsTests},
-	"Fmt":       {name: "Fmt", src: srcFmt, tests: fmtTests},
-	"Patterns":  {name: "Patterns", src: srcPatterns, tests: patternsTests},
-	"Hash":      {name: "Hash", src: srcHash, tests: hashTests},
-	"Compress":  {name: "Compress", src: srcCompress, tests: compressTests},
-	"Container": {name: "Container", src: srcContainer, tests: containerTests},
-	"MathBig":   {name: "MathBig", src: srcMathBig, tests: mathBigTests},
-	"Crypto":    {name: "Crypto", src: srcCrypto, tests: cryptoTests},
-	"NetURL":    {name: "NetURL", src: srcNetURL, tests: netURLTests},
-	"Mime":      {name: "Mime", src: srcMime, tests: mimeTests},
-	"Text":      {name: "Text", src: srcText, tests: textTests},
+	"Bytes":     {src: srcBytes, tests: bytesTests},
+	"Strings":   {src: srcStrings, tests: stringsTests},
+	"Strconv":   {src: srcStrconv, tests: strconvTests},
+	"Math":      {src: srcMath, tests: mathTests},
+	"Time":      {src: srcTime, tests: timeTests},
+	"Context":   {src: srcContext, tests: contextTests},
+	"Sync":      {src: srcSync, tests: syncTests},
+	"Sort":      {src: srcSort, tests: sortTests},
+	"Encoding":  {src: srcEncoding, tests: encodingTests},
+	"IO":        {src: srcIO, tests: ioTests},
+	"Regexp":    {src: srcRegexp, tests: regexpTests},
+	"errors":    {src: srcErrors, tests: errorsTests},
+	"Fmt":       {src: srcFmt, tests: fmtTests},
+	"Patterns":  {src: srcPatterns, tests: patternsTests},
+	"Hash":      {src: srcHash, tests: hashTests},
+	"Compress":  {src: srcCompress, tests: compressTests},
+	"Container": {src: srcContainer, tests: containerTests},
+	"MathBig":   {src: srcMathBig, tests: mathBigTests},
+	"Crypto":    {src: srcCrypto, tests: cryptoTests},
+	"NetURL":    {src: srcNetURL, tests: netURLTests},
+	"Mime":      {src: srcMime, tests: mimeTests},
+	"Text":      {src: srcText, tests: textTests},
 }
