@@ -6,9 +6,9 @@ import (
 	"testing"
 )
 
-// TestReadWriteUint16 verifies the shared-kernel helpers that encode/decode
+// TestReadWriteU16 verifies the shared-kernel helpers that encode/decode
 // two-byte operands in the instruction stream.
-func TestReadWriteUint16(t *testing.T) {
+func TestReadWriteU16(t *testing.T) {
 	tests := []struct {
 		name  string
 		value uint16
@@ -24,16 +24,16 @@ func TestReadWriteUint16(t *testing.T) {
 	buf := make([]byte, 4)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			WriteUint16(buf, 0, tt.value)
-			got := ReadUint16(buf, 0)
+			WriteU16(buf, 0, tt.value)
+			got := ReadU16(buf, 0)
 			if got != tt.value {
-				t.Errorf("ReadUint16(WriteUint16(%d)) = %d", tt.value, got)
+				t.Errorf("ReadU16(WriteU16(%d)) = %d", tt.value, got)
 			}
 			// Also test with non-zero offset.
-			WriteUint16(buf, 2, tt.value)
-			got2 := ReadUint16(buf, 2)
+			WriteU16(buf, 2, tt.value)
+			got2 := ReadU16(buf, 2)
 			if got2 != tt.value {
-				t.Errorf("ReadUint16 at offset 2: got %d, want %d", got2, tt.value)
+				t.Errorf("ReadU16 at offset 2: got %d, want %d", got2, tt.value)
 			}
 		})
 	}
@@ -335,10 +335,10 @@ func TestProgramWithValues(t *testing.T) {
 
 
 
-// TestReadWriteUint16ByteOrder verifies big-endian byte order.
-func TestReadWriteUint16ByteOrder(t *testing.T) {
+// TestReadWriteU16ByteOrder verifies big-endian byte order.
+func TestReadWriteU16ByteOrder(t *testing.T) {
 	buf := make([]byte, 2)
-	WriteUint16(buf, 0, 0x1234)
+	WriteU16(buf, 0, 0x1234)
 
 	// Big-endian: high byte first
 	if buf[0] != 0x12 {
@@ -350,7 +350,7 @@ func TestReadWriteUint16ByteOrder(t *testing.T) {
 
 	// Verify reading
 	buf2 := []byte{0xAB, 0xCD}
-	got := ReadUint16(buf2, 0)
+	got := ReadU16(buf2, 0)
 	if got != 0xABCD {
 		t.Errorf("Expected 0xABCD, got 0x%04X", got)
 	}
