@@ -275,8 +275,7 @@ const (
 	// Stack: [... container low high max] -> [... sliced]
 	OpSlice
 
-	// OpSliceLen gets the length (legacy, use OpLen).
-	OpSliceLen
+	// _ (placeholder: was OpSliceLen, removed as dead code - use OpLen instead)
 
 	// ========================================
 	// Map Operations
@@ -864,12 +863,12 @@ func (op OpCode) String() string {
 		return "MAKESTRUCT"
 	case OpIndex:
 		return "INDEX"
+	case OpIndexOk:
+		return "INDEXOK"
 	case OpSetIndex:
 		return "SETINDEX"
 	case OpSlice:
 		return "SLICE"
-	case OpSliceLen:
-		return "SLICELEN"
 	case OpMapIter:
 		return "MAPITER"
 	case OpMapIterNext:
