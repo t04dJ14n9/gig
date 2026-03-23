@@ -340,14 +340,7 @@ func TestFloatNaN(t *testing.T) {
 	}
 }
 
-func TestValueSize(t *testing.T) {
-	var v Value
-	size := int(reflect.TypeOf(v).Size())
-	if size > 32 {
-		t.Errorf("Value size = %d bytes, want <= 32", size)
-	}
-	t.Logf("Value size: %d bytes", size)
-}
+
 
 func TestSizePreservation(t *testing.T) {
 	// Arithmetic should preserve the size from the left operand

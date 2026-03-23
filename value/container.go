@@ -31,6 +31,14 @@ func (v Value) Len() int {
 			return rv.Len()
 		}
 		panic("invalid reflect.Value in Len()")
+	case KindReflect:
+		if rv, ok := v.obj.(reflect.Value); ok {
+			switch rv.Kind() {
+			case reflect.String, reflect.Slice, reflect.Array, reflect.Map, reflect.Chan:
+				return rv.Len()
+			}
+		}
+		panic(fmt.Sprintf("cannot take len of reflect kind %v", v.obj))
 	default:
 		panic(fmt.Sprintf("cannot take len of %v", v.kind))
 	}
@@ -52,6 +60,14 @@ func (v Value) Cap() int {
 			return rv.Cap()
 		}
 		panic("invalid reflect.Value in Cap()")
+	case KindReflect:
+		if rv, ok := v.obj.(reflect.Value); ok {
+			switch rv.Kind() {
+			case reflect.Slice, reflect.Array, reflect.Chan:
+				return rv.Cap()
+			}
+		}
+		panic(fmt.Sprintf("cannot take cap of reflect kind %v", v.obj))
 	default:
 		panic(fmt.Sprintf("cannot take cap of %v", v.kind))
 	}

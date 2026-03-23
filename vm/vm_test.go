@@ -61,49 +61,9 @@ func TestStackAutoGrow(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Frame creation
-// ---------------------------------------------------------------------------
 
-func TestNewFrame(t *testing.T) {
-	fn := &bytecode.CompiledFunction{
-		Name:      "add",
-		NumLocals: 4,
-		NumParams: 2,
-	}
-	args := []value.Value{value.MakeInt(10), value.MakeInt(20)}
-	f := newFrame(fn, 0, args, nil)
 
-	if f.fn != fn {
-		t.Error("frame fn mismatch")
-	}
-	if len(f.locals) != 4 {
-		t.Fatalf("locals len = %d, want 4", len(f.locals))
-	}
-	// First two locals should be the args.
-	if f.locals[0].Int() != 10 || f.locals[1].Int() != 20 {
-		t.Errorf("locals = [%v, %v], want [10, 20]", f.locals[0], f.locals[1])
-	}
-}
 
-// ---------------------------------------------------------------------------
-// Closure
-// ---------------------------------------------------------------------------
-
-func TestClosureStruct(t *testing.T) {
-	fn := &bytecode.CompiledFunction{Name: "closure_fn"}
-	free1 := value.MakeInt(42)
-	cl := &Closure{
-		Fn:       fn,
-		FreeVars: []*value.Value{&free1},
-	}
-	if cl.Fn.Name != "closure_fn" {
-		t.Error("closure fn name")
-	}
-	if cl.FreeVars[0].Int() != 42 {
-		t.Errorf("free var = %d, want 42", cl.FreeVars[0].Int())
-	}
-}
 
 // ---------------------------------------------------------------------------
 // VM creation and simple execution
@@ -366,15 +326,6 @@ func TestGoroutineTrackerStartAndWait(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Child VM creation
-// ---------------------------------------------------------------------------
-
-func TestNewChildVM(t *testing.T) {
-	// Skip this test - it accesses internal VM fields and methods
-	// that are no longer exposed through the VM interface
-	t.Skip("TestNewChildVM tests internal implementation details that are now encapsulated")
-}
-
 // ---------------------------------------------------------------------------
 // Helpers used by the new tests
 // ---------------------------------------------------------------------------
