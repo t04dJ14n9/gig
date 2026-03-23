@@ -39,7 +39,7 @@ func (p cmpSetJumpPattern) Match(code []byte, i int) (int, []byte, bool) {
 		bytecode.OpCode(code[i+10]) != bytecode.OpLocal {
 		return 0, nil, false
 	}
-	if ReadU16(code, i+8) != ReadU16(code, i+11) { // setIdx == getIdx
+	if bytecode.ReadU16(code, i+8) != bytecode.ReadU16(code, i+11) { // setIdx == getIdx
 		return 0, nil, false
 	}
 	if bytecode.OpCode(code[i+3]) != p.op2 ||
@@ -47,8 +47,8 @@ func (p cmpSetJumpPattern) Match(code []byte, i int) (int, []byte, bool) {
 		bytecode.OpCode(code[i+13]) != p.jumpOp {
 		return 0, nil, false
 	}
-	a := ReadU16(code, i+1)
-	b := ReadU16(code, i+4)
-	off := ReadU16(code, i+14)
+	a := bytecode.ReadU16(code, i+1)
+	b := bytecode.ReadU16(code, i+4)
+	off := bytecode.ReadU16(code, i+14)
 	return size, Make3Op(p.fused, a, b, off), true
 }

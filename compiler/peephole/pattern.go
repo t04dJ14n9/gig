@@ -36,9 +36,9 @@ func MatchOp(code []byte, off int, op bytecode.OpCode) bool {
 func Make3Op(op bytecode.OpCode, a, b, c uint16) []byte {
 	out := make([]byte, 7)
 	out[0] = byte(op)
-	WriteU16(out, 1, a)
-	WriteU16(out, 3, b)
-	WriteU16(out, 5, c)
+	bytecode.WriteU16(out, 1, a)
+	bytecode.WriteU16(out, 3, b)
+	bytecode.WriteU16(out, 5, c)
 	return out
 }
 
@@ -46,8 +46,8 @@ func Make3Op(op bytecode.OpCode, a, b, c uint16) []byte {
 func Make2Op(op bytecode.OpCode, a, b uint16) []byte {
 	out := make([]byte, 5)
 	out[0] = byte(op)
-	WriteU16(out, 1, a)
-	WriteU16(out, 3, b)
+	bytecode.WriteU16(out, 1, a)
+	bytecode.WriteU16(out, 3, b)
 	return out
 }
 
@@ -55,17 +55,6 @@ func Make2Op(op bytecode.OpCode, a, b uint16) []byte {
 func Make1Op(op bytecode.OpCode, a uint16) []byte {
 	out := make([]byte, 3)
 	out[0] = byte(op)
-	WriteU16(out, 1, a)
+	bytecode.WriteU16(out, 1, a)
 	return out
-}
-
-// ReadU16 reads a big-endian uint16 from code at offset.
-func ReadU16(code []byte, offset int) uint16 {
-	return uint16(code[offset])<<8 | uint16(code[offset+1])
-}
-
-// WriteU16 writes a big-endian uint16 to code at offset.
-func WriteU16(code []byte, offset int, val uint16) {
-	code[offset] = byte(val >> 8)
-	code[offset+1] = byte(val)
 }

@@ -31,8 +31,8 @@ func (p arithSetLocalPattern) Match(code []byte, i int) (int, []byte, bool) {
 		bytecode.OpCode(code[i+7]) != bytecode.OpSetLocal {
 		return 0, nil, false
 	}
-	a := ReadU16(code, i+1)
-	b := ReadU16(code, i+4)
-	c := ReadU16(code, i+8)
+	a := bytecode.ReadU16(code, i+1)
+	b := bytecode.ReadU16(code, i+4)
+	c := bytecode.ReadU16(code, i+8)
 	return size, Make3Op(p.fused, a, b, c), true
 }
