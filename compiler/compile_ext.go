@@ -9,6 +9,22 @@ import (
 	"git.woa.com/youngjin/gig/bytecode"
 )
 
+// extractMethodName strips SSA receiver qualification from a method name.
+// SSA names look like "(*Type).Method" or "pkgpath.Method"; this extracts just "Method".
+func extractMethodName(ssaName string) string {
+	name := ssaName
+	if idx := strings.LastIndex(name, "."); idx >= 0 {
+		name = name[idx+1:]
+	}
+	if idx := strings.LastIndex(name, ")"); idx >= 0 {
+		rest := name[idx+1:]
+		if len(rest) > 0 && rest[0] == '.' {
+			name = rest[1:]
+		}
+	}
+	return name
+}
+
 // compileExternalStaticCall compiles a call to an external package function.
 // It uses the injected PackageLookup to resolve the function, avoiding direct importer dependency.
 func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resultIdx int) {
@@ -18,16 +34,7 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 
 	sig := fn.Signature
 	if sig.Recv() != nil {
-		methodName := fn.Name()
-		if idx := strings.LastIndex(methodName, "."); idx >= 0 {
-			methodName = methodName[idx+1:]
-		}
-		if idx := strings.LastIndex(methodName, ")"); idx >= 0 {
-			rest := methodName[idx+1:]
-			if len(rest) > 0 && rest[0] == '.' {
-				methodName = rest[1:]
-			}
-		}
+		methodName := extractMethodName(fn.Name())
 
 		methodInfo := &bytecode.ExternalMethodInfo{
 			MethodName: methodName,
@@ -128,6 +135,19 @@ func extractNamedType(t types.Type) *types.Named {
 			return nil
 		}
 	}
+}
+
+// extractReceiverShortName extracts the unqualified type name from a receiver type.
+// For pointer receivers like *Reader, it unwraps the pointer.
+// Returns just the type name (e.g., "Reader"), without package path.
+func extractReceiverShortName(recvType types.Type) string {
+	if ptr, ok := recvType.(*types.Pointer); ok {
+		recvType = ptr.Elem()
+	}
+	if named, ok := recvType.(*types.Named); ok {
+		return named.Obj().Name()
+	}
+	return ""
 }
 
 // compileReturn compiles a Return instruction.

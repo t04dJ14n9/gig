@@ -281,7 +281,7 @@ func generateDirectCall(fi *funcInfo, pkgRef string) string {
 			return ""
 		}
 	}
-	if results.Len() > 4 {
+	if results.Len() > 6 {
 		return ""
 	}
 
@@ -353,48 +353,39 @@ func generateDirectCall(fi *funcInfo, pkgRef string) string {
 
 	switch results.Len() {
 	case 0:
-		b.WriteString(fmt.Sprintf("\t%s\n", callExpr))
+		fmt.Fprintf(b, "\t%s\n", callExpr)
 		emitWritebacks(b, writebacks)
 		b.WriteString("\treturn value.MakeNil()\n")
 	case 1:
 		if len(writebacks) > 0 {
-			b.WriteString(fmt.Sprintf("\t_ret := %s\n", callExpr))
+			fmt.Fprintf(b, "\t_ret := %s\n", callExpr)
 			emitWritebacks(b, writebacks)
 			retExpr := wrapReturn(results.At(0).Type(), "_ret")
 			if retExpr == "" {
 				return ""
 			}
-			b.WriteString(fmt.Sprintf("\treturn %s\n", retExpr))
+			fmt.Fprintf(b, "\treturn %s\n", retExpr)
 		} else {
 			retExpr := wrapReturn(results.At(0).Type(), callExpr)
 			if retExpr == "" {
 				return ""
 			}
-			b.WriteString(fmt.Sprintf("\treturn %s\n", retExpr))
+			fmt.Fprintf(b, "\treturn %s\n", retExpr)
 		}
-	case 2:
-		b.WriteString(fmt.Sprintf("\tr0, r1 := %s\n", callExpr))
-		emitWritebacks(b, writebacks)
-		w0 := wrapReturn(results.At(0).Type(), "r0")
-		w1 := wrapReturn(results.At(1).Type(), "r1")
-		b.WriteString(fmt.Sprintf("\treturn value.MakeValueSlice([]value.Value{%s, %s})\n", w0, w1))
-	case 3:
-		b.WriteString(fmt.Sprintf("\tr0, r1, r2 := %s\n", callExpr))
-		emitWritebacks(b, writebacks)
-		w0 := wrapReturn(results.At(0).Type(), "r0")
-		w1 := wrapReturn(results.At(1).Type(), "r1")
-		w2 := wrapReturn(results.At(2).Type(), "r2")
-		b.WriteString(fmt.Sprintf("\treturn value.MakeValueSlice([]value.Value{%s, %s, %s})\n", w0, w1, w2))
-	case 4:
-		b.WriteString(fmt.Sprintf("\tr0, r1, r2, r3 := %s\n", callExpr))
-		emitWritebacks(b, writebacks)
-		w0 := wrapReturn(results.At(0).Type(), "r0")
-		w1 := wrapReturn(results.At(1).Type(), "r1")
-		w2 := wrapReturn(results.At(2).Type(), "r2")
-		w3 := wrapReturn(results.At(3).Type(), "r3")
-		b.WriteString(fmt.Sprintf("\treturn value.MakeValueSlice([]value.Value{%s, %s, %s, %s})\n", w0, w1, w2, w3))
 	default:
-		return ""
+		// Multi-return (2-4 results): r0, r1, ... := call(...)
+		var retVars []string
+		for i := 0; i < results.Len(); i++ {
+			retVars = append(retVars, fmt.Sprintf("r%d", i))
+		}
+		fmt.Fprintf(b, "\t%s := %s\n", strings.Join(retVars, ", "), callExpr)
+		emitWritebacks(b, writebacks)
+		var wrapped []string
+		for i := 0; i < results.Len(); i++ {
+			w := wrapReturn(results.At(i).Type(), fmt.Sprintf("r%d", i))
+			wrapped = append(wrapped, w)
+		}
+		fmt.Fprintf(b, "\treturn value.MakeValueSlice([]value.Value{%s})\n", strings.Join(wrapped, ", "))
 	}
 
 	b.WriteString("}\n")
@@ -412,12 +403,11 @@ func canWrapParam(t types.Type) bool {
 		}
 
 		if pkg.Path() == currentPkgPath {
-			return canWrapUnderlying(t.Underlying())
+			return canWrapType(t.Underlying(), false)
 		}
 
 		// Cross-package named types: allow if we can extract via .Interface().(Type)
-		// This covers structs, pointers, interfaces, and basic-underlying types from other packages
-		return canWrapCrossPackage(t.Underlying())
+		return canWrapType(t.Underlying(), true)
 	}
 
 	// Handle type aliases (Go 1.23+), including builtin 'any'
@@ -426,77 +416,56 @@ func canWrapParam(t types.Type) bool {
 		pkg := obj.Pkg()
 
 		if pkg == nil {
-			// Builtin alias (e.g. 'any' = interface{}, 'error' = interface{Error() string})
-			// Allow if the underlying type is wrappable
-			return canWrapUnderlying(t.Underlying())
+			return canWrapType(t.Underlying(), false)
 		}
 
 		if pkg.Path() == currentPkgPath {
-			return canWrapUnderlying(t.Underlying())
+			return canWrapType(t.Underlying(), false)
 		}
 
-		return canWrapCrossPackage(t.Underlying())
+		return canWrapType(t.Underlying(), true)
 	}
 
-	return canWrapUnderlying(t.Underlying())
+	return canWrapType(t.Underlying(), false)
 }
 
-func canWrapUnderlying(t types.Type) bool {
+// canWrapType checks whether a type can be wrapped in a DirectCall.
+// If crossPkg is true, all representable types are allowed (extracted via .Interface()).
+// If false, stricter checks apply (e.g., slices only with basic element types).
+func canWrapType(t types.Type, crossPkg bool) bool {
 	switch ut := t.(type) {
 	case *types.Basic:
 		return ut.Kind() != types.UnsafePointer && ut.Kind() != types.Invalid
 	case *types.Slice:
-		// Allow all slices with basic element types ([]int, []float64, []byte, etc.)
-		// as well as []string. Cross-package slices use .Interface().
+		if crossPkg {
+			return true
+		}
+		// Same-package: allow slices with basic element types only
 		if _, ok := ut.Elem().Underlying().(*types.Basic); ok {
 			return true
 		}
 		return false
 	case *types.Interface:
-		return true // support both empty and non-empty interfaces
+		return true
 	case *types.Pointer:
-		// Only support pointers to named types or basic types (excluding unsafe.Pointer)
+		if crossPkg {
+			return true
+		}
 		if bt, ok := ut.Elem().(*types.Basic); ok {
 			return bt.Kind() != types.UnsafePointer && bt.Kind() != types.Invalid
 		}
 		_, isNamed := ut.Elem().(*types.Named)
 		return isNamed
 	case *types.Struct:
-		return true // support struct types
-	case *types.Map:
-		return true // support map types
-	case *types.Chan:
-		return true // support chan T via .Interface().(chan T)
-	case *types.Signature:
-		return true // support func(T) R via .Interface().(func(T) R)
-	case *types.Array:
-		return true // support [N]T via .Interface().([N]T)
-	default:
-		return false
-	}
-}
-
-// canWrapCrossPackage checks if a cross-package type can be extracted via .Interface().(Type).
-func canWrapCrossPackage(t types.Type) bool {
-	switch t.(type) {
-	case *types.Basic:
-		return true
-	case *types.Slice:
-		return true
-	case *types.Struct:
-		return true
-	case *types.Pointer:
-		return true
-	case *types.Interface:
 		return true
 	case *types.Map:
 		return true
 	case *types.Chan:
-		return true // support chan T via .Interface().(chan T)
+		return true
 	case *types.Signature:
-		return true // support func(T) R via .Interface().(func(T) R)
+		return true
 	case *types.Array:
-		return true // support [N]T via .Interface().([N]T)
+		return true
 	default:
 		return false
 	}
@@ -1015,7 +984,7 @@ func generateSingleMethodDirectCall(sig *types.Signature, pkgRef string, typeNam
 			return ""
 		}
 	}
-	if results.Len() > 4 {
+	if results.Len() > 6 {
 		return ""
 	}
 
@@ -1106,40 +1075,39 @@ func generateSingleMethodDirectCall(sig *types.Signature, pkgRef string, typeNam
 
 	switch results.Len() {
 	case 0:
-		b.WriteString(fmt.Sprintf("\t%s\n", callExpr))
+		fmt.Fprintf(b, "\t%s\n", callExpr)
 		emitWritebacks(b, writebacks)
 		b.WriteString("\treturn value.MakeNil()\n")
 	case 1:
 		if len(writebacks) > 0 {
-			b.WriteString(fmt.Sprintf("\t_ret := %s\n", callExpr))
+			fmt.Fprintf(b, "\t_ret := %s\n", callExpr)
 			emitWritebacks(b, writebacks)
 			retExpr := wrapReturn(results.At(0).Type(), "_ret")
 			if retExpr == "" {
 				return ""
 			}
-			b.WriteString(fmt.Sprintf("\treturn %s\n", retExpr))
+			fmt.Fprintf(b, "\treturn %s\n", retExpr)
 		} else {
 			retExpr := wrapReturn(results.At(0).Type(), callExpr)
 			if retExpr == "" {
 				return ""
 			}
-			b.WriteString(fmt.Sprintf("\treturn %s\n", retExpr))
+			fmt.Fprintf(b, "\treturn %s\n", retExpr)
 		}
-	case 2:
-		b.WriteString(fmt.Sprintf("\tr0, r1 := %s\n", callExpr))
-		emitWritebacks(b, writebacks)
-		w0 := wrapReturn(results.At(0).Type(), "r0")
-		w1 := wrapReturn(results.At(1).Type(), "r1")
-		b.WriteString(fmt.Sprintf("\treturn value.MakeValueSlice([]value.Value{%s, %s})\n", w0, w1))
-	case 3:
-		b.WriteString(fmt.Sprintf("\tr0, r1, r2 := %s\n", callExpr))
-		emitWritebacks(b, writebacks)
-		w0 := wrapReturn(results.At(0).Type(), "r0")
-		w1 := wrapReturn(results.At(1).Type(), "r1")
-		w2 := wrapReturn(results.At(2).Type(), "r2")
-		b.WriteString(fmt.Sprintf("\treturn value.MakeValueSlice([]value.Value{%s, %s, %s})\n", w0, w1, w2))
 	default:
-		return ""
+		// Multi-return: r0, r1, ... := recv.Method(...)
+		var retVars []string
+		for i := 0; i < results.Len(); i++ {
+			retVars = append(retVars, fmt.Sprintf("r%d", i))
+		}
+		fmt.Fprintf(b, "\t%s := %s\n", strings.Join(retVars, ", "), callExpr)
+		emitWritebacks(b, writebacks)
+		var wrapped []string
+		for i := 0; i < results.Len(); i++ {
+			w := wrapReturn(results.At(i).Type(), fmt.Sprintf("r%d", i))
+			wrapped = append(wrapped, w)
+		}
+		fmt.Fprintf(b, "\treturn value.MakeValueSlice([]value.Value{%s})\n", strings.Join(wrapped, ", "))
 	}
 
 	b.WriteString("}\n")

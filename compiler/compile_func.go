@@ -51,12 +51,21 @@ func isIntSliceType(t types.Type) bool {
 
 // compileFunction compiles a single SSA function to bytecode.
 func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction, error) {
-	c.currentFunc = &bytecode.CompiledFunction{
+	cf := &bytecode.CompiledFunction{
 		Name:         fn.Name(),
 		Instructions: make([]byte, 0),
-		Source:       fn,
 		NumParams:    len(fn.Params),
+		FuncIdx:      c.funcIndex[fn],
 	}
+
+	// Populate method dispatch metadata from SSA signature.
+	sig := fn.Signature
+	if sig.Recv() != nil {
+		cf.HasReceiver = true
+		cf.ReceiverTypeName = extractReceiverShortName(sig.Recv().Type())
+	}
+
+	c.currentFunc = cf
 
 	c.symbolTable = NewSymbolTable()
 	c.jumps = nil

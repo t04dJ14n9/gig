@@ -20,7 +20,7 @@ func VariadicWithRegular(base int, nums ...int) int {
 	sum := base
 	for _, n := range nums {
 		sum += n
-	 }
+	}
 	return sum
 }
 

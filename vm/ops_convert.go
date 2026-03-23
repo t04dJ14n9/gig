@@ -89,9 +89,7 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 		}
 
 		// Push result as a tuple [result, ok]
-		// Use a slice to represent the tuple
-		tuple := []value.Value{result, value.MakeBool(assertionOk)}
-		v.push(value.FromInterface(tuple))
+		v.pushCommaOk(result, assertionOk)
 
 	case bytecode.OpConvert:
 		typeIdx := frame.readUint16()

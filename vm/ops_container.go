@@ -8,6 +8,23 @@ import (
 	"git.woa.com/youngjin/gig/value"
 )
 
+// pushCommaOk pushes a (value, ok) tuple onto the operand stack.
+// Used by OpIndexOk, OpRecvOk, OpTypeAssert, etc.
+func (v *vm) pushCommaOk(val value.Value, ok bool) {
+	tuple := []value.Value{val, value.MakeBool(ok)}
+	v.push(value.FromInterface(tuple))
+}
+
+// resolveType resolves a type index from a popped value into a types.Type.
+// Returns the type and true if found, or nil and false otherwise.
+func (v *vm) resolveType(typeIdxVal value.Value) (types.Type, bool) {
+	typeIdx := uint16(typeIdxVal.Int())
+	if int(typeIdx) < len(v.program.Types) {
+		return v.program.Types[typeIdx], true
+	}
+	return nil, false
+}
+
 // executeContainer handles slice, map, channel creation, index, append,
 // copy, delete, range, len, and cap opcodes.
 func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx
@@ -16,49 +33,46 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 		capVal := v.pop()
 		lenVal := v.pop()
 		typeIdxVal := v.pop()
-		typeIdx := uint16(typeIdxVal.Int())
-		// Create slice using the type from the type pool
-		if int(typeIdx) < len(v.program.Types) {
-			typ := v.program.Types[typeIdx]
-			made := false
-			if sliceType, ok := typ.(*types.Slice); ok {
-				elemType := sliceType.Elem()
-				// Native []int64 fast path for integer slice types
-				if basic, isBasic := elemType.(*types.Basic); isBasic {
-					switch basic.Kind() {
-					case types.Int, types.Int64:
-						v.push(value.MakeIntSlice(make([]int64, int(lenVal.Int()), int(capVal.Int()))))
-						made = true
-					}
-				}
-				// Function slice: use reflect path to create proper typed slice (e.g. []func() int)
-				// instead of []value.Value, so it can be assigned to typed struct fields.
-			}
-			if !made {
-				if rt := typeToReflect(typ, v.program); rt != nil {
-					slice := reflect.MakeSlice(rt, int(lenVal.Int()), int(capVal.Int()))
-					v.push(value.MakeFromReflect(slice))
-				} else {
-					v.push(value.MakeNil())
-				}
-			}
-		} else {
+		typ, ok := v.resolveType(typeIdxVal)
+		if !ok {
 			v.push(value.MakeNil())
+			break
+		}
+		made := false
+		if sliceType, ok := typ.(*types.Slice); ok {
+			elemType := sliceType.Elem()
+			// Native []int64 fast path for integer slice types
+			if basic, isBasic := elemType.(*types.Basic); isBasic {
+				switch basic.Kind() {
+				case types.Int, types.Int64:
+					v.push(value.MakeIntSlice(make([]int64, int(lenVal.Int()), int(capVal.Int()))))
+					made = true
+				}
+			}
+			// Function slice: use reflect path to create proper typed slice (e.g. []func() int)
+			// instead of []value.Value, so it can be assigned to typed struct fields.
+		}
+		if !made {
+			if rt := typeToReflect(typ, v.program); rt != nil {
+				slice := reflect.MakeSlice(rt, int(lenVal.Int()), int(capVal.Int()))
+				v.push(value.MakeFromReflect(slice))
+			} else {
+				v.push(value.MakeNil())
+			}
 		}
 
 	case bytecode.OpMakeMap:
 		sizeVal := v.pop()
 		typeIdxVal := v.pop()
-		typeIdx := uint16(typeIdxVal.Int())
-		if int(typeIdx) < len(v.program.Types) {
-			typ := v.program.Types[typeIdx]
-			if rt := typeToReflect(typ, v.program); rt != nil {
-				m := reflect.MakeMap(rt)
-				_ = sizeVal // Size hint ignored for simplicity
-				v.push(value.MakeFromReflect(m))
-			} else {
-				v.push(value.MakeNil())
-			}
+		typ, ok := v.resolveType(typeIdxVal)
+		if !ok {
+			v.push(value.MakeNil())
+			break
+		}
+		if rt := typeToReflect(typ, v.program); rt != nil {
+			m := reflect.MakeMap(rt)
+			_ = sizeVal // Size hint ignored for simplicity
+			v.push(value.MakeFromReflect(m))
 		} else {
 			v.push(value.MakeNil())
 		}
@@ -66,15 +80,14 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 	case bytecode.OpMakeChan:
 		sizeVal := v.pop()
 		typeIdxVal := v.pop()
-		typeIdx := uint16(typeIdxVal.Int())
-		if int(typeIdx) < len(v.program.Types) {
-			typ := v.program.Types[typeIdx]
-			if rt := typeToReflect(typ, v.program); rt != nil {
-				ch := reflect.MakeChan(rt, int(sizeVal.Int()))
-				v.push(value.MakeFromReflect(ch))
-			} else {
-				v.push(value.MakeNil())
-			}
+		typ, ok := v.resolveType(typeIdxVal)
+		if !ok {
+			v.push(value.MakeNil())
+			break
+		}
+		if rt := typeToReflect(typ, v.program); rt != nil {
+			ch := reflect.MakeChan(rt, int(sizeVal.Int()))
+			v.push(value.MakeFromReflect(ch))
 		} else {
 			v.push(value.MakeNil())
 		}
@@ -136,70 +149,51 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 				k := key.ToReflectValue(rv.Type().Key())
 				elem := rv.MapIndex(k)
 				if !elem.IsValid() {
-					// Key doesn't exist: return (zero_value, false)
-					zeroVal := value.MakeFromReflect(reflect.Zero(rv.Type().Elem()))
-					tuple := []value.Value{zeroVal, value.MakeBool(false)}
-					v.push(value.FromInterface(tuple))
+					v.pushCommaOk(value.MakeFromReflect(reflect.Zero(rv.Type().Elem())), false)
 				} else {
-					// Key exists: return (value, true)
-					v.push(value.FromInterface([]value.Value{value.MakeFromReflect(elem), value.MakeBool(true)}))
+					v.pushCommaOk(value.MakeFromReflect(elem), true)
 				}
 			} else {
-				tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-				v.push(value.FromInterface(tuple))
+				v.pushCommaOk(value.MakeNil(), false)
 			}
 		case value.KindReflect:
 			if rv, ok := container.ReflectValue(); ok {
-				// Validate rv is valid before using
 				if !rv.IsValid() {
-					tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-					v.push(value.FromInterface(tuple))
+					v.pushCommaOk(value.MakeNil(), false)
 					break
 				}
 				switch rv.Kind() {
 				case reflect.Map:
-					// Validate map type before accessing
 					if rv.Type().Key() == nil {
-						tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-						v.push(value.FromInterface(tuple))
+						v.pushCommaOk(value.MakeNil(), false)
 						break
 					}
 					k := key.ToReflectValue(rv.Type().Key())
-					// Validate key is valid
 					if !k.IsValid() {
-						tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-						v.push(value.FromInterface(tuple))
+						v.pushCommaOk(value.MakeNil(), false)
 						break
 					}
 					elem := rv.MapIndex(k)
 					if !elem.IsValid() {
-						zeroVal := value.MakeFromReflect(reflect.Zero(rv.Type().Elem()))
-						tuple := []value.Value{zeroVal, value.MakeBool(false)}
-						v.push(value.FromInterface(tuple))
+						v.pushCommaOk(value.MakeFromReflect(reflect.Zero(rv.Type().Elem())), false)
 					} else {
-						v.push(value.FromInterface([]value.Value{value.MakeFromReflect(elem), value.MakeBool(true)}))
+						v.pushCommaOk(value.MakeFromReflect(elem), true)
 					}
 				case reflect.Slice, reflect.Array:
-					// For slices/arrays, always return true for ok
 					idx := int(key.Int())
-					// Validate index is in bounds
 					if idx < 0 || idx >= rv.Len() {
-						tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-						v.push(value.FromInterface(tuple))
+						v.pushCommaOk(value.MakeNil(), false)
 					} else {
-						v.push(value.FromInterface([]value.Value{value.MakeFromReflect(rv.Index(idx)), value.MakeBool(true)}))
+						v.pushCommaOk(value.MakeFromReflect(rv.Index(idx)), true)
 					}
 				default:
-					tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-					v.push(value.FromInterface(tuple))
+					v.pushCommaOk(value.MakeNil(), false)
 				}
 			} else {
-				tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-				v.push(value.FromInterface(tuple))
+				v.pushCommaOk(value.MakeNil(), false)
 			}
 		default:
-			tuple := []value.Value{value.MakeNil(), value.MakeBool(false)}
-			v.push(value.FromInterface(tuple))
+			v.pushCommaOk(value.MakeNil(), false)
 		}
 
 	case bytecode.OpSetIndex:

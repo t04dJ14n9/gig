@@ -261,6 +261,7 @@ func BenchmarkYaegi_ClosureCalls(b *testing.B) { benchYaegi(b, goClosureSrc, "Cl
 func BenchmarkYaegi_ExtCallDirectCall(b *testing.B) {
 	benchYaegi(b, goExtCallDirectCallSrc, "ExtCallDirectCall")
 }
+
 func BenchmarkYaegi_ExtCallReflect(b *testing.B) {
 	benchYaegi(b, goExtCallReflectSrc, "ExtCallReflect")
 }

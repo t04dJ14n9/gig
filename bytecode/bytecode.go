@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"sync"
 
-	"golang.org/x/tools/go/ssa"
-
 	"git.woa.com/youngjin/gig/value"
 )
 
@@ -36,8 +34,16 @@ type CompiledFunction struct {
 	// and needs intLocals []int64 allocated in its Frame.
 	HasIntLocals bool
 
-	// Source is the original SSA function for debugging.
-	Source *ssa.Function
+	// FuncIdx is the index of this function in FuncByIndex.
+	// Used by method dispatch to call compiled functions by index.
+	FuncIdx int
+
+	// ReceiverTypeName is the unqualified receiver type name (e.g., "Reader").
+	// Empty for non-method functions. Used by method dispatch.
+	ReceiverTypeName string
+
+	// HasReceiver indicates this function is a method (has a receiver parameter).
+	HasReceiver bool
 }
 
 // ExternalFuncInfo contains pre-resolved external function info for fast calls.
@@ -66,6 +72,13 @@ type ExternalMethodInfo struct {
 	DirectCall func(args []value.Value) value.Value
 }
 
+// TypeResolver resolves external types at runtime.
+// This interface breaks the circular dependency between bytecode/ and importer/
+// while providing type-safe access to external type lookup.
+type TypeResolver interface {
+	LookupExternalType(t types.Type) (reflect.Type, bool)
+}
+
 // Program represents a compiled program ready for execution.
 // It contains all compiled functions, constants, types, and global variables.
 type Program struct {
@@ -91,24 +104,17 @@ type Program struct {
 	// Globals maps global variable names to their indices.
 	Globals map[string]int
 
-	// MainPkg is the SSA package (for debugging/inspection).
-	MainPkg *ssa.Package
-
 	// Types is the type pool for runtime type operations.
 	Types []types.Type
-
-	// FuncIndex maps SSA functions to their indices for call instructions.
-	FuncIndex map[*ssa.Function]int
 
 	// ExternalVarValues stores external package variable values indexed by global index.
 	// These are resolved at compile time and used to initialize globals in the VM.
 	// The value is a pointer to the external variable (e.g., &time.UTC).
 	ExternalVarValues map[int]any
 
-	// Lookup resolves external types at runtime.
+	// TypeResolver resolves external types at runtime.
 	// Used by the VM's typeToReflect to look up real reflect.Type for named types.
-	// Must implement importer.PackageLookup (stored as any to avoid importing importer).
-	Lookup any
+	TypeResolver TypeResolver
 
 	// ReflectTypeCache caches types.Type → reflect.Type conversions at the
 	// program level. This prevents reflect.StructOf from returning different
