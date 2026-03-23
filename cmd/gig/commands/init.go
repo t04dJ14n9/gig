@@ -1,4 +1,5 @@
-package main
+// Package commands implements the CLI subcommands for the gig tool.
+package commands
 
 import (
 	"bytes"
@@ -6,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"go/format"
+	"go/token"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -14,9 +16,9 @@ import (
 //go:embed pkgs_template.go.tmpl
 var pkgsTemplate string
 
-// runInit implements the "gig init" subcommand.
+// RunInit implements the "gig init" subcommand.
 // It creates a new dependency package directory with a pkgs.go template.
-func runInit(fs *flag.FlagSet, args []string) error {
+func RunInit(fs *flag.FlagSet, args []string) error {
 	var packageName string
 	fs.StringVar(&packageName, "package", "", "Package name for the dependency (required)")
 	fs.Usage = func() {
@@ -75,23 +77,12 @@ func generatePkgsGo(pkgName string) ([]byte, error) {
 
 	formatted, err := format.Source(buf.Bytes())
 	if err != nil {
-		return buf.Bytes(), nil
+		return buf.Bytes(), nil //nolint:nilerr // Intentional fallback to unformatted code
 	}
 	return formatted, nil
 }
 
-// isValidPackageName checks if name is a valid Go identifier.
+// isValidPackageName checks if name is a valid Go package name.
 func isValidPackageName(name string) bool {
-	if name == "" {
-		return false
-	}
-	if (name[0] < 'a' || name[0] > 'z') && (name[0] < 'A' || name[0] > 'Z') {
-		return false
-	}
-	for _, c := range name {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
-			return false
-		}
-	}
-	return true
+	return token.IsIdentifier(name) && !token.Lookup(name).IsKeyword()
 }

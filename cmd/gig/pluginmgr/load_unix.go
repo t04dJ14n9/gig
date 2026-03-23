@@ -1,11 +1,11 @@
 //go:build !windows
 
-// Package main provides the gig CLI tool.
+// Package pluginmgr provides hot-loading of external Go packages.
 //
 // This file contains the plugin loading implementation for Unix-like systems
 // (Linux and macOS). It uses the Go plugin package to dynamically load
 // shared libraries (.so files).
-package main
+package pluginmgr
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ import (
 )
 
 // loadPluginInternal implements plugin loading for Unix-like systems.
-func (pm *PluginManager) loadPluginInternal(soPath, pkgPath string) error {
+func (pm *Manager) loadPluginInternal(soPath, pkgPath string) error {
 	// Open the plugin
 	p, err := plugin.Open(soPath)
 	if err != nil {
