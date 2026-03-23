@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"strings"
 	"sync"
 )
 
@@ -282,4 +283,26 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 func (v Value) ReflectValue() (reflect.Value, bool) {
 	rv, ok := v.obj.(reflect.Value)
 	return rv, ok
+}
+
+// IsGigStruct checks if a value is an interpreter-synthesized struct with _gig_id field.
+// Returns the reflect.Value and the qualified type name extracted from _gig_id.PkgPath.
+func IsGigStruct(v any) (reflect.Value, string, bool) {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Struct {
+		return rv, "", false
+	}
+	rt := rv.Type()
+	for i := 0; i < rt.NumField(); i++ {
+		sf := rt.Field(i)
+		if sf.Name == "_gig_id" {
+			// Extract type name from PkgPath (format: "gig/internal#pkg.TypeName" or "pkg#TypeName")
+			typeName := ""
+			if idx := strings.LastIndex(sf.PkgPath, "#"); idx >= 0 {
+				typeName = sf.PkgPath[idx+1:]
+			}
+			return rv, typeName, true
+		}
+	}
+	return rv, "", false
 }

@@ -5,6 +5,8 @@ import (
 	"go/ast"
 	"go/types"
 	"strings"
+
+	"git.woa.com/youngjin/gig/value"
 )
 
 // fmtSanitizePackages lists packages whose ...interface{} variadic arguments
@@ -112,33 +114,11 @@ func (g *gigStructFormatter) cleanInterface() any {
 	return cleanVal.Interface()
 }
 
-// isGigStruct checks if a value is an interpreter-synthesized struct with _gig_id field.
-// Returns the reflect.Value and the qualified type name extracted from _gig_id.PkgPath.
-func isGigStruct(v any) (reflect.Value, string, bool) {
-	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Struct {
-		return rv, "", false
-	}
-	rt := rv.Type()
-	for i := 0; i < rt.NumField(); i++ {
-		sf := rt.Field(i)
-		if sf.Name == "_gig_id" {
-			// Extract type name from PkgPath (format: "gig/internal#pkg.TypeName" or "pkg#TypeName")
-			typeName := ""
-			if idx := strings.LastIndex(sf.PkgPath, "#"); idx >= 0 {
-				typeName = sf.PkgPath[idx+1:]
-			}
-			return rv, typeName, true
-		}
-	}
-	return rv, "", false
-}
-
 // sanitizeArgForFmt wraps interpreter-synthesized structs in gigStructFormatter.
 // Takes value.Value to enable compiled method lookup for fmt.Stringer support.
 func sanitizeArgForFmt(v value.Value) any {
 	iface := v.Interface()
-	rv, typeName, ok := isGigStruct(iface)
+	rv, typeName, ok := value.IsGigStruct(iface)
 	if !ok {
 		return iface
 	}
