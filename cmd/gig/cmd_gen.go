@@ -1,0 +1,103 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/t04dJ14n9/gig/cmd/gig/gentool"
+)
+
+// runGen implements the "gig gen" subcommand.
+func runGen(fs *flag.FlagSet, args []string) error {
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: gig gen <dir>\n\n")
+		fmt.Fprintf(os.Stderr, "Generates dependency registration code from <dir>/pkgs.go.\n")
+		fmt.Fprintf(os.Stderr, "The generated files will be placed in <dir>/packages/.\n\n")
+		fmt.Fprintf(os.Stderr, "After generation, import the package in your program:\n")
+		fmt.Fprintf(os.Stderr, "  import _ \"<package-name>/packages\"\n")
+	}
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	if fs.NArg() < 1 {
+		return fmt.Errorf("directory argument required")
+	}
+
+	pkgDir := fs.Arg(0)
+	pkgsPath := filepath.Join(pkgDir, "pkgs.go")
+
+	if _, err := os.Stat(pkgsPath); os.IsNotExist(err) {
+		return fmt.Errorf("%s not found; run 'gig init -package %s' first", pkgsPath, filepath.Base(pkgDir))
+	}
+
+	importPaths, pkgName, err := parsePkgsGo(pkgsPath)
+	if err != nil {
+		return fmt.Errorf("parsing %s: %w", pkgsPath, err)
+	}
+
+	if len(importPaths) == 0 {
+		return fmt.Errorf("no imports found in %s", pkgsPath)
+	}
+
+	fmt.Printf("Generating dependency package %q:\n", pkgName)
+	fmt.Printf("  source: %s\n", pkgsPath)
+	fmt.Printf("  output: %s/packages/\n", pkgDir)
+	fmt.Printf("  packages: %d\n\n", len(importPaths))
+
+	packagesDir := filepath.Join(pkgDir, "packages")
+	if err := os.MkdirAll(packagesDir, 0o755); err != nil {
+		return fmt.Errorf("creating packages directory: %w", err)
+	}
+
+	const generatedPkgName = "packages"
+	var generatedCount int
+	for _, path := range importPaths {
+		fmt.Printf("importing %s\n", path)
+		if err := gentool.PackageImport(path, packagesDir, generatedPkgName); err != nil {
+			fmt.Printf("Error importing %s: %s\n", path, err)
+			continue
+		}
+		generatedCount++
+	}
+
+	fmt.Printf("\nGenerated %d packages\n", generatedCount)
+	fmt.Printf("\nDone! Add this to your program:\n")
+	fmt.Printf("  import _ %q\n", pkgName+"/packages")
+	return nil
+}
+
+// parsePkgsGo reads a pkgs.go file and extracts the package name and import paths.
+func parsePkgsGo(path string) ([]string, string, error) {
+	imports, err := gentool.ParsePkgsFile(path)
+	if err != nil {
+		return nil, "", err
+	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, "", err
+	}
+
+	lines := strings.Split(string(content), "\n")
+	var pkgName string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "package ") {
+			pkgName = strings.TrimSpace(strings.TrimPrefix(line, "package "))
+			if idx := strings.Index(pkgName, "//"); idx >= 0 {
+				pkgName = strings.TrimSpace(pkgName[:idx])
+			}
+			break
+		}
+	}
+
+	if pkgName == "" {
+		return nil, "", fmt.Errorf("could not find package declaration")
+	}
+
+	return imports, pkgName, nil
+}

@@ -296,11 +296,12 @@ func (c *compiler) compileCall(i *ssa.Call) {
 // builtinOps maps simple builtin names to their single-opcode implementations.
 // Builtins not in this map have custom compilation logic in compileBuiltinCall.
 var builtinOps = map[string]bytecode.OpCode{
-	"len":   bytecode.OpLen,
-	"cap":   bytecode.OpCap,
-	"copy":  bytecode.OpCopy,
-	"panic": bytecode.OpPanic,
-	"close": bytecode.OpClose,
+	"len":     bytecode.OpLen,
+	"cap":     bytecode.OpCap,
+	"copy":    bytecode.OpCopy,
+	"panic":   bytecode.OpPanic,
+	"recover": bytecode.OpRecover,
+	"close":   bytecode.OpClose,
 }
 
 // compileBuiltinCall compiles a call to a builtin function.
@@ -321,6 +322,9 @@ func (c *compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, re
 			c.compileValue(args[0])
 			c.emit(op)
 			return
+		case "recover":
+			// recover() takes no arguments
+			c.emit(op)
 		case "close":
 			c.compileValue(args[0])
 			c.emit(op)
