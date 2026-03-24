@@ -255,20 +255,20 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 			_, _ = childVM.run()
 		}
 
-	case bytecode.OpRecover:
-		// Recover from panic
-		if v.panicking {
-			v.push(v.panicVal)
-			v.panicking = false
-			v.panicVal = value.MakeNil()
-		} else {
-			v.push(value.MakeNil())
-		}
+case bytecode.OpRecover:
+	// Recover from panic
+	if v.panicking {
+		v.push(v.panicVal)
+		v.panicking = false
+		v.panicVal = value.MakeNil()
+	} else {
+		v.push(value.MakeNil())
+	}
 
-	case bytecode.OpPanic:
-		msg := v.pop()
-		v.panicking = true
-		v.panicVal = msg
+case bytecode.OpPanic:
+	msg := v.pop()
+	v.panicking = true
+	v.panicVal = msg
 
 	case bytecode.OpPrint:
 		n := frame.readByte()

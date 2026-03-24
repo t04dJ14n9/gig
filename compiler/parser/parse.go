@@ -69,11 +69,6 @@ func Parse(src string, reg importer.PackageRegistry) (*ParseResult, error) {
 		return nil, fmt.Errorf("type check error: %w", err)
 	}
 
-	// Check for panic usage (banned)
-	if err := checkPanicUsage(file, info); err != nil {
-		return nil, err
-	}
-
 	return &ParseResult{
 		File: file,
 		FSet: fset,
@@ -129,28 +124,3 @@ func autoImport(file *ast.File, reg importer.PackageRegistry) {
 	}
 }
 
-// checkPanicUsage checks for panic usage in the code.
-func checkPanicUsage(file *ast.File, info *types.Info) error {
-	found := false
-
-	ast.Inspect(file, func(n ast.Node) bool {
-		if call, ok := n.(*ast.CallExpr); ok {
-			if ident, ok := call.Fun.(*ast.Ident); ok {
-				if ident.Name == "panic" {
-					if obj := info.Uses[ident]; obj != nil {
-						if _, isBuiltin := obj.(*types.Builtin); isBuiltin {
-							found = true
-							return false
-						}
-					}
-				}
-			}
-		}
-		return true
-	})
-
-	if found {
-		return fmt.Errorf("use of \"panic\" is not allowed")
-	}
-	return nil
-}

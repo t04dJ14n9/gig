@@ -74,6 +74,10 @@ type vm struct {
 	// panicVal is the current panic value.
 	panicVal value.Value
 
+	// runningDefer indicates we're executing a deferred function.
+	// When true, the panic check at the top of run() is skipped.
+	runningDefer bool
+
 	// extCallCache caches resolved external function info for fast dispatch.
 	// Uses a shared cache pointer for concurrent access from goroutines.
 	extCallCache *externalCallCache

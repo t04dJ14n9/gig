@@ -70,8 +70,71 @@ func (v *vm) run() (value.Value, error) {
 			}
 		}
 
+		// Handle panic FIRST (before end-of-function check)
+		// This is critical: when a function panics as its last instruction,
+		// we need to run deferred functions before the frame is popped.
+		// Skip panic handling if we're running a deferred function.
+		if v.panicking && !v.runningDefer {
+			// Run deferred functions
+			if len(frame.defers) > 0 {
+				// Execute deferred functions in reverse order
+				for i := len(frame.defers) - 1; i >= 0; i-- {
+					d := frame.defers[i]
+					if d.external != nil {
+						// External defer - not supported for now
+					} else if d.fn != nil {
+						// Internal defer
+						v.sp = sp
+						v.callFunction(d.fn, d.args, nil)
+						v.runningDefer = true
+						_, _ = v.run() // Run the deferred function
+						v.runningDefer = false
+						sp = v.sp
+					}
+				}
+				frame.defers = nil
+			}
+
+			// Check if recover() was called during deferred execution
+			if !v.panicking {
+				// Panic was recovered - return nil from this frame (like OpReturn)
+				v.fpool.put(frame)
+				v.fp--
+				if v.fp > 0 {
+					loadFrame()
+					sp = frame.basePtr
+				}
+				stack[sp] = value.MakeNil()
+				sp++
+				continue
+			}
+
+			// If this is the last frame, return the panic
+			if v.fp == 1 {
+				err := fmt.Errorf("panic: %v", v.panicVal.Interface())
+				v.panicking = false
+				v.panicVal = value.MakeNil()
+				return value.MakeNil(), err
+			}
+
+			// Propagate panic to caller
+			v.fp--
+			v.fpool.put(frame)
+			if v.fp > 0 {
+				loadFrame()
+			}
+			continue
+		}
+
 		// Check for end of function
 		if frame.ip >= len(ins) {
+			// If running a deferred function, return immediately after the function ends.
+			// Don't continue with the caller's frame - that's handled by the outer run().
+			if v.runningDefer {
+				v.fp--
+				v.fpool.put(frame)
+				return value.MakeNil(), nil
+			}
 			// Pop frame and return it to pool
 			v.fp--
 			v.fpool.put(frame)
@@ -292,6 +355,11 @@ func (v *vm) run() (value.Value, error) {
 		case bytecode.OpReturn:
 			v.fpool.put(frame)
 			v.fp--
+			// If running a deferred function, return immediately.
+			// Don't continue with the caller's frame - that's handled by the outer run().
+			if v.runningDefer {
+				return value.MakeNil(), nil
+			}
 			if v.fp > 0 {
 				loadFrame()
 				sp = frame.basePtr
@@ -305,6 +373,10 @@ func (v *vm) run() (value.Value, error) {
 			retVal := stack[sp]
 			v.fpool.put(frame)
 			v.fp--
+			// If running a deferred function, return immediately.
+			if v.runningDefer {
+				return retVal, nil
+			}
 			if v.fp > 0 {
 				loadFrame()
 				sp = frame.basePtr
@@ -997,43 +1069,6 @@ func (v *vm) run() (value.Value, error) {
 		// Reload frame state in case executeOp changed it (call/return within executeOp)
 		if v.fp > 0 {
 			loadFrame()
-		}
-
-		// Handle panic
-		if v.panicking {
-			// Run deferred functions
-			if len(frame.defers) > 0 {
-				// Execute deferred functions in reverse order
-				for i := len(frame.defers) - 1; i >= 0; i-- {
-					d := frame.defers[i]
-					if d.external != nil {
-						// External defer - not supported for now
-					} else if d.fn != nil {
-						// Internal defer
-						v.sp = sp
-						v.callFunction(d.fn, d.args, nil)
-						_, _ = v.run() // Run the deferred function
-						sp = v.sp
-					}
-				}
-				frame.defers = nil
-			}
-
-			// If this is the last frame, return the panic
-			if v.fp == 1 {
-				err := fmt.Errorf("panic: %v", v.panicVal.Interface())
-				v.panicking = false
-				v.panicVal = value.MakeNil()
-				return value.MakeNil(), err
-			}
-
-			// Propagate panic to caller
-			v.fp--
-			v.fpool.put(frame)
-			if v.fp > 0 {
-				loadFrame()
-			}
-			continue
 		}
 	}
 
