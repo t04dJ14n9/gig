@@ -28,7 +28,7 @@ import (
 	_ "log"
 	_ "maps"
 	_ "math"
-	_ "math/rand"
+	_ "math/rand/v2"
 	_ "net/http"
 	_ "net/url"
 	_ "os"

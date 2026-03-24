@@ -44,6 +44,13 @@ type CompiledFunction struct {
 
 	// HasReceiver indicates this function is a method (has a receiver parameter).
 	HasReceiver bool
+
+	// ResultAllocSlots holds the local slot indices of Alloc instructions that
+	// correspond to named return values or variables captured by defer closures
+	// and used in the return path. During panic recovery, the VM dereferences
+	// these slots to reconstruct the correct return value instead of pushing nil.
+	// Populated at compile time by examining SSA Return instructions.
+	ResultAllocSlots []int
 }
 
 // ExternalFuncInfo contains pre-resolved external function info for fast calls.

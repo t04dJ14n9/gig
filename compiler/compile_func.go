@@ -116,6 +116,13 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 	c.currentFunc.NumLocals = c.symbolTable.NumLocals()
 	c.currentFunc.NumFreeVars = len(fn.FreeVars)
 
+	// Detect result Alloc slots for panic-recovery return value reconstruction.
+	// In SSA, named return values and variables captured by defer closures are
+	// represented as Alloc instructions. The return path loads them via
+	// OpLocal → OpDeref → OpReturnVal. We record their local slot indices so
+	// the VM can deref them after panic recovery instead of returning nil.
+	c.currentFunc.ResultAllocSlots = detectResultAllocSlots(fn, c.symbolTable)
+
 	// Build local-is-int map for int-specialization
 	localIsInt := make([]bool, c.symbolTable.NumLocals())
 	localIsIntSlice := make([]bool, c.symbolTable.NumLocals())
@@ -225,4 +232,66 @@ func (c *compiler) emitPhiMoves(predBlock, targetBlock *ssa.BasicBlock) {
 			c.emit(bytecode.OpSetLocal, uint16(targetSlot))
 		}
 	}
+}
+
+// detectResultAllocSlots finds Alloc instructions that correspond to named
+// return values. In Go, only named return variables can be modified by deferred
+// functions during panic recovery. Unnamed returns use the zero value after recovery.
+//
+// These are identified as Allocs whose value (or a deref thereof) appears
+// directly in a Return instruction's results.
+func detectResultAllocSlots(fn *ssa.Function, st *SymbolTable) []int {
+	if fn.Blocks == nil {
+		return nil
+	}
+
+	// Collect all Alloc instructions.
+	allocSet := make(map[ssa.Value]bool)
+	for _, block := range fn.Blocks {
+		for _, instr := range block.Instrs {
+			if _, ok := instr.(*ssa.Alloc); ok {
+				allocSet[instr.(ssa.Value)] = true
+			}
+		}
+	}
+	if len(allocSet) == 0 {
+		return nil
+	}
+
+	// Find Allocs referenced in Return instructions (named return variables).
+	// SSA represents named returns as Alloc → Store → UnOp(deref) → Return.
+	// The Return may reference the Alloc directly or via an UnOp deref.
+	slotSet := make(map[int]bool)
+	for _, block := range fn.Blocks {
+		for _, instr := range block.Instrs {
+			ret, ok := instr.(*ssa.Return)
+			if !ok {
+				continue
+			}
+			for _, result := range ret.Results {
+				if allocSet[result] {
+					if idx, ok := st.GetLocal(result); ok {
+						slotSet[idx] = true
+					}
+				}
+				if unop, ok := result.(*ssa.UnOp); ok {
+					if allocSet[unop.X] {
+						if idx, ok := st.GetLocal(unop.X); ok {
+							slotSet[idx] = true
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if len(slotSet) == 0 {
+		return nil
+	}
+
+	slots := make([]int, 0, len(slotSet))
+	for idx := range slotSet {
+		slots = append(slots, idx)
+	}
+	return slots
 }

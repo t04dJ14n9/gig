@@ -24,12 +24,33 @@ type ParseResult struct {
 	Pkg  *types.Package
 }
 
+// parseConfig holds internal configuration parsed from ParseOption values.
+type parseConfig struct {
+	allowPanic bool
+}
+
+// ParseOption configures the behaviour of Parse.
+type ParseOption func(*parseConfig)
+
+// WithAllowPanic allows the use of panic() in source code.
+// By default, panic() calls are rejected at parse time for sandbox safety.
+func WithAllowPanic() ParseOption {
+	return func(c *parseConfig) {
+		c.allowPanic = true
+	}
+}
+
 // Parse parses Go source code, performs type checking, and validates it.
 // It handles auto-import of registered packages and checks for banned constructs.
 //
 // The src parameter is the source code string.
 // The reg parameter provides package registry for import resolution.
-func Parse(src string, reg importer.PackageRegistry) (*ParseResult, error) {
+func Parse(src string, reg importer.PackageRegistry, opts ...ParseOption) (*ParseResult, error) {
+	cfg := parseConfig{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	// Auto-wrap with "package main" if no package declaration
 	src = strings.TrimSpace(src)
 	if !strings.HasPrefix(src, "package ") {
@@ -42,6 +63,13 @@ func Parse(src string, reg importer.PackageRegistry) (*ParseResult, error) {
 	file, err := parser.ParseFile(fset, "main.go", src, parser.AllErrors|parser.ParseComments)
 	if err != nil {
 		return nil, fmt.Errorf("parse error: %w", err)
+	}
+
+	// Check for banned panic usage (unless explicitly allowed)
+	if !cfg.allowPanic {
+		if err := checkBannedPanic(fset, file); err != nil {
+			return nil, err
+		}
 	}
 
 	// Auto-import registered packages if needed
@@ -124,3 +152,28 @@ func autoImport(file *ast.File, reg importer.PackageRegistry) {
 	}
 }
 
+// checkBannedPanic walks the AST and returns an error if any panic() call is found.
+// This is a compile-time safety check for sandboxed execution.
+// Both panic("msg") and panic(expr) forms are detected.
+func checkBannedPanic(fset *token.FileSet, file *ast.File) error {
+	var panicPos token.Pos
+	ast.Inspect(file, func(n ast.Node) bool {
+		if panicPos.IsValid() {
+			return false // already found one, stop
+		}
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		if ident, ok := call.Fun.(*ast.Ident); ok && ident.Name == "panic" {
+			panicPos = ident.Pos()
+			return false
+		}
+		return true
+	})
+	if panicPos.IsValid() {
+		pos := fset.Position(panicPos)
+		return fmt.Errorf("compile error: panic() is not allowed in sandboxed code (at %s); use gig.WithAllowPanic() to enable", pos)
+	}
+	return nil
+}

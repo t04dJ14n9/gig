@@ -21,7 +21,7 @@ var knownPackages = map[string]string{
 	"csv":          "encoding/csv",
 	"url":          "net/url",
 	"http":         "net/http",
-	"rand":         "math/rand",
+	"rand":         "math/rand/v2",
 	"sync":         "sync",
 	"atomic":       "sync/atomic",
 	"context":      "context",
