@@ -1,13 +1,20 @@
+// stack.go implements the operand stack with push/pop/peek and bounded growth.
 package vm
 
 import "git.woa.com/youngjin/gig/value"
 
 // push pushes a value onto the operand stack.
-// Grows the stack if necessary.
+// Grows the stack if necessary, up to maxStackSize.
 func (v *vm) push(val value.Value) {
 	if v.sp >= len(v.stack) {
-		// Grow stack
-		newStack := make([]value.Value, len(v.stack)*2)
+		if len(v.stack) >= maxStackSize {
+			panic("gig: operand stack overflow")
+		}
+		newCap := len(v.stack) * 2
+		if newCap > maxStackSize {
+			newCap = maxStackSize
+		}
+		newStack := make([]value.Value, newCap)
 		copy(newStack, v.stack)
 		v.stack = newStack
 	}

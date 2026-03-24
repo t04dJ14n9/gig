@@ -1,3 +1,5 @@
+// register.go implements the global registry: package registration, type mapping,
+// method DirectCall lookup, and auto-import.
 package importer
 
 import (
@@ -221,12 +223,17 @@ func (r *Registry) LookupPackage(name string) (*ExternalPackage, error) {
 }
 
 func (r *Registry) AutoImport(name string) (path string, pkg *ExternalPackage, ok bool) {
-	if pkg := r.GetPackageByName(name); pkg != nil {
-		return pkg.Path, pkg, true
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if p := r.packagesByAlias[name]; p != nil {
+		return p.Path, p, true
 	}
-	for p, pkg := range r.GetAllPackages() {
-		parts := strings.Split(p, "/")
-		if parts[len(parts)-1] == name {
+	for p, pkg := range r.packagesByName {
+		if idx := strings.LastIndex(p, "/"); idx >= 0 {
+			if p[idx+1:] == name {
+				return p, pkg, true
+			}
+		} else if p == name {
 			return p, pkg, true
 		}
 	}

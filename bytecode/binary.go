@@ -1,3 +1,4 @@
+// binary.go provides big-endian uint16 read/write helpers for bytecode encoding.
 package bytecode
 
 // ReadU16 reads a big-endian uint16 from code at offset.

@@ -227,6 +227,15 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 	c.program.ExternalVarValues = c.externalVarValues
 	c.program.TypeResolver = c.lookup
 
+	// Build method lookup index for O(k) dispatch instead of O(n) linear scan.
+	methodsByName := make(map[string][]*bytecode.CompiledFunction)
+	for _, fn := range c.program.FuncByIndex {
+		if fn != nil && fn.HasReceiver {
+			methodsByName[fn.Name] = append(methodsByName[fn.Name], fn)
+		}
+	}
+	c.program.MethodsByName = methodsByName
+
 	// Pre-bake constants for O(1) OpConst (avoids FromInterface per instruction)
 	c.program.PrebakedConstants = make([]value.Value, len(c.constants))
 	for i, k := range c.constants {

@@ -1,3 +1,4 @@
+// typeconv.go converts reflect.Type to go/types.Type for external package types.
 package importer
 
 import (

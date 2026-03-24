@@ -1,3 +1,5 @@
+// channel.go implements channel operations: Send, SendContext, Recv, RecvContext, and Close
+// with context cancellation support.
 package value
 
 import (

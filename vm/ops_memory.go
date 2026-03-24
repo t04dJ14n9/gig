@@ -1,3 +1,4 @@
+// ops_memory.go handles stack ops, constants, locals/globals/free vars, fields, addresses, and new.
 package vm
 
 import (
@@ -279,11 +280,6 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 		} else {
 			v.push(value.MakeNil())
 		}
-
-	case bytecode.OpMake:
-		_ = frame.readUint16() // typeIdx
-		_ = frame.readUint16() // sizeIdx
-		// Make operation handled by specific OpMakeSlice/Map/Chan
 	}
 
 	return nil

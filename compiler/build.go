@@ -1,3 +1,4 @@
+// build.go implements the full compilation pipeline: source → parse → SSA → bytecode.
 package compiler
 
 import (

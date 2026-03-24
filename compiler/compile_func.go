@@ -1,3 +1,4 @@
+// compile_func.go handles per-function SSA→bytecode compilation: blocks, phis, locals.
 package compiler
 
 import (

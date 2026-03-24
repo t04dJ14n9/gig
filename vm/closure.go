@@ -1,3 +1,4 @@
+// closure.go defines the Closure type and ClosureExecutor for reflect.MakeFunc integration.
 package vm
 
 import (

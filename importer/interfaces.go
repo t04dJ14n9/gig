@@ -1,3 +1,4 @@
+// interfaces.go defines PackageLookup and TypeResolver interfaces for dependency injection.
 package importer
 
 import (

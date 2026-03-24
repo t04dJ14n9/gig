@@ -1,3 +1,4 @@
+// compile_instr.go compiles SSA instructions: calls, binops, unops, field access.
 package compiler
 
 import (

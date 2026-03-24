@@ -1,3 +1,5 @@
+// arithmetic.go implements arithmetic operations (Add, Sub, Mul, Div, Mod, Neg)
+// and comparison (Cmp, Equal) on Value.
 package value
 
 import (

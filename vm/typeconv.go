@@ -1,3 +1,4 @@
+// typeconv.go converts go/types.Type to reflect.Type with cycle detection and caching.
 package vm
 
 import (
@@ -7,6 +8,10 @@ import (
 
 	"git.woa.com/youngjin/gig/bytecode"
 )
+
+// maxTypeRecursionDepth is the hard limit on recursive type conversion depth.
+// Prevents stack overflow on deeply nested but acyclic types (e.g., [][][]...[]int).
+const maxTypeRecursionDepth = 256
 
 // typeToReflect converts a go/types.Type to reflect.Type using the program-level
 // cache to ensure the same types.Type always maps to the same reflect.Type.
@@ -22,7 +27,7 @@ func typeToReflect(t types.Type, prog *bytecode.Program) reflect.Type {
 	}
 	// Compute with a local cycle-detection cache
 	localCache := make(map[types.Type]reflect.Type)
-	rt := typeToReflectWithCache(t, localCache, "", prog)
+	rt := typeToReflectWithCache(t, localCache, "", prog, 0)
 	if rt != nil {
 		// Store in program-level cache (uses LoadOrStore for thread safety)
 		rt = prog.CacheReflectType(t, rt)
@@ -37,14 +42,18 @@ func typeToReflect(t types.Type, prog *bytecode.Program) reflect.Type {
 // size and alignment as any Go pointer.
 // The uniqueSuffix parameter is used to create unique reflect.Types for named structs
 // to prevent reflect.StructOf from deduplicating different types with same field layout.
+// The depth parameter prevents stack overflow on deeply nested acyclic types.
 //
 // NOTE: This function does NOT use the program-level cache internally because the same
 // types.Type (e.g., *types.Struct for struct{v int}) may be reached through different
 // named types with different uniqueSuffix values. Caching at this level would cause
 // suffix-insensitive collisions. Program-level caching is done only at the top-level
 // typeToReflect entry point, which caches the final result keyed by the original type.
-func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type, uniqueSuffix string, prog *bytecode.Program) reflect.Type {
+func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type, uniqueSuffix string, prog *bytecode.Program, depth int) reflect.Type {
 	if t == nil {
+		return nil
+	}
+	if depth > maxTypeRecursionDepth {
 		return nil
 	}
 
@@ -53,7 +62,7 @@ func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type, uni
 		return cached
 	}
 
-	result := typeToReflectInner(t, cache, uniqueSuffix, prog)
+	result := typeToReflectInner(t, cache, uniqueSuffix, prog, depth)
 	if result != nil {
 		cache[t] = result
 	}
@@ -62,7 +71,7 @@ func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type, uni
 }
 
 // typeToReflectInner does the actual conversion without caching logic.
-func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueSuffix string, prog *bytecode.Program) reflect.Type {
+func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueSuffix string, prog *bytecode.Program, depth int) reflect.Type {
 	switch tt := t.(type) {
 	case *types.Basic:
 		switch tt.Kind() {
@@ -104,32 +113,32 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 			return nil
 		}
 	case *types.Slice:
-		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog)
+		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
 		if elem != nil {
 			return reflect.SliceOf(elem)
 		}
 		return nil
 	case *types.Array:
-		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog)
+		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
 		if elem != nil {
 			return reflect.ArrayOf(int(tt.Len()), elem)
 		}
 		return nil
 	case *types.Map:
-		key := typeToReflectWithCache(tt.Key(), cache, "", prog)
-		val := typeToReflectWithCache(tt.Elem(), cache, "", prog)
+		key := typeToReflectWithCache(tt.Key(), cache, "", prog, depth+1)
+		val := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
 		if key != nil && val != nil {
 			return reflect.MapOf(key, val)
 		}
 		return nil
 	case *types.Chan:
-		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog)
+		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
 		if elem != nil {
 			return reflect.ChanOf(reflect.BothDir, elem)
 		}
 		return nil
 	case *types.Pointer:
-		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog)
+		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
 		if elem != nil {
 			return reflect.PointerTo(elem)
 		}
@@ -169,7 +178,7 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 		if pkg := tt.Obj().Pkg(); pkg != nil {
 			qualSuffix = "#" + pkg.Name() + "." + typeName
 		}
-		result := typeToReflectWithCache(tt.Underlying(), cache, qualSuffix, prog)
+		result := typeToReflectWithCache(tt.Underlying(), cache, qualSuffix, prog, depth+1)
 		if result != nil {
 			cache[tt] = result
 		}
@@ -187,7 +196,7 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 			if named, ok := f.Type().(*types.Named); ok {
 				fieldSuffix = "#" + named.Obj().Name()
 			}
-			ft := typeToReflectWithCache(f.Type(), cache, fieldSuffix, prog)
+			ft := typeToReflectWithCache(f.Type(), cache, fieldSuffix, prog, depth+1)
 			if ft == nil {
 				// Skip fields that could not be converted (shouldn't normally happen
 				// unless there's a deep cycle on a non-pointer path).
@@ -258,7 +267,7 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 		params := tt.Params()
 		paramTypes := make([]reflect.Type, params.Len())
 		for i := 0; i < params.Len(); i++ {
-			pt := typeToReflectWithCache(params.At(i).Type(), cache, "", prog)
+			pt := typeToReflectWithCache(params.At(i).Type(), cache, "", prog, depth+1)
 			if pt == nil {
 				return nil
 			}
@@ -268,7 +277,7 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 		results := tt.Results()
 		resultTypes := make([]reflect.Type, results.Len())
 		for i := 0; i < results.Len(); i++ {
-			rt := typeToReflectWithCache(results.At(i).Type(), cache, "", prog)
+			rt := typeToReflectWithCache(results.At(i).Type(), cache, "", prog, depth+1)
 			if rt == nil {
 				return nil
 			}

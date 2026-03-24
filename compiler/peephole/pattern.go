@@ -1,3 +1,12 @@
+// Package peephole implements pattern-based bytecode optimization via
+// superinstruction fusion.
+//
+// Each pattern matches a sequence of opcodes and replaces them with a single
+// fused opcode that performs the same work in fewer dispatch cycles.
+// Patterns are registered via Register() from init() functions in per-file
+// pattern implementations (arith_local.go, cmp_jump.go, etc.).
+//
+// See docs/optimization-superinstructions.md for the full pattern catalog.
 package peephole
 
 import "git.woa.com/youngjin/gig/bytecode"

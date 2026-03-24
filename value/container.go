@@ -1,3 +1,5 @@
+// container.go implements collection operations: Index, SetIndex, MapIndex, SetMapIndex,
+// Len, Cap, Field, SetField, Elem, SetElem, and Append.
 package value
 
 import (
