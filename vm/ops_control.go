@@ -1,3 +1,4 @@
+// ops_control.go implements control flow, channels, select, defer, panic/recover, print, and halt.
 package vm
 
 import (
@@ -238,17 +239,7 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 			// Execute the deferred function synchronously using a child VM
 			// that shares the same globals/context/program. This avoids
 			// interference with the parent frame stack.
-			childVM := &vm{
-				program:      v.program,
-				stack:        make([]value.Value, 256),
-				sp:           0,
-				frames:       make([]*Frame, initialFrameDepth),
-				fp:           0,
-				globals:      v.globals,
-				globalsPtr:   v.globalsPtr,
-				ctx:          v.ctx,
-				extCallCache: v.extCallCache,
-			}
+			childVM := v.newDeferVM()
 			deferFrame := newFrame(d.fn, 0, d.args, freeVars)
 			childVM.frames[0] = deferFrame
 			childVM.fp = 1

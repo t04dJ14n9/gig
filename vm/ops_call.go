@@ -1,3 +1,4 @@
+// ops_call.go handles function/closure calls, goroutine spawning, and tuple pack/unpack.
 package vm
 
 import (
@@ -127,7 +128,7 @@ func (v *vm) executeCall(op bytecode.OpCode, frame *Frame) error { //nolint:gocy
 			capturedArgs := args
 
 			// Track the goroutine
-			v.goroutines.Start(func() {
+			if err := v.goroutines.Start(func() {
 				// Create initial frame for the child goroutine
 				childFrame := newFrame(capturedFn, 0, capturedArgs, nil)
 				childVM.frames[0] = childFrame
@@ -135,7 +136,9 @@ func (v *vm) executeCall(op bytecode.OpCode, frame *Frame) error { //nolint:gocy
 
 				// Run the child VM (ignore return value - goroutine result is discarded)
 				_, _ = childVM.run()
-			})
+			}); err != nil {
+				return err
+			}
 		}
 
 	case bytecode.OpGoCallIndirect:
@@ -162,7 +165,7 @@ func (v *vm) executeCall(op bytecode.OpCode, frame *Frame) error { //nolint:gocy
 			capturedArgs := args
 
 			// Track the goroutine
-			v.goroutines.Start(func() {
+			if err := v.goroutines.Start(func() {
 				// Create initial frame for the child goroutine with free vars
 				childFrame := newFrame(capturedClosure.Fn, 0, capturedArgs, capturedClosure.FreeVars)
 				childVM.frames[0] = childFrame
@@ -170,7 +173,9 @@ func (v *vm) executeCall(op bytecode.OpCode, frame *Frame) error { //nolint:gocy
 
 				// Run the child VM (ignore return value - goroutine result is discarded)
 				_, _ = childVM.run()
-			})
+			}); err != nil {
+				return err
+			}
 		}
 
 	case bytecode.OpPack:

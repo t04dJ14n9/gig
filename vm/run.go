@@ -1,3 +1,4 @@
+// run.go contains the main fetch-decode-execute loop with hot-path inlined instructions.
 package vm
 
 import (
@@ -85,7 +86,7 @@ func (v *vm) run() (value.Value, error) {
 	for v.fp > 0 {
 		// Periodic context check counter
 		instructionCount++
-		if instructionCount&0x3FF == 0 {
+		if instructionCount&contextCheckMask == 0 {
 			select {
 			case <-v.ctx.Done():
 				v.sp = sp
@@ -168,17 +169,7 @@ func (v *vm) run() (value.Value, error) {
 						// Panic already recovered: run remaining defers normally.
 						// Use child VM like OpRunDefers to avoid interfering with
 						// the parent frame stack.
-						childVM := &vm{
-							program:      v.program,
-							stack:        make([]value.Value, 256),
-							sp:           0,
-							frames:       make([]*Frame, initialFrameDepth),
-							fp:           0,
-							globals:      v.getGlobals(),
-							globalsPtr:   v.globalsPtr,
-							ctx:          v.ctx,
-							extCallCache: v.extCallCache,
-						}
+						childVM := v.newDeferVM()
 						deferFrame := newFrame(d.fn, 0, d.args, freeVars)
 						childVM.frames[0] = deferFrame
 						childVM.fp = 1

@@ -65,6 +65,11 @@ func Parse(src string, reg importer.PackageRegistry, opts ...ParseOption) (*Pars
 		return nil, fmt.Errorf("parse error: %w", err)
 	}
 
+	// Check for banned imports (unsafe, reflect)
+	if err := checkBannedImports(fset, file); err != nil {
+		return nil, err
+	}
+
 	// Check for banned panic usage (unless explicitly allowed)
 	if !cfg.allowPanic {
 		if err := checkBannedPanic(fset, file); err != nil {
@@ -150,6 +155,23 @@ func autoImport(file *ast.File, reg importer.PackageRegistry) {
 
 		alreadyImported[pkgPath] = true
 	}
+}
+
+// checkBannedImports walks the AST and returns an error if any banned import is found.
+// The Gig security model bans "unsafe" and "reflect" imports.
+func checkBannedImports(fset *token.FileSet, file *ast.File) error {
+	banned := map[string]bool{
+		"unsafe":  true,
+		"reflect": true,
+	}
+	for _, imp := range file.Imports {
+		path := strings.Trim(imp.Path.Value, `"`)
+		if banned[path] {
+			pos := fset.Position(imp.Pos())
+			return fmt.Errorf("compile error: import of %q is banned by the Gig security model (at %s)", path, pos)
+		}
+	}
+	return nil
 }
 
 // checkBannedPanic walks the AST and returns an error if any panic() call is found.

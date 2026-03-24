@@ -1,4 +1,4 @@
-// Package vm provides the bytecode virtual machine.
+// frame.go defines Frame (call stack entry) and DeferInfo (deferred call metadata).
 package vm
 
 import (

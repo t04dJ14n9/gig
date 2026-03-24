@@ -1,3 +1,4 @@
+// ops_dispatch.go routes opcodes: executeOp dispatches to category-specific handlers.
 package vm
 
 import (

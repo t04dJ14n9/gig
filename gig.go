@@ -116,6 +116,13 @@ type Program struct {
 // InternalProgram exposes the compiled bytecode program for testing/debugging.
 func (p *Program) InternalProgram() *bytecode.Program { return p.runner.InternalProgram() }
 
+// Close releases resources associated with the Program.
+// It unregisters the per-program method resolver to prevent memory leaks.
+// Callers should defer prog.Close() after calling Build().
+func (p *Program) Close() {
+	p.runner.Close()
+}
+
 // Build compiles Go source code into a Program.
 //
 // The source must define a function that can be called via Run/RunWithContext.

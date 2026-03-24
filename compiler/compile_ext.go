@@ -1,3 +1,4 @@
+// compile_ext.go resolves external package functions, methods, and variables.
 package compiler
 
 import (

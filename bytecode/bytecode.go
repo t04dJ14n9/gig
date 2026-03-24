@@ -1,3 +1,6 @@
+// bytecode.go defines the core program structures: CompiledFunction, Program,
+// ExternalFuncInfo, ExternalMethodInfo, and TypeResolver.
+// See opcode.go for the instruction set definition.
 package bytecode
 
 import (
@@ -95,6 +98,11 @@ type Program struct {
 	// FuncByIndex provides O(1) function lookup by index.
 	// Populated at compile time so the VM can skip the FuncIndex map scan.
 	FuncByIndex []*CompiledFunction
+
+	// MethodsByName maps method name → list of compiled functions with that name.
+	// Built once after compilation. Allows O(k) dispatch (k = methods with that name)
+	// instead of O(n) scan over FuncByIndex.
+	MethodsByName map[string][]*CompiledFunction
 
 	// Constants is the constant pool for literal values and external references.
 	Constants []any

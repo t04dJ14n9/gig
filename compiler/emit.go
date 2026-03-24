@@ -1,3 +1,4 @@
+// emit.go provides bytecode emission helpers: emit, emitJump, patch, addConstant, addType.
 package compiler
 
 import (

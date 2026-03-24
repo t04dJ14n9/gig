@@ -18,7 +18,8 @@ import (
 
 // runnerConfig holds internal options parsed from RunnerOption values.
 type runnerConfig struct {
-	stateful bool
+	stateful      bool
+	maxGoroutines int
 }
 
 // RunnerOption configures Runner construction.
@@ -31,12 +32,23 @@ func WithStatefulGlobals() RunnerOption {
 	}
 }
 
+// WithMaxGoroutines sets the maximum number of concurrent interpreter goroutines.
+// The default is 10,000. Set to 0 to use the default.
+func WithMaxGoroutines(n int) RunnerOption {
+	return func(c *runnerConfig) {
+		c.maxGoroutines = n
+	}
+}
+
 // Runner orchestrates program execution with VM pool management and global state handling.
 type Runner struct {
 	program        *bytecode.Program
 	initialGlobals []value.Value
 	vmPool         *vm.VMPool
 	goroutines     *vm.GoroutineTracker
+
+	// progKey is the key used for RegisterMethodResolver, stored for cleanup.
+	progKey uintptr
 
 	// stateful mode fields
 	stateful      bool
@@ -52,12 +64,16 @@ func New(program *bytecode.Program, initialGlobals []value.Value, opts ...Runner
 	}
 
 	gt := vm.NewGoroutineTracker()
+	if cfg.maxGoroutines > 0 {
+		gt.SetMaxGoroutines(cfg.maxGoroutines)
+	}
 	r := &Runner{
 		program:        program,
 		initialGlobals: initialGlobals,
 		vmPool:         vm.NewVMPool(program, initialGlobals, gt),
 		goroutines:     gt,
 		stateful:       cfg.stateful,
+		progKey:        uintptr(unsafe.Pointer(program)),
 	}
 
 	if cfg.stateful {
@@ -69,8 +85,7 @@ func New(program *bytecode.Program, initialGlobals []value.Value, opts ...Runner
 
 	// Register per-program method resolver for fmt.Stringer support.
 	// Uses program pointer as unique key. Thread-safe via sync.Map.
-	progKey := uintptr(unsafe.Pointer(program))
-	value.RegisterMethodResolver(progKey, func(methodName string, receiver value.Value) (value.Value, bool) {
+	value.RegisterMethodResolver(r.progKey, func(methodName string, receiver value.Value) (value.Value, bool) {
 		return vm.ResolveCompiledMethod(program, methodName, receiver)
 	})
 
@@ -129,6 +144,13 @@ func (r *Runner) WaitContext(ctx context.Context) error {
 
 // InternalProgram exposes the compiled bytecode program for testing/debugging.
 func (r *Runner) InternalProgram() *bytecode.Program { return r.program }
+
+// Close releases resources associated with the Runner.
+// It unregisters the per-program method resolver to prevent memory leaks.
+// Callers should defer Close() after creating a Runner.
+func (r *Runner) Close() {
+	value.UnregisterMethodResolver(r.progKey)
+}
 
 // UnwrapResult converts internal multi-return value.Value slices to []any.
 func UnwrapResult(result value.Value) any {

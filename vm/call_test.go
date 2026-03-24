@@ -41,12 +41,12 @@ func TestGoroutineTrackerBasic(t *testing.T) {
 
 	// Start a goroutine that completes quickly
 	done := make(chan bool, 1)
-	StartGoroutine(func() {
+	tracker.Start(func() { //nolint:errcheck
 		done <- true
 	})
 
 	// Wait for goroutines - should complete
-	WaitGoroutines()
+	tracker.Wait()
 
 	select {
 	case <-done:
@@ -54,23 +54,20 @@ func TestGoroutineTrackerBasic(t *testing.T) {
 	default:
 		t.Error("Goroutine did not complete")
 	}
-
-	// Tracker should have no active goroutines now
-	_ = tracker
 }
 
 func TestGoroutineTrackerWithContext(t *testing.T) {
-	_ = NewGoroutineTracker()
+	tracker := NewGoroutineTracker()
 	ctx := context.Background()
 
 	// Start a quick goroutine
-	StartGoroutine(func() {
+	tracker.Start(func() { //nolint:errcheck
 		// Do nothing, just return
 	})
 
-	err := WaitGoroutinesContext(ctx)
+	err := tracker.WaitContext(ctx)
 	if err != nil {
-		t.Errorf("WaitGoroutinesContext failed: %v", err)
+		t.Errorf("WaitContext failed: %v", err)
 	}
 }
 

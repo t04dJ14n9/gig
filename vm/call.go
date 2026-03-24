@@ -1,3 +1,5 @@
+// call.go handles external function calls (DirectCall + reflect), method dispatch,
+// and variadic argument unpacking.
 package vm
 
 import (
@@ -237,18 +239,26 @@ func (v *vm) callExternal(funcIdx, numArgs int) error {
 		}
 	}
 
-	// Check inline cache with lock for concurrent safety
+	// Fast path: read-lock check (common case — cache already populated)
 	var cacheEntry *extCallCacheEntry
-	v.extCallCache.mu.Lock()
+	v.extCallCache.mu.RLock()
 	if funcIdx < len(v.extCallCache.cache) {
 		cacheEntry = v.extCallCache.cache[funcIdx]
-		if cacheEntry == nil {
-			// Resolve and cache while holding the lock
-			cacheEntry = v.resolveExternalFunc(funcIdx)
-			v.extCallCache.cache[funcIdx] = cacheEntry
-		}
 	}
-	v.extCallCache.mu.Unlock()
+	v.extCallCache.mu.RUnlock()
+
+	if cacheEntry == nil {
+		// Slow path: write-lock to populate the entry (double-checked)
+		v.extCallCache.mu.Lock()
+		if funcIdx < len(v.extCallCache.cache) {
+			cacheEntry = v.extCallCache.cache[funcIdx]
+			if cacheEntry == nil {
+				cacheEntry = v.resolveExternalFunc(funcIdx)
+				v.extCallCache.cache[funcIdx] = cacheEntry
+			}
+		}
+		v.extCallCache.mu.Unlock()
+	}
 
 	// Fast path: DirectCall available
 	if cacheEntry.directCall != nil {
@@ -312,6 +322,62 @@ func (v *vm) resolveExternalFunc(funcIdx int) *extCallCacheEntry {
 	return entry
 }
 
+// buildReflectArgs converts []value.Value args to []reflect.Value for reflect.Call,
+// handling SSA-packed variadic slices. fnType is the target function type.
+func buildReflectArgs(args []value.Value, fnType reflect.Type) []reflect.Value {
+	numIn := fnType.NumIn()
+	isVariadic := fnType.IsVariadic()
+	numArgs := len(args)
+
+	if isVariadic && numArgs == numIn {
+		// The last arg might be the variadic slice packed by SSA
+		lastArg := args[numArgs-1]
+		if rv, ok := lastArg.ReflectValue(); ok && rv.Kind() == reflect.Slice {
+			// Unpack: use first N-1 args normally, then spread the slice elements
+			sliceLen := rv.Len()
+			in := make([]reflect.Value, numIn-1+sliceLen)
+			for i := 0; i < numArgs-1; i++ {
+				in[i] = args[i].ToReflectValue(fnType.In(i))
+			}
+			elemType := fnType.In(numIn - 1).Elem()
+			for i := 0; i < sliceLen; i++ {
+				elem := rv.Index(i)
+				if elem.Kind() == reflect.Interface && !elem.IsNil() {
+					elem = elem.Elem()
+				}
+				if elem.Type().ConvertibleTo(elemType) {
+					in[numIn-1+i] = elem.Convert(elemType)
+				} else {
+					in[numIn-1+i] = elem
+				}
+			}
+			return in
+		}
+		// Last arg is not a slice, treat normally
+		in := make([]reflect.Value, numArgs)
+		for i, arg := range args {
+			if i >= numIn-1 {
+				variadicType := fnType.In(numIn - 1).Elem()
+				in[i] = arg.ToReflectValue(variadicType)
+			} else {
+				in[i] = arg.ToReflectValue(fnType.In(i))
+			}
+		}
+		return in
+	}
+
+	in := make([]reflect.Value, numArgs)
+	for i, arg := range args {
+		if i < numIn {
+			in[i] = arg.ToReflectValue(fnType.In(i))
+		} else if isVariadic {
+			variadicType := fnType.In(numIn - 1).Elem()
+			in[i] = arg.ToReflectValue(variadicType)
+		}
+	}
+	return in
+}
+
 // callExternalReflect executes an external function using reflect.Call.
 // This is the slow path when no DirectCall wrapper is available.
 func (v *vm) callExternalReflect(entry *extCallCacheEntry, args []value.Value) error {
@@ -320,56 +386,7 @@ func (v *vm) callExternalReflect(entry *extCallCacheEntry, args []value.Value) e
 		return nil
 	}
 
-	numArgs := len(args)
-
-	// Build reflect.Value arguments
-	var in []reflect.Value
-
-	// For variadic calls where SSA passes the variadic slice as the last arg,
-	// we need to unpack it for reflect.Call
-	if entry.isVariadic && numArgs == entry.numIn {
-		// The last arg might be the variadic slice packed by SSA
-		lastArg := args[numArgs-1]
-		if rv, ok := lastArg.ReflectValue(); ok && rv.Kind() == reflect.Slice {
-			// Unpack: use first N-1 args normally, then spread the slice elements
-			sliceLen := rv.Len()
-			in = make([]reflect.Value, entry.numIn-1+sliceLen)
-			for i := 0; i < numArgs-1; i++ {
-				in[i] = args[i].ToReflectValue(entry.fnType.In(i))
-			}
-			elemType := entry.fnType.In(entry.numIn - 1).Elem()
-			for i := 0; i < sliceLen; i++ {
-				elem := rv.Index(i)
-				// If elem is interface{}, unwrap it
-				if elem.Kind() == reflect.Interface && !elem.IsNil() {
-					elem = elem.Elem()
-				}
-				if elem.Type().ConvertibleTo(elemType) {
-					in[entry.numIn-1+i] = elem.Convert(elemType)
-				} else {
-					in[entry.numIn-1+i] = elem
-				}
-			}
-		} else {
-			// Last arg is not a slice, treat normally
-			in = make([]reflect.Value, numArgs)
-			for i, arg := range args {
-				if i >= entry.numIn-1 {
-					variadicType := entry.fnType.In(entry.numIn - 1).Elem()
-					in[i] = arg.ToReflectValue(variadicType)
-				} else {
-					in[i] = arg.ToReflectValue(entry.fnType.In(i))
-				}
-			}
-		}
-	} else {
-		in = make([]reflect.Value, numArgs)
-		for i, arg := range args {
-			if i < entry.numIn {
-				in[i] = arg.ToReflectValue(entry.fnType.In(i))
-			}
-		}
-	}
+	in := buildReflectArgs(args, entry.fnType)
 
 	// Call the function
 	out := entry.fn.Call(in)
@@ -506,52 +523,9 @@ func (v *vm) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo, 
 
 	// Build arguments (skip the receiver at args[0])
 	methodType := method.Type()
-	numIn := methodType.NumIn()
-	isVariadic := methodType.IsVariadic()
 	methodArgs := args[1:]
 
-	var in []reflect.Value
-
-	if isVariadic && len(methodArgs) == numIn {
-		// Check if the last arg is a packed variadic slice from SSA
-		lastArg := methodArgs[len(methodArgs)-1]
-		if lastRV, ok := lastArg.ReflectValue(); ok && lastRV.Kind() == reflect.Slice {
-			sliceLen := lastRV.Len()
-			in = make([]reflect.Value, numIn-1+sliceLen)
-			for i := 0; i < len(methodArgs)-1; i++ {
-				in[i] = methodArgs[i].ToReflectValue(methodType.In(i))
-			}
-			elemType := methodType.In(numIn - 1).Elem()
-			for i := 0; i < sliceLen; i++ {
-				elem := lastRV.Index(i)
-				if elem.Kind() == reflect.Interface && !elem.IsNil() {
-					elem = elem.Elem()
-				}
-				if elem.Type().ConvertibleTo(elemType) {
-					in[numIn-1+i] = elem.Convert(elemType)
-				} else {
-					in[numIn-1+i] = elem
-				}
-			}
-		} else {
-			in = make([]reflect.Value, len(methodArgs))
-			for i, arg := range methodArgs {
-				if i < numIn {
-					in[i] = arg.ToReflectValue(methodType.In(i))
-				}
-			}
-		}
-	} else {
-		in = make([]reflect.Value, len(methodArgs))
-		for i, arg := range methodArgs {
-			if i < numIn {
-				in[i] = arg.ToReflectValue(methodType.In(i))
-			} else if isVariadic {
-				variadicType := methodType.In(numIn - 1).Elem()
-				in[i] = arg.ToReflectValue(variadicType)
-			}
-		}
-	}
+	in := buildReflectArgs(methodArgs, methodType)
 
 	// Call the method
 	out := method.Call(in)
@@ -590,15 +564,12 @@ func (v *vm) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo, 
 //
 // args[0] is the receiver, args[1:] are the method arguments.
 func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args []value.Value) error {
+	// Use MethodsByName index for O(k) lookup instead of O(n) scan.
+	candidates := v.program.MethodsByName[methodName]
+
 	// If we have a receiver type hint, first try to match both name and receiver type.
 	if receiverTypeName != "" {
-		for _, fn := range v.program.FuncByIndex {
-			if fn == nil || !fn.HasReceiver {
-				continue
-			}
-			if fn.Name != methodName {
-				continue
-			}
+		for _, fn := range candidates {
 			if fn.ReceiverTypeName == receiverTypeName {
 				for _, arg := range args {
 					v.push(arg)
@@ -612,13 +583,7 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 	// Fallback: try to infer receiver type from the actual runtime value in args[0].
 	if len(args) > 0 {
 		if concreteTypeName := inferReceiverTypeName(args[0]); concreteTypeName != "" {
-			for _, fn := range v.program.FuncByIndex {
-				if fn == nil || !fn.HasReceiver {
-					continue
-				}
-				if fn.Name != methodName {
-					continue
-				}
+			for _, fn := range candidates {
 				if fn.ReceiverTypeName == concreteTypeName {
 					for _, arg := range args {
 						v.push(arg)
@@ -630,15 +595,9 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 		}
 	}
 
-	// Last resort: match by method name only (original behavior).
-	for _, fn := range v.program.FuncByIndex {
-		if fn == nil || !fn.HasReceiver {
-			continue
-		}
-		if fn.Name != methodName {
-			continue
-		}
-		// Found a matching compiled method — call it with args as a compiled function.
+	// Last resort: match by method name only (first candidate).
+	if len(candidates) > 0 {
+		fn := candidates[0]
 		for _, arg := range args {
 			v.push(arg)
 		}

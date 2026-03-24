@@ -1,3 +1,4 @@
+// compile_value.go compiles SSA values: constants, conversions, slicing, type asserts.
 package compiler
 
 import (

@@ -1,3 +1,4 @@
+// iterator.go implements range iteration over slices, arrays, maps, and strings.
 package vm
 
 import (

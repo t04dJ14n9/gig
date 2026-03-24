@@ -1,3 +1,4 @@
+// ops_container.go handles slice/map/chan creation, index, append, copy, delete, range, len, and cap.
 package vm
 
 import (
@@ -237,7 +238,7 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 		// Handle string slicing specially
 		if container.Kind() == value.KindString {
 			high := int(highVal.Int())
-			if high == 0xFFFF {
+			if high == sliceEndSentinel {
 				high = len(container.String())
 			}
 			v.push(value.MakeString(container.String()[low:high]))
@@ -247,10 +248,10 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 		// Native []int64 slice fast path
 		if s, ok := container.IntSlice(); ok {
 			high := int(highVal.Int())
-			if high == 0xFFFF {
+			if high == sliceEndSentinel {
 				high = len(s)
 			}
-			if maxVal.Kind() != value.KindNil && maxVal.Int() != 0xFFFF {
+			if maxVal.Kind() != value.KindNil && maxVal.Int() != sliceEndSentinel {
 				v.push(value.MakeIntSlice(s[low:high:int(maxVal.Int())]))
 			} else {
 				v.push(value.MakeIntSlice(s[low:high]))
@@ -273,14 +274,14 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			if (rv.Kind() == reflect.Array || rv.Kind() == reflect.Slice) && rv.Type().Elem().Kind() == reflect.Int {
 				n := rv.Len()
 				high := int(highVal.Int())
-				if high == 0xFFFF {
+				if high == sliceEndSentinel {
 					high = n
 				}
 				s := make([]int64, n)
 				for i := 0; i < n; i++ {
 					s[i] = rv.Index(i).Int()
 				}
-				if maxVal.Kind() != value.KindNil && maxVal.Int() != 0xFFFF {
+				if maxVal.Kind() != value.KindNil && maxVal.Int() != sliceEndSentinel {
 					v.push(value.MakeIntSlice(s[low:high:int(maxVal.Int())]))
 				} else {
 					v.push(value.MakeIntSlice(s[low:high]))
@@ -291,7 +292,7 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			// Handle native []value.Value slices (used for function slices)
 			if rv.Kind() == reflect.Slice && rv.Type().Elem() == reflect.TypeOf(value.Value{}) {
 				high := int(highVal.Int())
-				if high == 0xFFFF {
+				if high == sliceEndSentinel {
 					high = rv.Len()
 				}
 				sliced := rv.Slice(low, high)
@@ -300,12 +301,12 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			}
 
 			high := int(highVal.Int())
-			if high == 0xFFFF {
+			if high == sliceEndSentinel {
 				high = rv.Len()
 			}
 
 			var sliced reflect.Value
-			if maxVal.Kind() != value.KindNil && maxVal.Int() != 0xFFFF {
+			if maxVal.Kind() != value.KindNil && maxVal.Int() != sliceEndSentinel {
 				// 3-index slice: container[low:high:max]
 				max := int(maxVal.Int())
 				sliced = rv.Slice3(low, high, max)

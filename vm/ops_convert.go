@@ -1,3 +1,4 @@
+// ops_convert.go handles type assertion, conversion, and change-type operations.
 package vm
 
 import (
@@ -249,7 +250,7 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 					// For slices: update the source local to share the same backing array.
 					// This ensures that sort.IntSlice(s) and s refer to the same data,
 					// matching Go's semantics where ChangeType on slices shares memory.
-					if srcLocalIdx != 0xFFFF && rv.Kind() == reflect.Slice {
+					if srcLocalIdx != noSourceLocalSentinel && rv.Kind() == reflect.Slice {
 						if int(srcLocalIdx) < len(frame.locals) {
 							// Create a view of the same backing array as the underlying slice type.
 							// e.g., for sort.IntSlice -> create a []int sharing the same backing.

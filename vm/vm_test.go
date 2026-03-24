@@ -287,7 +287,7 @@ func TestChannelRecvSuccess(t *testing.T) {
 // TestGoroutineTrackerWaitContext verifies that GoroutineTracker.WaitContext respects cancellation.
 func TestGoroutineTrackerWaitContext(t *testing.T) {
 	gt := NewGoroutineTracker()
-	gt.Start(func() {
+	gt.Start(func() { //nolint:errcheck
 		time.Sleep(100 * time.Millisecond)
 	})
 
@@ -311,7 +311,7 @@ func TestGoroutineTrackerStartAndWait(t *testing.T) {
 	gt := NewGoroutineTracker()
 	var counter int64
 	for i := 0; i < 5; i++ {
-		gt.Start(func() {
+		gt.Start(func() { //nolint:errcheck
 			atomic.AddInt64(&counter, 1)
 		})
 	}

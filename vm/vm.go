@@ -27,6 +27,30 @@
 // Closures are represented as Closure structs containing a function reference
 // and captured free variables. Free variables are stored as pointers to allow
 // shared state between closures.
+//
+// # File Organization
+//
+// The vm package is split across 17 files by responsibility:
+//
+//   - vm.go          — VM struct, constructor, Run/RunWithContext entry points
+//   - run.go         — Main fetch-decode-execute loop with hot-path inlined instructions
+//   - frame.go       — Frame (call stack entry) and DeferInfo (deferred call metadata)
+//   - stack.go       — Operand stack push/pop/peek with bounded growth
+//   - call.go        — External function calls (DirectCall + reflect), method dispatch
+//   - closure.go     — Closure type and ClosureExecutor for reflect.MakeFunc integration
+//   - goroutine.go   — GoroutineTracker, child/defer VM construction
+//   - iterator.go    — Range iteration over slices, arrays, maps, and strings
+//   - constants.go   — Named constants replacing magic numbers across the VM
+//   - typeconv.go    — go/types.Type → reflect.Type conversion with cycle detection
+//   - ops_dispatch.go — Opcode routing: executeOp dispatches to category handlers
+//   - ops_memory.go   — Stack ops, constants, locals/globals/free vars, fields, addresses
+//   - ops_arithmetic.go — Arithmetic, bitwise, comparison, and logical operations
+//   - ops_container.go  — Slice/map/chan creation, index, append, copy, delete, range
+//   - ops_control.go    — Control flow, channels, select, defer, panic/recover, halt
+//   - ops_convert.go    — Type assertion, conversion, and change-type operations
+//   - ops_call.go       — Function/closure calls, goroutine spawning, tuple pack/unpack
+//
+// For detailed internals, see docs/gig-internals.md and docs/value-system.md.
 package vm
 
 import (
@@ -157,7 +181,7 @@ func newVM(program *bytecode.Program, initialGlobals []value.Value, goroutines *
 
 	return &vm{
 		program:        program,
-		stack:          make([]value.Value, 1024), // initial stack size
+		stack:          make([]value.Value, initialStackSize),
 		sp:             0,
 		frames:         make([]*Frame, initialFrameDepth),
 		fp:             0,
@@ -274,20 +298,14 @@ func ResolveCompiledMethod(program *bytecode.Program, methodName string, receive
 	}
 
 	// Search the compiled function table for a method with matching name and receiver type
-	for _, fn := range program.FuncByIndex {
-		if fn == nil || !fn.HasReceiver {
-			continue
-		}
-		if fn.Name != methodName {
-			continue
-		}
+	for _, fn := range program.MethodsByName[methodName] {
 		if fn.ReceiverTypeName != receiverTypeName {
 			continue
 		}
 		// Found the method! Execute it with a temporary VM.
 		tempVM := &vm{
 			program: program,
-			stack:   make([]value.Value, 256),
+			stack:   make([]value.Value, deferVMStackSize),
 			sp:      0,
 			frames:  make([]*Frame, initialFrameDepth),
 			fp:      0,

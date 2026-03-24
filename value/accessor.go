@@ -1,3 +1,5 @@
+// accessor.go provides the method resolver registry and type accessors
+// (Bool, Int, Float, String, Interface, ToReflectValue).
 package value
 
 import (

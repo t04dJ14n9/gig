@@ -1,3 +1,4 @@
+// ops_arithmetic.go implements arithmetic, bitwise, comparison, and logical operations.
 package vm
 
 import (
