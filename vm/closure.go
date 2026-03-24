@@ -42,7 +42,7 @@ func (c *Closure) Execute(args []reflect.Value, outTypes []reflect.Type) []refle
 		program: c.Program,
 		stack:   make([]value.Value, 256),
 		sp:      0,
-		frames:  make([]*Frame, 64),
+		frames:  make([]*Frame, initialFrameDepth),
 		fp:      0,
 		globals: make([]value.Value, len(c.Program.Globals)),
 		ctx:     context.Background(),

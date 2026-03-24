@@ -29,7 +29,6 @@ import (
 	_ "math/big"
 	_ "math/bits"
 	_ "math/cmplx"
-	_ "math/rand"
 	_ "math/rand/v2"
 
 	// --- Collections & sorting ---

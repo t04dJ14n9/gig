@@ -40,6 +40,23 @@ import (
 	"git.woa.com/youngjin/gig/value"
 )
 
+// panicState stores a saved panic state for nested panics.
+type panicState struct {
+	panicking bool
+	panicVal  value.Value
+}
+
+const (
+	// initialFrameDepth is the starting size of the call frame stack.
+	// Covers the vast majority of programs without any growth.
+	initialFrameDepth = 64
+
+	// maxFrameDepth is the hard ceiling for the call frame stack.
+	// Prevents runaway recursion from consuming unbounded memory.
+	// Each slot is a single pointer (8 bytes), so 1024 slots = 8 KB.
+	maxFrameDepth = 1024
+)
+
 // vm is the bytecode virtual machine struct.
 // It executes compiled programs using a stack-based architecture.
 type vm struct {
@@ -74,9 +91,16 @@ type vm struct {
 	// panicVal is the current panic value.
 	panicVal value.Value
 
-	// runningDefer indicates we're executing a deferred function.
-	// When true, the panic check at the top of run() is skipped.
-	runningDefer bool
+	// panicStack stores saved panic states for nested panics (panic inside defer).
+	// When a panic occurs during defer execution, the current panic is pushed
+	// onto the stack, and the new panic becomes active. When the inner panic
+	// is recovered, the outer panic is restored from the stack.
+	panicStack []panicState
+
+	// deferDepth tracks the nesting level of deferred function execution.
+	// 0 = normal execution, 1+ = inside deferred function(s).
+	// Replaces the boolean runningDefer flag to support nested defer panics.
+	deferDepth int
 
 	// extCallCache caches resolved external function info for fast dispatch.
 	// Uses a shared cache pointer for concurrent access from goroutines.
@@ -135,7 +159,7 @@ func newVM(program *bytecode.Program, initialGlobals []value.Value, goroutines *
 		program:        program,
 		stack:          make([]value.Value, 1024), // initial stack size
 		sp:             0,
-		frames:         make([]*Frame, 64), // max call depth
+		frames:         make([]*Frame, initialFrameDepth),
 		fp:             0,
 		globals:        globals,
 		initialGlobals: initialGlobals,
@@ -152,6 +176,8 @@ func (v *vm) Reset() {
 	v.fp = 0
 	v.panicking = false
 	v.panicVal = value.MakeNil()
+	v.panicStack = v.panicStack[:0]
+	v.deferDepth = 0
 	v.ctx = nil
 	// Clear all frames (prevents stale frame references from previous execution).
 	for i := range v.frames {
@@ -177,6 +203,24 @@ func (v *vm) Reset() {
 			v.globals[idx] = value.FromInterface(ptr)
 		}
 	}
+}
+
+// growFrames doubles the frame stack capacity up to maxFrameDepth.
+// Called when fp reaches the current slice length.
+// Returns false if the stack is already at maximum capacity (stack overflow).
+func (v *vm) growFrames() bool {
+	cur := len(v.frames)
+	if cur >= maxFrameDepth {
+		return false
+	}
+	newCap := cur * 2
+	if newCap > maxFrameDepth {
+		newCap = maxFrameDepth
+	}
+	grown := make([]*Frame, newCap)
+	copy(grown, v.frames)
+	v.frames = grown
+	return true
 }
 
 // BindSharedGlobals makes this VM execute against the provided shared globals slice.
@@ -245,7 +289,7 @@ func ResolveCompiledMethod(program *bytecode.Program, methodName string, receive
 			program: program,
 			stack:   make([]value.Value, 256),
 			sp:      0,
-			frames:  make([]*Frame, 64),
+			frames:  make([]*Frame, initialFrameDepth),
 			fp:      0,
 			globals: make([]value.Value, len(program.Globals)),
 			ctx:     context.Background(),
@@ -304,7 +348,10 @@ func (p *VMPool) Put(x VM) {
 }
 
 // Execute runs the specified function with the given arguments.
-func (v *vm) Execute(funcName string, ctx context.Context, args ...value.Value) (value.Value, error) {
+// A Go-level recover() safety net catches any host-level panics (nil map write,
+// slice OOB, type assertion, etc.) and converts them to error returns, ensuring
+// sandboxed execution never crashes the host process.
+func (v *vm) Execute(funcName string, ctx context.Context, args ...value.Value) (result value.Value, err error) {
 	v.ctx = ctx
 
 	fn, ok := v.program.Functions[funcName]
@@ -327,12 +374,21 @@ func (v *vm) Execute(funcName string, ctx context.Context, args ...value.Value) 
 	v.frames[0] = frame
 	v.fp = 1
 
-	result, err := v.run()
+	// Safety net: catch Go-level panics from VM execution
+	defer func() {
+		if r := recover(); r != nil {
+			result = value.MakeNil()
+			err = fmt.Errorf("runtime panic: %v", r)
+		}
+	}()
+
+	result, err = v.run()
 	return result, err
 }
 
 // ExecuteWithValues runs the specified function with pre-converted Value arguments.
-func (v *vm) ExecuteWithValues(funcName string, ctx context.Context, args []value.Value) (value.Value, error) {
+// Includes the same Go-level panic safety net as Execute.
+func (v *vm) ExecuteWithValues(funcName string, ctx context.Context, args []value.Value) (result value.Value, err error) {
 	v.ctx = ctx
 
 	fn, ok := v.program.Functions[funcName]
@@ -351,6 +407,14 @@ func (v *vm) ExecuteWithValues(funcName string, ctx context.Context, args []valu
 	}
 	v.frames[0] = frame
 	v.fp = 1
+
+	// Safety net: catch Go-level panics from VM execution
+	defer func() {
+		if r := recover(); r != nil {
+			result = value.MakeNil()
+			err = fmt.Errorf("runtime panic: %v", r)
+		}
+	}()
 
 	return v.run()
 }

@@ -68,6 +68,7 @@ var ErrTimeout = context.DeadlineExceeded
 type buildConfig struct {
 	registry        importer.PackageRegistry
 	statefulGlobals bool
+	allowPanic      bool
 }
 
 // BuildOption configures the behaviour of Build.
@@ -95,6 +96,16 @@ func WithStatefulGlobals() BuildOption {
 	}
 }
 
+// WithAllowPanic allows the use of panic() in interpreted code.
+// By default, panic() is banned at compile time for sandbox safety.
+// When enabled, panic/recover/defer work as in standard Go, and unrecovered
+// panics are returned as errors rather than crashing the host process.
+func WithAllowPanic() BuildOption {
+	return func(c *buildConfig) {
+		c.allowPanic = true
+	}
+}
+
 // Program represents a compiled Go program ready for execution.
 // It delegates execution to a runner.Runner for VM pool management and global state handling.
 type Program struct {
@@ -115,8 +126,8 @@ func (p *Program) InternalProgram() *bytecode.Program { return p.runner.Internal
 // The compilation process:
 //  1. Parse source code into AST
 //  2. Check for banned imports (unsafe, reflect)
-//  3. Type-check with custom importer for external packages
-//  4. Check for banned panic usage
+//  3. Check for banned panic usage (unless WithAllowPanic is set)
+//  4. Type-check with custom importer for external packages
 //  5. Build SSA intermediate representation
 //  6. Compile SSA to bytecode
 //
@@ -139,7 +150,11 @@ func Build(sourceCode string, opts ...BuildOption) (*Program, error) {
 	}
 
 	// Compile: parse → SSA → bytecode (full pipeline owned by compiler package)
-	result, err := compiler.Build(sourceCode, cfg.registry)
+	var compilerOpts []compiler.BuildOption
+	if cfg.allowPanic {
+		compilerOpts = append(compilerOpts, compiler.WithAllowPanic())
+	}
+	result, err := compiler.Build(sourceCode, cfg.registry, compilerOpts...)
 	if err != nil {
 		return nil, err
 	}

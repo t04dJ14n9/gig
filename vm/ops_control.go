@@ -242,7 +242,7 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 				program:      v.program,
 				stack:        make([]value.Value, 256),
 				sp:           0,
-				frames:       make([]*Frame, 64),
+				frames:       make([]*Frame, initialFrameDepth),
 				fp:           0,
 				globals:      v.globals,
 				globalsPtr:   v.globalsPtr,
@@ -255,20 +255,30 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 			_, _ = childVM.run()
 		}
 
-case bytecode.OpRecover:
-	// Recover from panic
-	if v.panicking {
-		v.push(v.panicVal)
-		v.panicking = false
-		v.panicVal = value.MakeNil()
-	} else {
-		v.push(value.MakeNil())
-	}
+	case bytecode.OpRecover:
+		// Recover from panic. recover() only works when called from a deferred function
+		// during panic unwinding. The panic state is stored on panicStack when defers
+		// are being executed, or in v.panicking for direct panic context.
+		if v.panicking {
+			// Direct panic context (shouldn't normally happen inside deferred functions
+			// since we save to panicStack, but handle it for safety)
+			v.push(v.panicVal)
+			v.panicking = false
+			v.panicVal = value.MakeNil()
+		} else if len(v.panicStack) > 0 && v.panicStack[len(v.panicStack)-1].panicking {
+			// Inside a deferred function: the panic state was saved on the stack.
+			// Consume it — mark as recovered.
+			v.push(v.panicStack[len(v.panicStack)-1].panicVal)
+			v.panicStack[len(v.panicStack)-1].panicking = false
+			v.panicStack[len(v.panicStack)-1].panicVal = value.MakeNil()
+		} else {
+			v.push(value.MakeNil())
+		}
 
-case bytecode.OpPanic:
-	msg := v.pop()
-	v.panicking = true
-	v.panicVal = msg
+	case bytecode.OpPanic:
+		msg := v.pop()
+		v.panicking = true
+		v.panicVal = msg
 
 	case bytecode.OpPrint:
 		n := frame.readByte()

@@ -50,9 +50,6 @@ type DeferInfo struct {
 	// args are the arguments to pass.
 	args []value.Value
 
-	// external is the external function to call (if not nil).
-	external any
-
 	// closure is the closure to call (for OpDeferIndirect).
 	closure *Closure
 }

@@ -66,7 +66,7 @@ func (v *vm) newChildVM() *vm {
 		program:        v.program,
 		stack:          make([]value.Value, 1024),
 		sp:             0,
-		frames:         make([]*Frame, 64),
+		frames:         make([]*Frame, initialFrameDepth),
 		fp:             0,
 		globals:        nil, // Not used when globalsPtr is set
 		globalsPtr:     v.globalsPtr,

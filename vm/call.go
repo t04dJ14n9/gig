@@ -186,6 +186,11 @@ func (v *vm) callCompiledFunction(funcIdx, numArgs int) {
 		}
 	}
 
+	if v.fp >= len(v.frames) {
+		if !v.growFrames() {
+			panic("gig: call stack overflow")
+		}
+	}
 	v.frames[v.fp] = frame
 	v.fp++
 }
@@ -202,6 +207,12 @@ func (v *vm) callFunction(fn *bytecode.CompiledFunction, args []value.Value, fre
 			if frame.intLocals != nil {
 				frame.intLocals[i] = arg.RawInt()
 			}
+		}
+	}
+	if v.fp >= len(v.frames) {
+		if !v.growFrames() {
+			// Stack overflow — trigger a panic that the safety net will catch.
+			panic("gig: call stack overflow")
 		}
 	}
 	v.frames[v.fp] = frame

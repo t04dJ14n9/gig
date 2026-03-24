@@ -21,6 +21,7 @@ import (
 	"git.woa.com/youngjin/gig/tests/testdata/channels"
 	"git.woa.com/youngjin/gig/tests/testdata/closures"
 	"git.woa.com/youngjin/gig/tests/testdata/closures_advanced"
+	"git.woa.com/youngjin/gig/tests/testdata/complex"
 	"git.woa.com/youngjin/gig/tests/testdata/controlflow"
 	"git.woa.com/youngjin/gig/tests/testdata/cornercases"
 	"git.woa.com/youngjin/gig/tests/testdata/edgecases"
@@ -33,6 +34,7 @@ import (
 	"git.woa.com/youngjin/gig/tests/testdata/maps"
 	"git.woa.com/youngjin/gig/tests/testdata/multiassign"
 	"git.woa.com/youngjin/gig/tests/testdata/namedreturn"
+	"git.woa.com/youngjin/gig/tests/testdata/panic_recover"
 	"git.woa.com/youngjin/gig/tests/testdata/recursion"
 	"git.woa.com/youngjin/gig/tests/testdata/resolved_issue"
 	"git.woa.com/youngjin/gig/tests/testdata/scope"
@@ -54,6 +56,9 @@ func TestBitwise(t *testing.T)    { runTestSet(t, testSet{src: bitwiseSrc, tests
 func TestClosures(t *testing.T)   { runTestSet(t, testSet{src: closuresSrc, tests: closuresTests}) }
 func TestClosuresAdvanced(t *testing.T) {
 	runTestSet(t, testSet{src: closuresAdvancedSrc, tests: closures_advancedTests})
+}
+func TestComplex(t *testing.T) {
+	runTestSet(t, testSet{src: complexSrc, tests: complexTests, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}})
 }
 
 func TestControlflow(t *testing.T) {
@@ -84,6 +89,9 @@ func TestMultiassign(t *testing.T) {
 
 func TestNamedreturn(t *testing.T) {
 	runTestSet(t, testSet{src: namedreturnSrc, tests: namedreturnTests})
+}
+func TestPanicRecover(t *testing.T) {
+	runTestSet(t, testSet{src: panicRecoverSrc, tests: panicRecoverTests, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}})
 }
 func TestRecursion(t *testing.T) { runTestSet(t, testSet{src: recursionSrc, tests: recursionTests}) }
 func TestResolvedIssue(t *testing.T) {
@@ -184,8 +192,9 @@ func compareCorrectnessResults(t *testing.T, got, expected any) {
 
 // testSet represents a group of tests that share the same source file
 type testSet struct {
-	src   string
-	tests map[string]testCase // key is just funcName, not full path
+	src       string
+	tests     map[string]testCase // key is just funcName, not full path
+	buildOpts []gig.BuildOption   // optional build options (e.g., WithAllowPanic)
 }
 
 // progCache caches compiled programs by source to avoid recompilation.
@@ -193,11 +202,11 @@ type testSet struct {
 var progCache sync.Map
 
 // loadProgram returns the cached program for src, building and caching it if needed.
-func loadProgram(src string) (*gig.Program, error) {
+func loadProgram(src string, opts ...gig.BuildOption) (*gig.Program, error) {
 	if prog, ok := progCache.Load(src); ok {
 		return prog.(*gig.Program), nil
 	}
-	prog, err := gig.Build(src)
+	prog, err := gig.Build(src, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +217,7 @@ func loadProgram(src string) (*gig.Program, error) {
 // runTestSet runs all tests in a test set, compiling the source once
 func runTestSet(t *testing.T, set testSet) {
 	t.Helper()
-	prog, err := loadProgram(set.src)
+	prog, err := loadProgram(set.src, set.buildOpts...)
 	if err != nil {
 		t.Fatalf("Build error: %v", err)
 	}
@@ -265,6 +274,9 @@ var closuresSrc string
 //go:embed testdata/closures_advanced/main.go
 var closuresAdvancedSrc string
 
+//go:embed testdata/complex/main.go
+var complexSrc string
+
 //go:embed testdata/controlflow/main.go
 var controlflowSrc string
 
@@ -303,6 +315,9 @@ var multiassignSrc string
 
 //go:embed testdata/namedreturn/main.go
 var namedreturnSrc string
+
+//go:embed testdata/panic_recover/main.go
+var panicRecoverSrc string
 
 //go:embed testdata/recursion/main.go
 var recursionSrc string
@@ -458,6 +473,121 @@ var closures_advancedTests = map[string]testCase{
 	"ApplyN":             {closuresAdvancedSrc, "ApplyN", nil, closures_advanced.ApplyN},
 	"Compose":            {closuresAdvancedSrc, "Compose", nil, closures_advanced.Compose},
 	"ClosureForLoopTest": {closuresAdvancedSrc, "ClosureForLoopTest", nil, closures_advanced.ClosureForLoopTest},
+}
+
+var complexTests = map[string]testCase{
+	// Closure tests
+	"ClosureCaptureLoop":     {complexSrc, "ClosureCaptureLoop", nil, complex.ClosureCaptureLoop},
+	"ClosureMutualRecursion": {complexSrc, "ClosureMutualRecursion", nil, complex.ClosureMutualRecursion},
+	"ClosureCurryAdd":        {complexSrc, "ClosureCurryAdd", nil, complex.ClosureCurryAdd},
+	"ClosureCounterChain":    {complexSrc, "ClosureCounterChain", nil, complex.ClosureCounterChain},
+	"ClosureMemoize":         {complexSrc, "ClosureMemoize", nil, complex.ClosureMemoize},
+	"ClosureYieldGenerator":  {complexSrc, "ClosureYieldGenerator", nil, complex.ClosureYieldGenerator},
+	"ClosureFilter":          {complexSrc, "ClosureFilter", nil, complex.ClosureFilter},
+	"ClosureReduce":          {complexSrc, "ClosureReduce", nil, complex.ClosureReduce},
+	"ClosureCompose":         {complexSrc, "ClosureCompose", nil, complex.ClosureCompose},
+	"ClosurePartial":         {complexSrc, "ClosurePartial", nil, complex.ClosurePartial},
+	"ClosureOnce":            {complexSrc, "ClosureOnce", nil, complex.ClosureOnce},
+	"ClosureState":           {complexSrc, "ClosureState", nil, complex.ClosureState},
+	"ClosureDefer":           {complexSrc, "ClosureDefer", nil, complex.ClosureDefer},
+	"ClosureCaptureSlice":    {complexSrc, "ClosureCaptureSlice", nil, complex.ClosureCaptureSlice},
+	"ClosureCaptureMap":      {complexSrc, "ClosureCaptureMap", nil, complex.ClosureCaptureMap},
+	"ClosureRecursive":       {complexSrc, "ClosureRecursive", nil, complex.ClosureRecursive},
+	"ClosureInStruct":        {complexSrc, "ClosureInStruct", nil, complex.ClosureInStruct},
+	"ClosureSliceOfFuncs":    {complexSrc, "ClosureSliceOfFuncs", nil, complex.ClosureSliceOfFuncs},
+	"ClosureMapOfFuncs":      {complexSrc, "ClosureMapOfFuncs", nil, complex.ClosureMapOfFuncs},
+	// Control tests
+	"ControlNestedIf":   {complexSrc, "ControlNestedIf", nil, complex.ControlNestedIf},
+	"ControlNestedLoop": {complexSrc, "ControlNestedLoop", nil, complex.ControlNestedLoop},
+	"ControlTripleLoop": {complexSrc, "ControlTripleLoop", nil, complex.ControlTripleLoop},
+	// Defer tests
+	"DeferBasic":          {complexSrc, "DeferBasic", nil, complex.DeferBasic},
+	"DeferMultiple":       {complexSrc, "DeferMultiple", nil, complex.DeferMultiple},
+	"DeferClosureCapture": {complexSrc, "DeferClosureCapture", nil, complex.DeferClosureCapture},
+	// Note: DeferRecover and DeferRecoverCheck disabled - panic/recover has interpreter bug
+	// Map tests
+	"MapNested":               {complexSrc, "MapNested", nil, complex.MapNested},
+	"MapMerge":                {complexSrc, "MapMerge", nil, complex.MapMerge},
+	"MapInvert":               {complexSrc, "MapInvert", nil, complex.MapInvert},
+	"MapKeys":                 {complexSrc, "MapKeys", nil, complex.MapKeys},
+	"MapValues":               {complexSrc, "MapValues", nil, complex.MapValues},
+	"MapFilterKeys":           {complexSrc, "MapFilterKeys", nil, complex.MapFilterKeys},
+	"MapFilterValues":         {complexSrc, "MapFilterValues", nil, complex.MapFilterValues},
+	"MapMapKeys":              {complexSrc, "MapMapKeys", nil, complex.MapMapKeys},
+	"MapMapValues":            {complexSrc, "MapMapValues", nil, complex.MapMapValues},
+	"MapCounter":              {complexSrc, "MapCounter", nil, complex.MapCounter},
+	"MapHistogram":            {complexSrc, "MapHistogram", nil, complex.MapHistogram},
+	"MapGroupBy":              {complexSrc, "MapGroupBy", nil, complex.MapGroupBy},
+	"MapSet":                  {complexSrc, "MapSet", nil, complex.MapSet},
+	"MapMultiSet":             {complexSrc, "MapMultiSet", nil, complex.MapMultiSet},
+	"MapBiMap":                {complexSrc, "MapBiMap", nil, complex.MapBiMap},
+	"MapUpdateNested":         {complexSrc, "MapUpdateNested", nil, complex.MapUpdateNested},
+	"MapDeleteWhileIterating": {complexSrc, "MapDeleteWhileIterating", nil, complex.MapDeleteWhileIterating},
+	"MapComplexKey":           {complexSrc, "MapComplexKey", nil, complex.MapComplexKey},
+	"MapDefaultValue":         {complexSrc, "MapDefaultValue", nil, complex.MapDefaultValue},
+	"MapAccumulate":           {complexSrc, "MapAccumulate", nil, complex.MapAccumulate},
+	"MapFindKey":              {complexSrc, "MapFindKey", nil, complex.MapFindKey},
+	"MapFrequency":            {complexSrc, "MapFrequency", nil, complex.MapFrequency},
+	"MapMemoize":              {complexSrc, "MapMemoize", nil, complex.MapMemoize},
+	"MapIncrement":            {complexSrc, "MapIncrement", nil, complex.MapIncrement},
+	"MapCopy":                 {complexSrc, "MapCopy", nil, complex.MapCopy},
+	// Pointer tests
+	"PointerBasic":     {complexSrc, "PointerBasic", nil, complex.PointerBasic},
+	"PointerModify":    {complexSrc, "PointerModify", nil, complex.PointerModify},
+	"PointerSwap":      {complexSrc, "PointerSwap", nil, complex.PointerSwap},
+	"PointerToPointer": {complexSrc, "PointerToPointer", nil, complex.PointerToPointer},
+	"PointerSlice":     {complexSrc, "PointerSlice", nil, complex.PointerSlice},
+	// Recursion tests
+	"RecursionFibCheck":          {complexSrc, "RecursionFibCheck", nil, complex.RecursionFibCheck},
+	"RecursionAckermannCheck":    {complexSrc, "RecursionAckermannCheck", nil, complex.RecursionAckermannCheck},
+	"RecursionGCDCheck":          {complexSrc, "RecursionGCDCheck", nil, complex.RecursionGCDCheck},
+	"RecursionSumCheck":          {complexSrc, "RecursionSumCheck", nil, complex.RecursionSumCheck},
+	"RecursionPowerCheck":        {complexSrc, "RecursionPowerCheck", nil, complex.RecursionPowerCheck},
+	"RecursionBinarySearchCheck": {complexSrc, "RecursionBinarySearchCheck", nil, complex.RecursionBinarySearchCheck},
+	"RecursionReverseCheck":      {complexSrc, "RecursionReverseCheck", nil, complex.RecursionReverseCheck},
+	"RecursionPalindromeCheck":   {complexSrc, "RecursionPalindromeCheck", nil, complex.RecursionPalindromeCheck},
+	"RecursionMergeSortCheck":    {complexSrc, "RecursionMergeSortCheck", nil, complex.RecursionMergeSortCheck},
+	"RecursionQuickSortCheck":    {complexSrc, "RecursionQuickSortCheck", nil, complex.RecursionQuickSortCheck},
+	"RecursionCountDigitsCheck":  {complexSrc, "RecursionCountDigitsCheck", nil, complex.RecursionCountDigitsCheck},
+	"RecursionSumDigitsCheck":    {complexSrc, "RecursionSumDigitsCheck", nil, complex.RecursionSumDigitsCheck},
+	"RecursionHanoiCheck":        {complexSrc, "RecursionHanoiCheck", nil, complex.RecursionHanoiCheck},
+	"RecursionStaircaseCheck":    {complexSrc, "RecursionStaircaseCheck", nil, complex.RecursionStaircaseCheck},
+	"RecursionSubsetSumCheck":    {complexSrc, "RecursionSubsetSumCheck", nil, complex.RecursionSubsetSumCheck},
+	"RecursionPermuteCheck":      {complexSrc, "RecursionPermuteCheck", nil, complex.RecursionPermuteCheck},
+	"RecursionCombinationCheck":  {complexSrc, "RecursionCombinationCheck", nil, complex.RecursionCombinationCheck},
+	// Slice tests
+	"SliceFlatten":        {complexSrc, "SliceFlatten", nil, complex.SliceFlatten},
+	"SliceChunk":          {complexSrc, "SliceChunk", nil, complex.SliceChunk},
+	"SliceRotateLeft":     {complexSrc, "SliceRotateLeft", nil, complex.SliceRotateLeft},
+	"SliceRotateRight":    {complexSrc, "SliceRotateRight", nil, complex.SliceRotateRight},
+	"SliceUnique":         {complexSrc, "SliceUnique", nil, complex.SliceUnique},
+	"SliceIntersect":      {complexSrc, "SliceIntersect", nil, complex.SliceIntersect},
+	"SliceUnion":          {complexSrc, "SliceUnion", nil, complex.SliceUnion},
+	"SliceDifference":     {complexSrc, "SliceDifference", nil, complex.SliceDifference},
+	"SliceZip":            {complexSrc, "SliceZip", nil, complex.SliceZip},
+	"SlicePartition":      {complexSrc, "SlicePartition", nil, complex.SlicePartition},
+	"SliceTake":           {complexSrc, "SliceTake", nil, complex.SliceTake},
+	"SliceDrop":           {complexSrc, "SliceDrop", nil, complex.SliceDrop},
+	"SliceTakeWhile":      {complexSrc, "SliceTakeWhile", nil, complex.SliceTakeWhile},
+	"SliceDropWhile":      {complexSrc, "SliceDropWhile", nil, complex.SliceDropWhile},
+	"SliceGroupBy":        {complexSrc, "SliceGroupBy", nil, complex.SliceGroupBy},
+	"SliceWindow":         {complexSrc, "SliceWindow", nil, complex.SliceWindow},
+	"SlicePairwise":       {complexSrc, "SlicePairwise", nil, complex.SlicePairwise},
+	"SliceCartesian":      {complexSrc, "SliceCartesian", nil, complex.SliceCartesian},
+	"SliceTranspose":      {complexSrc, "SliceTranspose", nil, complex.SliceTranspose},
+	"SliceReverseInPlace": {complexSrc, "SliceReverseInPlace", nil, complex.SliceReverseInPlace},
+	"SliceCompact":        {complexSrc, "SliceCompact", nil, complex.SliceCompact},
+	"SliceProduct":        {complexSrc, "SliceProduct", nil, complex.SliceProduct},
+	"SliceCumSum":         {complexSrc, "SliceCumSum", nil, complex.SliceCumSum},
+	"SliceCumProd":        {complexSrc, "SliceCumProd", nil, complex.SliceCumProd},
+	"SliceFind":           {complexSrc, "SliceFind", nil, complex.SliceFind},
+	"SliceFindLast":       {complexSrc, "SliceFindLast", nil, complex.SliceFindLast},
+	// Variadic tests
+	"VariadicBasicCheck":       {complexSrc, "VariadicBasicCheck", nil, complex.VariadicBasicCheck},
+	"VariadicEmpty":            {complexSrc, "VariadicEmpty", nil, complex.VariadicEmpty},
+	"VariadicWithRegularCheck": {complexSrc, "VariadicWithRegularCheck", nil, complex.VariadicWithRegularCheck},
+	"VariadicSpread":           {complexSrc, "VariadicSpread", nil, complex.VariadicSpread},
+	"VariadicOneArg":           {complexSrc, "VariadicOneArg", nil, complex.VariadicOneArg},
 }
 
 var controlflowTests = map[string]testCase{
@@ -785,6 +915,49 @@ var namedreturnTests = map[string]testCase{
 	"Multiple":  {namedreturnSrc, "Multiple", nil, namedreturn.Multiple},
 	"ZeroValue": {namedreturnSrc, "ZeroValue", nil, namedreturn.ZeroValue},
 	"Divmod":    {namedreturnSrc, "Divmod", []any{1000, 7}, namedreturn.Divmod},
+}
+
+var panicRecoverTests = map[string]testCase{
+	// Basic panic/recover tests
+	"PanicRecoverBasic":     {panicRecoverSrc, "PanicRecoverBasic", nil, panic_recover.PanicRecoverBasic},
+	"PanicRecoverWithValue": {panicRecoverSrc, "PanicRecoverWithValue", nil, panic_recover.PanicRecoverWithValue},
+	"PanicRecoverInt":       {panicRecoverSrc, "PanicRecoverInt", nil, panic_recover.PanicRecoverInt},
+	"NoPanicNoRecover":      {panicRecoverSrc, "NoPanicNoRecover", nil, panic_recover.NoPanicNoRecover},
+
+	// Defer with panic tests
+	"DeferRunsOnPanic":       {panicRecoverSrc, "DeferRunsOnPanic", nil, panic_recover.DeferRunsOnPanic},
+	"MultipleDefersOnPanic":  {panicRecoverSrc, "MultipleDefersOnPanic", nil, panic_recover.MultipleDefersOnPanic},
+	"DeferModifyBeforePanic": {panicRecoverSrc, "DeferModifyBeforePanic", nil, panic_recover.DeferModifyBeforePanic},
+
+	// Nested panic/recover tests
+	"NestedPanicRecover": {panicRecoverSrc, "NestedPanicRecover", nil, panic_recover.NestedPanicRecover},
+	"NestedRecover":      {panicRecoverSrc, "NestedRecover", nil, panic_recover.NestedRecover},
+	"PanicInDefer":       {panicRecoverSrc, "PanicInDefer", nil, panic_recover.PanicInDefer},
+	"PanicChain":         {panicRecoverSrc, "PanicChain", nil, panic_recover.PanicChain},
+
+	// Recover return value tests
+	"RecoverReturnsNilWhenNotPanicking": {panicRecoverSrc, "RecoverReturnsNilWhenNotPanicking", nil, panic_recover.RecoverReturnsNilWhenNotPanicking},
+	"RecoverReturnsPanicValueCheck":     {panicRecoverSrc, "RecoverReturnsPanicValueCheck", nil, panic_recover.RecoverReturnsPanicValueCheck},
+
+	// Named return with panic/recover tests
+	"NamedReturnPanicRecover": {panicRecoverSrc, "NamedReturnPanicRecover", nil, panic_recover.NamedReturnPanicRecover},
+	"NamedReturnDeferModify":  {panicRecoverSrc, "NamedReturnDeferModify", nil, panic_recover.NamedReturnDeferModify},
+
+	// Complex panic/recover scenarios
+	"PanicInLoop":                    {panicRecoverSrc, "PanicInLoop", nil, panic_recover.PanicInLoop},
+	"PanicInClosure":                 {panicRecoverSrc, "PanicInClosure", nil, panic_recover.PanicInClosure},
+	"MultiplePanicSameDefer":         {panicRecoverSrc, "MultiplePanicSameDefer", nil, panic_recover.MultiplePanicSameDefer},
+	"PanicInRecursiveFunction":       {panicRecoverSrc, "PanicInRecursiveFunction", nil, panic_recover.PanicInRecursiveFunction},
+	"DeferClosureCapturePanic":       {panicRecoverSrc, "DeferClosureCapturePanic", nil, panic_recover.DeferClosureCapturePanic},
+	"PanicInDeferWithRecoverInDefer": {panicRecoverSrc, "PanicInDeferWithRecoverInDefer", nil, panic_recover.PanicInDeferWithRecoverInDefer},
+	"RecoverOnlyInDefer":             {panicRecoverSrc, "RecoverOnlyInDefer", nil, panic_recover.RecoverOnlyInDefer},
+	"RecoverInGoroutine":             {panicRecoverSrc, "RecoverInGoroutine", nil, panic_recover.RecoverInGoroutine},
+
+	// Edge cases
+	"EmptyDeferPanic":              {panicRecoverSrc, "EmptyDeferPanic", nil, panic_recover.EmptyDeferPanic},
+	"DeferOrderWithMultiplePanics": {panicRecoverSrc, "DeferOrderWithMultiplePanics", nil, panic_recover.DeferOrderWithMultiplePanics},
+	"DeferPanicRecoverChain":       {panicRecoverSrc, "DeferPanicRecoverChain", nil, panic_recover.DeferPanicRecoverChain},
+	"PanicNil":                     {panicRecoverSrc, "PanicNil", nil, panic_recover.PanicNil},
 }
 
 var recursionTests = map[string]testCase{

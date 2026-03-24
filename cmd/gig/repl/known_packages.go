@@ -32,7 +32,7 @@ var knownPackages = map[string]string{
 
 	// Math & sorting
 	"math": "math",
-	"rand": "math/rand",
+	"rand": "math/rand/v2",
 	"sort": "sort",
 	"cmp":  "cmp",
 
