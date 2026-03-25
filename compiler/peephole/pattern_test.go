@@ -3,7 +3,7 @@ package peephole
 import (
 	"testing"
 
-	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/model/bytecode"
 )
 
 func TestMatchOp(t *testing.T) {

@@ -3,8 +3,8 @@ package vm
 import (
 	"context"
 
-	"github.com/t04dJ14n9/gig/bytecode"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 // VM is the interface for the bytecode virtual machine.
@@ -26,12 +26,12 @@ type VM interface {
 }
 
 // New creates a new VM for executing the given program.
-func New(program *bytecode.Program) VM {
+func New(program *bytecode.CompiledProgram) VM {
 	return newVM(program, nil, NewGoroutineTracker())
 }
 
 // NewWithOptions creates a VM with custom options.
-func NewWithOptions(program *bytecode.Program, opts ...VMOption) VM {
+func NewWithOptions(program *bytecode.CompiledProgram, opts ...VMOption) VM {
 	v := newVM(program, nil, NewGoroutineTracker())
 	for _, opt := range opts {
 		opt(v)

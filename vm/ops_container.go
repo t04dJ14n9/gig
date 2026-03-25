@@ -5,8 +5,8 @@ import (
 	"go/types"
 	"reflect"
 
-	"github.com/t04dJ14n9/gig/bytecode"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 // pushCommaOk pushes a (value, ok) tuple onto the operand stack.
@@ -28,7 +28,7 @@ func (v *vm) resolveType(typeIdxVal value.Value) (types.Type, bool) {
 
 // executeContainer handles slice, map, channel creation, index, append,
 // copy, delete, range, len, and cap opcodes.
-func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx
+func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx,unparam // frame: uniform dispatch signature
 	switch op {
 	case bytecode.OpMakeSlice:
 		capVal := v.pop()

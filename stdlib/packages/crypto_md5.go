@@ -5,7 +5,7 @@ import (
 	crypto_md5 "crypto/md5"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {

@@ -207,7 +207,7 @@ func TestOpCodeStringUnknown(t *testing.T) {
 
 // TestProgramReflectTypeCache tests the ReflectTypeCache methods.
 func TestProgramReflectTypeCache(t *testing.T) {
-	p := &Program{}
+	p := &CompiledProgram{}
 
 	// Test caching with actual types.Type
 	key := types.Typ[types.Int] // int type
@@ -279,7 +279,7 @@ func TestCompiledFunction(t *testing.T) {
 
 // TestProgramWithValues tests Program with actual values.
 func TestProgramWithValues(t *testing.T) {
-	p := &Program{
+	p := &CompiledProgram{
 		Functions: map[string]*CompiledFunction{
 			"main": {
 				Name:         "main",

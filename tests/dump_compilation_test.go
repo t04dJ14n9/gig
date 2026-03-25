@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/t04dJ14n9/gig"
-	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/model/bytecode"
 	_ "github.com/t04dJ14n9/gig/stdlib/packages"
 )
 

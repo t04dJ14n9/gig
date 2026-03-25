@@ -3,9 +3,9 @@ package tests
 import (
 	"testing"
 
-	"github.com/t04dJ14n9/gig/bytecode"
 	"github.com/t04dJ14n9/gig/compiler"
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/bytecode"
 )
 
 var _ = bytecode.OpCode(0) // silence unused import warning

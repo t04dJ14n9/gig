@@ -9,7 +9,7 @@ import (
 	time "time"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {

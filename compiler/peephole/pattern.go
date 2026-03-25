@@ -9,7 +9,7 @@
 // See docs/optimization-superinstructions.md for the full pattern catalog.
 package peephole
 
-import "github.com/t04dJ14n9/gig/bytecode"
+import "github.com/t04dJ14n9/gig/model/bytecode"
 
 // Pattern is the interface every peephole rule must implement.
 // Match is called at position i in code; it returns the number of bytes consumed

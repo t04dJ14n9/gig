@@ -6,8 +6,8 @@ import (
 	"go/types"
 	"reflect"
 
-	"github.com/t04dJ14n9/gig/bytecode"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 // executeConvert handles type assertion, conversion, and change-type opcodes.

@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/model/bytecode"
 )
 
 // compileValue compiles an SSA value to push it onto the stack.

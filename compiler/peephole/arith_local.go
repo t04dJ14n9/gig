@@ -1,6 +1,6 @@
 package peephole
 
-import "github.com/t04dJ14n9/gig/bytecode"
+import "github.com/t04dJ14n9/gig/model/bytecode"
 
 // arithLocalPattern fuses the 2-instruction sequence (7 bytes → 5 bytes):
 // LOCAL(A) op2(B) arithOp

@@ -15,7 +15,7 @@
 //	import (
 //	    "fmt"
 //	    "github.com/t04dJ14n9/gig/importer"
-//	    "github.com/t04dJ14n9/gig/value"
+//	    "github.com/t04dJ14n9/gig/model/value"
 //	)
 //
 //	func init() {
@@ -263,7 +263,7 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	b.WriteString("\n")
 	b.WriteString("\t\"github.com/t04dJ14n9/gig/importer\"\n")
 	if hasDirectCalls {
-		b.WriteString("\t\"github.com/t04dJ14n9/gig/value\"\n")
+		b.WriteString("\t\"github.com/t04dJ14n9/gig/model/value\"\n")
 	}
 	b.WriteString(")\n\n")
 
