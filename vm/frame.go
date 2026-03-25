@@ -2,8 +2,8 @@
 package vm
 
 import (
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // Frame represents a call frame on the VM's call stack.
@@ -54,9 +54,10 @@ type DeferInfo struct {
 	closure *Closure
 }
 
-// newFrame creates a new call frame for a function.
+// newFrame creates a new call frame for a function with a zero base pointer.
+// Used for goroutine and defer frames that start with a fresh operand stack.
 // It initializes the local variable array and copies arguments into the first slots.
-func newFrame(fn *bytecode.CompiledFunction, basePtr int, args []value.Value, freeVars []*value.Value) *Frame {
+func newFrame(fn *bytecode.CompiledFunction, args []value.Value, freeVars []*value.Value) *Frame {
 	locals := make([]value.Value, fn.NumLocals)
 
 	// Copy arguments to local slots
@@ -69,7 +70,7 @@ func newFrame(fn *bytecode.CompiledFunction, basePtr int, args []value.Value, fr
 	f := &Frame{
 		fn:       fn,
 		ip:       0,
-		basePtr:  basePtr,
+		basePtr:  0,
 		locals:   locals,
 		freeVars: freeVars,
 		defers:   nil,

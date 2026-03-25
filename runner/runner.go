@@ -11,8 +11,8 @@ import (
 	"time"
 	"unsafe"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/value"
 	"git.woa.com/youngjin/gig/vm"
 )
 
@@ -42,7 +42,7 @@ func WithMaxGoroutines(n int) RunnerOption {
 
 // Runner orchestrates program execution with VM pool management and global state handling.
 type Runner struct {
-	program        *bytecode.Program
+	program        *bytecode.CompiledProgram
 	initialGlobals []value.Value
 	vmPool         *vm.VMPool
 	goroutines     *vm.GoroutineTracker
@@ -57,7 +57,7 @@ type Runner struct {
 }
 
 // New creates a new Runner for the given compiled bytecode program.
-func New(program *bytecode.Program, initialGlobals []value.Value, opts ...RunnerOption) *Runner {
+func New(program *bytecode.CompiledProgram, initialGlobals []value.Value, opts ...RunnerOption) *Runner {
 	cfg := runnerConfig{}
 	for _, opt := range opts {
 		opt(&cfg)
@@ -143,7 +143,7 @@ func (r *Runner) WaitContext(ctx context.Context) error {
 }
 
 // InternalProgram exposes the compiled bytecode program for testing/debugging.
-func (r *Runner) InternalProgram() *bytecode.Program { return r.program }
+func (r *Runner) InternalProgram() *bytecode.CompiledProgram { return r.program }
 
 // Close releases resources associated with the Runner.
 // It unregisters the per-program method resolver to prevent memory leaks.
@@ -170,7 +170,7 @@ const DefaultTimeout = 10 * time.Second
 
 // ExecuteInit runs the program's init() function if present and returns the globals snapshot.
 // The snapshot should be passed to runner.New as initialGlobals.
-func ExecuteInit(program *bytecode.Program) ([]value.Value, error) {
+func ExecuteInit(program *bytecode.CompiledProgram) ([]value.Value, error) {
 	if _, hasInit := program.Functions["init#1"]; hasInit {
 		initVM := vm.New(program)
 		ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)

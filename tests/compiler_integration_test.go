@@ -3,9 +3,9 @@ package tests
 import (
 	"testing"
 
-	"git.woa.com/youngjin/gig/bytecode"
 	"git.woa.com/youngjin/gig/compiler"
 	"git.woa.com/youngjin/gig/importer"
+	"git.woa.com/youngjin/gig/model/bytecode"
 )
 
 var _ = bytecode.OpCode(0) // silence unused import warning

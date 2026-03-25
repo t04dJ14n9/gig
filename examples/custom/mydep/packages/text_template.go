@@ -9,7 +9,7 @@ import (
 	text_template_parse "text/template/parse"
 
 	"git.woa.com/youngjin/gig/importer"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 func init() {

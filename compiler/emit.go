@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"git.woa.com/youngjin/gig/bytecode"
+	"git.woa.com/youngjin/gig/model/bytecode"
 )
 
 // emit appends an opcode and its operands to the current function's bytecode.

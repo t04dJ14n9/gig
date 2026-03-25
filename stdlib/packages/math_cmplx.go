@@ -5,7 +5,7 @@ import (
 	math_cmplx "math/cmplx"
 
 	"git.woa.com/youngjin/gig/importer"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 func init() {

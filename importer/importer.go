@@ -7,6 +7,8 @@ import (
 	"go/types"
 	"strings"
 	"sync"
+
+	"git.woa.com/youngjin/gig/model/external"
 )
 
 // Importer implements types.Importer for registered external packages.
@@ -74,17 +76,17 @@ func (i *Importer) buildPackage(extPkg *ExternalPackage) *types.Package {
 		var typesObj types.Object
 
 		switch obj.Kind {
-		case ObjectKindFunction:
+		case external.ObjectKindFunction:
 			if sig, ok := obj.Type.(*types.Signature); ok {
 				typesObj = types.NewFunc(0, pkg, name, sig)
 			}
-		case ObjectKindVariable:
+		case external.ObjectKindVariable:
 			typesObj = types.NewVar(0, pkg, name, obj.Type)
-		case ObjectKindConstant:
+		case external.ObjectKindConstant:
 			// Create a constant with the appropriate value
 			val := convertToConstantValue(obj.Value)
 			typesObj = types.NewConst(0, pkg, name, obj.Type, val)
-		case ObjectKindType:
+		case external.ObjectKindType:
 			// Type names are handled separately
 			if named, ok := obj.Type.(*types.Named); ok {
 				typesObj = named.Obj()

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // executeControl handles control flow (jump, return), channels, select,
@@ -240,7 +240,7 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 			// that shares the same globals/context/program. This avoids
 			// interference with the parent frame stack.
 			childVM := v.newDeferVM()
-			deferFrame := newFrame(d.fn, 0, d.args, freeVars)
+			deferFrame := newFrame(d.fn, d.args, freeVars)
 			childVM.frames[0] = deferFrame
 			childVM.fp = 1
 			_, _ = childVM.run()

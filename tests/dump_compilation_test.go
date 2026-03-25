@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"git.woa.com/youngjin/gig"
-	"git.woa.com/youngjin/gig/bytecode"
+	"git.woa.com/youngjin/gig/model/bytecode"
 	_ "git.woa.com/youngjin/gig/stdlib/packages"
 )
 

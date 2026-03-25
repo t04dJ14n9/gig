@@ -8,8 +8,7 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"git.woa.com/youngjin/gig/importer"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // ---------------------------------------------------------------------------
@@ -570,7 +569,7 @@ func (m *mockLookup) LookupExternalType(t types.Type) (reflect.Type, bool) {
 }
 
 // Verify mockLookup satisfies the interface.
-var _ importer.PackageLookup = (*mockLookup)(nil)
+var _ PackageLookup = (*mockLookup)(nil)
 
 // ---------------------------------------------------------------------------
 // jumpInfo struct

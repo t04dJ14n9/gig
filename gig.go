@@ -51,11 +51,11 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"git.woa.com/youngjin/gig/bytecode"
 	"git.woa.com/youngjin/gig/compiler"
 	"git.woa.com/youngjin/gig/importer"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/value"
 	"git.woa.com/youngjin/gig/runner"
-	"git.woa.com/youngjin/gig/value"
 )
 
 // DefaultTimeout is the default execution timeout.
@@ -114,7 +114,7 @@ type Program struct {
 }
 
 // InternalProgram exposes the compiled bytecode program for testing/debugging.
-func (p *Program) InternalProgram() *bytecode.Program { return p.runner.InternalProgram() }
+func (p *Program) InternalProgram() *bytecode.CompiledProgram { return p.runner.InternalProgram() }
 
 // Close releases resources associated with the Program.
 // It unregisters the per-program method resolver to prevent memory leaks.

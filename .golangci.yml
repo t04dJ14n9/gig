@@ -536,8 +536,8 @@ linters:
       - path: (.+)\.go$
         linters:
           - reassign
-      # Exclude unparam
-      - path: (.+)\.go$
+      # Exclude unparam for generated stdlib packages
+      - path: packages/.*\.go
         linters:
           - unparam
 

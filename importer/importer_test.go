@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+
+	"git.woa.com/youngjin/gig/model/external"
 )
 
 // ---------------------------------------------------------------------------
@@ -81,7 +83,7 @@ func TestAddFunction(t *testing.T) {
 	if !ok {
 		t.Fatal("Add not found in Objects")
 	}
-	if obj.Kind != ObjectKindFunction {
+	if obj.Kind != external.ObjectKindFunction {
 		t.Errorf("Kind = %d, want ObjectKindFunction", obj.Kind)
 	}
 	if obj.Name != "Add" {
@@ -110,7 +112,7 @@ func TestAddConstant(t *testing.T) {
 	if obj == nil {
 		t.Fatal("Pi not found")
 	}
-	if obj.Kind != ObjectKindConstant {
+	if obj.Kind != external.ObjectKindConstant {
 		t.Errorf("Kind = %d", obj.Kind)
 	}
 	if obj.Value.(float64) != 3.14 {
@@ -128,7 +130,7 @@ func TestAddVariable(t *testing.T) {
 	if obj == nil {
 		t.Fatal("X not found")
 	}
-	if obj.Kind != ObjectKindVariable {
+	if obj.Kind != external.ObjectKindVariable {
 		t.Errorf("Kind = %d", obj.Kind)
 	}
 }
@@ -143,7 +145,7 @@ func TestAddType(t *testing.T) {
 	if obj == nil {
 		t.Fatal("MyStruct not found")
 	}
-	if obj.Kind != ObjectKindType {
+	if obj.Kind != external.ObjectKindType {
 		t.Errorf("Kind = %d", obj.Kind)
 	}
 	rt, ok := pkg.Types["MyStruct"]

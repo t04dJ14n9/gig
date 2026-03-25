@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // derefAllocLocal dereferences an Alloc pointer stored in a frame's local slot.
@@ -170,7 +170,7 @@ func (v *vm) run() (value.Value, error) {
 						// Use child VM like OpRunDefers to avoid interfering with
 						// the parent frame stack.
 						childVM := v.newDeferVM()
-						deferFrame := newFrame(d.fn, 0, d.args, freeVars)
+						deferFrame := newFrame(d.fn, d.args, freeVars)
 						childVM.frames[0] = deferFrame
 						childVM.fp = 1
 						_, _ = childVM.run()

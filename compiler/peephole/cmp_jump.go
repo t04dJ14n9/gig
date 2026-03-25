@@ -1,6 +1,6 @@
 package peephole
 
-import "git.woa.com/youngjin/gig/bytecode"
+import "git.woa.com/youngjin/gig/model/bytecode"
 
 // cmpJumpPattern fuses the 3-instruction sequence (10 bytes → 7 bytes):
 // LOCAL(A) op2(B) cmpOp jumpOp(off)

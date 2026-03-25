@@ -6,8 +6,8 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"git.woa.com/youngjin/gig/bytecode"
 	"git.woa.com/youngjin/gig/compiler/optimize"
+	"git.woa.com/youngjin/gig/model/bytecode"
 )
 
 // isIntType returns true if the type is a signed integer (int, int8..int64).
@@ -51,7 +51,7 @@ func isIntSliceType(t types.Type) bool {
 }
 
 // compileFunction compiles a single SSA function to bytecode.
-func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction, error) {
+func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction, error) { //nolint:unparam // error return reserved for future compilation errors
 	cf := &bytecode.CompiledFunction{
 		Name:         fn.Name(),
 		Instructions: make([]byte, 0),

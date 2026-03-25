@@ -5,7 +5,7 @@ import (
 	crypto_md5 "crypto/md5"
 
 	"git.woa.com/youngjin/gig/importer"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 func init() {

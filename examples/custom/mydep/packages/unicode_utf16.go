@@ -5,7 +5,7 @@ import (
 	unicode_utf16 "unicode/utf16"
 
 	"git.woa.com/youngjin/gig/importer"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 func init() {

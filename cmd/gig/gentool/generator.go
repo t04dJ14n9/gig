@@ -15,7 +15,7 @@
 //	import (
 //	    "fmt"
 //	    "git.woa.com/youngjin/gig/importer"
-//	    "git.woa.com/youngjin/gig/value"
+//	    "git.woa.com/youngjin/gig/model/value"
 //	)
 //
 //	func init() {
@@ -263,7 +263,7 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	b.WriteString("\n")
 	b.WriteString("\t\"git.woa.com/youngjin/gig/importer\"\n")
 	if hasDirectCalls {
-		b.WriteString("\t\"git.woa.com/youngjin/gig/value\"\n")
+		b.WriteString("\t\"git.woa.com/youngjin/gig/model/value\"\n")
 	}
 	b.WriteString(")\n\n")
 

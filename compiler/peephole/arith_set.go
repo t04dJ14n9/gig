@@ -1,6 +1,6 @@
 package peephole
 
-import "git.woa.com/youngjin/gig/bytecode"
+import "git.woa.com/youngjin/gig/model/bytecode"
 
 // arithSetPattern fuses arithOp SETLOCAL(A) (4 bytes → 3 bytes).
 type arithSetPattern struct {

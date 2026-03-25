@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"sync"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // Closure represents a closure with captured free variables.
@@ -24,7 +24,7 @@ type Closure struct {
 
 	// Program is a reference to the compiled program, needed when the closure
 	// is wrapped as a real Go function (via reflect.MakeFunc) for typed containers.
-	Program *bytecode.Program
+	Program *bytecode.CompiledProgram
 
 	// InitialGlobals is the post-init globals snapshot used to seed temporary VMs
 	// when this closure is converted to a real Go function via Execute().

@@ -10,19 +10,18 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/importer"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // Compiler compiles SSA programs into bytecode.
 type Compiler interface {
-	Compile(mainPkg *ssa.Package) (*bytecode.Program, error)
+	Compile(mainPkg *ssa.Package) (*bytecode.CompiledProgram, error)
 }
 
 // NewCompiler creates a new compiler with the given package lookup for resolving external functions.
 // The PackageLookup dependency is injected to decouple the compiler from the importer package.
-func NewCompiler(lookup importer.PackageLookup) Compiler {
+func NewCompiler(lookup PackageLookup) Compiler {
 	return &compiler{
 		lookup:            lookup,
 		constants:         make([]any, 0),
@@ -39,10 +38,10 @@ func NewCompiler(lookup importer.PackageLookup) Compiler {
 // symbol table, and jump targets that need patching.
 type compiler struct {
 	// lookup resolves external package functions (injected dependency).
-	lookup importer.PackageLookup
+	lookup PackageLookup
 
 	// program is the output program being compiled.
-	program *bytecode.Program
+	program *bytecode.CompiledProgram
 
 	// constants is the constant pool being built.
 	constants []any
@@ -76,52 +75,9 @@ type compiler struct {
 	phiSlots map[*ssa.Phi]int
 }
 
-// jumpInfo tracks a jump instruction that needs its target patched.
-type jumpInfo struct {
-	offset      int
-	targetBlock *ssa.BasicBlock
-}
-
-// SymbolTable tracks SSA values to local slots.
-type SymbolTable struct {
-	locals    map[ssa.Value]int
-	freeVars  map[ssa.Value]int
-	numLocals int
-}
-
-// NewSymbolTable creates a new symbol table for tracking SSA values.
-func NewSymbolTable() *SymbolTable {
-	return &SymbolTable{
-		locals:   make(map[ssa.Value]int),
-		freeVars: make(map[ssa.Value]int),
-	}
-}
-
-// AllocLocal allocates a new local slot for an SSA value.
-func (s *SymbolTable) AllocLocal(v ssa.Value) int {
-	if idx, ok := s.locals[v]; ok {
-		return idx
-	}
-	idx := s.numLocals
-	s.locals[v] = idx
-	s.numLocals++
-	return idx
-}
-
-// GetLocal returns the local slot index for an SSA value.
-func (s *SymbolTable) GetLocal(v ssa.Value) (int, bool) {
-	idx, ok := s.locals[v]
-	return idx, ok
-}
-
-// NumLocals returns the number of allocated local slots.
-func (s *SymbolTable) NumLocals() int {
-	return s.numLocals
-}
-
 // Compile is the main entry point that compiles an SSA package to a bytecode Program.
-func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
-	c.program = &bytecode.Program{
+func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.CompiledProgram, error) {
+	c.program = &bytecode.CompiledProgram{
 		Functions: make(map[string]*bytecode.CompiledFunction),
 		Globals:   make(map[string]int),
 		Types:     make([]types.Type, 0),
@@ -264,6 +220,6 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 
 // Compile is a convenience package-level function that compiles an SSA package.
 // It creates a compiler with the given PackageLookup and invokes compilation.
-func Compile(lookup importer.PackageLookup, mainPkg *ssa.Package) (*bytecode.Program, error) {
+func Compile(lookup PackageLookup, mainPkg *ssa.Package) (*bytecode.CompiledProgram, error) {
 	return NewCompiler(lookup).Compile(mainPkg)
 }

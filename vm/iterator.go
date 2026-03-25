@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"unicode/utf8"
 
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // iterator is a helper for range iteration over slices, arrays, maps, and strings.

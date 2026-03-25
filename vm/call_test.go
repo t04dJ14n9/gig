@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // ---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ func TestGoroutineTrackerWithContext(t *testing.T) {
 // VM Execution tests via bytecode
 // ---------------------------------------------------------------------------
 
-func buildSimpleProg(name string, instr []byte, constants []any) (*bytecode.Program, string) {
+func buildSimpleProg(name string, instr []byte, constants []any) (*bytecode.CompiledProgram, string) {
 	fn := &bytecode.CompiledFunction{
 		Name:         name,
 		Instructions: instr,
@@ -84,7 +84,7 @@ func buildSimpleProg(name string, instr []byte, constants []any) (*bytecode.Prog
 		NumFreeVars:  0,
 		MaxStack:     8,
 	}
-	return &bytecode.Program{
+	return &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{name: fn},
 		Constants: constants,
 		Globals:   map[string]int{},

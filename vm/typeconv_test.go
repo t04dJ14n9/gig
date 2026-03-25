@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"git.woa.com/youngjin/gig/bytecode"
+	"git.woa.com/youngjin/gig/model/bytecode"
 )
 
 // ---------------------------------------------------------------------------
@@ -13,7 +13,7 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestTypeToReflectBasicTypes(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -56,7 +56,7 @@ func TestTypeToReflectBasicTypes(t *testing.T) {
 }
 
 func TestTypeToReflectSlice(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -75,7 +75,7 @@ func TestTypeToReflectSlice(t *testing.T) {
 }
 
 func TestTypeToReflectArray(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -94,7 +94,7 @@ func TestTypeToReflectArray(t *testing.T) {
 }
 
 func TestTypeToReflectMap(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -116,7 +116,7 @@ func TestTypeToReflectMap(t *testing.T) {
 }
 
 func TestTypeToReflectChan(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -132,7 +132,7 @@ func TestTypeToReflectChan(t *testing.T) {
 }
 
 func TestTypeToReflectPointer(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -151,7 +151,7 @@ func TestTypeToReflectPointer(t *testing.T) {
 }
 
 func TestTypeToReflectInterface(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -167,7 +167,7 @@ func TestTypeToReflectInterface(t *testing.T) {
 }
 
 func TestTypeToReflectNamed(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -190,7 +190,7 @@ func TestTypeToReflectNamed(t *testing.T) {
 }
 
 func TestTypeToReflectStruct(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -215,7 +215,7 @@ func TestTypeToReflectStruct(t *testing.T) {
 }
 
 func TestTypeToReflectSignature(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -246,7 +246,7 @@ func TestTypeToReflectSignature(t *testing.T) {
 }
 
 func TestTypeToReflectVariadic(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -268,7 +268,7 @@ func TestTypeToReflectVariadic(t *testing.T) {
 }
 
 func TestTypeToReflectWithNamedPackage(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -292,7 +292,7 @@ func TestTypeToReflectWithNamedPackage(t *testing.T) {
 }
 
 func TestTypeToReflectStructWithUnexportedFields(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -318,7 +318,7 @@ func TestTypeToReflectStructWithUnexportedFields(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestTypeToReflectCaching(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -340,7 +340,7 @@ func TestTypeToReflectCaching(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestTypeToReflectNil(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -351,7 +351,7 @@ func TestTypeToReflectNil(t *testing.T) {
 }
 
 func TestTypeToReflectEmptyStruct(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -370,7 +370,7 @@ func TestTypeToReflectEmptyStruct(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestTypeToReflectNestedSlice(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -393,7 +393,7 @@ func TestTypeToReflectNestedSlice(t *testing.T) {
 }
 
 func TestTypeToReflectMapWithStructKey(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 
@@ -417,7 +417,7 @@ func TestTypeToReflectMapWithStructKey(t *testing.T) {
 }
 
 func TestTypeToReflectStructWithFuncField(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},
 	}
 

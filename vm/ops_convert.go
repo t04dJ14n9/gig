@@ -6,8 +6,8 @@ import (
 	"go/types"
 	"reflect"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // executeConvert handles type assertion, conversion, and change-type opcodes.

@@ -30,9 +30,12 @@
 //
 // # File Organization
 //
-// The vm package is split across 17 files by responsibility:
+// The vm package is split across files by responsibility:
 //
-//   - vm.go          — VM struct, constructor, Run/RunWithContext entry points
+//   - vm.go          — VM struct, constructor, Execute entry points
+//   - pool.go        — VMPool, ResolveCompiledMethod
+//   - cache.go       — External function call cache
+//   - interfaces.go  — VM interface and constructors
 //   - run.go         — Main fetch-decode-execute loop with hot-path inlined instructions
 //   - frame.go       — Frame (call stack entry) and DeferInfo (deferred call metadata)
 //   - stack.go       — Operand stack push/pop/peek with bounded growth
@@ -56,12 +59,9 @@ package vm
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"strings"
-	"sync"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // panicState stores a saved panic state for nested panics.
@@ -85,7 +85,7 @@ const (
 // It executes compiled programs using a stack-based architecture.
 type vm struct {
 	// program is the compiled program to execute.
-	program *bytecode.Program
+	program *bytecode.CompiledProgram
 
 	// stack is the operand stack for intermediate values.
 	stack []value.Value
@@ -141,33 +141,8 @@ type vm struct {
 	fpool framePool
 }
 
-// externalCallCache is a shared cache for external function lookups.
-// It is shared between a parent VM and all its child goroutine VMs.
-type externalCallCache struct {
-	mu    sync.RWMutex
-	cache []*extCallCacheEntry
-}
-
-// extCallCacheEntry caches resolved external function info for fast dispatch.
-// This avoids repeated reflection lookups for external function calls.
-type extCallCacheEntry struct {
-	// fn is the reflect.Value of the function.
-	fn reflect.Value
-
-	// fnType is the function's type.
-	fnType reflect.Type
-
-	directCall func(args []value.Value) value.Value
-
-	// isVariadic indicates if the function takes variadic arguments.
-	isVariadic bool
-
-	// numIn is the number of declared parameters.
-	numIn int
-}
-
 // newVM creates a new VM for executing the given program.
-func newVM(program *bytecode.Program, initialGlobals []value.Value, goroutines *GoroutineTracker) *vm {
+func newVM(program *bytecode.CompiledProgram, initialGlobals []value.Value, goroutines *GoroutineTracker) *vm {
 	globals := make([]value.Value, len(program.Globals))
 	if len(initialGlobals) == len(globals) {
 		copy(globals, initialGlobals)
@@ -260,109 +235,6 @@ func (v *vm) UnbindSharedGlobals() {
 // Globals returns the VM's global variable slice.
 func (v *vm) Globals() []value.Value {
 	return v.globals
-}
-
-// resolveCompiledMethod finds a compiled method in the program's function table
-// ResolveCompiledMethod searches for a compiled method and executes it with the given receiver.
-func ResolveCompiledMethod(program *bytecode.Program, methodName string, receiver value.Value) (value.Value, bool) {
-	rv, ok := receiver.ReflectValue()
-	if !ok {
-		return value.MakeNil(), false
-	}
-	if rv.Kind() == reflect.Interface && !rv.IsNil() {
-		rv = rv.Elem()
-	}
-
-	// Extract the type name from the _gig_id field for matching
-	receiverTypeName := ""
-	if rv.Kind() == reflect.Struct {
-		rt := rv.Type()
-		for i := 0; i < rt.NumField(); i++ {
-			sf := rt.Field(i)
-			if sf.Name == "_gig_id" {
-				if idx := strings.LastIndex(sf.PkgPath, "#"); idx >= 0 {
-					qualName := sf.PkgPath[idx+1:]
-					if dotIdx := strings.LastIndex(qualName, "."); dotIdx >= 0 {
-						receiverTypeName = qualName[dotIdx+1:]
-					} else {
-						receiverTypeName = qualName
-					}
-				}
-				break
-			}
-		}
-	}
-
-	if receiverTypeName == "" {
-		return value.MakeNil(), false
-	}
-
-	// Search the compiled function table for a method with matching name and receiver type
-	for _, fn := range program.MethodsByName[methodName] {
-		if fn.ReceiverTypeName != receiverTypeName {
-			continue
-		}
-		// Found the method! Execute it with a temporary VM.
-		tempVM := &vm{
-			program: program,
-			stack:   make([]value.Value, deferVMStackSize),
-			sp:      0,
-			frames:  make([]*Frame, initialFrameDepth),
-			fp:      0,
-			globals: make([]value.Value, len(program.Globals)),
-			ctx:     context.Background(),
-			extCallCache: &externalCallCache{
-				cache: make([]*extCallCacheEntry, len(program.Constants)),
-			},
-		}
-		// Note: tempVM does not have initialGlobals since resolveCompiledMethod
-		// is called without a VM context. This is acceptable because method resolution
-		// only needs to execute the method, not full program init.
-		tempVM.callFunction(fn, []value.Value{receiver}, nil)
-		result, err := tempVM.run()
-		if err != nil {
-			return value.MakeNil(), false
-		}
-		return result, true
-	}
-	return value.MakeNil(), false
-}
-
-// VMPool is a thread-safe pool of VMs for a given program.
-type VMPool struct {
-	mu    sync.Mutex
-	vms   []*vm // available VMs
-	newVM func() *vm
-}
-
-// NewVMPool creates a VM pool for the given program.
-func NewVMPool(program *bytecode.Program, initialGlobals []value.Value, goroutines *GoroutineTracker) *VMPool {
-	return &VMPool{
-		newVM: func() *vm {
-			return newVM(program, initialGlobals, goroutines)
-		},
-	}
-}
-
-// Get returns an idle VM from the pool.
-func (p *VMPool) Get() VM {
-	p.mu.Lock()
-	if len(p.vms) > 0 {
-		v := p.vms[len(p.vms)-1]
-		p.vms = p.vms[:len(p.vms)-1]
-		p.mu.Unlock()
-		return v
-	}
-	p.mu.Unlock()
-	return p.newVM()
-}
-
-// Put returns a VM to the pool for reuse.
-func (p *VMPool) Put(x VM) {
-	x.Reset()
-	p.mu.Lock()
-	p.vms = append(p.vms, x.(*vm))
-	p.mu.Unlock()
 }
 
 // Execute runs the specified function with the given arguments.

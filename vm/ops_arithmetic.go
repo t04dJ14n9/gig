@@ -2,12 +2,12 @@
 package vm
 
 import (
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // executeArithmetic handles arithmetic, bitwise, comparison, and logical opcodes.
-func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolint:cyclop
+func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolint:cyclop,unparam // frame: uniform dispatch signature
 	switch op {
 	// Arithmetic
 	case bytecode.OpAdd:

@@ -3,7 +3,7 @@ package optimize
 import (
 	"testing"
 
-	"git.woa.com/youngjin/gig/bytecode"
+	"git.woa.com/youngjin/gig/model/bytecode"
 )
 
 func TestSafeIdx(t *testing.T) {

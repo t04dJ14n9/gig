@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // GoroutineTracker tracks active interpreter goroutines for a single program.

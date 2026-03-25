@@ -4,8 +4,8 @@ package vm
 import (
 	"reflect"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // executeCall handles function call, closure creation, goroutine spawning,
@@ -130,7 +130,7 @@ func (v *vm) executeCall(op bytecode.OpCode, frame *Frame) error { //nolint:gocy
 			// Track the goroutine
 			if err := v.goroutines.Start(func() {
 				// Create initial frame for the child goroutine
-				childFrame := newFrame(capturedFn, 0, capturedArgs, nil)
+				childFrame := newFrame(capturedFn, capturedArgs, nil)
 				childVM.frames[0] = childFrame
 				childVM.fp = 1
 
@@ -167,7 +167,7 @@ func (v *vm) executeCall(op bytecode.OpCode, frame *Frame) error { //nolint:gocy
 			// Track the goroutine
 			if err := v.goroutines.Start(func() {
 				// Create initial frame for the child goroutine with free vars
-				childFrame := newFrame(capturedClosure.Fn, 0, capturedArgs, capturedClosure.FreeVars)
+				childFrame := newFrame(capturedClosure.Fn, capturedArgs, capturedClosure.FreeVars)
 				childVM.frames[0] = childFrame
 				childVM.fp = 1
 

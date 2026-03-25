@@ -7,7 +7,8 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"git.woa.com/youngjin/gig/bytecode"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/external"
 )
 
 // compileInstruction compiles a single SSA instruction to bytecode.
@@ -238,7 +239,7 @@ func (c *compiler) compileCall(i *ssa.Call) {
 		for _, arg := range i.Call.Args {
 			c.compileValue(arg)
 		}
-		methodInfo := &bytecode.ExternalMethodInfo{
+		methodInfo := &external.ExternalMethodInfo{
 			MethodName: i.Call.Method.Name(),
 		}
 		// For invoke calls, try to extract the concrete receiver type from the

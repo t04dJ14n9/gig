@@ -5,7 +5,7 @@ import (
 	crypto_subtle "crypto/subtle"
 
 	"git.woa.com/youngjin/gig/importer"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 func init() {

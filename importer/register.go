@@ -9,53 +9,9 @@ import (
 	"strings"
 	"sync"
 
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/external"
+	"git.woa.com/youngjin/gig/model/value"
 )
-
-// ObjectKind represents the kind of external object (function, variable, constant, or type).
-type ObjectKind int
-
-const (
-	// ObjectKindInvalid indicates an invalid or uninitialized object.
-	ObjectKindInvalid ObjectKind = iota
-
-	// ObjectKindFunction indicates a function object.
-	ObjectKindFunction
-
-	// ObjectKindVariable indicates a mutable variable object.
-	ObjectKindVariable
-
-	// ObjectKindConstant indicates an immutable constant object.
-	ObjectKindConstant
-
-	// ObjectKindType indicates a named type object.
-	ObjectKindType
-)
-
-// ExternalObject represents a function, variable, constant, or type from an external package.
-// It stores the Go value and type information needed for the interpreter.
-type ExternalObject struct {
-	// Name is the object's identifier (e.g., "Sprintf", "NoError").
-	Name string
-
-	// Kind indicates whether this is a function, variable, constant, or type.
-	Kind ObjectKind
-
-	// Value is the Go value:
-	//   - Function: the function value
-	//   - Variable: pointer to the variable
-	//   - Constant: the constant value
-	//   - Type: zero value of the type
-	Value any
-
-	// Type is the Go types.Type representation.
-	Type types.Type
-
-	// Doc is optional documentation text.
-	Doc string
-
-	DirectCall func([]value.Value) value.Value
-}
 
 // ExternalPackage represents a registered external package.
 // It maps package-level objects by name for lookup during type checking and execution.
@@ -67,7 +23,7 @@ type ExternalPackage struct {
 	Name string
 
 	// Objects maps object names to their ExternalObject entries.
-	Objects map[string]*ExternalObject
+	Objects map[string]*external.ExternalObject
 
 	// Types maps type names to their reflect.Type representations.
 	Types map[string]reflect.Type
@@ -78,24 +34,14 @@ type ExternalPackage struct {
 
 // PackageRegistry manages external package registration.
 // It provides methods to register, lookup, and query packages, types, and method DirectCalls.
+// PackageRegistry embeds PackageLookup for read operations and adds write operations.
 type PackageRegistry interface {
-	// RegisterPackage registers a new external package with the given import path and name.
+	PackageLookup // Embed read interface
+
+	// Registration (write operations)
 	RegisterPackage(path, name string) *ExternalPackage
-	GetPackageByPath(path string) *ExternalPackage
-	GetPackageByName(name string) *ExternalPackage
-	GetAllPackages() map[string]*ExternalPackage
-
-	// Type management
 	SetExternalType(t types.Type, rt reflect.Type)
-	GetExternalType(t types.Type) reflect.Type
-
-	// Method DirectCall management
 	AddMethodDirectCall(typeName, methodName string, dc func([]value.Value) value.Value)
-	LookupMethodDirectCall(typeName, methodName string) (func([]value.Value) value.Value, bool)
-
-	// Package lookup helpers
-	LookupPackage(name string) (*ExternalPackage, error)
-	AutoImport(name string) (path string, pkg *ExternalPackage, ok bool)
 }
 
 // Registry is the concrete implementation of PackageRegistry.
@@ -151,7 +97,7 @@ func (r *Registry) RegisterPackage(path, name string) *ExternalPackage {
 	pkg := &ExternalPackage{
 		Path:     path,
 		Name:     name,
-		Objects:  make(map[string]*ExternalObject),
+		Objects:  make(map[string]*external.ExternalObject),
 		Types:    make(map[string]reflect.Type),
 		registry: r,
 	}
@@ -240,66 +186,39 @@ func (r *Registry) AutoImport(name string) (path string, pkg *ExternalPackage, o
 	return "", nil, false
 }
 
-// --- ExternalPackage methods ---
-
-// AddFunction adds a function to the package.
-func (p *ExternalPackage) AddFunction(name string, fn any, doc string, directCall func([]value.Value) value.Value) {
-	sig := funcSignature(fn)
-	p.Objects[name] = &ExternalObject{
-		Name:       name,
-		Kind:       ObjectKindFunction,
-		Value:      fn,
-		Type:       sig,
-		Doc:        doc,
-		DirectCall: directCall,
+// LookupExternalFunc looks up an external function by package path and function name.
+func (r *Registry) LookupExternalFunc(pkgPath, funcName string) (fn any, directCall func([]value.Value) value.Value, ok bool) {
+	pkg := r.GetPackageByPath(pkgPath)
+	if pkg == nil {
+		return nil, nil, false
 	}
+	obj, exists := pkg.Objects[funcName]
+	if !exists || obj.Kind != external.ObjectKindFunction {
+		return nil, nil, false
+	}
+	return obj.Value, obj.DirectCall, true
 }
 
-// AddVariable adds a variable to the package.
-func (p *ExternalPackage) AddVariable(name string, ptr any, doc string) {
-	typ := typeOf(reflect.TypeOf(ptr).Elem())
-	p.Objects[name] = &ExternalObject{
-		Name:  name,
-		Kind:  ObjectKindVariable,
-		Value: ptr,
-		Type:  typ,
-		Doc:   doc,
+// LookupExternalVar looks up an external variable by package path and variable name.
+func (r *Registry) LookupExternalVar(pkgPath, varName string) (ptr any, ok bool) {
+	pkg := r.GetPackageByPath(pkgPath)
+	if pkg == nil {
+		return nil, false
 	}
+	obj, exists := pkg.Objects[varName]
+	if !exists || obj.Kind != external.ObjectKindVariable {
+		return nil, false
+	}
+	return obj.Value, true
 }
 
-// AddConstant adds a constant to the package.
-func (p *ExternalPackage) AddConstant(name string, val any, doc string) {
-	typ := typeOf(reflect.TypeOf(val))
-	p.Objects[name] = &ExternalObject{
-		Name:  name,
-		Kind:  ObjectKindConstant,
-		Value: val,
-		Type:  typ,
-		Doc:   doc,
+// LookupExternalType looks up an external type by types.Type.
+func (r *Registry) LookupExternalType(t types.Type) (reflect.Type, bool) {
+	rt := r.GetExternalType(t)
+	if rt != nil {
+		return rt, true
 	}
-}
-
-// AddType adds a named type to the package.
-func (p *ExternalPackage) AddType(name string, typ reflect.Type, doc string) {
-	if typ == nil {
-		return
-	}
-	p.Types[name] = typ
-	p.Objects[name] = &ExternalObject{
-		Name:  name,
-		Kind:  ObjectKindType,
-		Value: reflect.Zero(typ).Interface(),
-		Type:  typeOf(typ),
-		Doc:   doc,
-	}
-}
-
-// AddMethodDirectCall registers a DirectCall wrapper for a method on a type in this package.
-// It uses the package's owning registry instance.
-func (p *ExternalPackage) AddMethodDirectCall(typeName, methodName string, dc func([]value.Value) value.Value) {
-	if p.registry != nil {
-		p.registry.AddMethodDirectCall(p.Path+"."+typeName, methodName, dc)
-	}
+	return nil, false
 }
 
 // --- Global registry (backward compatibility) ---

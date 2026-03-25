@@ -6,8 +6,9 @@ import (
 	"reflect"
 	"strings"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/external"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // ExternalCallCancelledError is returned when a context is cancelled before/after an external call.
@@ -234,7 +235,7 @@ func (v *vm) callExternal(funcIdx, numArgs int) error {
 
 	// Check if this is a method call (ExternalMethodInfo)
 	if funcIdx < len(v.program.Constants) {
-		if methodInfo, ok := v.program.Constants[funcIdx].(*bytecode.ExternalMethodInfo); ok {
+		if methodInfo, ok := v.program.Constants[funcIdx].(*external.ExternalMethodInfo); ok {
 			return v.callExternalMethod(methodInfo, args)
 		}
 	}
@@ -294,7 +295,7 @@ func (v *vm) resolveExternalFunc(funcIdx int) *extCallCacheEntry {
 
 	// Check if constant is ExternalFuncInfo (new optimized path)
 	if funcIdx < len(v.program.Constants) {
-		if extInfo, ok := v.program.Constants[funcIdx].(*bytecode.ExternalFuncInfo); ok {
+		if extInfo, ok := v.program.Constants[funcIdx].(*external.ExternalFuncInfo); ok {
 			entry.directCall = extInfo.DirectCall
 			if extInfo.Func != nil {
 				entry.fn = reflect.ValueOf(extInfo.Func)
@@ -417,7 +418,7 @@ func (v *vm) callExternalReflect(entry *extCallCacheEntry, args []value.Value) e
 // callExternalMethod dispatches a method call on an external type.
 // args[0] is the receiver, args[1:] are the method arguments.
 // Uses DirectCall fast path if available, otherwise falls back to reflection.
-func (v *vm) callExternalMethod(methodInfo *bytecode.ExternalMethodInfo, args []value.Value) error {
+func (v *vm) callExternalMethod(methodInfo *external.ExternalMethodInfo, args []value.Value) error {
 	if len(args) == 0 {
 		v.push(value.MakeNil())
 		return nil
@@ -443,7 +444,7 @@ func (v *vm) callExternalMethod(methodInfo *bytecode.ExternalMethodInfo, args []
 }
 
 // callExternalMethodReflect dispatches a method call using reflection.
-func (v *vm) callExternalMethodReflect(methodInfo *bytecode.ExternalMethodInfo, args []value.Value) error {
+func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, args []value.Value) error {
 	// Get the receiver as a reflect.Value
 	receiver := args[0]
 	var rv reflect.Value

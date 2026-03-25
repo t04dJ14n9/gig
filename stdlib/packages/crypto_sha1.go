@@ -5,7 +5,7 @@ import (
 	crypto_sha1 "crypto/sha1"
 
 	"git.woa.com/youngjin/gig/importer"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 func init() {

@@ -7,7 +7,8 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"git.woa.com/youngjin/gig/bytecode"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/external"
 )
 
 // extractMethodName strips SSA receiver qualification from a method name.
@@ -37,7 +38,7 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 	if sig.Recv() != nil {
 		methodName := extractMethodName(fn.Name())
 
-		methodInfo := &bytecode.ExternalMethodInfo{
+		methodInfo := &external.ExternalMethodInfo{
 			MethodName: methodName,
 		}
 
@@ -62,11 +63,11 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 	}
 
 	// Use injected PackageLookup instead of direct importer access
-	var extFuncInfo *bytecode.ExternalFuncInfo
+	var extFuncInfo *external.ExternalFuncInfo
 	if fn.Pkg != nil && c.lookup != nil {
 		pkgPath := fn.Pkg.Pkg.Path()
 		if fnVal, directCall, ok := c.lookup.LookupExternalFunc(pkgPath, fn.Name()); ok {
-			extFuncInfo = &bytecode.ExternalFuncInfo{
+			extFuncInfo = &external.ExternalFuncInfo{
 				Func:       fnVal,
 				DirectCall: directCall,
 			}
@@ -74,7 +75,7 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 	}
 
 	if extFuncInfo == nil {
-		extFuncInfo = &bytecode.ExternalFuncInfo{
+		extFuncInfo = &external.ExternalFuncInfo{
 			Func:       fn,
 			DirectCall: nil,
 		}

@@ -1,7 +1,7 @@
 // stack.go implements the operand stack with push/pop/peek and bounded growth.
 package vm
 
-import "git.woa.com/youngjin/gig/value"
+import "git.woa.com/youngjin/gig/model/value"
 
 // push pushes a value onto the operand stack.
 // Grows the stack if necessary, up to maxStackSize.

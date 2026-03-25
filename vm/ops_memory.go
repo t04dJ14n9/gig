@@ -5,8 +5,8 @@ import (
 	"go/types"
 	"reflect"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // executeMemory handles stack, constant, local/global/free variable, field,

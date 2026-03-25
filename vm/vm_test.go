@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"git.woa.com/youngjin/gig/bytecode"
-	"git.woa.com/youngjin/gig/value"
+	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/value"
 )
 
 // ---------------------------------------------------------------------------
@@ -66,7 +66,7 @@ func TestStackAutoGrow(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestNewVM(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{},
 		Globals:   map[string]int{"x": 0, "y": 1},
 	}
@@ -89,7 +89,7 @@ func TestExecuteHalt(t *testing.T) {
 		NumParams:    0,
 		MaxStack:     1,
 	}
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{"main": fn},
 		Globals:   map[string]int{},
 	}
@@ -118,7 +118,7 @@ func TestExecuteConstAndReturn(t *testing.T) {
 		NumParams:    0,
 		MaxStack:     1,
 	}
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{"compute": fn},
 		Constants: []any{int64(42)},
 		Globals:   map[string]int{},
@@ -136,7 +136,7 @@ func TestExecuteConstAndReturn(t *testing.T) {
 
 // TestExecuteFunctionNotFound verifies error for missing function.
 func TestExecuteFunctionNotFound(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{},
 		Globals:   map[string]int{},
 	}
@@ -161,7 +161,7 @@ func TestExecuteWithCancellation(t *testing.T) {
 		NumParams:    0,
 		MaxStack:     1,
 	}
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{"loop": fn},
 		Globals:   map[string]int{},
 	}
@@ -190,7 +190,7 @@ func TestExecuteWithTimeout(t *testing.T) {
 		NumParams:    0,
 		MaxStack:     1,
 	}
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{"loop": fn},
 		Globals:   map[string]int{},
 	}
@@ -335,7 +335,7 @@ func u16(v uint16) (byte, byte) { return byte(v >> 8), byte(v) }
 // buildProg creates a Program + CompiledFunction ready for execution.
 // constants are raw any values added to Constants (not PrebakedConstants),
 // so the VM resolves them via value.FromInterface on first access.
-func buildProg(name string, instr []byte, numLocals int, constants ...any) (*bytecode.Program, string) {
+func buildProg(name string, instr []byte, numLocals int, constants ...any) (*bytecode.CompiledProgram, string) {
 	fn := &bytecode.CompiledFunction{
 		Name:         name,
 		Instructions: instr,
@@ -343,7 +343,7 @@ func buildProg(name string, instr []byte, numLocals int, constants ...any) (*byt
 		NumParams:    0,
 		MaxStack:     8,
 	}
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{name: fn},
 		Constants: constants,
 		Globals:   map[string]int{},

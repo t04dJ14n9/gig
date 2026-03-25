@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"git.woa.com/youngjin/gig/bytecode"
+	"git.woa.com/youngjin/gig/model/bytecode"
 )
 
 // maxTypeRecursionDepth is the hard limit on recursive type conversion depth.
@@ -17,7 +17,7 @@ const maxTypeRecursionDepth = 256
 // cache to ensure the same types.Type always maps to the same reflect.Type.
 // This prevents reflect.StructOf from returning different reflect.Type objects
 // across multiple VM executions, which would cause "reflect.Set: value not assignable" panics.
-func typeToReflect(t types.Type, prog *bytecode.Program) reflect.Type {
+func typeToReflect(t types.Type, prog *bytecode.CompiledProgram) reflect.Type {
 	if t == nil {
 		return nil
 	}
@@ -49,7 +49,7 @@ func typeToReflect(t types.Type, prog *bytecode.Program) reflect.Type {
 // named types with different uniqueSuffix values. Caching at this level would cause
 // suffix-insensitive collisions. Program-level caching is done only at the top-level
 // typeToReflect entry point, which caches the final result keyed by the original type.
-func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type, uniqueSuffix string, prog *bytecode.Program, depth int) reflect.Type {
+func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type, uniqueSuffix string, prog *bytecode.CompiledProgram, depth int) reflect.Type {
 	if t == nil {
 		return nil
 	}
@@ -71,7 +71,7 @@ func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type, uni
 }
 
 // typeToReflectInner does the actual conversion without caching logic.
-func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueSuffix string, prog *bytecode.Program, depth int) reflect.Type {
+func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueSuffix string, prog *bytecode.CompiledProgram, depth int) reflect.Type {
 	switch tt := t.(type) {
 	case *types.Basic:
 		switch tt.Kind() {

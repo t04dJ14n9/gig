@@ -6,15 +6,15 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"git.woa.com/youngjin/gig/bytecode"
 	"git.woa.com/youngjin/gig/compiler/parser"
 	ssabuilder "git.woa.com/youngjin/gig/compiler/ssa"
 	"git.woa.com/youngjin/gig/importer"
+	"git.woa.com/youngjin/gig/model/bytecode"
 )
 
 // BuildResult holds the output of the full compilation pipeline.
 type BuildResult struct {
-	Program *bytecode.Program
+	Program *bytecode.CompiledProgram
 	SSAPkg  *ssa.Package
 }
 
