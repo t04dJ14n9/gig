@@ -1,6 +1,6 @@
 # Gig - Go Interpreter in Go
 
-[![中文](https://img.shields.io/badge/lang-中文-red.svg)](README_CN.md) [![English](https://img.shields.io/badge/lang-English-blue.svg)](README.md)
+[![中文](https://img.shields.io/badge/lang-中文-red.svg)](README.md) [![English](https://img.shields.io/badge/lang-English-blue.svg)](README_EN.md)
 
 Gig is a high-performance Go interpreter written in Go, featuring SSA-to-bytecode compilation and a stack-based virtual machine.
 

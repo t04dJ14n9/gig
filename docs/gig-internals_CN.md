@@ -1,666 +1,1268 @@
-# Gig 内部实现
+# Gig 内部原理
 
-Gig 是一个用 Go 编写的 Go 语言解释器。它被设计为一个可嵌入的沙箱执行引擎——一种在宿主应用程序内安全运行用户提供的 Go 代码的方式，支持基于 context 的取消机制，且不向被解释的程序暴露 `unsafe`、`reflect` 或 `panic`。
+面向需要理解系统运作方式、进行扩展或排查生产问题的工程师的 Gig Go 解释器技术深度解析。
 
-与大多数在运行时遍历抽象语法树的 Go 解释器不同，Gig 通过 SSA 中间表示将 Go 源代码编译为紧凑的字节码，然后由基于栈的虚拟机执行。这种设计——借鉴了传统编译器和字节码虚拟机（如 JVM 或 Lua）——赋予 Gig 独特的性能特征和清晰的编译/执行分离。
+---
 
-本文旨在深入探讨其内部实现。在接下来的内容中，我们将概览全局、探索内部细节并讨论设计决策。目标是提供关键的洞察，阐明架构和代码组织。首先，从概述开始。
+## 为什么选择 Gig？规则引擎的困境
+
+每家企业都有变化速度超出部署周期的业务逻辑。定价规则、资格判定、欺诈评分、促销匹配——这些每周甚至每天都在变化。现有方案各有致命缺陷：
+
+| 方案 | 问题 |
+|---|---|
+| 硬编码 Go | 每次规则变更都需要重新编译和部署 |
+| 表达式语言 (CEL, Rego) | 能力有限：没有循环、没有标准库、还得学新语法 |
+| 嵌入 Lua/JS | 语言不同：Go 开发者需要频繁切换上下文，无法复用 Go 库 |
+| gRPC 微服务 | 运维开销大：每条规则都要单独部署、版本管理和监控 |
+
+**我们真正想要的是**：用 Go 编写规则（零学习成本），可以调用任何 Go 标准库或第三方库（功能齐全），但无需重新编译宿主应用即可动态加载和执行。
+
+### Gig 的方案
+
+Gig 是一个**完整的 Go 解释器**，将 Go 源代码编译为字节码并在基于栈的虚拟机上执行。它不是子集也不是 DSL——它支持完整的 Go 语言特性，包括 goroutine、闭包、defer/panic/recover、接口、方法和类型断言。
+
+```
+┌─────────────┐     ┌──────────┐     ┌────────────┐     ┌──────────┐     ┌──────────┐
+│  Go Source   │────▶│  Parser  │────▶│ Type Check │────▶│ SSA Build│────▶│ Compiler │
+│  (string)    │     │ go/parser│     │ go/types   │     │ go/ssa   │     │ SSA→BC   │
+└─────────────┘     └──────────┘     └────────────┘     └──────────┘     └─────┬────┘
+                                                                               │
+                    ┌──────────┐     ┌────────────┐     ┌──────────┐           │
+                    │  Result  │◀────│    VM       │◀────│ Bytecode │◀──────────┘
+                    │  (any)   │     │ stack-based │     │ Program  │
+                    └──────────┘     └────────────┘     └──────────┘
+```
+
+### 基本用法
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/t04dJ14n9/gig"
+)
+
+func main() {
+    // 将 Go 源码编译为字节码
+    prog, err := gig.Build(`
+        import "strings"
+
+        func ProcessName(name string) string {
+            return strings.ToUpper(strings.TrimSpace(name))
+        }
+    `)
+    if err != nil {
+        panic(err)
+    }
+    defer prog.Close()
+
+    // 执行编译后的函数
+    result, err := prog.Run("ProcessName", "  hello world  ")
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(result) // Output: HELLO WORLD
+}
+```
+
+`Build` 调用耗时约 1-5ms（解析 + 类型检查 + SSA + 编译）。每次 `Run` 调用仅需微秒级——字节码已经编译完毕，VM 通过池化复用。
+
+---
 
 ## 架构概览
 
-让我们看看当执行以下代码时，Gig 内部发生了什么：
+### 包结构
+
+```
+gig/
+├── gig.go                    # 公共 API: Build(), Program.Run()
+├── compiler/
+│   ├── build.go              # 完整流水线: source → parse → SSA → bytecode
+│   ├── compiler.go           # SSA → 字节码翻译
+│   ├── compile_func.go       # 逐函数编译
+│   ├── compile_instr.go      # 逐指令编译
+│   ├── symbol.go             # 符号表 (SSA value → local slot)
+│   ├── parser/               # go/parser + 安全性校验
+│   ├── ssa/                  # go/ssa builder 封装
+│   ├── peephole/             # 基于模式的超级指令融合
+│   └── optimize/             # 4 遍字节码优化流水线
+├── vm/
+│   ├── vm.go                 # VM 结构体，Execute() 入口
+│   ├── run.go                # 主取指-解码-执行循环（热路径）
+│   ├── frame.go              # 调用帧 + 帧池
+│   ├── stack.go              # 操作数栈，支持有界增长
+│   ├── call.go               # 外部函数调用 (DirectCall + reflect)
+│   ├── closure.go            # 闭包类型 + ClosureExecutor
+│   ├── goroutine.go          # GoroutineTracker，子 VM 构造
+│   ├── ops_dispatch.go       # 操作码路由到分类处理器
+│   ├── ops_arithmetic.go     # 算术、位运算、比较操作
+│   ├── ops_memory.go         # 栈、局部变量、全局变量、字段、地址操作
+│   ├── ops_container.go      # Slice、map、channel 操作
+│   ├── ops_control.go        # 控制流、defer、panic/recover
+│   ├── ops_convert.go        # 类型断言、类型转换
+│   └── ops_call.go           # 函数/闭包调用、goroutine
+├── model/
+│   ├── value/                # 32 字节标记联合体 Value 类型
+│   ├── bytecode/             # CompiledProgram, CompiledFunction, OpCode
+│   └── external/             # ExternalFuncInfo, ExternalMethodInfo
+├── importer/                 # 包注册、类型解析
+├── runner/                   # VM 池、init 执行、有状态全局变量
+└── stdlib/packages/          # ~69 个预生成的标准库封装
+```
+
+### 构建流水线详解
 
 ```go
-prog, _ := gig.Build(`
-    package main
-    import "fmt"
-    func Hello(name string) string {
-        return fmt.Sprintf("Hello, %s!", name)
-    }
-`)
-result, _ := prog.Run("Hello", "world")
+// gig.go: Build()
+func Build(sourceCode string, opts ...BuildOption) (*Program, error) {
+    // 1. compiler.Build: source → parse → SSA → bytecode
+    result, err := compiler.Build(sourceCode, cfg.registry, compilerOpts...)
+
+    // 2. 执行 init() 并快照全局变量
+    initialGlobals, err := runner.ExecuteInit(result.Program)
+
+    // 3. 创建 runner（拥有 VM 池）
+    r := runner.New(result.Program, initialGlobals, runnerOpts...)
+
+    return &Program{runner: r, ssaPkg: result.SSAPkg}, nil
+}
 ```
 
-下图展示了主要阶段：
+`compiler.Build` 函数协调三个阶段：
 
+```go
+// compiler/build.go
+func Build(source string, reg importer.PackageRegistry, opts ...BuildOption) (*BuildResult, error) {
+    // 阶段 1：解析 + 类型检查 + 校验
+    parseResult, err := parser.Parse(source, reg, parseOpts...)
+
+    // 阶段 2：构建 SSA
+    ssaResult, err := ssabuilder.Build(parseResult.FSet, parseResult.Pkg, ...)
+
+    // 阶段 3：将 SSA 编译为字节码
+    lookup := importer.NewPackageLookup(reg)
+    compiled, err := NewCompiler(lookup).Compile(ssaResult.Pkg)
+
+    return &BuildResult{Program: compiled, SSAPkg: ssaResult.Pkg}, nil
+}
 ```
-源代码 ──► 解析器 ──► 类型检查器 ──► SSA 构建器 ──► 编译器 ──► 虚拟机
-          go/parser   go/types      go/ssa        bytecode    execute
-```
 
-**解析器**（由 `go/parser` 提供）将 Go 源代码转换为抽象语法树。
-
-**类型检查器**（由 `go/types` 提供）解析所有类型、常量和标识符。它使用自定义的 `types.Importer`，针对 Gig 注册的外部包（而非文件系统）来解析导入。
-
-**SSA 构建器**（由 `golang.org/x/tools/go/ssa` 提供）将经过类型检查的 AST 转换为静态单赋值形式——一个由基本块组成的图，其中包含类型化指令，每个值只被赋值一次。
-
-**编译器**（在 `compiler/` 中实现）将 SSA 指令翻译为扁平的字节码流，执行 phi 消除，修补跳转目标，并运行四个优化遍。
-
-**虚拟机**（在 `vm/` 中实现）在取指-译码-执行循环中执行字节码，管理值栈、调用帧和外部函数分发。
-
-该解释器被设计为一个真正的编译器，只不过代码生成到内存中而非目标文件，目标是 Go 运行时本身而非硬件架构。我们不会花时间在解析器、类型检查器或 SSA 构建器上——这些都由标准库及其扩展提供——而是着重考察 Gig 在其之上构建的部分。
+---
 
 ## 值系统
 
-在深入编译和执行之前，我们必须理解 Gig 中最基础的数据结构：`Value`。解释器中的每个局部变量、栈槽位、常量、函数参数和返回值都是一个 `Value`。
+### 问题
+
+解释器需要一个通用类型来在运行时表示任意 Go 值：`int`、`string`、`[]byte`、`*http.Request`、闭包等。最直接的做法是 `interface{}`，但在解释器的操作数栈中，中间值不断地 push/pop，逃逸分析无法优化——大量整数运算的结果会在堆上分配。对于数值密集型的规则引擎来说，这意味着巨大的 GC 压力。
+
+### 解决方案：32 字节标记联合体
+
+```
+┌──────────┬──────────┬───────────┬────────────────────────────────────┐
+│ kind (1B)│ size (1B)│ pad (6B)  │          num (8B)                  │
+├──────────┴──────────┴───────────┼────────────────────────────────────┤
+│                                 │          obj (16B)                  │
+│         (interface{})           │    string / reflect.Value / etc.    │
+└─────────────────────────────────┴────────────────────────────────────┘
+                            Total: 32 bytes
+```
 
 ```go
-// value/value.go
+// model/value/value.go
 type Value struct {
-    kind Kind    // 1 字节：类型标签
-    num  int64   // 8 字节：bool、int、uint 位模式、float64 位模式
-    obj  any     // 16 字节：string、reflect.Value、*Closure、[]int64 等
+    kind Kind    // 1 byte: 类型标记 (KindInt, KindString, KindFloat, ...)
+    size Size    // 1 byte: 原始 Go 位宽 (8, 16, 32, 64)
+    num  int64   // 8 bytes: 存储 bool (0/1), int, uint 位, float64 位
+    obj  any     // 16 bytes: string, complex128, reflect.Value, 或 nil
 }
 ```
 
-在 64 位系统上总大小为 **32 字节**。这是一种标记联合体设计，灵感来自 Lua 和其他动态语言表示值的方式，但适配了 Go 的类型系统。
+**关键洞察**：对于基本类型（`bool`、`int`、`uint`、`float64`、`nil`），所有数据都存在 `kind` + `num` 中。`obj` 字段为 `nil`。**零堆分配，零 GC 压力。**
 
-关键洞察是基本类型和复合类型之间的**两层拆分**：
-
-**基本类型**（bool、int、uint、float、nil）完全存储在 `kind` + `num` 中，`obj` 保持为 nil。创建整数值的方式为：
+### Kind 类型
 
 ```go
-func MakeInt(i int64) Value { return Value{kind: KindInt, num: i} }
+const (
+    KindInvalid Kind = iota  // 0 — Value 的零值（未初始化的全局变量）
+    KindNil                  // 1 — 显式 nil
+    KindBool                 // 2 — 存储在 num 中: 0=false, 1=true
+    KindInt                  // 3 — 以 int64 形式存储在 num 中
+    KindUint                 // 4 — 以 uint64 位模式存储在 num 中
+    KindFloat                // 5 — 以 float64 位模式存储在 num 中 (math.Float64bits)
+    KindString               // 6 — 以 Go string 形式存储在 obj 中
+    KindComplex              // 7 — 以 complex128 形式存储在 obj 中
+    KindPointer              // 8
+    KindSlice                // 9
+    KindArray                // 10
+    KindMap                  // 11
+    KindChan                 // 12
+    KindFunc                 // 13
+    KindStruct               // 14
+    KindInterface            // 15
+    KindReflect              // 16 — 兜底: obj 中存储 reflect.Value
+    KindBytes                // 17 — 原生 []byte（避免 reflect 开销）
+)
 ```
 
-无堆分配。无反射。无 GC 压力。栈上两个 64 位字。
-
-**复合类型**（切片、映射、结构体、通道、接口）回落到 `obj`，它持有 `reflect.Value` 或原生 Go 对象。例如，整数切片得到特殊处理：
+### 构造函数
 
 ```go
-func MakeIntSlice(s []int64) Value { return Value{kind: KindSlice, obj: s} }
+// 基本类型：零分配
+value.MakeInt(42)         // kind=KindInt, num=42, obj=nil
+value.MakeFloat(3.14)     // kind=KindFloat, num=float64bits(3.14), obj=nil
+value.MakeBool(true)      // kind=KindBool, num=1, obj=nil
+value.MakeNil()           // kind=KindNil, num=0, obj=nil
+
+// 字符串：obj 持有 Go string
+value.MakeString("hello") // kind=KindString, num=0, obj="hello"
+
+// 复合类型：obj 持有 reflect.Value 或原生 Go 类型
+value.MakeBytes([]byte{1,2,3})  // kind=KindBytes, obj=[]byte{1,2,3}
+value.MakeIntSlice([]int64{...}) // kind=KindSlice, obj=[]int64{...}
+value.FromInterface(anyValue)    // 自动检测：快速路径类型 switch
 ```
 
-`[]int64` 直接存储——不包装在 `reflect.Value` 中——这意味着 VM 可以对其进行索引、设置元素和取地址，完全无需反射开销。
+### Size 标记：保留原始类型
 
-这种设计与 Yaegi 等解释器形成对比，后者将所有值表示为 `reflect.Value`。虽然 `reflect.Value` 提供了通用类型处理，但对基本类型会在堆上分配，且每次操作都需要动态分发。Gig 的标记联合体避免了这一点：一次整数加法字面上就是 `result.num = a.num + b.num`——三次内存访问，无分配，无函数调用。
-
-## 编译
-
-### 从 SSA 到字节码
-
-编译流水线在 `compiler/` 的多个文件中实现。入口是 `compiler.go` 中的 `Compile()`，它接受一个 SSA 程序并生成 `bytecode.Program`。
-
-第一遍为每个函数分配索引，包括匿名函数和闭包。函数既存储在映射中（按名称，用于 `Run("funcName")` 分发），也存储在扁平数组中（`FuncByIndex`，用于运行时 O(1) 调用分发）：
+Go 有 `int8`、`int16`、`int32`、`int64`、`int`——在内部都以 `int64` 存储。`size` 字段记住了原始类型，这样 `Interface()` 就能返回正确的类型：
 
 ```go
-// compiler.go
-for idx, fn := range allFuncs {
-    c.funcIndex[fn] = idx
-}
+value.MakeInt8(42).Interface()  // 返回 int8(42)，而非 int64(42)
+value.MakeInt32(42).Interface() // 返回 int32(42)
+value.MakeInt(42).Interface()   // 返回 int(42)
 ```
 
-第二遍编译每个函数。`compile_func.go` 中的按函数编译首先构建符号表——将每个 SSA 值映射到局部变量槽位：
+这在通过反射将值传递给外部 Go 函数时非常重要——如果你调用 `strings.Repeat(s, n)` 而 `n` 是 `int64` 而不是 `int`，`reflect.Call` 会 panic。
+
+### 为什么不用 `interface{}`？
+
+以计算 Fib(25) = 75,025 的斐波那契基准测试为例：
+
+| 值表示方式 | 分配次数 | 原因 |
+|---|---|---|
+| 所有值用 `interface{}` | ~2.1M | 中间值在解释器栈中逃逸到堆上 |
+| `value.Value` 标记联合体 | ~7 | 仅初始帧 + 栈分配 |
+
+32 字节的 `Value` 恰好占两条缓存行，基本类型操作永远不会逃逸到堆上。
+
+---
+
+## 编译：从 Go 源码到字节码
+
+### 一个具体示例
+
+让我们跟踪这个函数经过完整编译流水线的过程：
 
 ```go
-// compile_func.go — 槽位分配
-slot := 0
-for _, param := range fn.Params {
-    c.symbols[param] = slot
-    slot++
-}
-for _, block := range fn.Blocks {
-    for _, instr := range block.Instrs {
-        if phi, ok := instr.(*ssa.Phi); ok {
-            c.phiSlots[phi] = slot
-            slot++
-        }
+func ProcessOrder(price float64, quantity int, coupon string) (float64, bool) {
+    total := price * float64(quantity)
+    if coupon == "HALF" {
+        total *= 0.5
     }
+    valid := total > 0 && total < 10000
+    return total, valid
 }
 ```
 
-参数占据前面的槽位，然后是 phi 节点，然后是其他所有 SSA 值。这种扁平编号方案意味着每条 `OpLocal` 和 `OpSetLocal` 指令通过简单的 16 位索引寻址局部变量。
+### 阶段 1：解析与类型检查
 
-### 基本块遍历
+解析器做三件事：
 
-基本块按**逆后序**遍历——这是一种标准的编译器排序，保证每个块的支配者在该块之前被访问。对于每个块，编译器：
+1. **`go/parser.ParseFile`** 生成 AST
+2. **安全校验**：检查被禁止的导入（`unsafe`、`reflect`）以及被禁止的 `panic()` 用法（可通过 `WithAllowPanic()` 配置）
+3. **自动导入**：如果源码引用了 `strings.Contains(...)` 但没有 `import "strings"`，解析器会自动添加（因为已注册的包是已知的）
+4. **`go/types.Config.Check`**：使用自定义的 `types.Importer` 进行类型检查，它根据注册表解析包
 
-1. 为 phi 节点发出 `OpSetLocal` 指令（phi 消除）
-2. 将每条 SSA 指令编译为一条或多条字节码指令
-3. 发出到后继块的跳转
+### 阶段 2：SSA 构建
 
-Phi 消除值得一提。在 SSA 形式中，块入口处的 phi 节点合并来自不同前驱的值。由于我们的字节码没有 phi 概念，我们将其降低为显式的移动：在跳转到目标块之前，我们为每个 phi 节点使用当前前驱的边值发出 `OpSetLocal`：
+`golang.org/x/tools/go/ssa` 将带类型信息的 AST 转换为静态单赋值形式。对于我们的例子，SSA 大致如下：
+
+```
+func ProcessOrder(price float64, quantity int, coupon string) (float64, bool):
+  entry:                                              ; block 0
+    t0 = Convert quantity int → float64               ; float64(quantity)
+    t1 = Mul price t0                                 ; price * float64(quantity)
+    t2 = BinOp coupon == "HALF"                       ; coupon == "HALF"
+    If t2 → if.then, if.done
+
+  if.then:                                            ; block 1
+    t3 = Mul t1 0.5:float64                           ; total *= 0.5
+    Jump → if.done
+
+  if.done:                                            ; block 2
+    t4 = Phi [entry: t1, if.then: t3]                 ; total (merge)
+    t5 = BinOp t4 > 0:float64                         ; total > 0
+    If t5 → and.rhs, and.done(false)
+
+  and.rhs:                                            ; block 3
+    t6 = BinOp t4 < 10000:float64                     ; total < 10000
+    Jump → and.done
+
+  and.done:                                           ; block 4
+    t7 = Phi [if.done: false, and.rhs: t6]            ; valid (short-circuit &&)
+    t8 = MakeResult t4 t7                             ; (total, valid)
+    Return t8
+```
+
+**SSA 核心概念**：
+- 每个值只被赋值一次（SSA 性质）
+- **Phi 节点**合并来自不同控制路径的值（例如 `t4` 在 `t1` 和 `t3` 之间选择）
+- 短路求值 `&&` 变成了带 Phi 的显式控制流
+
+### 阶段 3：字节码生成
+
+编译器将 SSA 指令翻译为基于栈的字节码。以下是编译过程：
+
+#### 符号表构建
+
+首先，编译器分配局部变量槽位：
+
+```
+Slot 0: price     (parameter)
+Slot 1: quantity  (parameter)
+Slot 2: coupon    (parameter)
+Slot 3: t0        (float64(quantity))
+Slot 4: t1        (price * float64(quantity))
+Slot 5: t4        (phi: total after merge)
+Slot 6: t3        (total * 0.5)
+Slot 7: t5        (total > 0)
+Slot 8: t6        (total < 10000)
+Slot 9: t7        (phi: valid)
+```
+
+参数占据前面的槽位。Phi 节点获得专用槽位（编译器发出显式的 `SetLocal` 移动指令来解析 Phi）。临时变量占据剩余的槽位。
+
+#### 生成的字节码
+
+```
+; entry block
+0000: LOCAL    0         ; push price
+0003: LOCAL    1         ; push quantity
+0006: CONVERT  [float64] ; convert int → float64, result on stack
+0009: SETLOCAL 3         ; store t0 = float64(quantity)
+000C: LOCAL    0         ; push price
+000F: LOCAL    3         ; push t0
+0012: MUL                ; price * float64(quantity)
+0013: SETLOCAL 4         ; store t1
+0016: SETLOCAL 5         ; phi pre-copy: total = t1 (entry path)
+0019: LOCAL    2         ; push coupon
+001C: CONST    0         ; push "HALF" from constant pool
+001F: EQUAL              ; coupon == "HALF"
+0020: JUMPFALSE 002E     ; skip to if.done if false
+
+; if.then block
+0023: LOCAL    4         ; push t1
+0026: CONST    1         ; push 0.5
+0029: MUL                ; t1 * 0.5
+002A: SETLOCAL 6         ; store t3
+002D: SETLOCAL 5         ; phi pre-copy: total = t3 (if.then path)
+
+; if.done block (total is in slot 5 via phi resolution)
+002E: LOCAL    5         ; push total
+0031: CONST    2         ; push 0.0
+0034: GREATER            ; total > 0
+0035: JUMPFALSE 0042     ; short-circuit: if false, skip to and.done
+
+; and.rhs block
+0038: LOCAL    5         ; push total
+003B: CONST    3         ; push 10000.0
+003E: LESS               ; total < 10000
+003F: SETLOCAL 9         ; store valid
+0040: JUMP     0045      ; jump to return
+
+; and.done (false path)
+0042: FALSE              ; push false
+0043: SETLOCAL 9         ; valid = false
+
+; return
+0045: LOCAL    5         ; push total
+0048: LOCAL    9         ; push valid
+004B: PACK     2         ; pack into multi-return tuple
+004D: RETURNVAL          ; return
+```
+
+#### Phi 消除
+
+SSA 的 Phi 节点无法直接映射到硬件指令。编译器通过以下方式消除它们：
+1. 为每个 Phi 分配一个专用局部变量槽位（`total` 对应 slot 5，`valid` 对应 slot 9）
+2. 在每个前驱基本块末尾，发出 `SETLOCAL` 将正确的值写入 Phi 槽位
+
+这就是为什么你在 entry 块和 if.then 块中都能看到 `SETLOCAL 5`——每个块在控制流到达合并点之前，将自己版本的 `total` 写入共享的 Phi 槽位。
+
+### 阶段 4：优化
+
+初始字节码生成之后，运行四遍优化：
 
 ```go
-// compile_func.go — phi 消除
-func (c *compiler) emitPhiMoves(predBlock, targetBlock *ssa.BasicBlock) {
-    for _, instr := range targetBlock.Instrs {
-        phi, ok := instr.(*ssa.Phi)
-        if !ok { break }
-        sourceValue := phi.Edges[predIndex]
-        c.compileValue(sourceValue)          // 将源值压入栈
-        c.emit(bytecode.OpSetLocal, slot)    // 弹出到 phi 的局部槽位
-    }
+// compiler/optimize/optimize.go
+func Optimize(code []byte, localIsInt, constIsInt, localIsIntSlice []bool) ([]byte, bool) {
+    code = Peephole(code)                                    // 第 1 遍：超级指令融合
+    code = FuseSliceOps(code, localIsInt, localIsIntSlice)   // 第 2 遍：slice 操作融合
+    code, hasInt := IntSpecialize(code, localIsInt, constIsInt) // 第 3 遍：整数特化
+    code = FuseIntMoves(code)                                // 第 4 遍：移动融合
+    return code, hasInt
 }
 ```
 
-### 指令集
+#### 第 1 遍：窥孔优化——超级指令融合
 
-Gig 的字节码是变长编码：1 字节操作码后跟 0–6 字节大端序操作数。指令集约有 100 个操作码，按类别组织：
+窥孔模式检测常见的多指令序列，并将其替换为单条融合操作码。例如：
 
-- **栈操作**：`CONST`、`LOCAL`、`SETLOCAL`、`GLOBAL`、`FREE`、`POP`、`DUP`
-- **算术**：`ADD`、`SUB`、`MUL`、`DIV`、`MOD`、`NEG`
-- **比较**：`EQUAL`、`LESS`、`GREATER`、`LESSEQ`、`GREATEREQ`
-- **控制流**：`JUMP`、`JUMPTRUE`、`JUMPFALSE`、`CALL`、`RETURN`
-- **容器**：`MAKESLICE`、`MAKEMAP`、`INDEX`、`SETINDEX`、`FIELD`、`FIELDADDR`
-- **指针**：`ADDR`、`DEREF`、`SETDEREF`、`INDEXADDR`
-- **外部调用**：`CALLEXTERNAL`、`CALLINDIRECT`
-- **并发**：`GOCALL`、`SEND`、`RECV`、`SELECT`、`CLOSE`
-- **超级指令**：约 30 个融合操作码（在优化部分讨论）
+```
+优化前（3 条指令，3 次分发）：
+    LOCAL    0        ; push a
+    LOCAL    1        ; push b
+    ADD               ; a + b
 
-编译后的函数为：
+优化后（1 条指令，1 次分发）：
+    ADDLOCALLOCAL 0 1  ; push locals[0] + locals[1]
+```
+
+窥孔优化器有 17+ 条模式规则，覆盖：
+
+| 模式 | 融合操作码 | 节省 |
+|---|---|---|
+| `LOCAL a` + `LOCAL b` + `ADD` | `OpAddLocalLocal a b` | 2 次分发 |
+| `LOCAL a` + `CONST c` + `ADD` | `OpAddLocalConst a c` | 2 次分发 |
+| `ADD` + `SETLOCAL x` | `OpAddSetLocal x` | 1 次分发 |
+| `LOCAL a` + `LOCAL b` + `ADD` + `SETLOCAL c` | `OpLocalLocalAddSetLocal a b c` | 3 次分发 |
+| `LOCAL a` + `LOCAL b` + `LESS` + `JUMPTRUE off` | `OpLessLocalLocalJumpTrue a b off` | 3 次分发 |
+
+每个模式注册在全局模式注册表中：
 
 ```go
-// bytecode/bytecode.go
-type CompiledFunction struct {
-    Name         string
-    Instructions []byte     // 扁平字节码
-    NumLocals    int        // 参数 + phi 节点 + 临时变量
-    NumParams    int
-    NumFreeVars  int        // 闭包捕获
-    HasIntLocals bool       // 是否需要 intLocals 影子数组
+// compiler/peephole/pattern.go
+type Pattern interface {
+    Match(code []byte, i int) (consumed int, newBytes []byte, ok bool)
 }
 ```
 
-指令是纯 `[]byte`。没有指令结构体，没有指针追踪——只是一个 VM 顺序读取的扁平字节流。这对 CPU 缓存局部性至关重要。
+#### 第 2 遍：Slice 操作融合
 
-### 常量
+检测常见模式 `LOCAL(slice)` + `LOCAL(index)` + `INDEXADDR` + `SETLOCAL(ptr)` + `LOCAL(ptr)` + `DEREF` + `SETLOCAL(val)`，当所有类型都是 `int` 时，将其融合为单条 `OpIntSliceGet slice index val`。
 
-常量存储在 `Program` 中的三个并行数组中：
+#### 第 3 遍：整数特化
 
-```go
-type Program struct {
-    Constants         []any          // 原始值：int64、string、ExternalFuncInfo 等
-    PrebakedConstants []value.Value  // 编译时预转换
-    IntConstants      []int64        // 用于整数特化操作码
-}
+当编译器能证明超级指令中所有局部变量都是 `int` 类型时，将泛型超级指令升级为 `OpInt*` 变体：
+
+```
+OpLocalConstAddSetLocal → OpIntLocalConstAddSetLocal
+OpLessLocalLocalJumpFalse → OpIntLessLocalLocalJumpFalse
 ```
 
-`PrebakedConstants` 数组是关键优化。不是在每次 `OpConst` 执行时将常量从 `any` 转换为 `Value`（涉及类型开关和潜在分配），而是在编译时一次完成。在运行时，`OpConst` 只是一次数组查找：
+`OpInt*` 变体操作影子数组 `intLocals []int64`——纯 8 字节 int64 运算，而非 32 字节的 Value 操作：
 
 ```go
-stack[sp] = prebaked[idx]
-sp++
+// vm/run.go — OpIntLocalConstAddSetLocal handler
+case bytecode.OpIntLocalConstAddSetLocal:
+    idxA := readU16()
+    idxB := readU16()
+    idxC := readU16()
+    r := intLocals[idxA] + intConsts[idxB]   // 原始 int64 加法——无 kind 检查
+    intLocals[idxC] = r                       // 写入 int 影子数组
+    locals[idxC] = value.MakeInt(r)           // 保持 Value 数组同步
+    continue
 ```
+
+缓存利用率提升 4 倍：`int64` 是 8 字节，而 `Value` 是 32 字节，同一条缓存行能容纳 4 倍的操作数。
+
+#### 第 4 遍：移动融合
+
+将 `OpIntLocal(src)` + `OpIntSetLocal(dst)` 替换为 `OpIntMoveLocal(src, dst)`，消除栈的往返开销。
+
+---
 
 ## 虚拟机
 
-### 结构
-
-VM 是一个带有独立调用帧栈的栈机器：
+### VM 结构
 
 ```go
 // vm/vm.go
-type VM struct {
-    program      *bytecode.Program
-    stack        []value.Value     // 操作数栈（初始 1024）
-    sp           int               // 栈指针
-    frames       []*Frame          // 调用帧栈（初始 64）
-    fp           int               // 帧指针
-    globals      []value.Value
-    ctx          context.Context
-    extCallCache sync.Map          // 外部调用内联缓存
-    fpool        framePool         // 帧回收池
+type vm struct {
+    program        *bytecode.CompiledProgram  // 编译后的字节码
+    stack          []value.Value              // 操作数栈
+    sp             int                        // 栈指针
+    frames         []*Frame                   // 调用帧栈
+    fp             int                        // 帧指针
+    globals        []value.Value              // 包级变量
+    globalsPtr     *[]value.Value             // 共享全局变量（goroutine 间）
+    ctx            context.Context            // 取消/超时控制
+    panicking      bool                       // 是否正在 panic？
+    panicVal       value.Value                // 当前 panic 值
+    panicStack     []panicState               // 保存的 panic（嵌套场景）
+    deferDepth     int                        // defer 嵌套层级
+    extCallCache   *externalCallCache         // 外部调用内联缓存
+    initialGlobals []value.Value              // init 后的全局变量快照
+    goroutines     *GoroutineTracker          // goroutine 限制器
+    fpool          framePool                  // 帧回收器
 }
 ```
 
-每个调用帧存储一次函数调用的执行状态：
+### 关键常量
+
+```go
+const (
+    initialStackSize     = 1024     // 操作数栈初始槽数
+    maxStackSize         = 1 << 20  // 1M 槽位 = 每个 VM 32 MB
+    initialFrameDepth    = 64       // 调用帧初始槽数
+    maxFrameDepth        = 1024     // 最大调用深度（8 KB）
+    contextCheckInterval = 1024     // 每 N 条指令检查一次 ctx.Done()
+    defaultMaxGoroutines = 10000    // 每个 program 的 goroutine 上限
+)
+```
+
+### 栈管理
+
+操作数栈是一个 `[]value.Value` 切片，满时容量翻倍：
+
+```go
+// vm/stack.go
+func (v *vm) push(val value.Value) {
+    if v.sp >= len(v.stack) {
+        if len(v.stack) >= maxStackSize {
+            panic("gig: operand stack overflow")
+        }
+        newCap := len(v.stack) * 2
+        if newCap > maxStackSize {
+            newCap = maxStackSize
+        }
+        newStack := make([]value.Value, newCap)
+        copy(newStack, v.stack)
+        v.stack = newStack
+    }
+    v.stack[v.sp] = val
+    v.sp++
+}
+
+func (v *vm) pop() value.Value {
+    v.sp--
+    return v.stack[v.sp]
+}
+```
+
+注意：栈溢出导致的 panic 会被安全网（包裹 `vm.run()` 的 `defer/recover`）捕获，因此会转化为错误返回——永远不会崩溃宿主进程。
+
+### 帧管理与帧池化
+
+每次函数调用都会创建一个 `Frame`：
 
 ```go
 // vm/frame.go
 type Frame struct {
-    fn        *bytecode.CompiledFunction
-    ip        int                // 指令指针，指向 fn.Instructions
-    basePtr   int                // 此帧的栈基址
-    locals    []value.Value      // 局部变量
-    intLocals []int64            // 整数特化影子数组
-    freeVars  []*value.Value     // 闭包捕获（共享指针）
-    defers    []DeferInfo
+    fn        *bytecode.CompiledFunction  // 哪个函数
+    ip        int                         // 指令指针
+    basePtr   int                         // 本次调用的操作数栈基址
+    locals    []value.Value               // 局部变量数组
+    intLocals []int64                     // 整数特化影子数组
+    freeVars  []*value.Value              // 闭包捕获（指针！）
+    defers    []DeferInfo                 // 延迟调用（LIFO）
+    addrTaken bool                        // OpAddr 指向过 locals 则为 true
 }
 ```
 
-### 分发循环
+#### 帧池化
 
-VM 的核心是 `vm/run.go` 中的单个 `run()` 函数。其结构遵循大多数高性能字节码解释器中的模式——带有 `switch` 语句的紧密循环：
+没有池化时，每次函数调用都会在堆上分配一个 `Frame` + `[]value.Value`。对于像斐波那契这样的递归函数，这意味着数百万次分配。
+
+`framePool` 是一个简单的 LIFO 栈，用于回收帧：
 
 ```go
-// vm/run.go（简化版）
-func (vm *VM) run() (value.Value, error) {
-    // 将帧状态提升到局部变量以便寄存器分配
-    stack := vm.stack
-    sp := vm.sp
-    prebaked := vm.program.PrebakedConstants
-    intConsts := vm.program.IntConstants
+// vm/frame.go
+func (p *framePool) get(fn *bytecode.CompiledFunction, basePtr int, freeVars []*value.Value) *Frame {
+    n := len(p.frames)
+    if n > 0 {
+        f = p.frames[n-1]
+        p.frames = p.frames[:n-1]
+        // 如果 locals 切片容量足够则复用
+        if cap(f.locals) >= fn.NumLocals {
+            f.locals = f.locals[:fn.NumLocals]
+            for i := range f.locals {
+                f.locals[i] = value.Value{}  // 清零以保证正确性
+            }
+        } else {
+            f.locals = make([]value.Value, fn.NumLocals)
+        }
+        // ... 重置所有其他字段 ...
+    } else {
+        f = &Frame{locals: make([]value.Value, fn.NumLocals)}
+    }
+    return f
+}
+
+func (p *framePool) put(f *Frame) {
+    if f.addrTaken {
+        return  // 闭包可能持有活跃引用——不回收
+    }
+    f.fn = nil
+    f.freeVars = nil
+    p.frames = append(p.frames, f)
+}
+```
+
+**`addrTaken` 守卫**：当 `OpAddr` 创建了指向帧局部变量的指针时，闭包或延迟函数可能持有这些槽位的引用。回收帧会损坏这些指针。因此 `addrTaken` 帧会交给 GC 处理。
+
+**效果**：Fib(25) 从 ~728K 次分配降至 **7 次分配**。帧池吸收了所有递归开销。
+
+### 分发循环
+
+`vm/run.go` 中的分发循环是性能关键的热路径。它使用多种技术来最大化吞吐量：
+
+#### 寄存器提升
+
+```go
+func (v *vm) run() (value.Value, error) {
+    // 将热字段提升为局部变量以优化寄存器分配。
+    // Go 编译器会在迭代间将这些保持在 CPU 寄存器中。
+    stack := v.stack
+    sp := v.sp
+    prebaked := v.program.PrebakedConstants
+
     var frame *Frame
     var ins []byte
     var locals []value.Value
     var intLocals []int64
+    intConsts := v.program.IntConstants
 
-    for vm.fp > 0 {
+    loadFrame := func() {
+        frame = v.frames[v.fp-1]
+        ins = frame.fn.Instructions
+        locals = frame.locals
+        intLocals = frame.intLocals
+    }
+
+    readU16 := func() uint16 {
+        v := uint16(ins[frame.ip])<<8 | uint16(ins[frame.ip+1])
+        frame.ip += 2
+        return v
+    }
+    // ...
+```
+
+通过将 `v.stack`、`v.sp`、`frame.locals` 等复制到局部变量中，Go 编译器可以将它们保持在 CPU 寄存器中。否则，每条指令都需要通过两次指针间接寻址来访问 `v.stack[v.sp]`。
+
+#### 热/冷路径分离
+
+`run()` 中的主 `switch` 直接内联了**约 60 个热操作码**。较少使用的操作码会落入 `executeOp()`：
+
+```go
+    for v.fp > 0 {
         op := bytecode.OpCode(ins[frame.ip])
         frame.ip++
 
         switch op {
-        case bytecode.OpLocal:
-            idx := uint16(ins[frame.ip])<<8 | uint16(ins[frame.ip+1])
-            frame.ip += 2
+        case bytecode.OpLocal:       // 内联——热路径
+            idx := readU16()
             stack[sp] = locals[idx]
             sp++
             continue
 
-        case bytecode.OpConst:
-            idx := uint16(ins[frame.ip])<<8 | uint16(ins[frame.ip+1])
-            frame.ip += 2
-            stack[sp] = prebaked[idx]
-            sp++
-            continue
-
-        case bytecode.OpAdd:
+        case bytecode.OpAdd:         // 内联——热路径
             sp--
             b := stack[sp]
             sp--
             a := stack[sp]
-            if a.IsInt() {
-                stack[sp] = value.MakeInt(a.RawInt() + b.RawInt())
+            if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+                stack[sp] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
             } else {
-                stack[sp] = value.Add(a, b) // 通用路径
+                stack[sp] = a.Add(b)
             }
             sp++
             continue
 
-        // ... 60 多个热路径操作码在此内联 ...
+        // ... 约 58 个更多热操作码 ...
 
         default:
-            // 冷路径：同步状态，调用 executeOp()
-            vm.sp = sp
-            vm.executeOp(op) // 处理约 40 个不太常用的操作码
-            sp = vm.sp
-        }
-    }
-}
-```
-
-这里有几个重要细节：
-
-**寄存器提升**：帧的 `locals`、`intLocals`、`ins`（指令流）以及 VM 的 `stack`、`sp` 在 `run()` 顶部被复制到局部变量中。Go 编译器随后可以将这些放入机器寄存器，避免每条指令都通过 `vm.stack[vm.sp]` 进行重复的指针解引用。当调用或返回改变活动帧时，这些局部变量会重新同步。
-
-**热/冷分离**：`switch` 直接处理约 60 个频繁执行的操作码。剩余约 40 个（类型转换、通道操作、select、defer、panic 恢复）通过单独函数中的 `executeOp()` 处理。这使热循环的机器码更小，改善了指令缓存行为。
-
-**整数快速路径**：像 `OpAdd` 这样的算术操作码首先检查 `a.IsInt()`。由于 `IsInt()` 只是 `v.kind == KindInt`（单字节比较），而整数运算是 `v.num + v.num`（无分配），整数算术的常见情况只需少量机器指令。
-
-### Context 检查
-
-为支持取消和超时，VM 定期检查 context：
-
-```go
-instructionCount++
-if instructionCount & 0x3FF == 0 {   // 每 1024 条指令
-    select {
-    case <-vm.ctx.Done():
-        return value.MakeNil(), vm.ctx.Err()
-    default:
-    }
-}
-```
-
-位与技巧避免了昂贵的取模运算。检查每 1024 条指令进行一次——对于响应式取消足够频繁（大多数工作负载下亚毫秒级），又不至于在性能分析中产生明显影响。
-
-### 帧池化
-
-函数调用是递归程序中的热路径。如果不进行优化，每次调用 `fib(n-1)` 都会分配一个新的 `Frame` 结构体和一个新的 `[]value.Value` 局部变量切片——这正是早期 Gig 在 Fibonacci 上变慢的原因（Fib25 有 728,000 次分配）。
-
-解决方案是帧池：
-
-```go
-// vm/frame.go
-type framePool struct {
-    frames []*Frame
-}
-
-func (p *framePool) get(fn *bytecode.CompiledFunction, basePtr int, freeVars []*value.Value) *Frame {
-    if len(p.frames) > 0 {
-        f := p.frames[len(p.frames)-1]
-        p.frames = p.frames[:len(p.frames)-1]
-        // 如果局部变量容量足够则复用
-        if cap(f.locals) >= fn.NumLocals {
-            f.locals = f.locals[:fn.NumLocals]
-            for i := range f.locals {
-                f.locals[i] = value.Value{} // 清零
+            // 冷路径：同步 sp，调用 executeOp
+            v.sp = sp
+            if err := v.executeOp(op, frame); err != nil {
+                return value.MakeNil(), err
             }
-            // ... 设置 fn、ip、basePtr、freeVars
-            return f
+            sp = v.sp
+            stack = v.stack
         }
     }
-    // 分配新帧
-    return &Frame{...}
-}
 ```
 
-当函数返回时，其帧回到池中。如果局部变量切片足够大则复用，只需清零。这使 Fib25 的分配次数从 728,000 降至 7——只剩初始的 VM、栈和帧分配。
+#### 整数快速路径
 
-一个细微之处：如果某个局部变量的地址被获取（对局部变量执行 `OpAddr`），该帧**不会**返回池中。闭包可能持有指向该帧局部变量切片的 `*value.Value`，复用它会破坏闭包的捕获状态。
-
-### 调用分发
-
-Gig 处理三种调用：
-
-**编译函数调用**（`OpCall`）：函数索引嵌入在指令中。VM 查找 `program.FuncByIndex[idx]`（O(1) 数组访问），压入新帧，将参数从栈复制到帧的局部变量中，然后继续执行。
-
-**闭包调用**（`OpCallIndirect`）：栈顶持有一个 `*Closure` 结构体，包含函数索引和一个 `*value.Value` 指针数组（捕获的自由变量）。VM 解包闭包，压入带有自由变量的帧，然后按上述方式继续。
-
-**外部函数调用**（`OpCallExternal`）：这是最有趣的部分——也是大部分优化工作的焦点。
-
-## 外部包集成
-
-一个只能运行纯算法的 Go 解释器并不太有用。真正的价值在于调用 Go 标准库——`fmt.Sprintf`、`strings.Contains`、`json.Marshal`、`http.Get`。但这些是编译后的 Go 函数；解释器不能直接调用它们。存在一个类型边界需要跨越。
-
-### 注册
-
-外部包在 init 时通过生成的代码注册：
+每个算术和比较操作都会先检查两个操作数是否都是 `KindInt`。如果是（在规则引擎中是常见情况），则进行原始 `int64` 运算，零开销：
 
 ```go
-// stdlib/packages/strings.go（生成的）
-func init() {
-    pkg := importer.RegisterPackage("strings", "strings")
-    pkg.AddFunction("Contains", strings.Contains, "", directcall_Contains)
-    pkg.AddFunction("HasPrefix", strings.HasPrefix, "", directcall_HasPrefix)
-    pkg.AddType("Builder", reflect.TypeOf(strings.Builder{}), "")
-    pkg.AddMethodDirectCall("Builder", "WriteString", directcall_method_Builder_WriteString)
-    // ... 40 多个函数、类型、方法
-}
-```
-
-每个注册的包提供：
-- **函数**：函数值、其 `go/types` 签名（从 `reflect.Type` 解析）以及可选的 DirectCall 包装器
-- **类型**：`reflect.Type`，转换为带有所有导出方法的 `types.Named`
-- **变量和常量**：以类似方式注册
-
-导入器实现了 `types.Importer`，因此当 Go 类型检查器遇到 `import "strings"` 时，它获得一个具有所有正确类型签名的 `types.Package`，就像从编译后的 `.a` 文件读取一样。这意味着类型检查是精确的——如果解释代码误用了标准库函数，它会得到正确的编译错误，而不是运行时 panic。
-
-### 反射问题
-
-调用外部函数的朴素方法很直接：
-
-```go
-// 1. 将 []value.Value 参数转换为 []reflect.Value
-reflectArgs := make([]reflect.Value, len(args))
-for i, arg := range args {
-    reflectArgs[i] = reflect.ValueOf(arg.Interface())
-}
-// 2. 通过反射调用
-results := reflect.ValueOf(fn).Call(reflectArgs)
-// 3. 将 []reflect.Value 结果转换为 []value.Value
-```
-
-这能工作，但非常慢。步骤 1 分配 `[]reflect.Value` 切片并装箱每个参数。步骤 2 通过 `reflect.Value.Call` 执行安全检查、类型验证，并最终通过间接函数指针调用 `runtime.call`。步骤 3 拆箱结果。
-
-对于 `strings.Contains("hello", "ell")`——一个原生只需 30 纳秒的函数——反射开销增加了约 500 纳秒和 5 次堆分配。
-
-### DirectCall：消除反射
-
-解决方案是代码生成。对于每个具有兼容参数类型的函数，Gig 在构建时生成一个**类型化包装器**：
-
-```go
-// stdlib/packages/strings.go（生成的）
-func directcall_Contains(args []value.Value) value.Value {
-    a0 := args[0].String()         // 直接从 Value 提取字符串
-    a1 := args[1].String()
-    r0 := strings.Contains(a0, a1) // 原生 Go 函数调用
-    return value.FromBool(r0)      // 直接包装结果
-}
-```
-
-无 `reflect.Value`。无 `Call()`。无分配。参数提取使用 `Value.String()`、`Value.Int()` 等，这些只是标记联合体上的字段访问。结果包装使用 `value.FromBool()`，即 `Value{kind: KindBool, num: ...}`。实际的函数调用编译为机器码中的直接 `CALL` 指令——Go 编译器甚至可以将 `strings.Contains` 内联到包装器中。
-
-这也扩展到**方法**：
-
-```go
-func directcall_method_Builder_WriteString(args []value.Value) value.Value {
-    recv := args[0].Interface().(*strings.Builder)  // 类型断言
-    a1 := args[1].String()
-    r0, r1 := recv.WriteString(a1)
-    // ... 包装结果
-}
-```
-
-接收者通过 `Value.Interface()` 上的类型断言提取——调用本身仍然是零反射。
-
-### 覆盖率和类型支持
-
-代码生成器（`gentool/directcall.go`）处理广泛的参数类型：
-
-| 类型 | 提取方式 |
-|---|---|
-| `string`、`int`、`bool`、`float64` | `.String()`、`.Int()`、`.Bool()`、`.Float()` |
-| `[]byte` | `.Bytes()` |
-| `io.Reader`、`error` | `.Interface().(io.Reader)` |
-| `*bytes.Buffer` | `.Interface().(*bytes.Buffer)` |
-| `*int32`、`*int64` | `.Interface().(*int32)` |
-| `map[string]bool` | `.Interface().(map[string]bool)` |
-| `any` / `interface{}` | `.Interface()` |
-
-带有 `unsafe.Pointer` 参数或某些复杂可变参数签名的函数留在反射路径上——约占标准库函数的 8%。
-
-总计：**1,162 个包装器**（619 个函数 + 543 个方法），覆盖 20 个标准库包，涵盖 92% 的标准库接口。
-
-### 内联缓存
-
-即使有了 DirectCall，VM 仍需解析要调用哪个函数。常量池存储 `ExternalFuncInfo` 和 `ExternalMethodInfo` 结构体，但每次调用都查找它们会很浪费。因此 VM 维护一个**内联缓存**——以常量池索引为键的 `sync.Map`：
-
-```go
-// vm/call.go
-type extCallCacheEntry struct {
-    funcInfo   *bytecode.ExternalFuncInfo
-    directCall func([]value.Value) value.Value
-    reflectFn  reflect.Value
-}
-
-func (vm *VM) callExternal(constIdx int, numArgs int) {
-    entry, cached := vm.extCallCache.Load(constIdx)
-    if !cached {
-        // 解析一次，永久缓存
-        entry = &extCallCacheEntry{...}
-        vm.extCallCache.Store(constIdx, entry)
-    }
-    if entry.directCall != nil {
-        result := entry.directCall(args)  // 快速路径
+case bytecode.OpLess:
+    sp--
+    b := stack[sp]
+    sp--
+    a := stack[sp]
+    if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+        stack[sp] = value.MakeBool(a.RawInt() < b.RawInt())  // 快速路径
     } else {
-        vm.callExternalReflect(entry, args)  // 回退
+        stack[sp] = value.MakeBool(a.Cmp(b) < 0)             // 泛型路径
     }
-}
+    sp++
+    continue
 ```
 
-第一次调用后，对同一外部函数的后续调用命中缓存——一次 `sync.Map` 查找（在无竞争情况下本质上是一次指针读取）和一次直接函数调用。
+#### Context 检查
 
-## 优化遍
+VM 每 1024 条指令通过位掩码检查一次取消：
 
-初始编译后，四个优化遍变换字节码：
-
-### 第一遍：窥孔超级指令
-
-优化器扫描常见的多指令序列，并将其替换为单个**超级指令**。这个思想来自 Forth 传统，已被 CPython 到 Lua 等解释器使用。
-
-示例：Go 语句 `sum += a` 编译为 4 条指令共 11 字节：
-
-```
-LOCAL(sum)  LOCAL(a)  ADD  SETLOCAL(sum)
-```
-
-窥孔遍将其融合为单条 7 字节超级指令：
-
-```
-OpLocalLocalAddSetLocal(sum, a, sum)
+```go
+    instructionCount++
+    if instructionCount & 0x3FF == 0 {  // contextCheckMask = 1023
+        select {
+        case <-v.ctx.Done():
+            return value.MakeNil(), v.ctx.Err()
+        default:
+        }
+    }
 ```
 
-这消除了 3 次分发周期、2 次栈压入和 2 次栈弹出。操作数直接编码在指令中——完全没有栈流量。
+位掩码避免了取模运算，带 `default` 的 `select` 是非阻塞的 channel 检查。
 
-优化器识别 **17 种模式**，包括：
+### 执行过程详解
 
-| 模式 | 融合操作码 |
-|---|---|
-| `LOCAL(A) LOCAL(B) ADD SETLOCAL(C)` | `OpLocalLocalAddSetLocal(A,B,C)` |
-| `LOCAL(A) CONST(B) ADD SETLOCAL(C)` | `OpLocalConstAddSetLocal(A,B,C)` |
-| `LOCAL(A) CONST(B) LESS JUMPTRUE(off)` | `OpLessLocalConstJumpTrue(A,B,off)` |
-| `LOCAL(A) CONST(B) LESSEQ JUMPFALSE(off)` | `OpLessEqLocalConstJumpFalse(A,B,off)` |
-| `ADD SETLOCAL(A)` | `OpAddSetLocal(A)` |
-
-重写必须感知偏移：当指令被缩短时，所有跳转目标必须重映射。优化器在重写后构建偏移映射，并调整每条跳转指令。
-
-### 第二遍：切片操作融合
-
-整数切片访问模式被识别并融合。Go 语句 `v = arr[j]`，当两者都是 `int` 类型时，编译为一个 7 条指令（17 字节）的序列，涉及 `LOCAL`、`INDEXADDR`、`SETLOCAL`、`DEREF`。优化器将其融合为：
+让我们逐步跟踪 `ProcessOrder(100.0, 3, "HALF")` 的执行过程。仅展示关键操作（为简洁省略部分 SetLocal）：
 
 ```
-OpIntSliceGet(arr, j, v)    // 7 字节，直接 []int64 索引访问
+Frame: ProcessOrder
+  locals[0] = Float(100.0)    ; price
+  locals[1] = Int(3)          ; quantity
+  locals[2] = String("HALF")  ; coupon
+
+Step  IP     Instruction          Stack (top→)              locals[5]
+───── ────── ──────────────────── ──────────────────────── ─────────
+  1   0000   LOCAL 0              [Float(100.0)]
+  2   0003   LOCAL 1              [Float(100.0), Int(3)]
+  3   0006   CONVERT float64      [Float(100.0), Float(3.0)]
+  4   0009   SETLOCAL 3           [Float(100.0)]              ; t0=3.0
+  5   000C   LOCAL 0              [Float(100.0)]
+  6   000F   LOCAL 3              [Float(100.0), Float(3.0)]
+  7   0012   MUL                  [Float(300.0)]
+  8   0013   SETLOCAL 4           []                          ; t1=300.0
+  9   0016   SETLOCAL 5           []                          300.0
+ 10   0019   LOCAL 2              [String("HALF")]
+ 11   001C   CONST 0              [String("HALF"), String("HALF")]
+ 12   001F   EQUAL                [Bool(true)]
+ 13   0020   JUMPFALSE 002E       []                          ; taken? NO → fall through
+ 14   0023   LOCAL 4              [Float(300.0)]
+ 15   0026   CONST 1              [Float(300.0), Float(0.5)]
+ 16   0029   MUL                  [Float(150.0)]
+ 17   002A   SETLOCAL 6           []                          ; t3=150.0
+ 18   002D   SETLOCAL 5           []                          150.0
+ 19   002E   LOCAL 5              [Float(150.0)]              ; total=150.0
+ 20   0031   CONST 2              [Float(150.0), Float(0.0)]
+ 21   0034   GREATER              [Bool(true)]
+ 22   0035   JUMPFALSE 0042       []                          ; not taken
+ 23   0038   LOCAL 5              [Float(150.0)]
+ 24   003B   CONST 3              [Float(150.0), Float(10000.0)]
+ 25   003E   LESS                 [Bool(true)]
+ 26   003F   SETLOCAL 9           []                          ; valid=true
+ 27   0045   LOCAL 5              [Float(150.0)]
+ 28   0048   LOCAL 9              [Float(150.0), Bool(true)]
+ 29   004B   PACK 2               [Tuple(150.0, true)]
+ 30   004D   RETURNVAL                                        ; → (150.0, true)
 ```
 
-写入同理：`arr[j] = v` 变为 `OpIntSliceSet(arr, j, v)`。
+结果：`(150.0, true)`——订单有效，使用 50% 优惠券后总价 = $150。
 
-### 第三遍：整数特化
+---
 
-这是最激进的优化。它在常规 `[]value.Value` 局部变量旁引入了一个原生 `int64` 值的**影子数组**：
+### Panic、Defer 和 Recover
+
+Gig 忠实地实现了 Go 的 panic/defer/recover 语义，包括嵌套 panic（在延迟函数中 panic）。
+
+#### 数据结构
 
 ```go
 // vm/frame.go
-type Frame struct {
-    locals    []value.Value   // 每个槽位 32 字节
-    intLocals []int64         // 每个槽位 8 字节（影子）
+type DeferInfo struct {
+    fn      *bytecode.CompiledFunction  // 要调用的函数
+    args    []value.Value               // 捕获的参数
+    closure *Closure                    // 闭包（间接 defer 场景）
+}
+
+// vm/vm.go — panic 状态
+type panicState struct {
+    panicking bool
+    panicVal  value.Value
+}
+
+type vm struct {
+    // ...
+    panicking  bool              // panic 进行中
+    panicVal   value.Value       // 当前 panic 值
+    panicStack []panicState      // 保存的 panic（嵌套 panic 场景）
+    deferDepth int               // defer 执行的嵌套层级
 }
 ```
 
-优化器对字节码执行两遍：
+#### 工作原理
 
-**第一遍（分析）**：识别哪些局部变量索引专门参与整数运算——作为 `OpLocalLocalAddSetLocal`、`OpLessLocalConstJumpTrue` 等的源或目标的局部变量。
+1. **`OpDefer`**：将函数 + 参数捕获到 `frame.defers`
+2. **`OpRunDefers`**：正常返回路径——按 LIFO 顺序执行 defer，每个在子 VM 中运行
+3. **`OpPanic`**：设置 `v.panicking = true` 和 `v.panicVal`
+4. **Panic 处理器**（分发循环顶部）：当 `v.panicking` 为 true 时：
+   - 按 LIFO 顺序遍历 `frame.defers`
+   - 在每个延迟调用之前，将当前 panic 状态压入 `panicStack`
+   - 通过递归 `v.run()` 执行 defer
+   - defer 执行后，检查 `recover()` 是否清除了保存的状态
+   - 如果已恢复：以正常模式继续执行剩余 defer
+   - 如果未恢复：将 panic 向调用者帧传播
+5. **`OpRecover`**：弹出 `panicStack` 栈顶，清除 `panicking`，返回值
 
-**第二遍（升级）**：将符合条件的超级指令替换为 `OpInt*` 变体：
-
-```
-OpLocalConstAddSetLocal(A, B, C)  →  OpIntLocalConstAddSetLocal(A, B, C)
-```
-
-`OpInt*` 变体直接在 `intLocals` 上操作：
-
-```go
-// vm/run.go
-case bytecode.OpIntLocalConstAddSetLocal:
-    r := intLocals[idxA] + intConsts[idxB]   // 原始 int64 加法
-    intLocals[idxC] = r                       // 8 字节写入
-    locals[idxC] = value.MakeInt(r)           // 同步到 Value 局部变量
-```
-
-`ArithmeticSum` 的内层循环——`sum += i; i++; i < n`——编译为每次迭代仅 3 次分发，全部在 8 字节 `int64` 槽位上操作而非 32 字节 `Value` 槽位。这是 4 倍的缓存利用率提升。
-
-一个关键不变量是**双写**：每条 `OpInt*` 指令同时写入 `intLocals[idx]`（用于快速整数运算）和 `locals[idx]`（供可能读取同一局部变量的非特化代码使用）。这在无需数据流分析来确定何时需要 Value 副本的情况下保持了正确性。
-
-### 第四遍：移动融合
-
-最后一遍消除整数局部变量的 phi 移动开销：
-
-```
-OpIntLocal(A)  OpIntSetLocal(B)  →  OpIntMoveLocal(A, B)
-```
-
-这将压入-弹出对替换为直接的寄存器到寄存器复制。
-
-### 累积效果
-
-四个遍协同工作。考虑一个简单循环：
+#### 具体示例
 
 ```go
-for i := 0; i < n; i++ {
-    sum += arr[i]
+func SafeDivide(a, b int) (result int, err error) {
+    defer func() {
+        if r := recover(); r != nil {
+            err = fmt.Errorf("caught: %v", r)
+        }
+    }()
+    return a / b, nil
 }
 ```
 
-**第一遍后**：`LOCAL(i) CONST(1) ADD SETLOCAL(i)` → `OpLocalConstAddSetLocal(i, 1, i)`
+执行 `SafeDivide(10, 0)`：
 
-**第二遍后**：`LOCAL(arr) LOCAL(i) INDEXADDR... DEREF... SETLOCAL(v)` → `OpIntSliceGet(arr, i, v)`
+```
+1. 为 SafeDivide 创建帧
+   locals[0] = Int(10), locals[1] = Int(0)
 
-**第三遍后**：`OpLocalConstAddSetLocal(i, 1, i)` → `OpIntLocalConstAddSetLocal(i, 1, i)`（原生 int64）
+2. OpDefer: 将匿名闭包捕获到 frame.defers
+   defers = [{fn: anon$1, args: [], closure: {FreeVars: [&result, &err]}}]
 
-**第四遍后**：循环入口处的 phi 移动 → `OpIntMoveLocal`
+3. OpDiv: Int(10) / Int(0)
+   → Go 层面的 panic: "runtime error: integer divide by zero"
+   → 安全网捕获: v.panicking = true, v.panicVal = String("integer divide by zero")
 
-结果：内层循环是 3–4 条融合指令，在 8 字节整数上操作并直接进行切片访问。没有栈流量，没有 32 字节值复制，热路径中没有类型检查。
+4. Panic 处理器激活（分发循环顶部）：
+   - 保存 panic 状态: panicStack = [{panicking:true, val:"integer divide by zero"}]
+   - 清除 v.panicking
+   - 通过递归 v.run() 调用 anon$1
 
-## 协程与并发
+5. 在 anon$1 内部：
+   - OpRecover: 弹出 panicStack，发现 panicking=true
+     → 清除保存的状态（panicking=false）
+     → 返回 String("integer divide by zero")
+   - fmt.Errorf 包装它 → 通过自由变量写入 &err
+   - anon$1 返回
 
-当解释代码用 `go func()` 启动协程时，VM 创建一个共享相同全局变量的子 VM：
+6. 回到 panic 处理器：
+   - 检查保存的状态：panicking 为 false → 已恢复！
+   - 从 ResultAllocSlots 读取命名返回值
+   - 返回 (0, error("caught: integer divide by zero"))
+```
+
+`ResultAllocSlots` 机制至关重要：在 Go 中，`defer` 可以修改命名返回值。编译器记录哪些局部变量槽位对应命名返回值，恢复路径通过解引用它们来获取最终值。
+
+#### 安全网
+
+所有这些都包裹在 Go 层面的 `defer/recover` 中：
+
+```go
+// vm/vm.go
+func (v *vm) Execute(funcName string, ctx context.Context, args ...value.Value) (result value.Value, err error) {
+    // 安全网：捕获 VM 执行中的 Go 层面 panic
+    defer func() {
+        if r := recover(); r != nil {
+            result = value.MakeNil()
+            err = fmt.Errorf("runtime panic: %v", r)
+        }
+    }()
+    result, err = v.run()
+    return result, err
+}
+```
+
+这确保即使被解释的代码触发了宿主层面的 panic（nil map 写入、切片越界、类型断言失败），宿主进程也永远不会崩溃。Panic 会被捕获并作为 error 返回。
+
+---
+
+### Goroutine 支持
+
+```go
+// 被解释的代码中：
+go processItem(item)
+```
+
+VM 通过 `OpGoCall` 处理 `go` 语句：
 
 ```go
 // vm/goroutine.go
-func (vm *VM) newChildVM() *VM {
-    child := &VM{
-        program:    vm.program,
-        globalsPtr: &vm.globals,  // 共享用于跨协程通信
-        ctx:        vm.ctx,
+func (v *vm) newChildVM() *vm {
+    child := &vm{
+        program:      v.program,
+        stack:        make([]value.Value, initialStackSize),  // 全新的栈
+        frames:       make([]*Frame, initialFrameDepth),
+        globalsPtr:   v.globalsPtr,       // 通过指针共享全局变量！
+        ctx:          v.ctx,              // 共享 context
+        extCallCache: v.extCallCache,     // 共享缓存
+        goroutines:   v.goroutines,       // 共享追踪器
     }
-    child.initStack()
+    if child.globalsPtr == nil {
+        child.globalsPtr = &v.globals     // 父级全局变量变为共享
+    }
     return child
 }
 ```
 
-子 VM 拥有自己的栈和帧栈，但共享程序、全局变量和 context。通道通过 Go 原生的 `reflect.Value` 通道操作工作——解释器不重新实现通道语义。
+**关键设计决策**：
+- 每个 goroutine 获得**全新的栈**（无竞争）
+- 全局变量通过**指针共享**（正确的 Go 语义）
+- 外部调用缓存是**共享的**（通过 RWMutex 保证线程安全）
+- Context 是**共享的**（取消操作传播到所有 goroutine）
 
-`select` 语句通过构建 `reflect.SelectCase` 切片并调用 `reflect.Select()` 来处理，后者委托给 Go 运行时的 select 实现。这是一个无法避免反射的领域，但它发生得不够频繁，不会成为瓶颈。
-
-## 安全模型
-
-Gig 在尽可能早的阶段——编译之前——实施安全沙箱：
+`GoroutineTracker` 防止 goroutine 失控创建：
 
 ```go
-// gig.go
-func checkBannedImports(file *ast.File) error {
-    for _, imp := range file.Imports {
-        path := strings.Trim(imp.Path.Value, `"`)
-        if path == "unsafe" || path == "reflect" {
-            return fmt.Errorf("import %q is not allowed", path)
-        }
+func (t *GoroutineTracker) Start(fn func()) error {
+    max := atomic.LoadInt64(&t.maxGoroutines)
+    if max > 0 && atomic.LoadInt64(&t.active) >= max {
+        return fmt.Errorf("gig: goroutine limit (%d) exceeded", max)
     }
+    atomic.AddInt64(&t.active, 1)
+    go func() {
+        defer atomic.AddInt64(&t.active, -1)
+        fn()
+    }()
     return nil
 }
 ```
 
-通过在 AST 层面禁止 `unsafe` 和 `reflect`，解释代码无法：
-- 读写任意内存
-- 绕过类型安全
-- 访问未导出的字段
-- 伪造接口值
+---
 
-内建的 `panic` 也被限制——解释代码无法使宿主进程崩溃。`defer` 和 `recover` 在解释器的帧栈内工作，由 VM 包含。
+## 外部包集成
 
-Context 取消确保宿主可以随时终止失控的脚本：
+### 注册机制
+
+外部 Go 包必须在编译之前注册。注册通过 `stdlib/packages/` 中代码生成的文件在 `init()` 时完成：
 
 ```go
-result, err := prog.RunWithContext(ctx, "ProcessData", input)
-if err == context.DeadlineExceeded {
-    log.Warn("脚本超时")
+// stdlib/packages/strings.go (generated by `gig gen`)
+func init() {
+    pkg := importer.RegisterPackage("strings", "strings")
+
+    // Functions
+    pkg.AddFunction("Contains", strings.Contains, "", direct_strings_Contains)
+    pkg.AddFunction("HasPrefix", strings.HasPrefix, "", direct_strings_HasPrefix)
+    // ... 60+ more functions
+
+    // Types
+    pkg.AddType("Builder", reflect.TypeOf(strings.Builder{}), "")
+    pkg.AddType("Reader", reflect.TypeOf(strings.Reader{}), "")
+
+    // Method DirectCalls
+    pkg.AddMethodDirectCall("Builder", "WriteString", direct_method_strings_Builder_WriteString)
 }
 ```
 
-## 设计选择：Gig vs Yaegi
+每个注册的包提供：
+- **函数值**用于 `reflect.Call`（慢路径）
+- **DirectCall 封装**用于零反射调用（快速路径）
+- **类型信息**用于类型检查和运行时类型断言
+- **方法 DirectCall**用于零反射方法分发
 
-将 Gig 的设计与 Yaegi 进行比较很有启发性，因为它们以根本不同的方法解决同一个问题。
+### DirectCall：零反射函数调用
 
-**AST 遍历 vs 字节码 VM**：Yaegi 在运行时遍历 AST，为每个节点动态生成闭包。Gig 通过 SSA 编译为字节码。权衡是：Yaegi 编译开销更低（无 SSA 构建，无优化遍），但 Gig 执行开销更低（线性字节码、超级指令、整数特化）。
+Gig 中最大的性能提升来自 **DirectCall 封装**——代码生成的类型化封装函数，完全绕过 `reflect.Call`。
 
-**`reflect.Value` vs 标记联合体**：Yaegi 将每个值表示为 `reflect.Value`。Gig 使用 32 字节标记联合体，避免基本类型的分配。结果：Fibonacci(25) 在 Yaegi 中执行 210 万次分配；在 Gig 中，7 次。
+#### reflect.Call 的问题
 
-**控制流表示**：Yaegi 用 `tnext`/`fnext` 指针注释 AST，在树中形成控制流图。Gig 使用带有显式跳转偏移的扁平字节码，支持顺序预取和超级指令融合——这些在树结构上不切实际的优化。
+```go
+// 慢路径：reflect.Call
+fn := reflect.ValueOf(strings.Contains)
+args := []reflect.Value{
+    reflect.ValueOf("hello world"),
+    reflect.ValueOf("world"),
+}
+result := fn.Call(args)  // ~400ns：反射开销，内存分配
+```
 
-**外部调用策略**：两个解释器都必须通过反射调用外部包。Yaegi 围绕 `reflect.Value` 操作生成闭包包装器。Gig 在构建时生成类型化的 Go 函数（DirectCall），对 92% 的标准库调用完全避免反射。
+#### DirectCall：解决方案
 
-基准测试说明了一切：Gig 在所有工作负载上比 Yaegi 快 1.1–5.2 倍，分配次数大幅减少。差距在递归上最大（Fib25 上 5.2 倍——帧池化占主导），外部调用上（2.6–2.8 倍——DirectCall 消除了反射），以及闭包上（2.7 倍——共享指针捕获 vs Yaegi 的作用域链）。
+```go
+// 由 gig gen 生成——零反射
+func direct_strings_Contains(args []value.Value) value.Value {
+    a0 := args[0].String()   // 直接字段访问，无 reflect
+    a1 := args[1].String()
+    return value.MakeBool(strings.Contains(a0, a1))  // 直接 Go 调用
+}
+```
 
-## 总结
+这个封装函数：
+1. 直接从 `value.Value` 中提取带类型的参数（通过 `String()`、`Int()` 等）
+2. 直接调用真正的 Go 函数（无 `reflect.ValueOf`，无 `reflect.Call`）
+3. 将结果包装为 `value.Value`（通过 `MakeBool`、`MakeInt` 等）
 
-我们描述了一个走出 AST 遍历不同路径的 Go 解释器的架构：基于 SSA 的字节码编译，由带有激进特化的基于栈的 VM 执行。关键的设计决策——标记联合体值、超级指令融合、整数特化局部变量和生成的 DirectCall 包装器——每一个都针对特定的性能瓶颈，同时保持完整的 Go 语言兼容性。
+**效果**：对于典型的标准库函数，速度约为 `reflect.Call` 的 5 倍。
 
-代码库组织为清晰的层次：`bytecode/` 作为共享内核，`compiler/` 和 `vm/` 作为独立的消费者，`value/` 作为通用数据表示，`importer/` + `gentool/` 弥合与宿主 Go 运行时的差距。整个项目编译为单个二进制文件，无外部依赖。
+#### 分发流程
 
-一些领域仍有待未来工作：
-- 基于寄存器的 VM（完全消除栈流量）
-- 热函数的 JIT 编译
-- 用于更智能帧池化的逃逸分析
-- 编译时更激进的常量折叠
+```
+OpCallExternal(funcIdx, numArgs)
+        │
+        ▼
+┌─ Check inline cache ─┐
+│  cache[funcIdx] hit?  │
+│    YES → use entry    │
+│    NO  → resolve once │
+└───────┬───────────────┘
+        │
+        ▼
+┌─ DirectCall available? ─┐
+│  YES → call wrapper     │──▶ result = direct_strings_Contains(args)
+│  NO  → reflect.Call     │──▶ result = fn.Call(reflectArgs)
+└─────────────────────────┘
+```
 
-来自：youngjin，2026 年 2 月 28 日
+内联缓存（`externalCallCache`）确保函数解析在每个 program 的生命周期内只发生一次。首次调用后，后续调用只需一次指针解引用 + 函数调用。
+
+```go
+// vm/call.go — callExternal 快速路径
+func (v *vm) callExternal(funcIdx, numArgs int) error {
+    // 弹出参数
+    args := make([]value.Value, numArgs)
+    for i := numArgs - 1; i >= 0; i-- {
+        args[i] = v.pop()
+    }
+
+    // 内联缓存查找（读路径用 RLock）
+    v.extCallCache.mu.RLock()
+    cacheEntry := v.extCallCache.cache[funcIdx]
+    v.extCallCache.mu.RUnlock()
+
+    if cacheEntry == nil {
+        // 首次调用：解析并缓存（写锁）
+        v.extCallCache.mu.Lock()
+        cacheEntry = v.resolveExternalFunc(funcIdx)
+        v.extCallCache.cache[funcIdx] = cacheEntry
+        v.extCallCache.mu.Unlock()
+    }
+
+    // 快速路径：DirectCall
+    if cacheEntry.directCall != nil {
+        result := cacheEntry.directCall(args)
+        v.push(result)
+        return nil
+    }
+
+    // 慢路径：reflect.Call
+    return v.callExternalReflect(cacheEntry, args)
+}
+```
+
+### 外部调用的闭包转换
+
+当被解释的代码将闭包传递给 Go 标准库函数（例如 `sort.Slice` 的比较函数）时，Gig 必须将闭包转换为真正的 Go 函数：
+
+```go
+// 被解释的代码：
+sort.Slice(items, func(i, j int) bool {
+    return items[i].Price < items[j].Price
+})
+```
+
+`sort.Slice` 函数期望一个 `func(int, int) bool`——它无法接受 `*vm.Closure`。Gig 使用 `reflect.MakeFunc` 创建一个真正的 Go 函数，当被调用时，创建一个临时 VM 并执行闭包的字节码：
+
+```go
+// vm/closure.go — Closure implements value.ClosureExecutor
+func (c *Closure) Execute(args []reflect.Value, outTypes []reflect.Type) []reflect.Value {
+    // 创建临时 VM 来执行闭包
+    closureVM := &vm{
+        program: c.Program,
+        stack:   make([]value.Value, 256),
+        // ...
+    }
+    valArgs := make([]value.Value, len(args))
+    for i, arg := range args {
+        valArgs[i] = value.MakeFromReflect(arg)
+    }
+    closureVM.callFunction(c.Fn, valArgs, c.FreeVars)
+    result, _ := closureVM.run()
+    return []reflect.Value{result.ToReflectValue(outTypes[0])}
+}
+```
+
+---
+
+## Init 与执行流程
+
+### 完整生命周期
+
+```
+Build(source)
+    │
+    ├── compiler.Build(source, registry)
+    │       ├── parser.Parse(source)           → typed AST
+    │       ├── ssabuilder.Build(AST)          → SSA IR
+    │       └── compiler.Compile(SSA)          → CompiledProgram
+    │
+    ├── runner.ExecuteInit(program)
+    │       ├── Check for "init#1" function
+    │       ├── Create temp VM, run "init"
+    │       └── Snapshot globals → initialGlobals
+    │
+    └── runner.New(program, initialGlobals)
+            ├── Create VMPool
+            ├── Create GoroutineTracker
+            └── Register method resolver (for fmt.Stringer)
+
+Program.Run("FuncName", args...)
+    │
+    ├── Convert args to []value.Value
+    │
+    ├── vmPool.Get() → vm
+    │       ├── If pool empty: newVM() with fresh globals from snapshot
+    │       └── If pool has idle: return recycled vm
+    │
+    ├── vm.Execute("FuncName", ctx, args)
+    │       ├── Lookup function in program.Functions
+    │       ├── Create frame, copy args to locals
+    │       ├── defer { recover → error } (safety net)
+    │       └── vm.run() → main dispatch loop
+    │
+    ├── vmPool.Put(vm)
+    │       └── vm.Reset() → clear stack, restore globals from snapshot
+    │
+    └── UnwrapResult(result) → any
+```
+
+### 无状态模式 vs 有状态模式
+
+**无状态（默认）**：每次 `Run()` 从 `init()` 后的全局变量快照开始。调用结束后对全局变量的修改会被丢弃。这对并发调用是安全的。
+
+```go
+prog, _ := gig.Build(`
+    var counter int
+    func Increment() int {
+        counter++
+        return counter
+    }
+`)
+prog.Run("Increment") // 返回 1
+prog.Run("Increment") // 返回 1（全局变量被重置！）
+```
+
+**有状态**（`WithStatefulGlobals()`）：全局变量在调用间持久化。调用通过互斥锁串行化。
+
+```go
+prog, _ := gig.Build(`
+    var counter int
+    func Increment() int {
+        counter++
+        return counter
+    }
+`, gig.WithStatefulGlobals())
+prog.Run("Increment") // 返回 1
+prog.Run("Increment") // 返回 2（全局变量持久化！）
+```
+
+```go
+// runner/runner.go — 有状态执行
+func (r *Runner) RunWithValues(ctx context.Context, funcName string, args []value.Value) (value.Value, error) {
+    if r.stateful {
+        r.runMu.Lock()
+        defer r.runMu.Unlock()
+        v := r.vmPool.Get()
+        v.BindSharedGlobals(&r.sharedGlobals)
+        result, err := v.ExecuteWithValues(funcName, ctx, args)
+        v.UnbindSharedGlobals()
+        r.vmPool.Put(v)
+        return result, err
+    }
+    // 无状态：无需加锁
+    v := r.vmPool.Get()
+    result, err := v.ExecuteWithValues(funcName, ctx, args)
+    r.vmPool.Put(v)
+    return result, err
+}
+```
+
+---
+
+## 安全模型
+
+Gig 专为**沙箱执行**不受信任的代码而设计：
+
+### 编译时检查
+
+| 检查项 | 目的 |
+|---|---|
+| 禁止 `import "unsafe"` | 防止内存损坏 |
+| 禁止 `import "reflect"` | 防止类型系统被绕过 |
+| 禁止 `panic()`（默认） | 防止通过未恢复的 panic 进行 DoS 攻击。可通过 `WithAllowPanic()` 启用 |
+| 自动导入仅限已注册的包 | 代码无法导入任意包 |
+
+### 运行时检查
+
+| 检查项 | 目的 |
+|---|---|
+| 每 1024 条指令检查 Context 取消 | 防止无限循环 |
+| 栈溢出检测（最大 1M 槽位） | 防止内存耗尽 |
+| 调用栈深度限制（1024 帧） | 防止栈溢出 |
+| Goroutine 限制（默认 10K） | 防止 goroutine 炸弹 |
+| 安全网 `defer/recover` | 宿主层面 panic → error 返回 |
+
+### 沙箱注册表
+
+为获得最大隔离性，使用一个初始为空的沙箱注册表：
+
+```go
+reg := gig.NewSandboxRegistry()
+// 只暴露你想要的：
+// reg.RegisterPackage("strings", "strings")
+// （或者什么都不注册——纯计算模式）
+
+prog, _ := gig.Build(untrustedCode, gig.WithRegistry(reg))
+```
+
+---
+
+## 性能
+
+### 关键优化总结
+
+| 优化 | 技术 | 效果 |
+|---|---|---|
+| 帧池化 | LIFO 帧回收器 | Fib(25): 728K → 7 次分配 |
+| Value 标记联合体 | 32 字节内联基本类型 | int/float/bool 零 GC |
+| DirectCall 封装 | 代码生成的类型化封装 | 比 reflect.Call 快约 5 倍 |
+| 预烘焙常量 | `[]value.Value` 编译时一次性构建 | 消除逐指令的 `FromInterface` |
+| 整数特化 | `intLocals []int64` 影子数组 | 4 倍缓存利用率（8B vs 32B） |
+| 超级指令 | 融合操作码（17 种模式） | 热循环中分发次数减少 3-4 倍 |
+| 寄存器提升 | 栈/sp/locals 存入 Go 局部变量 | 更优的 CPU 寄存器分配 |
+| 内联缓存 | 每 program 的函数解析缓存 | O(1) 外部调用分发 |
+| Slice 融合 | `OpIntSliceGet/Set` | `[]int` 访问从 5 条指令降至 1 条 |
+| 移动融合 | `OpIntMoveLocal` | 消除拷贝操作的栈往返 |
+
+### 优化效果叠加
+
+以整数密集型循环（如冒泡排序）为例：
+
+```
+基线（朴素字节码）：
+    LOCAL 0          ; 1 次分发 + 栈写入
+    LOCAL 1          ; 1 次分发 + 栈写入
+    LESS             ; 1 次分发 + 2 次栈读取 + kind 检查 + 比较 + 栈写入
+    JUMPFALSE off    ; 1 次分发 + 栈读取 + 分支
+    ─────────────────
+    总计：4 次分发，6 次栈操作，1 次 kind 检查
+
+窥孔融合后：
+    LessLocalLocalJumpFalse 0 1 off   ; 1 次分发，2 次局部变量读取，比较，分支
+    ─────────────────
+    总计：1 次分发，0 次栈操作，1 次 kind 检查
+
+整数特化后：
+    IntLessLocalLocalJumpFalse 0 1 off ; 1 次分发，2 次 intLocal 读取，比较，分支
+    ─────────────────
+    总计：1 次分发，0 次栈操作，0 次 kind 检查，8B 操作数
+```
+
+这实现了**分发次数减少 4 倍**，且操作数现在存储在 8 字节数组中而非 32 字节的 Value 中。
+
+---
+
+来自：youngjin，2026 年 3 月

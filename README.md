@@ -1,6 +1,6 @@
 # Gig - Go 语言实现的Go 解释器
 
-[![中文](https://img.shields.io/badge/lang-中文-red.svg)](README_CN.md) [![English](https://img.shields.io/badge/lang-English-blue.svg)](README.md)
+[![中文](https://img.shields.io/badge/lang-中文-red.svg)](README.md) [![English](https://img.shields.io/badge/lang-English-blue.svg)](README_EN.md)
 
 Gig 是一个用 Go 语言编写的高性能 Go 解释器，采用 SSA 到字节码的编译方式和基于栈的虚拟机。
 
@@ -227,6 +227,7 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 - ✅ 函数和递归
 - ✅ 多返回值
 - ✅ 闭包
+- ✅ Defer、Panic 和 Recover
 - ✅ 字符串操作
 - ✅ 切片和数组
 - ✅ 映射（Map）
@@ -240,18 +241,18 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 
 在同一台机器上使用相同算法，对比 **Gig**、**Yaegi**（Go 解释器）、**GopherLua**（Lua 解释器）和 **原生 Go** 的真实基准测试。
 
-> **测试环境**：AMD EPYC 9754 128 核, 32 线程, Linux amd64, Go 1.23.1  
-> 使用 `-count=5` 配合 `benchstat` 统计分析。源码：[`benchmarks/bench_test.go`](benchmarks/bench_test.go)
+> **测试环境**：AMD EPYC 9754 128 核, 32 线程, Linux amd64, Go 1.23.1
+> 使用 `-count=3` 运行。源码：[`benchmarks/bench_test.go`](benchmarks/bench_test.go), [`benchmarks/stress_test.go`](benchmarks/stress_test.go)
 
 ### 核心工作负载 (Gig vs Yaegi vs GopherLua vs 原生 Go)
 
 | 工作负载                      | 原生 Go |         Gig |   Yaegi | GopherLua |      Gig vs Yaegi |
 | ----------------------------- | ------: | ----------: | ------: | --------: | ----------------: |
-| **Fibonacci(25)** 递归        |  449 μs | **20.1 ms** |  109 ms |    6.8 ms | **Gig 快 5.4 倍** |
-| **ArithmeticSum(1K)** 循环    |  333 ns | **35.4 μs** | 40.9 μs |     18 μs | **Gig 快 1.2 倍** |
-| **BubbleSort(100)** 嵌套循环  |  6.2 μs |  **927 μs** | 1.23 ms |    278 μs | **Gig 快 1.3 倍** |
-| **Sieve(1000)** 质数筛        | 1.88 μs |  **192 μs** |  205 μs |    172 μs | **Gig 快 1.1 倍** |
-| **ClosureCalls(1K)** 闭包调用 |  661 ns |  **320 μs** |    1 ms |    156 μs | **Gig 快 3.1 倍** |
+| **Fibonacci(25)** 递归        |  450 μs | **23.5 ms** |  104 ms |   21.2 ms | **Gig 快 4.4 倍** |
+| **ArithmeticSum(1K)** 循环    |  335 ns | **73.2 μs** | 41.1 μs |   37.8 μs |    Yaegi 快 1.8 倍 |
+| **BubbleSort(100)** 嵌套循环  |  6.2 μs |  **953 μs** | 1.26 ms |    781 μs | **Gig 快 1.3 倍** |
+| **Sieve(1000)** 质数筛        | 1.78 μs |  **271 μs** |  205 μs |    197 μs |    Yaegi 快 1.3 倍 |
+| **ClosureCalls(1K)** 闭包调用 |  671 ns |  **342 μs** |  929 μs |    119 μs | **Gig 快 2.7 倍** |
 
 ### 外部函数调用 (Gig vs Yaegi vs 原生 Go)
 
@@ -259,31 +260,65 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 
 | 工作负载                           | 原生 Go |        Gig |    Yaegi |      Gig vs Yaegi |
 | ---------------------------------- | ------: | ---------: | -------: | ----------------: |
-| **DirectCall** (strings/strconv)   | 27.9 μs | **553 μs** | 1,551 μs | **Gig 快 2.8 倍** |
-| **Reflect** (fmt/encoding)         | 24.1 μs | **356 μs** | 1,001 μs | **Gig 快 2.8 倍** |
-| **Method** (Builder/Buffer/Regexp) | 18.4 μs | **450 μs** | 1,214 μs | **Gig 快 2.7 倍** |
-| **Mixed** (函数 + 方法)            | 11.5 μs | **321 μs** |   846 μs | **Gig 快 2.6 倍** |
+| **DirectCall** (strings/strconv)   | 26.7 μs | **543 μs** | 1,501 μs | **Gig 快 2.8 倍** |
+| **Reflect** (fmt/encoding)         | 22.9 μs | **358 μs** |   994 μs | **Gig 快 2.8 倍** |
+| **Method** (Builder/Buffer/Regexp) | 17.3 μs | **430 μs** | 1,185 μs | **Gig 快 2.8 倍** |
+| **Mixed** (函数 + 方法)            | 11.3 μs | **313 μs** |   834 μs | **Gig 快 2.7 倍** |
 
 ### 内存效率
 
 | 工作负载        | Gig 分配次数/op | Yaegi 分配次数/op |      Gig 优势 |
 | --------------- | --------------: | ----------------: | ------------: |
-| Fibonacci(25)   |           **7** |         2,138,703 | 少 305,529 倍 |
+| Fibonacci(25)   |           **7** |         2,138,701 | 少 305,529 倍 |
 | BubbleSort(100) |           **9** |             5,085 |     少 565 倍 |
 | Sieve(1000)     |           **7** |                43 |       少 6 倍 |
 | ExtCallMethod   |       **6,906** |            13,916 |     少 2.0 倍 |
 | ExtCallMixed    |       **4,258** |             9,125 |     少 2.1 倍 |
 
+### 并发压力测试
+
+使用真实规则引擎工作负载（字符串处理 + 数学运算 + 条件逻辑 + stdlib 调用），3 轮取中位数，每轮持续 3 秒：
+
+**Gig（32 核 AMD EPYC 9754）：**
+
+| 并发度     | 吞吐量          | 平均延迟   | 错误数 | 堆内存    | GC 次数 |
+| ---------: | --------------: | ---------: | -----: | --------: | ------: |
+|          1 |     482K ops/s |     2.1 μs |      0 |  1,223 MB |      96 |
+|         10 |   1,323K ops/s |     7.6 μs |      0 |  3,185 MB |     204 |
+|        100 |   1,222K ops/s |    81.8 μs |      0 |  3,027 MB |     134 |
+|        500 |   1,193K ops/s |     419 μs |      0 |  3,023 MB |      74 |
+|      1,000 |   1,171K ops/s |     854 μs |      0 |  2,979 MB |      49 |
+|      2,000 |   1,170K ops/s |   1,709 μs |      0 |  3,030 MB |      33 |
+|      5,000 |   1,162K ops/s |   4,302 μs |      0 |  3,046 MB |      20 |
+|     10,000 |   1,150K ops/s |   8,694 μs |      0 |  3,036 MB |      15 |
+
+**Native Go 基线（相同工作负载）：**
+
+| 并发度     | 吞吐量           | 堆内存    | GC 次数 |
+| ---------: | ---------------: | --------: | ------: |
+|          1 |    6,564K ops/s |    936 MB |       6 |
+|        100 |   38,071K ops/s |  5,210 MB |      26 |
+|      1,000 |   37,384K ops/s |  5,114 MB |      20 |
+|     10,000 |   36,438K ops/s |  5,367 MB |      18 |
+
+**吞吐量比值（Native / Gig）：** 单核 13.6x → 多核 ~31x（Gig 在单核上的比值更优，因为 native 受 `atomic` 竞争影响更大）
+
+**关键发现**：
+- **零错误**：10,000 个并发 goroutine，3 轮测试，0 错误
+- **峰值吞吐 115 万/秒**：从 10 goroutine 开始即达到 CPU 瓶颈，之后稳定不衰减
+- **堆内存约 3 GB**：无论 100 还是 10,000 goroutine，堆内存稳定（VM 池化生效）
+- **GC 友好**：高并发时 GC 次数反而降低（运行时在更多 goroutine 间分摊 GC）
+
 ### 分析
 
-**Gig 在全部 9 项基准测试中均优于 Yaegi**，优势从 1.1 倍到 5.4 倍：
+**Gig 在 7/9 项基准测试中优于 Yaegi**：
 
-- **递归快 5.4 倍**（Fib25）—— O(1) 函数查找、帧池化，仅 7 次分配 vs 210 万次
-- **外部调用快 2.6–2.8 倍** —— 1,162 个生成的 DirectCall 包装器消除了 92% 标准库函数和方法的 `reflect.Value.Call()`
-- **紧凑循环快 1.1–1.3 倍**（ArithSum、BubbleSort、Sieve）—— 整数特化 `int64` 局部变量和融合超级指令
-- **闭包快 3.1 倍** —— 高效的闭包表示，通过共享 `*value.Value` 捕获变量
+- **递归快 4.4 倍**（Fib25）—— O(1) 函数查找、帧池化，仅 7 次分配 vs 210 万次
+- **外部调用快 2.7–2.8 倍** —— 1,162 个生成的 DirectCall 包装器消除了 92% 标准库函数和方法的 `reflect.Value.Call()`
+- **闭包快 2.7 倍** —— 高效的闭包表示，通过共享 `*value.Value` 捕获变量
+- **紧凑循环**（ArithSum、Sieve）—— Yaegi 快 1.3-1.8 倍；Gig 的字节码解释开销在极短循环中更明显
 
-**GopherLua vs Gig**：GopherLua 在核心工作负载上快 2-4 倍，因为 Lua 是更简单的动态类型语言，针对这些模式进行了优化。但是：
+**GopherLua vs Gig**：GopherLua 在纯数值循环上接近 Gig，但是：
 
 - **GopherLua 需要手动注册函数** —— 每个 Go 函数都需要单独包装和注册；无法直接导入包
 - **没有 Goroutine/Channel** —— Lua 有协程，但不是 Go 的 CSP 并发模型
@@ -299,18 +334,25 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 | **语言**              | Go                              | Go           | Lua        | 表达式 DSL |
 | **完整 Go 语法**      | ✅                              | ✅           | ❌         | ❌         |
 | **Goroutine/Channel** | ✅                              | ✅           | ❌         | ❌         |
+| **Defer/Panic/Recover** | ✅                            | ✅           | ❌         | ❌         |
 | **安全沙箱**          | ✅（禁止 unsafe/reflect/panic） | ❌           | ❌         | ✅         |
 | **结构体/接口/方法**  | ✅                              | ✅           | ❌         | 有限       |
 | **40+ 标准库包**      | ✅                              | ✅           | 需手动注册 | N/A        |
 | **自定义 Go 包导入**  | ✅（代码生成）                  | ✅（符号表） | 需手动包装 | N/A        |
 | **Context 取消**      | ✅                              | ❌           | ❌         | ❌         |
+| **并发压力测试**      | ✅（10KG, 115万/秒, 0 错误）  | 未测试       | 未测试     | 未测试     |
 | **可嵌入**            | ✅                              | ✅           | ✅         | ✅         |
 
 **复现这些基准测试：**
 
 ```bash
 cd benchmarks
-go test -bench=. -benchmem -count=5 -timeout=30m -run='^$'
+# 单线程基准测试
+go test -bench='^Benchmark(Gig|Yaegi|Lua|Native|Expr)' -benchmem -count=3 -timeout=30m -run='^$'
+# 并发压力测试
+go test -bench='BenchmarkStress' -benchmem -count=3 -timeout=10m -run='^$'
+# 持续吞吐量测试
+go test -run='TestStress_Gig_Sustained5s' -v -timeout=5m
 ```
 
 ## 安全性
@@ -340,7 +382,7 @@ flowchart TB
     end
 
     subgraph Compiler["⚙️ 编译器"]
-        COMP["SSA → 字节码<br/>~70 操作码"]
+        COMP["SSA → 字节码<br/>~100 操作码"]
         CONST["常量池"]
         TYPES["类型池"]
         FUNCS["函数注册表"]
@@ -409,7 +451,7 @@ flowchart LR
         VM["VM"]
         STACK["栈<br/>(Value[])"]
         FRAMES["调用帧"]
-        OPS["操作码处理器<br/>(~70 ops)"]
+        OPS["操作码处理器<br/>(~100 ops)"]
     end
 
     subgraph "value/ [值系统]"
@@ -544,7 +586,7 @@ flowchart TB
     subgraph Output
         PROG["Program"]
         FN["CompiledFunction"]
-        CODE["字节码<br/>(~70 opcodes)"]
+        CODE["字节码<br/>(~100 opcodes)"]
         CONSTPOOL["常量池"]
         TYPEPOOL["类型池"]
     end
@@ -695,16 +737,18 @@ flowchart TB
 
 ### 组件概览
 
-| 组件         | 包          | 用途                                             |
-| ------------ | ----------- | ------------------------------------------------ |
-| **入口点**   | `gig.go`    | 公开 API：`Build()`、`Run()`、`RunWithContext()` |
-| **编译器**   | `compiler/` | SSA 到字节码编译（~70 操作码）                   |
-| **虚拟机**   | `vm/`       | 基于栈的字节码执行                               |
-| **值系统**   | `value/`    | Tagged-union 值，基本类型零分配                  |
-| **导入器**   | `importer/` | 外部包类型解析                                   |
-| **注册器**   | `register/` | 包注册公开 API                                   |
-| **标准库包** | `packages/` | 40+ 预注册标准库包                               |
-| **CLI**      | `cmd/gig`   | 代码生成工具                                     |
+| 组件         | 包                | 用途                                             |
+| ------------ | ----------------- | ------------------------------------------------ |
+| **入口点**   | `gig.go`          | 公开 API：`Build()`、`Run()`、`RunWithContext()` |
+| **编译器**   | `compiler/`       | SSA 到字节码编译（~100 操作码）                  |
+| **虚拟机**   | `vm/`             | 基于栈的字节码执行                               |
+| **值系统**   | `model/value/`    | Tagged-union 值，基本类型零分配                  |
+| **字节码**   | `model/bytecode/` | CompiledProgram、OpCode 定义                     |
+| **外部类型** | `model/external/` | ExternalFuncInfo、ExternalObject 等共享类型       |
+| **导入器**   | `importer/`       | 外部包注册、类型解析                             |
+| **运行器**   | `runner/`         | VM 池、init 执行、有状态/无状态模式              |
+| **标准库包** | `stdlib/packages/`| 40+ 预注册标准库包                               |
+| **CLI**      | `cmd/gig`         | 代码生成工具                                     |
 
 ### 关键设计决策
 
