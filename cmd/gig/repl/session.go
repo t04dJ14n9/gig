@@ -459,12 +459,20 @@ func (s *Session) handleExpression(input string) {
 	// Auto-detect imports from the expression
 	s.autoImportFromInput(input)
 
-	// Build source: declarations + expression wrapper
+	// Phase 1: Try as value-returning expression (wrap in return EXPR)
 	source := s.buildExpressionSource(input, funcName)
 
-	// Compile and run
 	result, err := s.compileAndRun(source, funcName)
 	if err != nil {
+		errMsg := err.Error()
+		// Phase 2: If the expression can't be returned (multi-return or void),
+		// retry with a void wrapper that just executes the expression.
+		if strings.Contains(errMsg, "too many return values") ||
+			strings.Contains(errMsg, "used as value") ||
+			strings.Contains(errMsg, "no value") {
+			s.handleVoidExpression(input, funcName)
+			return
+		}
 		fmt.Printf("Error: %v\n", err)
 		return
 	}
@@ -475,6 +483,19 @@ func (s *Session) handleExpression(input string) {
 	} else {
 		fmt.Println("(nil)")
 	}
+}
+
+// handleVoidExpression handles expressions that don't return a value
+// (e.g., fmt.Println("hello"), print(x)).
+func (s *Session) handleVoidExpression(input, funcName string) {
+	source := s.buildVoidExpressionSource(input, funcName)
+
+	_, err := s.compileAndRun(source, funcName)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+	fmt.Println()
 }
 
 // handleStatement executes a statement.

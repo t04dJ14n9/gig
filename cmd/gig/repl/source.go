@@ -47,6 +47,41 @@ func (s *Session) buildExpressionSource(expr, funcName string) string {
 	return sb.String()
 }
 
+// buildVoidExpressionSource creates source code for void expression evaluation
+// (expressions that don't return a value, like fmt.Println or multi-return calls).
+func (s *Session) buildVoidExpressionSource(expr, funcName string) string {
+	var sb strings.Builder
+
+	// Transform variable references to getter calls
+	transformed := s.transformVars(expr)
+
+	// Package declaration
+	sb.WriteString("package main\n\n")
+
+	// Imports
+	imports := s.detectUsedPackages(expr)
+	sb.WriteString(s.buildImportsFromSet(imports))
+
+	// Inject captured variables as getter functions
+	sb.WriteString(s.buildCapturedVars())
+
+	// Accumulated declarations (funcs, types)
+	sb.WriteString(s.declarations.String())
+	sb.WriteString("\n")
+
+	// Main function that executes the expression
+	sb.WriteString("func main() {\n")
+	fmt.Fprintf(&sb, "\t%s\n", transformed)
+	sb.WriteString("}\n\n")
+
+	// Void wrapper function (no return type, just execute)
+	fmt.Fprintf(&sb, "func %s() {\n", funcName)
+	fmt.Fprintf(&sb, "\t%s\n", transformed)
+	sb.WriteString("}\n")
+
+	return sb.String()
+}
+
 // buildStatementSource creates source code for statement execution.
 func (s *Session) buildStatementSource(stmt, funcName string) string {
 	var sb strings.Builder
