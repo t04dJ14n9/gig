@@ -4259,6 +4259,436 @@ func LenCapOnAllTypes() int {
 }
 
 // ============================================================================
+// ROUND 7: MORE CORNER CASES - Method sets, type assertions, edge cases
+// ============================================================================
+
+// MethodSetOnNamedType tests method set on named type
+func MethodSetOnNamedType() int {
+	type MySlice []int
+	var s MySlice = []int{1, 2, 3}
+	return len(s)
+}
+
+// MethodSetOnNamedMap tests method set on named map
+func MethodSetOnNamedMap() int {
+	type MyMap map[int]int
+	var m MyMap = map[int]int{1: 2}
+	return m[1]
+}
+
+// MethodSetOnNamedFunc tests named function type
+func MethodSetOnNamedFunc() int {
+	type IntFunc func(int) int
+	var f IntFunc = func(x int) int { return x * 2 }
+	return f(21)
+}
+
+// EmptyInterfaceTypeAssertion tests empty interface type assertion
+func EmptyInterfaceTypeAssertion() string {
+	var i interface{} = "hello"
+	if s, ok := i.(string); ok {
+		return s
+	}
+	return "not a string"
+}
+
+// InterfaceTypeAssertionWithNil tests nil interface type assertion
+func InterfaceTypeAssertionWithNil() bool {
+	var i interface{}
+	_, ok := i.(int)
+	return !ok
+}
+
+// InterfaceTypeAssertionWithConcrete tests concrete type assertion
+func InterfaceTypeAssertionWithConcrete() int {
+	var i interface{} = 42
+	return i.(int)
+}
+
+// InterfaceTypeSwitchWithMultipleTypes tests type switch with multiple types
+func InterfaceTypeSwitchWithMultipleTypes() string {
+	test := func(i interface{}) string {
+		switch i.(type) {
+		case int, int8, int16:
+			return "int"
+		case uint, uint8:
+			return "uint"
+		case string:
+			return "string"
+		case float32, float64:
+			return "float"
+		default:
+			return "other"
+		}
+	}
+	return test(42.0)
+}
+
+// PointerToMapValueNotSupported tests that pointer to map value is not supported
+func PointerToMapValueNotSupported() int {
+	m := map[int]int{1: 10}
+	// Can't take address of map element in Go
+	return m[1]
+}
+
+// PointerToStructField tests pointer to struct field
+func PointerToStructField() int {
+	type Data struct{ Value int }
+	d := Data{Value: 42}
+	p := &d.Value
+	*p = 100
+	return d.Value
+}
+
+// PointerToNestedStructField tests pointer to nested struct field
+func PointerToNestedStructField() int {
+	type Inner struct{ Value int }
+	type Outer struct{ I Inner }
+	o := Outer{I: Inner{Value: 42}}
+	p := &o.I.Value
+	*p = 100
+	return o.I.Value
+}
+
+// NilPointerDereference tests nil pointer dereference handling
+func NilPointerDereference() int {
+	var p *int
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
+// PointerComparison tests pointer comparison
+func PointerComparison() bool {
+	x := 42
+	p1 := &x
+	p2 := &x
+	return p1 == p2
+}
+
+// DifferentPointerComparison tests different pointer comparison
+func DifferentPointerComparison() bool {
+	x, y := 42, 42
+	p1 := &x
+	p2 := &y
+	return p1 != p2
+}
+
+// SliceOfPointersToStruct tests slice of pointers to struct
+func SliceOfPointersToStruct() int {
+	type Item struct{ Value int }
+	items := []*Item{{1}, {2}, {3}}
+	sum := 0
+	for _, item := range items {
+		if item != nil {
+			sum += item.Value
+		}
+	}
+	return sum
+}
+
+// MapOfPointersToStruct tests map of pointers to struct
+func MapOfPointersToStruct() int {
+	type Item struct{ Value int }
+	m := map[string]*Item{
+		"a": {1},
+		"b": {2},
+	}
+	return m["a"].Value + m["b"].Value
+}
+
+// StructWithPointerTypeField tests struct with pointer type field
+func StructWithPointerTypeField() int {
+	type Data struct {
+		Value *int
+	}
+	v := 42
+	d := Data{Value: &v}
+	return *d.Value
+}
+
+// StructWithSliceTypeField tests struct with slice type field
+func StructWithSliceTypeField() int {
+	type Data struct {
+		Items []int
+	}
+	d := Data{Items: []int{1, 2, 3}}
+	return len(d.Items)
+}
+
+// StructWithMapTypeField tests struct with map type field
+func StructWithMapTypeField() int {
+	type Data struct {
+		Items map[int]int
+	}
+	d := Data{Items: map[int]int{1: 2}}
+	return d.Items[1]
+}
+
+// StructWithChannelTypeField tests struct with channel type field
+func StructWithChannelTypeField() int {
+	type Data struct {
+		Ch chan int
+	}
+	d := Data{Ch: make(chan int, 1)}
+	d.Ch <- 42
+	return <-d.Ch
+}
+
+// StructWithFuncTypeField tests struct with function type field
+func StructWithFuncTypeField() int {
+	type Data struct {
+		Func func(int) int
+	}
+	d := Data{Func: func(x int) int { return x * 2 }}
+	return d.Func(21)
+}
+
+// NestedStructWithMethods tests nested struct with methods
+func NestedStructWithMethods() int {
+	type Inner struct{ Value int }
+	type Outer struct{ I Inner }
+	o := Outer{I: Inner{Value: 42}}
+	return o.I.Value
+}
+
+// EmbeddedStructWithMethods tests embedded struct with methods
+func EmbeddedStructWithMethods() int {
+	type Base struct{ Value int }
+	type Derived struct {
+		Base
+		Extra int
+	}
+	d := Derived{Base: Base{Value: 10}, Extra: 20}
+	return d.Value + d.Extra
+}
+
+// MultipleEmbeddedStructs tests multiple embedded structs
+func MultipleEmbeddedStructs() int {
+	type A struct{ AVal int }
+	type B struct{ BVal int }
+	type C struct {
+		A
+		B
+		CVal int
+	}
+	c := C{A: A{AVal: 1}, B: B{BVal: 2}, CVal: 3}
+	return c.AVal + c.BVal + c.CVal
+}
+
+// StructWithPrivateField tests struct with private field
+func StructWithPrivateField() int {
+	type Data struct {
+		value int
+	}
+	d := Data{value: 42}
+	return d.value
+}
+
+// StructWithMixedFields tests struct with mixed public/private fields
+func StructWithMixedFields() int {
+	type Data struct {
+		Public  int
+		private int
+	}
+	d := Data{Public: 1, private: 2}
+	return d.Public + d.private
+}
+
+// EmptyStruct tests empty struct
+func EmptyStruct() int {
+	type Empty struct{}
+	var e Empty
+	_ = e
+	return 1
+}
+
+// EmptyStructPointer tests empty struct pointer
+func EmptyStructPointer() int {
+	type Empty struct{}
+	e := &Empty{}
+	_ = e
+	return 1
+}
+
+// StructAlignment tests struct alignment
+func StructAlignment() int {
+	type Data struct {
+		A byte
+		B int
+		C byte
+	}
+	d := Data{A: 1, B: 2, C: 3}
+	return int(d.A) + d.B + int(d.C)
+}
+
+// StructWithPadding tests struct with padding
+func StructWithPadding() int {
+	type Data struct {
+		A byte
+		// 7 bytes padding
+		B int64
+	}
+	d := Data{A: 1, B: 2}
+	return int(d.A) + int(d.B)
+}
+
+// ArrayOfEmptyStruct tests array of empty struct
+func ArrayOfEmptyStruct() int {
+	type Empty struct{}
+	arr := [3]Empty{{}, {}, {}}
+	return len(arr)
+}
+
+// SliceOfEmptyStruct tests slice of empty struct
+func SliceOfEmptyStruct() int {
+	type Empty struct{}
+	s := []Empty{{}, {}, {}}
+	return len(s)
+}
+
+// MapWithEmptyStructValue tests map with empty struct value
+func MapWithEmptyStructValue() int {
+	type Empty struct{}
+	m := map[int]Empty{1: {}, 2: {}}
+	return len(m)
+}
+
+// ChannelOfEmptyStruct tests channel of empty struct
+func ChannelOfEmptyStruct() int {
+	type Empty struct{}
+	ch := make(chan Empty, 2)
+	ch <- Empty{}
+	ch <- Empty{}
+	return len(ch)
+}
+
+// FuncReturningEmptyStruct tests function returning empty struct
+func FuncReturningEmptyStruct() int {
+	type Empty struct{}
+	f := func() Empty { return Empty{} }
+	_ = f()
+	return 1
+}
+
+// ClosureCapturingEmptyStruct tests closure capturing empty struct
+func ClosureCapturingEmptyStruct() int {
+	type Empty struct{}
+	e := Empty{}
+	f := func() Empty { return e }
+	_ = f()
+	return 1
+}
+
+// ZeroValueComparison tests zero value comparison
+func ZeroValueComparison() bool {
+	var i int
+	var s string
+	var b bool
+	var f float64
+	return i == 0 && s == "" && b == false && f == 0.0
+}
+
+// NamedTypeZeroValue tests named type zero value
+func NamedTypeZeroValue() int {
+	type MyInt int
+	var x MyInt
+	return int(x)
+}
+
+// NamedTypeZeroValueComparison tests named type zero value comparison
+func NamedTypeZeroValueComparison() bool {
+	type MyInt int
+	var x MyInt
+	return x == 0
+}
+
+// SliceZeroValue tests slice zero value
+func SliceZeroValue() bool {
+	var s []int
+	return s == nil
+}
+
+// MapZeroValue tests map zero value
+func MapZeroValue() bool {
+	var m map[int]int
+	return m == nil
+}
+
+// ChannelZeroValue tests channel zero value
+func ChannelZeroValue() bool {
+	var ch chan int
+	return ch == nil
+}
+
+// FuncZeroValue tests function zero value
+func FuncZeroValue() bool {
+	var f func()
+	return f == nil
+}
+
+// InterfaceZeroValue tests interface zero value
+func InterfaceZeroValue() bool {
+	var i interface{}
+	return i == nil
+}
+
+// PointerZeroValue tests pointer zero value
+func PointerZeroValue() bool {
+	var p *int
+	return p == nil
+}
+
+// CompositeLiteralWithZeroValues tests composite literal with zero values
+func CompositeLiteralWithZeroValues() int {
+	type Data struct {
+		A int
+		B string
+		C bool
+	}
+	d := Data{}
+	return d.A
+}
+
+// CompositeLiteralWithPartialValues tests composite literal with partial values
+func CompositeLiteralWithPartialValues() int {
+	type Data struct {
+		A int
+		B string
+		C bool
+	}
+	d := Data{A: 42}
+	return d.A
+}
+
+// NestedCompositeLiteralWithZeroValues tests nested composite literal with zero values
+func NestedCompositeLiteralWithZeroValues() int {
+	type Inner struct{ X int }
+	type Outer struct{ I Inner }
+	o := Outer{}
+	return o.I.X
+}
+
+// SliceLiteralWithZeroElements tests slice literal with zero elements
+func SliceLiteralWithZeroElements() int {
+	s := []int{}
+	return len(s)
+}
+
+// MapLiteralWithZeroElements tests map literal with zero elements
+func MapLiteralWithZeroElements() int {
+	m := map[int]int{}
+	return len(m)
+}
+
+// ArrayLiteralWithZeroElements tests array literal with zero elements
+func ArrayLiteralWithZeroElements() int {
+	arr := [0]int{}
+	return len(arr)
+}
+
+// ============================================================================
 // FMT.STRINGER INTERFACE TESTS - Third-party library dependency on String()
 // ============================================================================
 
@@ -4589,4 +5019,798 @@ func (s stringerPrivate) String() string {
 func FmtStringerWithPrivateFields() string {
 	s := stringerPrivate{value: 42, name: "test"}
 	return fmt.Sprintf("%v", s)
+}
+
+// ============================================================================
+// ROUND 8: MORE CORNER CASES - Type conversions, interfaces, closures
+// ============================================================================
+
+// TypeConversionOverflow tests type conversion overflow
+func TypeConversionOverflow() int8 {
+	var x int = 300
+	return int8(x) // Truncates to 44 (300 % 256 - 128)
+}
+
+// TypeConversionNegative tests negative number conversion
+func TypeConversionNegative() uint8 {
+	var x int8 = -1
+	return uint8(x) // 255
+}
+
+// TypeConversionFloatTruncate tests float to int truncation
+func TypeConversionFloatTruncate() int {
+	x := 3.7
+	return int(x) // 3
+}
+
+// TypeConversionIntToFloat tests int to float
+func TypeConversionIntToFloat() float64 {
+	return float64(42)
+}
+
+// TypeConversionBoolToInt tests bool can't convert to int (error case)
+func TypeConversionBoolToInt() int {
+	// Can't convert bool to int in Go, return a value instead
+	return 1
+}
+
+// InterfaceConversionToInt tests interface to int
+func InterfaceConversionToInt() int {
+	var i interface{} = 42
+	return i.(int)
+}
+
+// InterfaceConversionToSlice tests interface to slice
+func InterfaceConversionToSlice() int {
+	var i interface{} = []int{1, 2, 3}
+	return len(i.([]int))
+}
+
+// InterfaceConversionToMap tests interface to map
+func InterfaceConversionToMap() int {
+	var i interface{} = map[string]int{"a": 1}
+	return i.(map[string]int)["a"]
+}
+
+// InterfaceConversionToFunc tests interface to func
+func InterfaceConversionToFunc() int {
+	var i interface{} = func(x int) int { return x * 2 }
+	return i.(func(int) int)(21)
+}
+
+// NilInterfaceTypeAssertion tests nil interface type assertion
+func NilInterfaceTypeAssertion() bool {
+	var i interface{}
+	_, ok := i.(int)
+	return !ok
+}
+
+// TypedNilInterface tests typed nil to interface
+func TypedNilInterface() bool {
+	var s []int
+	var i interface{} = s
+	return i == nil // false! typed nil != nil interface
+}
+
+// SliceOfInterfaces tests slice of interfaces
+func SliceOfInterfaces() string {
+	items := []interface{}{1, "hello", 3.14}
+	return fmt.Sprintf("%v", items)
+}
+
+// MapOfInterfaces2 tests map of interfaces
+func MapOfInterfaces2() string {
+	m := map[string]interface{}{
+		"int":    1,
+		"string": "hello",
+		"float":  3.14,
+	}
+	return fmt.Sprintf("%v", m)
+}
+
+// ClosureWithMultipleCaptures tests closure capturing multiple variables
+func ClosureWithMultipleCaptures() int {
+	a, b, c := 1, 2, 3
+	f := func() int {
+		return a + b + c
+	}
+	return f()
+}
+
+// ClosureWithNestedCapture tests nested closure capture
+func ClosureWithNestedCapture() int {
+	x := 10
+	f1 := func() int {
+		y := 20
+		f2 := func() int {
+			return x + y
+		}
+		return f2()
+	}
+	return f1()
+}
+
+// ClosureModifyCapture tests closure modifying captured variable
+func ClosureModifyCapture() int {
+	x := 10
+	f := func() {
+		x = 20
+	}
+	f()
+	return x
+}
+
+// ClosureReturnClosure tests closure returning closure
+func ClosureReturnClosure() int {
+	f := func() func() int {
+		x := 42
+		return func() int {
+			return x
+		}
+	}
+	return f()()
+}
+
+// ClosureTakeClosure tests closure taking closure as argument
+func ClosureTakeClosure() int {
+	apply := func(f func() int) int {
+		return f()
+	}
+	return apply(func() int { return 42 })
+}
+
+// ClosureInMap tests closure in map
+func ClosureInMap() int {
+	m := map[string]func() int{
+		"a": func() int { return 1 },
+		"b": func() int { return 2 },
+	}
+	return m["a"]() + m["b"]()
+}
+
+// ClosureInSlice tests closure in slice
+func ClosureInSlice() int {
+	items := []func() int{
+		func() int { return 1 },
+		func() int { return 2 },
+	}
+	return items[0]() + items[1]()
+}
+
+// ClosureAsMapKey tests closure can't be map key (use int key)
+func ClosureAsMapKey() int {
+	// Functions can't be map keys, use int keys instead
+	m := map[int]string{
+		1: "one",
+		2: "two",
+	}
+	return len(m)
+}
+
+// ChannelSendRecvOrder tests channel send/receive order
+func ChannelSendRecvOrder() int {
+	ch := make(chan int, 2)
+	ch <- 1
+	ch <- 2
+	return <-ch + <-ch // 1 + 2 = 3
+}
+
+// ChannelCloseThenRecv tests receiving from closed channel
+func ChannelCloseThenRecv() (int, bool) {
+	ch := make(chan int, 1)
+	ch <- 42
+	close(ch)
+	v, ok := <-ch
+	return v, ok
+}
+
+// ChannelClosedRecvZero tests receiving from closed empty channel
+func ChannelClosedRecvZero() int {
+	ch := make(chan int)
+	close(ch)
+	v, ok := <-ch
+	_ = ok
+	return v // zero value
+}
+
+// NilChannelBlocks tests nil channel blocks (test with select)
+func NilChannelBlocks() string {
+	var ch chan int
+	select {
+	case <-ch:
+		return "received"
+	default:
+		return "default"
+	}
+}
+
+// ChannelOfChannels tests channel of channels
+func ChannelOfChannelsSend() int {
+	ch := make(chan chan int, 1)
+	subCh := make(chan int, 1)
+	subCh <- 42
+	ch <- subCh
+	return <-(<-ch)
+}
+
+// BufferedChannelFull tests buffered channel full behavior
+func BufferedChannelFull() int {
+	ch := make(chan int, 1)
+	ch <- 1
+	select {
+	case ch <- 2:
+		return 2
+	default:
+		return 1 // channel full, default case
+	}
+}
+
+// StructWithGetMethod tests struct with Get method
+type Getter struct{ Value int }
+
+func (g Getter) Get() int { return g.Value }
+
+// StructGetMethod tests struct get method
+func StructGetMethod() int {
+	g := Getter{Value: 42}
+	return g.Get()
+}
+
+// StructWithSetMethod tests struct with Set method
+type Setter struct{ Value int }
+
+func (s *Setter) Set(v int) { s.Value = v }
+
+// StructSetMethod tests struct set method
+func StructSetMethod() int {
+	s := Setter{Value: 0}
+	s.Set(42)
+	return s.Value
+}
+
+// StructWithBothMethods tests struct with both Get and Set
+type Accessor struct{ Value int }
+
+func (a Accessor) Get() int      { return a.Value }
+func (a *Accessor) Set(v int)    { a.Value = v }
+
+// StructBothMethods tests both methods
+func StructBothMethods() int {
+	a := Accessor{Value: 10}
+	a.Set(42)
+	return a.Get()
+}
+
+// InterfaceWithMultipleMethods2 tests interface with multiple methods
+type Reader2 interface{ Read() int }
+type Writer2 interface{ Write(int) }
+type ReadWriter2 interface {
+	Reader2
+	Writer2
+}
+
+type RWImpl struct{ Value int }
+
+func (r RWImpl) Read() int      { return r.Value }
+func (r *RWImpl) Write(v int)   { r.Value = v }
+
+// InterfaceMultipleMethods tests multiple interface methods
+func InterfaceMultipleMethods() int {
+	rw := &RWImpl{Value: 10}
+	rw.Write(42)
+	return rw.Read()
+}
+
+// EmptyInterfaceWithMethods tests empty interface
+func EmptyInterfaceWithMethods() int {
+	var i interface{} = 42
+	return i.(int)
+}
+
+// InterfaceEmbeddingMultiple tests multiple interface embedding
+type ReaderA interface{ ReadA() int }
+type ReaderB interface{ ReadB() int }
+type CombinedReader interface {
+	ReaderA
+	ReaderB
+}
+
+type CombinedImpl struct{ A, B int }
+
+func (c CombinedImpl) ReadA() int { return c.A }
+func (c CombinedImpl) ReadB() int { return c.B }
+
+// InterfaceEmbeddingMultipleTest tests multiple interface embedding
+func InterfaceEmbeddingMultipleTest() int {
+	c := CombinedImpl{A: 1, B: 2}
+	return c.ReadA() + c.ReadB()
+}
+
+// MethodOnPointerType tests method on pointer type
+type Counter struct{ Count int }
+
+func (c *Counter) Increment() { c.Count++ }
+func (c Counter) Value() int  { return c.Count }
+
+// MethodOnPointerTypeTest tests pointer method
+func MethodOnPointerTypeTest() int {
+	c := &Counter{Count: 0}
+	c.Increment()
+	c.Increment()
+	return c.Value()
+}
+
+// MethodOnValueType tests method on value type
+func MethodOnValueTypeTest() int {
+	c := Counter{Count: 10}
+	return c.Value()
+}
+
+// MethodPointerOnValue tests pointer method on value (auto-address)
+func MethodPointerOnValueTest() int {
+	c := Counter{Count: 10}
+	c.Increment() // Auto-address taken
+	return c.Value()
+}
+
+// SliceAppendMake tests append with make
+func SliceAppendMake() int {
+	s := make([]int, 0, 10)
+	s = append(s, 1, 2, 3)
+	return len(s)
+}
+
+// MapMakeDelete tests make and delete
+func MapMakeDelete() int {
+	m := make(map[int]int)
+	m[1] = 10
+	m[2] = 20
+	delete(m, 1)
+	return len(m)
+}
+
+// SliceCopyMake tests copy with make
+func SliceCopyMake() int {
+	src := []int{1, 2, 3}
+	dst := make([]int, len(src))
+	copy(dst, src)
+	return dst[0] + dst[1] + dst[2]
+}
+
+// NilSliceAppendNil tests nil slice append nil
+func NilSliceAppendNil2() int {
+	var s []int
+	s = append(s, nil...)
+	return len(s)
+}
+
+// SliceAppendFunc tests append with function result
+func SliceAppendFunc() int {
+	getSlice := func() []int { return []int{3, 4} }
+	s := []int{1, 2}
+	s = append(s, getSlice()...)
+	return len(s)
+}
+
+// MapWithFuncKey tests map with func key (not allowed, use string)
+func MapWithFuncKey() int {
+	// Func can't be map key, use string
+	m := map[string]int{"key": 42}
+	return m["key"]
+}
+
+// StructWithFuncFieldMethod tests struct with func field and method
+type FuncHolder struct {
+	Fn func() int
+}
+
+func (f FuncHolder) Call() int { return f.Fn() }
+
+// StructWithFuncFieldMethodTest tests struct with func field
+func StructWithFuncFieldMethodTest() int {
+	f := FuncHolder{Fn: func() int { return 42 }}
+	return f.Call()
+}
+
+// ============================================================================
+// ROUND 9: MORE CORNER CASES - Type switches, embedded fields, method values
+// ============================================================================
+
+// TypeSwitchWithFallthrough tests type switch with fallthrough (not allowed)
+func TypeSwitchWithFallthrough() string {
+	var i interface{} = 42
+	switch v := i.(type) {
+	case int:
+		return fmt.Sprintf("int: %d", v)
+	case string:
+		return fmt.Sprintf("string: %s", v)
+	default:
+		return "unknown"
+	}
+}
+
+// TypeSwitchMultipleInOne tests multiple types in one case
+func TypeSwitchMultipleInOne() string {
+	var i interface{} = 42
+	switch i.(type) {
+	case int, int8, int16, int32, int64:
+		return "int type"
+	case uint, uint8, uint16, uint32, uint64:
+		return "uint type"
+	default:
+		return "other"
+	}
+}
+
+// EmbeddedInner for EmbeddedFieldAccess test
+type EmbeddedInner struct{ X int }
+
+// EmbeddedOuter for EmbeddedFieldAccess test
+type EmbeddedOuter struct {
+	EmbeddedInner
+	Y int
+}
+
+// EmbeddedFieldAccess tests accessing embedded field
+func EmbeddedFieldAccess() int {
+	o := EmbeddedOuter{EmbeddedInner: EmbeddedInner{X: 10}, Y: 20}
+	return o.X + o.Y // X is promoted from EmbeddedInner
+}
+
+// EmbeddedBase for EmbeddedMethodAccess test
+type EmbeddedBase struct{ Value int }
+
+// GetValue method for EmbeddedBase
+func (b EmbeddedBase) GetValue() int { return b.Value }
+
+// EmbeddedDerived for EmbeddedMethodAccess test
+type EmbeddedDerived struct {
+	EmbeddedBase
+	Extra int
+}
+
+// EmbeddedMethodAccess tests accessing embedded method
+func EmbeddedMethodAccess() int {
+	d := EmbeddedDerived{EmbeddedBase: EmbeddedBase{Value: 10}, Extra: 20}
+	return d.GetValue() + d.Extra // GetValue is promoted
+}
+
+// EmbeddedPtrInner for EmbeddedPointerField test
+type EmbeddedPtrInner struct{ X int }
+
+// EmbeddedPtrOuter for EmbeddedPointerField test
+type EmbeddedPtrOuter struct {
+	*EmbeddedPtrInner
+	Y int
+}
+
+// EmbeddedPointerField tests embedded pointer field
+func EmbeddedPointerField() int {
+	o := EmbeddedPtrOuter{EmbeddedPtrInner: &EmbeddedPtrInner{X: 10}, Y: 20}
+	return o.X + o.Y
+}
+
+// EmbeddedPtrBase for EmbeddedPointerMethod test
+type EmbeddedPtrBase struct{ Value int }
+
+// GetPtrValue method for EmbeddedPtrBase
+func (b *EmbeddedPtrBase) GetPtrValue() int { return b.Value }
+
+// EmbeddedPtrDerived for EmbeddedPointerMethod test
+type EmbeddedPtrDerived struct {
+	*EmbeddedPtrBase
+	Extra int
+}
+
+// EmbeddedPointerMethod tests embedded pointer method
+func EmbeddedPointerMethod() int {
+	d := EmbeddedPtrDerived{EmbeddedPtrBase: &EmbeddedPtrBase{Value: 10}, Extra: 20}
+	return d.GetPtrValue() + d.Extra
+}
+
+// Reader3 for EmbeddedInterfaceField test
+type Reader3 interface{ Read() int }
+
+// Writer3 for EmbeddedInterfaceField test
+type Writer3 interface{ Write(int) }
+
+// ReadWriter3 for EmbeddedInterfaceField test
+type ReadWriter3 interface {
+	Reader3
+	Writer3
+}
+
+// Impl3 for EmbeddedInterfaceField test
+type Impl3 struct{ Value int }
+
+// Read method for Impl3
+func (i Impl3) Read() int { return i.Value }
+
+// Write method for Impl3
+func (i *Impl3) Write(v int) { i.Value = v }
+
+// EmbeddedInterfaceField tests embedded interface
+func EmbeddedInterfaceField() int {
+	var rw ReadWriter3 = &Impl3{Value: 42}
+	return rw.Read()
+}
+
+// Counter2 for MethodValue test
+type Counter2 struct{ Count int }
+
+// Increment method for Counter2
+func (c *Counter2) Increment() { c.Count++ }
+
+// MethodValueTest2 tests method value
+func MethodValueTest2() int {
+	c := &Counter2{Count: 0}
+	inc := c.Increment
+	inc()
+	inc()
+	return c.Count
+}
+
+// Counter3MethodExpr for MethodExpressionTest test
+type Counter3MethodExpr struct{ Count int }
+
+// Inc method for Counter3MethodExpr
+func (c *Counter3MethodExpr) Inc() { c.Count++ }
+
+// MethodExpressionTest2 tests method expression
+func MethodExpressionTest2() int {
+	c := &Counter3MethodExpr{Count: 10}
+	inc := (*Counter3MethodExpr).Inc
+	inc(c)
+	return c.Count
+}
+
+// Counter4 for MethodValueCapturesReceiver test
+type Counter4 struct{ Count int }
+
+// GetCount method for Counter4
+func (c Counter4) GetCount() int { return c.Count }
+
+// MethodValueCapturesReceiver tests method value captures receiver
+func MethodValueCapturesReceiver() int {
+	c := Counter4{Count: 42}
+	v := c.GetCount
+	return v()
+}
+
+// Adder for SliceOfMethodValues test
+type Adder struct{ Value int }
+
+// Add method for Adder
+func (a Adder) Add(x int) int { return a.Value + x }
+
+// SliceOfMethodValues tests slice of method values
+func SliceOfMethodValues() int {
+	a := Adder{Value: 10}
+	adds := []func(int) int{a.Add, a.Add}
+	return adds[0](1) + adds[1](2)
+}
+
+// MapOfMethodValues tests map of method values
+func MapOfMethodValues() int {
+	a := Adder{Value: 10}
+	m := map[string]func(int) int{
+		"add": a.Add,
+	}
+	return m["add"](5)
+}
+
+// NilSliceLen tests nil slice len
+func NilSliceLen2() int {
+	var s []int
+	return len(s)
+}
+
+// NilSliceCap tests nil slice cap
+func NilSliceCap2() int {
+	var s []int
+	return cap(s)
+}
+
+// NilMapLen tests nil map len
+func NilMapLen2() int {
+	var m map[int]int
+	return len(m)
+}
+
+// NilMapDeleteTest tests nil map delete (no-op)
+func NilMapDeleteTest() int {
+	var m map[int]int
+	delete(m, 1) // no-op on nil map
+	return 0
+}
+
+// EmptySliceLen tests empty slice len
+func EmptySliceLen() int {
+	s := []int{}
+	return len(s)
+}
+
+// EmptyMapLen tests empty map len
+func EmptyMapLen() int {
+	m := map[int]int{}
+	return len(m)
+}
+
+// SliceMakeZeroLen tests make with zero len
+func SliceMakeZeroLen() int {
+	s := make([]int, 0)
+	return len(s)
+}
+
+// MapMakeZeroSize tests make with zero size
+func MapMakeZeroSize() int {
+	m := make(map[int]int)
+	return len(m)
+}
+
+// FuncsHolder for StructWithSliceOfFuncs test
+type FuncsHolder struct {
+	Funcs []func() int
+}
+
+// StructWithSliceOfFuncs tests struct with slice of funcs
+func StructWithSliceOfFuncs() int {
+	f := FuncsHolder{
+		Funcs: []func() int{
+			func() int { return 1 },
+			func() int { return 2 },
+		},
+	}
+	return f.Funcs[0]() + f.Funcs[1]()
+}
+
+// FuncsMapHolder for StructWithMapOfFuncs test
+type FuncsMapHolder struct {
+	Funcs map[string]func() int
+}
+
+// StructWithMapOfFuncs tests struct with map of funcs
+func StructWithMapOfFuncs() int {
+	f := FuncsMapHolder{
+		Funcs: map[string]func() int{
+			"a": func() int { return 1 },
+			"b": func() int { return 2 },
+		},
+	}
+	return f.Funcs["a"]() + f.Funcs["b"]()
+}
+
+// InnerWithSlice for NestedStructWithSlice test
+type InnerWithSlice struct{ Items []int }
+
+// OuterWithSlice for NestedStructWithSlice test
+type OuterWithSlice struct{ I InnerWithSlice }
+
+// NestedStructWithSlice tests nested struct with slice
+func NestedStructWithSlice() int {
+	o := OuterWithSlice{I: InnerWithSlice{Items: []int{1, 2, 3}}}
+	return len(o.I.Items)
+}
+
+// InnerWithMap for NestedStructWithMap test
+type InnerWithMap struct{ Data map[int]int }
+
+// OuterWithMap for NestedStructWithMap test
+type OuterWithMap struct{ I InnerWithMap }
+
+// NestedStructWithMap tests nested struct with map
+func NestedStructWithMap() int {
+	o := OuterWithMap{I: InnerWithMap{Data: map[int]int{1: 10}}}
+	return o.I.Data[1]
+}
+
+// DataForModify for PointerToStructModify test
+type DataForModify struct{ Value int }
+
+// PointerToSliceModify tests modifying slice via pointer
+func PointerToSliceModify() int {
+	s := []int{1, 2, 3}
+	p := &s
+	(*p)[0] = 10
+	return s[0]
+}
+
+// PointerToMapModify tests modifying map via pointer
+func PointerToMapModify() int {
+	m := map[int]int{1: 10}
+	p := &m
+	(*p)[2] = 20
+	return len(m)
+}
+
+// PointerToStructModify tests modifying struct via pointer
+func PointerToStructModify() int {
+	d := DataForModify{Value: 10}
+	p := &d
+	p.Value = 20
+	return d.Value
+}
+
+// SliceOfPointersModify tests modifying via slice of pointers
+func SliceOfPointersModify() int {
+	items := []*int{}
+	v := 42
+	items = append(items, &v)
+	*items[0] = 100
+	return v
+}
+
+// MapOfPointersModify tests modifying via map of pointers
+func MapOfPointersModify() int {
+	m := map[string]*int{}
+	v := 42
+	m["key"] = &v
+	*m["key"] = 100
+	return v
+}
+
+// InterfaceSliceTypeAssertion tests type assertion on interface slice
+func InterfaceSliceTypeAssertion() int {
+	var i interface{} = []int{1, 2, 3}
+	s := i.([]int)
+	return len(s)
+}
+
+// InterfaceMapTypeAssertion tests type assertion on interface map
+func InterfaceMapTypeAssertion() int {
+	var i interface{} = map[int]int{1: 2}
+	m := i.(map[int]int)
+	return m[1]
+}
+
+// InterfaceFuncTypeAssertion tests type assertion on interface func
+func InterfaceFuncTypeAssertion() int {
+	var i interface{} = func(x int) int { return x * 2 }
+	f := i.(func(int) int)
+	return f(21)
+}
+
+// InterfaceChanTypeAssertion tests type assertion on interface chan
+func InterfaceChanTypeAssertion() int {
+	ch := make(chan int, 1)
+	ch <- 42
+	var i interface{} = ch
+	c := i.(chan int)
+	return <-c
+}
+
+// MultipleInterfaceTypeAssertion tests multiple interface type assertions
+func MultipleInterfaceTypeAssertion() int {
+	var i interface{} = 42
+	if v, ok := i.(int); ok {
+		return v
+	}
+	return 0
+}
+
+// MyIntNamed for TypeAssertionOnNamed test
+type MyIntNamed int
+
+// TypeAssertionOnNamed tests type assertion on named type
+func TypeAssertionOnNamed() int {
+	var i interface{} = MyIntNamed(42)
+	v := i.(MyIntNamed)
+	return int(v)
+}
+
+// DataForAssert for TypeAssertionOnStruct test
+type DataForAssert struct{ Value int }
+
+// TypeAssertionOnStruct tests type assertion on struct
+func TypeAssertionOnStruct() int {
+	var i interface{} = DataForAssert{Value: 42}
+	v := i.(DataForAssert)
+	return v.Value
+}
+
+// TypeAssertionOnPointer tests type assertion on pointer
+func TypeAssertionOnPointer() int {
+	var i interface{} = &DataForAssert{Value: 42}
+	v := i.(*DataForAssert)
+	return v.Value
 }
