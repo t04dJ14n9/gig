@@ -56,6 +56,12 @@ type CompiledProgram struct {
 	// which would cause "reflect.Set: value not assignable" panics.
 	// Key: types.Type, Value: reflect.Type.
 	ReflectTypeCache sync.Map
+
+	// ReflectTypeNames maps reflect.Type → TypeName for interpreter-synthesized
+	// struct types. Used by method dispatch to identify which named type a
+	// reflect.Value belongs to, replacing the old _gig_id phantom field approach.
+	// Key: reflect.Type, Value: string (bare type name, e.g. "Foo").
+	ReflectTypeNames sync.Map
 }
 
 // TypeResolver resolves external types at runtime.
@@ -79,4 +85,18 @@ func (p *CompiledProgram) CachedReflectType(t types.Type) (reflect.Type, bool) {
 func (p *CompiledProgram) CacheReflectType(t types.Type, rt reflect.Type) reflect.Type {
 	actual, _ := p.ReflectTypeCache.LoadOrStore(t, rt)
 	return actual.(reflect.Type)
+}
+
+// RegisterTypeName associates a reflect.Type with its bare type name (e.g. "Foo").
+// Used for method dispatch on interpreter-synthesized struct types.
+func (p *CompiledProgram) RegisterTypeName(rt reflect.Type, name string) {
+	p.ReflectTypeNames.Store(rt, name)
+}
+
+// LookupTypeName returns the bare type name for a reflect.Type, or "" if not registered.
+func (p *CompiledProgram) LookupTypeName(rt reflect.Type) string {
+	if v, ok := p.ReflectTypeNames.Load(rt); ok {
+		return v.(string)
+	}
+	return ""
 }

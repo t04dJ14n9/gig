@@ -60,8 +60,22 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 	case bytecode.OpSend:
 		val := v.pop()
 		ch := v.pop()
-		if err := ch.SendContext(v.ctx, val); err != nil {
-			return err
+		// Use a Go-level recover to catch "send on closed channel" panic
+		// and convert it to a guest-level panic (recoverable by defer/recover).
+		var sendErr error
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					sendErr = fmt.Errorf("%v", r)
+				}
+			}()
+			sendErr = ch.SendContext(v.ctx, val)
+		}()
+		if sendErr != nil {
+			// Trigger guest-level panic so defer/recover can handle it
+			v.panicking = true
+			v.panicVal = value.FromInterface(sendErr.Error())
+			break
 		}
 
 	case bytecode.OpRecv:

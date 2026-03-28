@@ -248,13 +248,213 @@ func (c *compiler) compileConst(cnst *ssa.Const) {
 					v = cnst.Value != nil && cnst.Value.Kind() == constant.Bool && constant.BoolVal(cnst.Value)
 				}
 			}
+		} else {
+			// cnst.Value == nil: emit zero value for named types
+			if rt := constTypeToReflect(t); rt != nil {
+				v = reflect.Zero(rt)
+			}
+		}
+	case *types.Alias:
+		// Handle type aliases (e.g., type MyInt = int) - they are identical to the aliased type
+		// Use the underlying type for value handling
+		if cnst.Value != nil {
+			switch underlying := t.Underlying().(type) {
+			case *types.Basic:
+				switch underlying.Kind() { //nolint:exhaustive
+				case types.Int, types.UntypedInt, types.UntypedRune:
+					i, exact := constant.Int64Val(cnst.Value)
+					if exact {
+						v = int(i)
+					} else {
+						v = int(0)
+					}
+				case types.Int8:
+					i, _ := constant.Int64Val(cnst.Value)
+					v = int8(i)
+				case types.Int16:
+					i, _ := constant.Int64Val(cnst.Value)
+					v = int16(i)
+				case types.Int32:
+					i, _ := constant.Int64Val(cnst.Value)
+					v = int32(i)
+				case types.Int64:
+					i, exact := constant.Int64Val(cnst.Value)
+					if exact {
+						v = i
+					} else {
+						v = int64(0)
+					}
+				case types.Uint:
+					u, _ := constant.Uint64Val(cnst.Value)
+					v = uint(u)
+				case types.Uint8:
+					u, _ := constant.Uint64Val(cnst.Value)
+					v = uint8(u)
+				case types.Uint16:
+					u, _ := constant.Uint64Val(cnst.Value)
+					v = uint16(u)
+				case types.Uint32:
+					u, _ := constant.Uint64Val(cnst.Value)
+					v = uint32(u)
+				case types.Uint64:
+					u, _ := constant.Uint64Val(cnst.Value)
+					v = u
+				case types.Float32:
+					f, _ := constant.Float64Val(cnst.Value)
+					v = float32(f)
+				case types.Float64, types.UntypedFloat:
+					f, _ := constant.Float64Val(cnst.Value)
+					v = f
+				case types.String, types.UntypedString:
+					v = constant.StringVal(cnst.Value)
+				case types.Bool, types.UntypedBool:
+					v = cnst.Value != nil && cnst.Value.Kind() == constant.Bool && constant.BoolVal(cnst.Value)
+				}
+			}
+		} else {
+			// cnst.Value == nil: emit zero value for alias types
+			if rt := constTypeToReflect(t); rt != nil {
+				v = reflect.Zero(rt)
+			}
 		}
 	default:
-		v = nil
+		// For nil constants of reference types (map, slice, chan, func, pointer),
+		// emit a typed nil via reflect.Zero so the VM preserves type information.
+		// This is critical for nil map access (returns zero value of element type)
+		// and nil-typed interface returns.
+		// Also handles struct types (including empty struct) for zero values.
+		if cnst.Value == nil {
+			if rt := constTypeToReflect(cnst.Type()); rt != nil {
+				v = reflect.Zero(rt)
+			}
+		}
+	case *types.Struct:
+		// Handle struct zero values (including empty struct literal {})
+		if cnst.Value == nil {
+			if rt := constTypeToReflect(t); rt != nil {
+				v = reflect.Zero(rt)
+			}
+		}
 	}
 
 	idx := c.addConstant(v)
 	c.emit(bytecode.OpConst, idx)
+}
+
+// constTypeToReflect converts a go/types.Type to reflect.Type for nil constant emission.
+// Only handles reference types (map, slice, chan, pointer, func) since those are the
+// types that can have meaningful nil values with type information.
+// Named empty structs now share reflect.TypeOf(struct{}{}) with the VM, so they
+// can be emitted directly.
+// Returns nil for types that cannot be converted (the caller falls back to untyped nil).
+func constTypeToReflect(t types.Type) reflect.Type {
+	// Named empty structs share struct{}{} with the VM (no phantom field),
+	// so we can emit struct{} directly.
+	if named, ok := t.(*types.Named); ok {
+		if structType, ok := named.Underlying().(*types.Struct); ok && structType.NumFields() == 0 {
+			return reflect.TypeFor[struct{}]()
+		}
+	}
+	// Handle type aliases - they are identical to the aliased type
+	if alias, ok := t.(*types.Alias); ok {
+		if structType, ok := alias.Underlying().(*types.Struct); ok && structType.NumFields() == 0 {
+			return reflect.TypeFor[struct{}]()
+		}
+	}
+
+	switch typ := t.Underlying().(type) {
+	case *types.Map:
+		keyRT := constTypeToReflect(typ.Key())
+		elemRT := constTypeToReflect(typ.Elem())
+		if keyRT != nil && elemRT != nil {
+			return reflect.MapOf(keyRT, elemRT)
+		}
+	case *types.Slice:
+		elemRT := constTypeToReflect(typ.Elem())
+		if elemRT != nil {
+			return reflect.SliceOf(elemRT)
+		}
+	case *types.Pointer:
+		elemRT := constTypeToReflect(typ.Elem())
+		if elemRT != nil {
+			return reflect.PointerTo(elemRT)
+		}
+	case *types.Chan:
+		elemRT := constTypeToReflect(typ.Elem())
+		if elemRT != nil {
+			dir := reflect.BothDir
+			switch typ.Dir() {
+			case types.SendOnly:
+				dir = reflect.SendDir
+			case types.RecvOnly:
+				dir = reflect.RecvDir
+			}
+			return reflect.ChanOf(dir, elemRT)
+		}
+	case *types.Basic:
+		switch typ.Kind() {
+		case types.Bool:
+			return reflect.TypeFor[bool]()
+		case types.Int:
+			return reflect.TypeFor[int]()
+		case types.Int8:
+			return reflect.TypeFor[int8]()
+		case types.Int16:
+			return reflect.TypeFor[int16]()
+		case types.Int32:
+			return reflect.TypeFor[int32]()
+		case types.Int64:
+			return reflect.TypeFor[int64]()
+		case types.Uint:
+			return reflect.TypeFor[uint]()
+		case types.Uint8:
+			return reflect.TypeFor[uint8]()
+		case types.Uint16:
+			return reflect.TypeFor[uint16]()
+		case types.Uint32:
+			return reflect.TypeFor[uint32]()
+		case types.Uint64:
+			return reflect.TypeFor[uint64]()
+		case types.Float32:
+			return reflect.TypeFor[float32]()
+		case types.Float64:
+			return reflect.TypeFor[float64]()
+		case types.String:
+			return reflect.TypeFor[string]()
+		}
+	case *types.Interface:
+		// Interface with no methods = any
+		if typ.NumMethods() == 0 {
+			return reflect.TypeFor[any]()
+		}
+	case *types.Signature:
+		// Build reflect.FuncOf for function types (e.g., func() int, func(string) bool)
+		params := make([]reflect.Type, typ.Params().Len())
+		for i := 0; i < typ.Params().Len(); i++ {
+			pt := constTypeToReflect(typ.Params().At(i).Type())
+			if pt == nil {
+				return nil
+			}
+			params[i] = pt
+		}
+		results := make([]reflect.Type, typ.Results().Len())
+		for i := 0; i < typ.Results().Len(); i++ {
+			rt := constTypeToReflect(typ.Results().At(i).Type())
+			if rt == nil {
+				return nil
+			}
+			results[i] = rt
+		}
+		return reflect.FuncOf(params, results, typ.Variadic())
+	case *types.Struct:
+		// Handle empty struct (struct{}) — the common case for map[K]struct{}.
+		// Named empty structs also use struct{}{} in the VM (no phantom field).
+		if typ.NumFields() == 0 {
+			// Return the basic struct{} type for empty structs
+			return reflect.TypeFor[struct{}]()
+		}
+	}
+	return nil
 }
 
 // compileField compiles a Field instruction.

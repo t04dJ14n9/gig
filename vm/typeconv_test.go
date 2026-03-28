@@ -359,9 +359,10 @@ func TestTypeToReflectEmptyStruct(t *testing.T) {
 
 	rt := typeToReflect(structType, prog)
 
-	// Empty struct should return nil (no fields)
-	if rt != nil {
-		t.Errorf("typeToReflect(empty struct) = %v, want nil", rt)
+	// Empty struct should return struct{} type
+	expected := reflect.TypeOf(struct{}{})
+	if rt != expected {
+		t.Errorf("typeToReflect(empty struct) = %v, want %v", rt, expected)
 	}
 }
 

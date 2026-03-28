@@ -21,20 +21,28 @@ func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string,
 		rv = rv.Elem()
 	}
 
-	// Extract the type name from the _gig_id field for matching
+	// Extract the type name using the program-level ReflectTypeNames registry,
+	// falling back to scanning unexported field PkgPath for the # suffix.
 	receiverTypeName := ""
-	if rv.Kind() == reflect.Struct {
+	if rv.Kind() == reflect.Ptr {
+		elem := rv.Elem()
+		if elem.Kind() == reflect.Struct {
+			receiverTypeName = program.LookupTypeName(elem.Type())
+		}
+	} else if rv.Kind() == reflect.Struct {
+		receiverTypeName = program.LookupTypeName(rv.Type())
+	}
+	// Fallback: scan unexported field PkgPath for # suffix
+	if receiverTypeName == "" && rv.Kind() == reflect.Struct {
 		rt := rv.Type()
 		for i := 0; i < rt.NumField(); i++ {
 			sf := rt.Field(i)
-			if sf.Name == "_gig_id" {
-				if idx := strings.LastIndex(sf.PkgPath, "#"); idx >= 0 {
-					qualName := sf.PkgPath[idx+1:]
-					if dotIdx := strings.LastIndex(qualName, "."); dotIdx >= 0 {
-						receiverTypeName = qualName[dotIdx+1:]
-					} else {
-						receiverTypeName = qualName
-					}
+			if idx := strings.LastIndex(sf.PkgPath, "#"); idx >= 0 {
+				qualName := sf.PkgPath[idx+1:]
+				if dotIdx := strings.LastIndex(qualName, "."); dotIdx >= 0 {
+					receiverTypeName = qualName[dotIdx+1:]
+				} else {
+					receiverTypeName = qualName
 				}
 				break
 			}

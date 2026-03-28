@@ -510,6 +510,21 @@ func FmtStringerResolved() string {
 	return fmt.Sprintf("%v", stringerVal{42})
 }
 
+// ── Resolved Issue 35: fmt.Stringer with pointer receiver ────────────────────
+// After _gig_id removal, ExternWrap needed to handle pointers correctly.
+
+type stringerPtrVal struct{ Value int }
+
+func (s *stringerPtrVal) String() string {
+	return "custom_pointer"
+}
+
+// FmtStringerPointerResolved tests Stringer with pointer receiver.
+func FmtStringerPointerResolved() string {
+	s := &stringerPtrVal{Value: 42}
+	return fmt.Sprintf("%v", s)
+}
+
 // ── Resolved Issue 30: fmt.Sprintf %T reports correct type name ─────────────
 // Previously %T reported synthesized struct type with _gig_id.
 // Fix: sprintfWithTypeAwareness() in stdlib/packages/fmt.go intercepts %T.

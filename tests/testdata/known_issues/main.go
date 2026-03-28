@@ -23,6 +23,10 @@ import (
 	"encoding/json"
 )
 
+// ─────────────────────────────────────────────────────────────────────────────
+// OTHER KNOWN BUGS
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Bug 8: Method dispatch type collision — json.Encoder.Encode vs xml.Encoder.Encode
 //
 // When a program uses both json.Encoder and xml.Encoder, the compiled program
@@ -183,4 +187,105 @@ func DeferPanicRecoverChain_Bug() int {
 		panic("inner")
 	}()
 	panic("outer")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STRANGE SYNTAX BUGS (Found by comprehensive testing 2026-03-28)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// StrangeSyntax_Bug1: Nil slice to interface conversion loses type information
+//
+// When a nil slice is returned as interface{}, the interpreter returns nil
+// instead of preserving the slice type. In native Go, a nil slice retains
+// its type information even when assigned to interface{}.
+//
+// Expected: [] ([]int) - empty slice with type info
+// Got: <nil> (<nil>) - loses type
+//
+// Root cause: Likely in value conversion or interface boxing logic.
+func StrangeSyntax_Bug1_ConvertNilToInterface() interface{} {
+	var s []int
+	return s // nil slice assigned to interface
+}
+
+// StrangeSyntax_Bug2: Nil map access returns nil instead of zero value
+//
+// Accessing a non-existent key in a nil map should return the zero value
+// for the value type, but the interpreter returns nil instead.
+//
+// Expected: 0 (int) - zero value for int
+// Got: <nil> (<nil>)
+//
+// Root cause: Map access on nil maps doesn't properly handle zero values.
+func StrangeSyntax_Bug2_NilMapAccess() int {
+	var m map[string]int
+	return m["key"] // Returns zero value
+}
+
+// StrangeSyntax_Bug3: Delete on nil map causes panic
+//
+// Deleting from a nil map should be a no-op in Go, but the interpreter
+// panics with "invalid reflect.Value in SetMapIndex()".
+//
+// Expected: No-op, silently succeed
+// Got: panic: invalid reflect.Value in SetMapIndex()
+//
+// Root cause: VM map delete operation doesn't check for nil map.
+func StrangeSyntax_Bug3_NilMapDelete() int {
+	var m map[string]int
+	delete(m, "key") // No-op
+	return 0
+}
+
+// StrangeSyntax_Bug4: Blank identifier expression loses type in interface return
+//
+// Functions returning interface{} from a blank identifier assignment lose
+// type information. The interpreter returns nil instead of preserving type.
+//
+// Expected: [] ([]interface {}) - empty slice with type
+// Got: <nil> (<nil>)
+//
+// Root cause: Blank identifier expressions don't preserve type information.
+func StrangeSyntax_Bug4_BlankExpression() interface{} {
+	_ = 42
+	var s []interface{}
+	return s
+}
+
+// StrangeSyntax_Bug5: Send on closed channel panic handling
+//
+// Sending on a closed channel should panic, and that panic should be
+// recoverable. The interpreter does panic, but there may be issues with
+// the test framework's handling of this case.
+//
+// Expected: Panic should be caught by defer/recover
+// Got: Test framework issue with panic handling
+//
+// Root cause: Needs investigation - may be test framework or panic handling.
+func StrangeSyntax_Bug5_ChannelClosedSend() int {
+	ch := make(chan int, 1)
+	close(ch)
+	defer func() {
+		if r := recover(); r != nil {
+			// Recovered from panic
+		}
+	}()
+	ch <- 1 // Will panic
+	return 0
+}
+
+// StrangeSyntax_Bug6: Nil function return loses type information
+//
+// Returning nil as a function type should preserve the function type
+// information, but the interpreter returns untyped nil.
+//
+// Expected: <nil> (func() int) - nil with function type
+// Got: <nil> (<nil>) - loses type
+//
+// Root cause: Similar to Bug1 - nil value to interface loses type info.
+func StrangeSyntax_Bug6_ClosureReturnNil() func() int {
+	if false {
+		return func() int { return 1 }
+	}
+	return nil
 }

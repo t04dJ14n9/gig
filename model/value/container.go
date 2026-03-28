@@ -178,11 +178,26 @@ func (v Value) MapIndex(k Value) Value {
 }
 
 // SetMapIndex sets value at key k for map.
+// If val is nil and deleteIfNil is true, the key is deleted.
+// If val is nil and deleteIfNil is false, the key is set to a nil value of the element type.
 func (v Value) SetMapIndex(k, val Value) {
+	v.SetMapIndexWithDelete(k, val, true)
+}
+
+// SetMapIndexWithDelete sets a map entry with control over nil value handling.
+// When deleteIfNil is true and val is nil, the key is deleted from the map.
+// When deleteIfNil is false and val is nil, the key is set to a typed nil value.
+func (v Value) SetMapIndexWithDelete(k, val Value, deleteIfNil bool) {
 	if rv, ok := v.obj.(reflect.Value); ok {
 		key := k.ToReflectValue(rv.Type().Key())
 		if val.IsNil() {
-			rv.SetMapIndex(key, reflect.Value{})
+			if deleteIfNil {
+				// Delete the entry
+				rv.SetMapIndex(key, reflect.Value{})
+			} else {
+				// Set to typed nil value (e.g., nil interface{})
+				rv.SetMapIndex(key, reflect.Zero(rv.Type().Elem()))
+			}
 		} else {
 			rv.SetMapIndex(key, val.ToReflectValue(rv.Type().Elem()))
 		}

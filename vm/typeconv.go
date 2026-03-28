@@ -170,10 +170,8 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 		// (fields, PkgPath), so two structs like GetterImpl{v int} and AdderStruct{v int}
 		// would otherwise get the same reflect.Type.
 		typeName := tt.Obj().Name()
-		// Build uniqueSuffix with package-qualified name for _gig_id field:
-		// "#PkgName.TypeName" (e.g., "#known_issues.point").
-		// The _gig_id field uses this full suffix for fmt.Sprintf(%T) support.
-		// Regular unexported fields strip the package prefix to keep type identity stable.
+		// Build uniqueSuffix for struct tag uniqueness and type name registry.
+		// Format: "#PkgName.TypeName" (e.g., "#known_issues.point").
 		qualSuffix := "#" + typeName
 		if pkg := tt.Obj().Pkg(); pkg != nil {
 			qualSuffix = "#" + pkg.Name() + "." + typeName
@@ -181,12 +179,21 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 		result := typeToReflectWithCache(tt.Underlying(), cache, qualSuffix, prog, depth+1)
 		if result != nil {
 			cache[tt] = result
+			// Register the type name in the program-level registry for method dispatch.
+			// This replaces the old _gig_id phantom field approach.
+			if prog != nil && result.Kind() == reflect.Struct {
+				prog.RegisterTypeName(result, typeName)
+			}
 		}
 		return result
+	case *types.Alias:
+		// Type aliases (e.g., type MyInt = int) are identical to the aliased type.
+		// Just use the underlying type.
+		return typeToReflectWithCache(tt.Underlying(), cache, uniqueSuffix, prog, depth+1)
 	case *types.Struct:
 		// Build struct type dynamically using reflect
 		numFields := tt.NumFields()
-		fields := make([]reflect.StructField, 0, numFields+1)
+		fields := make([]reflect.StructField, 0, numFields)
 		hasUnexported := false
 		for i := 0; i < numFields; i++ {
 			f := tt.Field(i)
@@ -221,10 +228,8 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 				if sf.Anonymous {
 					sf.Anonymous = false
 				}
-				// For regular unexported fields, use only the bare type suffix
+				// For unexported fields, use the bare type suffix
 				// (e.g., "#TypeName") to maintain type identity stability.
-				// The full qualified suffix ("#PkgName.TypeName") is reserved
-				// for the _gig_id sentinel field only.
 				bareSuffix := uniqueSuffix
 				if idx := strings.LastIndex(bareSuffix, "."); idx > 0 && bareSuffix[0] == '#' {
 					bareSuffix = "#" + bareSuffix[idx+1:]
@@ -245,20 +250,29 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 			}
 			fields = append(fields, sf)
 		}
-		// If the struct has only exported fields and a uniqueSuffix is provided,
-		// we must add a phantom unexported field to force reflect.StructOf to create
-		// a distinct type. Without this, structs like GetterHolder{Getter interface}
-		// and any other struct{SomeInterface interface} would collide because
-		// all interface fields become interface{} after conversion.
-		if !hasUnexported && uniqueSuffix != "" {
-			fields = append(fields, reflect.StructField{
-				Name:    "_gig_id",
-				Type:    reflect.TypeFor[struct{}](),
-				PkgPath: "gig/internal" + uniqueSuffix,
-			})
+		// For structs with only exported fields and a uniqueSuffix, we must make
+		// each field distinguishable via a struct tag so that reflect.StructOf
+		// produces a unique reflect.Type. Without this, structs like
+		// GetterHolder{Getter interface} and any other struct{SomeInterface interface}
+		// would collide because all interface fields become interface{} after conversion.
+		//
+		// For empty named structs (no fields, uniqueSuffix != ""), we share
+		// reflect.TypeOf(struct{}{}) and rely on the ReflectTypeNames registry
+		// for method dispatch.
+		if !hasUnexported && uniqueSuffix != "" && len(fields) > 0 {
+			gigTag := reflect.StructTag(`gig:"` + uniqueSuffix + `"`)
+			for i := range fields {
+				if fields[i].Tag == "" {
+					fields[i].Tag = gigTag
+				} else {
+					fields[i].Tag = fields[i].Tag + " " + gigTag
+				}
+			}
 		}
 		if len(fields) == 0 {
-			return nil
+			// Empty struct (struct{} or named empty struct) — return the real Go type directly.
+			// For named empty structs, the ReflectTypeNames registry handles identification.
+			return reflect.TypeOf(struct{}{})
 		}
 		return reflect.StructOf(fields)
 	case *types.Signature:
