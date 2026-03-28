@@ -213,7 +213,8 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			idx := int(key.Int())
 			container.SetIndex(idx, val)
 		case value.KindMap:
-			container.SetMapIndex(key, val)
+			// For OpSetIndex, nil value means set to typed nil (not delete)
+			container.SetMapIndexWithDelete(key, val, false)
 		case value.KindReflect:
 			if rv, ok := container.ReflectValue(); ok {
 				switch rv.Kind() {
@@ -221,7 +222,8 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 					idx := int(key.Int())
 					rv.Index(idx).Set(val.ToReflectValue(rv.Type().Elem()))
 				case reflect.Map:
-					container.SetMapIndex(key, val)
+					// For OpSetIndex, nil value means set to typed nil (not delete)
+					container.SetMapIndexWithDelete(key, val, false)
 				}
 			}
 		}
@@ -570,7 +572,15 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 	case bytecode.OpDelete:
 		key := v.pop()
 		m := v.pop()
-		m.SetMapIndex(key, value.MakeNil())
+		// In Go, delete on a nil map is a no-op
+		if m.IsNil() {
+			break
+		}
+		if rv, ok := m.ReflectValue(); ok && rv.IsNil() {
+			break
+		}
+		// For OpDelete, we want to delete the entry (deleteIfNil=true)
+		m.SetMapIndexWithDelete(key, value.MakeNil(), true)
 	}
 
 	return nil

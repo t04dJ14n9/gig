@@ -443,6 +443,9 @@ func FromInterface(v any) Value {
 		return MakeString(val)
 	case []byte:
 		return MakeBytes(val)
+	case reflect.Value:
+		// Unwrap reflect.Value directly (e.g., typed nil constants from the compiler).
+		return MakeFromReflect(val)
 	}
 	return MakeFromReflect(reflect.ValueOf(v))
 }

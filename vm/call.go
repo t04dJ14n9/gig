@@ -583,7 +583,7 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 
 	// Fallback: try to infer receiver type from the actual runtime value in args[0].
 	if len(args) > 0 {
-		if concreteTypeName := inferReceiverTypeName(args[0]); concreteTypeName != "" {
+		if concreteTypeName := inferReceiverTypeName(args[0], v.program); concreteTypeName != "" {
 			for _, fn := range candidates {
 				if fn.ReceiverTypeName == concreteTypeName {
 					for _, arg := range args {
@@ -614,7 +614,9 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 // inferReceiverTypeName tries to extract a type name from a runtime value.Value
 // receiver. This is used when callCompiledMethod doesn't have a static type hint
 // but needs to disambiguate by the actual value being dispatched on.
-func inferReceiverTypeName(receiver value.Value) string {
+// It first checks the program-level ReflectTypeNames registry, then falls back
+// to scanning field PkgPath suffixes for unexported fields.
+func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram) string {
 	rv, ok := receiver.ReflectValue()
 	if !ok {
 		return ""
@@ -632,11 +634,16 @@ func inferReceiverTypeName(receiver value.Value) string {
 	if t.Name() != "" {
 		return t.Name()
 	}
-	// For synthesized struct types (from reflect.StructOf via typeToReflect),
-	// the type name is embedded in the field PkgPath as a "#PkgName.TypeName" suffix
-	// (or "#TypeName" for backward compat). The _gig_id phantom field has
-	// PkgPath = "gig/internal#PkgName.TypeName". We extract just the bare TypeName
-	// to match against the *types.Named receiver type name.
+	// Check the program-level ReflectTypeNames registry (new approach).
+	if prog != nil {
+		if name := prog.LookupTypeName(t); name != "" {
+			return name
+		}
+	}
+	// Fallback: for synthesized struct types (from reflect.StructOf via typeToReflect),
+	// the type name may be embedded in the field PkgPath as a "#PkgName.TypeName" suffix
+	// (or "#TypeName"). Extract just the bare TypeName to match against the
+	// *types.Named receiver type name.
 	if t.Kind() == reflect.Struct {
 		for i := 0; i < t.NumField(); i++ {
 			f := t.Field(i)

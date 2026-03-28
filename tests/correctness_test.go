@@ -1012,8 +1012,9 @@ var resolved_issueTests = map[string]testCase{
 	"SortStringSliceResolved":  {resolvedIssueSrc, "SortStringSliceResolved", nil, resolved_issue.SortStringSliceResolved},
 	"SortReverseResolved":      {resolvedIssueSrc, "SortReverseResolved", nil, resolved_issue.SortReverseResolved},
 	"SortIntsInPlaceResolved":  {resolvedIssueSrc, "SortIntsInPlaceResolved", nil, resolved_issue.SortIntsInPlaceResolved},
-	// Resolved Issue 29-31: fmt.Stringer, %T, %v (formerly known issues Bug 3-5)
+	// Resolved Issue 29-31: fmt.Stringer, %T, %v
 	"FmtStringerResolved":     {resolvedIssueSrc, "FmtStringerResolved", nil, resolved_issue.FmtStringerResolved},
+	"FmtStringerPointerResolved": {resolvedIssueSrc, "FmtStringerPointerResolved", nil, resolved_issue.FmtStringerPointerResolved},
 	"FmtSprintfTypeResolved":  {resolvedIssueSrc, "FmtSprintfTypeResolved", nil, resolved_issue.FmtSprintfTypeResolved},
 	"FmtSprintfFieldResolved": {resolvedIssueSrc, "FmtSprintfFieldResolved", nil, resolved_issue.FmtSprintfFieldResolved},
 	// Resolved Issue 32: int64/uint64 return type preservation (formerly known issue Bug 6)

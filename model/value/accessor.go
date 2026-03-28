@@ -183,9 +183,43 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 	case KindBool:
 		return reflect.ValueOf(v.Bool())
 	case KindInt:
-		return reflect.ValueOf(v.num).Convert(typ)
+		// Create the correct integer type based on size
+		var intRV reflect.Value
+		switch v.size {
+		case Size8:
+			intRV = reflect.ValueOf(int8(v.num))
+		case Size16:
+			intRV = reflect.ValueOf(int16(v.num))
+		case Size32:
+			intRV = reflect.ValueOf(int32(v.num))
+		case Size64:
+			intRV = reflect.ValueOf(v.num) // int64
+		default:
+			intRV = reflect.ValueOf(int(v.num)) // SizePtr / Size0 → int
+		}
+		if intRV.Type().ConvertibleTo(typ) {
+			return intRV.Convert(typ)
+		}
+		return intRV
 	case KindUint:
-		return reflect.ValueOf(uint64(v.num)).Convert(typ)
+		// Create the correct unsigned integer type based on size
+		var uintRV reflect.Value
+		switch v.size {
+		case Size8:
+			uintRV = reflect.ValueOf(uint8(v.num))
+		case Size16:
+			uintRV = reflect.ValueOf(uint16(v.num))
+		case Size32:
+			uintRV = reflect.ValueOf(uint32(v.num))
+		case Size64:
+			uintRV = reflect.ValueOf(uint64(v.num))
+		default:
+			uintRV = reflect.ValueOf(uint(v.num)) // SizePtr / Size0 → uint
+		}
+		if uintRV.Type().ConvertibleTo(typ) {
+			return uintRV.Convert(typ)
+		}
+		return uintRV
 	case KindFloat:
 		return reflect.ValueOf(v.Float()).Convert(typ)
 	case KindString:

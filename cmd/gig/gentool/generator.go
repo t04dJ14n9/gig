@@ -231,19 +231,6 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	if needReflect {
 		b.WriteString("\t\"reflect\"\n")
 	}
-	// Add extra imports for packages that need fmt sanitization helpers
-	sanitizeImports := map[string]string{}
-	if fmtSanitizePackages[path] {
-		sanitizeImports = fmtSanitizeExtraImports()
-	}
-
-	// Merge sanitize imports into cross-package imports
-	for impPath, impAlias := range sanitizeImports {
-		if _, exists := crossPkgImports[impPath]; !exists {
-			crossPkgImports[impPath] = impAlias
-		}
-	}
-
 	// Add cross-package imports needed by DirectCall wrappers
 	for impPath, impAlias := range crossPkgImports {
 		// Skip reflect if already imported above
@@ -338,12 +325,6 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	// Method DirectCall wrapper functions
 	for _, mdc := range allMethodDCs {
 		b.WriteString(mdc.Code)
-		b.WriteString("\n")
-	}
-
-	// Emit fmt sanitization helper code for packages that need it
-	if fmtSanitizePackages[path] {
-		b.WriteString(fmtSanitizeHelperCode())
 		b.WriteString("\n")
 	}
 
