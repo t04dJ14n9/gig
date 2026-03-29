@@ -3,6 +3,7 @@ package strange_syntax
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 // ============================================================================
@@ -5813,4 +5814,137 @@ func TypeAssertionOnPointer() int {
 	var i interface{} = &DataForAssert{Value: 42}
 	v := i.(*DataForAssert)
 	return v.Value
+}
+
+// ============================================================================
+// ROUND 10: MORE CORNER CASES - Concurrency, complex types, edge cases
+// ============================================================================
+
+// ChannelBidirectional tests bidirectional channel
+func ChannelBidirectional() int {
+	ch := make(chan int, 2)
+	ch <- 1
+	ch <- 2
+	return <-ch + <-ch
+}
+
+// ChannelSendOnly tests send-only channel
+func ChannelSendOnly() int {
+	ch := make(chan int, 1)
+	var sendCh chan<- int = ch
+	sendCh <- 42
+	return <-ch
+}
+
+// ChannelRecvOnly tests receive-only channel
+func ChannelRecvOnly() int {
+	ch := make(chan int, 1)
+	ch <- 42
+	var recvCh <-chan int = ch
+	return <-recvCh
+}
+
+// SelectNonBlockingDefault tests non-blocking select with default
+func SelectNonBlockingDefault2() int {
+	ch := make(chan int)
+	select {
+	case v := <-ch:
+		return v
+	default:
+		return 42
+	}
+}
+
+// BufferedChannelLen tests buffered channel len
+func BufferedChannelLen() int {
+	ch := make(chan int, 5)
+	ch <- 1
+	ch <- 2
+	return len(ch)
+}
+
+// StructWithNilPointerField tests struct with nil pointer field
+func StructWithNilPointerField() bool {
+	type Data struct{ Value *int }
+	d := Data{Value: nil}
+	return d.Value == nil
+}
+
+// StructWithNilSliceField tests struct with nil slice field
+func StructWithNilSliceField() bool {
+	type Data struct{ Items []int }
+	d := Data{Items: nil}
+	return d.Items == nil
+}
+
+// InterfaceNilVsTypedNil tests interface nil vs typed nil
+func InterfaceNilVsTypedNil() bool {
+	var i interface{} = nil
+	var s []int = nil
+	var j interface{} = s
+	return i == nil && j != nil
+}
+
+// SliceOfNilInterfaces tests slice of nil interfaces
+func SliceOfNilInterfaces() int {
+	items := []interface{}{nil, nil, nil}
+	count := 0
+	for _, item := range items {
+		if item == nil {
+			count++
+		}
+	}
+	return count
+}
+
+// NilInterfaceTypeSwitch tests type switch on nil interface
+func NilInterfaceTypeSwitch() string {
+	var i interface{}
+	switch i.(type) {
+	case int:
+		return "int"
+	case string:
+		return "string"
+	default:
+		return "nil or unknown"
+	}
+}
+
+// StructComparisonWithNilPointer tests struct comparison with nil pointer
+func StructComparisonWithNilPointer() bool {
+	type Data struct{ P *int }
+	d1 := Data{P: nil}
+	d2 := Data{P: nil}
+	return d1 == d2
+}
+
+// StructWithSameTypeFields tests struct with multiple same type fields
+func StructWithSameTypeFields() int {
+	type Data struct{ A, B, C int }
+	d := Data{A: 1, B: 2, C: 3}
+	return d.A + d.B + d.C
+}
+
+// StructWithMixedTypeFields tests struct with mixed type fields
+func StructWithMixedTypeFields() int {
+	type Data struct {
+		A int
+		B string
+		C bool
+		D float64
+	}
+	d := Data{A: 1, B: "test", C: true, D: 3.14}
+	return d.A + len(d.B)
+}
+
+// TimeDurationOperation tests time.Duration operations
+func TimeDurationOperation() int {
+	d := 100 * time.Millisecond
+	return int(d / time.Millisecond)
+}
+
+// TimeNowOperation tests time.Now() operation
+func TimeNowOperation() bool {
+	t := time.Now()
+	return !t.IsZero()
 }
