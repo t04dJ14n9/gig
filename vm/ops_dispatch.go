@@ -15,7 +15,8 @@ func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error {
 	switch op {
 	// Arithmetic & comparisons
 	case bytecode.OpAdd, bytecode.OpSub, bytecode.OpMul, bytecode.OpDiv, bytecode.OpMod,
-		bytecode.OpNeg, bytecode.OpAnd, bytecode.OpOr, bytecode.OpXor, bytecode.OpAndNot,
+		bytecode.OpNeg, bytecode.OpReal, bytecode.OpImag, bytecode.OpComplex,
+		bytecode.OpAnd, bytecode.OpOr, bytecode.OpXor, bytecode.OpAndNot,
 		bytecode.OpLsh, bytecode.OpRsh,
 		bytecode.OpEqual, bytecode.OpNotEqual, bytecode.OpLess, bytecode.OpLessEq,
 		bytecode.OpGreater, bytecode.OpGreaterEq, bytecode.OpNot:

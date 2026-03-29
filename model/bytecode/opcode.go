@@ -147,6 +147,15 @@ const (
 	// Works for int, float, complex.
 	OpNeg
 
+	// OpReal pops a complex number, pushes its real part as float64.
+	OpReal
+
+	// OpImag pops a complex number, pushes its imaginary part as float64.
+	OpImag
+
+	// OpComplex pops imag, pops real, pushes complex(real, imag).
+	OpComplex
+
 	// ========================================
 	// Bitwise Operations
 	// ========================================
@@ -813,6 +822,12 @@ func (op OpCode) String() string {
 		return "MOD"
 	case OpNeg:
 		return "NEG"
+	case OpReal:
+		return "REAL"
+	case OpImag:
+		return "IMAG"
+	case OpComplex:
+		return "COMPLEX"
 	case OpAnd:
 		return "AND"
 	case OpOr:

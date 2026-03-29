@@ -439,6 +439,10 @@ func FromInterface(v any) Value {
 		return MakeFloat32(val)
 	case float64:
 		return MakeFloat(val)
+	case complex64:
+		return MakeComplex(float64(real(val)), float64(imag(val)))
+	case complex128:
+		return MakeComplex(real(val), imag(val))
 	case string:
 		return MakeString(val)
 	case []byte:

@@ -193,6 +193,36 @@ func (c *compiler) compileConst(cnst *ssa.Const) {
 			} else {
 				v = ""
 			}
+		case types.Complex64:
+			if cnst.Value != nil {
+				re := constant.Real(cnst.Value)
+				im := constant.Imag(cnst.Value)
+				reVal, _ := constant.Float64Val(re)
+				imVal, _ := constant.Float64Val(im)
+				v = complex(float32(reVal), float32(imVal))
+			} else {
+				v = complex64(0)
+			}
+		case types.Complex128:
+			if cnst.Value != nil {
+				re := constant.Real(cnst.Value)
+				im := constant.Imag(cnst.Value)
+				reVal, _ := constant.Float64Val(re)
+				imVal, _ := constant.Float64Val(im)
+				v = complex(reVal, imVal)
+			} else {
+				v = complex128(0)
+			}
+		case types.UntypedComplex:
+			if cnst.Value != nil {
+				re := constant.Real(cnst.Value)
+				im := constant.Imag(cnst.Value)
+				reVal, _ := constant.Float64Val(re)
+				imVal, _ := constant.Float64Val(im)
+				v = complex(reVal, imVal)
+			} else {
+				v = complex128(0)
+			}
 		default:
 			v = nil
 		}

@@ -1,6 +1,7 @@
 package strange_syntax
 
 import (
+	"strconv"
 	"fmt"
 	"strings"
 	"time"
@@ -832,7 +833,7 @@ func BlankIdentifierAssignment() int {
 	return b
 }
 
-// BlankIdentifierImport tests blank identifier import (imported at top)
+// BlankIdentifierImport tests blank identifier import (strconv imported at top)
 func BlankIdentifierImport() int {
 	return 1
 }
@@ -5947,4 +5948,168 @@ func TimeDurationOperation() int {
 func TimeNowOperation() bool {
 	t := time.Now()
 	return !t.IsZero()
+}
+
+// ============================================================================
+// ROUND 11: MORE CORNER CASES - Error handling, complex types, more edge cases
+// ============================================================================
+
+// ErrorTypeAssertion tests error type assertion
+func ErrorTypeAssertion() string {
+	var err error
+	_, ok := err.(*strconv.NumError)
+	_ = ok
+	return "ok"
+}
+
+// ErrorNilComparison tests nil error comparison
+func ErrorNilComparison() bool {
+	var err error
+	return err == nil
+}
+
+// ErrorWithNil tests error with nil value
+func ErrorWithNil() bool {
+	var err error = nil
+	return err == nil
+}
+
+// ErrorFromFunc tests error returned from function
+func ErrorFromFunc() bool {
+	f := func() error { return nil }
+	return f() == nil
+}
+
+// SliceAppendVariadic tests append with variadic
+func SliceAppendVariadic() int {
+	s := []int{1, 2}
+	s = append(s, 3, 4, 5)
+	return len(s)
+}
+
+// SliceAppendSlice tests append with slice
+func SliceAppendSlice() int {
+	s1 := []int{1, 2}
+	s2 := []int{3, 4}
+	s1 = append(s1, s2...)
+	return len(s1)
+}
+
+// MapIterateAndDelete tests iterating map and deleting
+func MapIterateAndDelete() int {
+	m := map[int]int{1: 1, 2: 2, 3: 3}
+	for k := range m {
+		if k == 2 {
+			delete(m, k)
+		}
+	}
+	return len(m)
+}
+
+// StructWithEmptyInterface tests struct with empty interface field
+func StructWithEmptyInterface() int {
+	type Data struct {
+		Value interface{}
+	}
+	d := Data{Value: 42}
+	return d.Value.(int)
+}
+
+// simpleReader for StructWithTwoInterfaces test - defined before use
+type simpleReader struct{ val int }
+
+func (s *simpleReader) Read() int { return s.val }
+
+// StructWithTwoInterfaces tests struct with two interface fields
+func StructWithTwoInterfaces() int {
+	type Data struct {
+		Reader interface{ Read() int }
+	}
+	sr := &simpleReader{val: 42}
+	d := Data{Reader: sr}
+	return d.Reader.Read()
+}
+
+// ComplexRealImag tests complex real/imag
+func ComplexRealImag() float64 {
+	c := complex(3.0, 4.0)
+	return real(c) + imag(c)
+}
+
+// ComplexFromRealImag tests complex from real/imag
+func ComplexFromRealImag() complex128 {
+	return complex(3.0, 4.0)
+}
+
+// ComplexOperations tests complex operations
+func ComplexOperations() float64 {
+	c1 := complex(1, 2)
+	c2 := complex(3, 4)
+	c3 := c1 + c2
+	return real(c3) + imag(c3)
+}
+
+// StringCompareRound11 tests string comparison
+func StringCompareRound11() bool {
+	s1 := "hello"
+	s2 := "hello"
+	return s1 == s2
+}
+
+// StringToByteSliceRound11 tests string to byte slice
+func StringToByteSliceRound11() int {
+	s := "hello"
+	b := []byte(s)
+	return len(b)
+}
+
+// ByteSliceToStringRound11 tests byte slice to string
+func ByteSliceToStringRound11() string {
+	b := []byte{'h', 'i'}
+	return string(b)
+}
+
+// RuneSliceToString tests rune slice to string
+func RuneSliceToString() string {
+	r := []rune{'h', 'i'}
+	return string(r)
+}
+
+// StringToRuneSlice tests string to rune slice
+func StringToRuneSlice() int {
+	s := "hello"
+	r := []rune(s)
+	return len(r)
+}
+
+// RangeOverStringCount tests range over string counting runes
+func RangeOverStringCount() int {
+	s := "hello"
+	count := 0
+	for range s {
+		count++
+	}
+	return count
+}
+
+// RangeOverStringIndex tests range over string with index
+func RangeOverStringIndex() int {
+	s := "hello"
+	sum := 0
+	for i := range s {
+		sum += i
+	}
+	return sum
+}
+
+// RangeOverStringRune tests range over string with index and rune
+func RangeOverStringRune() int {
+	s := "hello"
+	count := 0
+	for _, r := range s {
+		if r == 'l' {
+			count++
+		}
+	}
+	return count
 }

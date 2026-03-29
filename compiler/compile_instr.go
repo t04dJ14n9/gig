@@ -368,6 +368,19 @@ func (c *compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, re
 		c.compileMakeBuiltin(args)
 	case "ssa:wrapnilchk":
 		c.compileValue(args[0])
+	case "real":
+		// real(complex) -> float
+		c.compileValue(args[0])
+		c.emit(bytecode.OpReal)
+	case "imag":
+		// imag(complex) -> float
+		c.compileValue(args[0])
+		c.emit(bytecode.OpImag)
+	case "complex":
+		// complex(real, imag) -> complex
+		c.compileValue(args[0]) // real part
+		c.compileValue(args[1]) // imag part
+		c.emit(bytecode.OpComplex)
 	default:
 		c.emit(bytecode.OpNil)
 	}
