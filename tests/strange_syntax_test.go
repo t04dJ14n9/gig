@@ -686,6 +686,23 @@ func TestStrangeSyntax(t *testing.T) {
 		"TypeAssertionOnNamed":              {strangeSyntaxSrc, "TypeAssertionOnNamed", nil, strange_syntax.TypeAssertionOnNamed},
 		"TypeAssertionOnStruct":             {strangeSyntaxSrc, "TypeAssertionOnStruct", nil, strange_syntax.TypeAssertionOnStruct},
 		"TypeAssertionOnPointer":            {strangeSyntaxSrc, "TypeAssertionOnPointer", nil, strange_syntax.TypeAssertionOnPointer},
+
+		// More Edge Cases (Round 10)
+		"ChannelBidirectional":              {strangeSyntaxSrc, "ChannelBidirectional", nil, strange_syntax.ChannelBidirectional},
+		"ChannelSendOnly":                   {strangeSyntaxSrc, "ChannelSendOnly", nil, strange_syntax.ChannelSendOnly},
+		"ChannelRecvOnly":                   {strangeSyntaxSrc, "ChannelRecvOnly", nil, strange_syntax.ChannelRecvOnly},
+		"SelectNonBlockingDefault2":         {strangeSyntaxSrc, "SelectNonBlockingDefault2", nil, strange_syntax.SelectNonBlockingDefault2},
+		"BufferedChannelLen":                {strangeSyntaxSrc, "BufferedChannelLen", nil, strange_syntax.BufferedChannelLen},
+		"StructWithNilPointerField":         {strangeSyntaxSrc, "StructWithNilPointerField", nil, strange_syntax.StructWithNilPointerField},
+		"StructWithNilSliceField":           {strangeSyntaxSrc, "StructWithNilSliceField", nil, strange_syntax.StructWithNilSliceField},
+		"InterfaceNilVsTypedNil":            {strangeSyntaxSrc, "InterfaceNilVsTypedNil", nil, strange_syntax.InterfaceNilVsTypedNil},
+		"SliceOfNilInterfaces":              {strangeSyntaxSrc, "SliceOfNilInterfaces", nil, strange_syntax.SliceOfNilInterfaces},
+		"NilInterfaceTypeSwitch":            {strangeSyntaxSrc, "NilInterfaceTypeSwitch", nil, strange_syntax.NilInterfaceTypeSwitch},
+		"StructComparisonWithNilPointer":    {strangeSyntaxSrc, "StructComparisonWithNilPointer", nil, strange_syntax.StructComparisonWithNilPointer},
+		"StructWithSameTypeFields":          {strangeSyntaxSrc, "StructWithSameTypeFields", nil, strange_syntax.StructWithSameTypeFields},
+		"StructWithMixedTypeFields":         {strangeSyntaxSrc, "StructWithMixedTypeFields", nil, strange_syntax.StructWithMixedTypeFields},
+		"TimeDurationOperation":             {strangeSyntaxSrc, "TimeDurationOperation", nil, strange_syntax.TimeDurationOperation},
+		"TimeNowOperation":                  {strangeSyntaxSrc, "TimeNowOperation", nil, strange_syntax.TimeNowOperation},
 	}
 
 	runTestSet(t, testSet{src: strangeSyntaxSrc, tests: tests})
@@ -710,3 +727,5 @@ func TestStrangeSyntaxWithPanic(t *testing.T) {
 		"ClosureWithPanicAndRecover": {strangeSyntaxPanicSrc, "ClosureWithPanicAndRecover", nil, strange_syntax_panic.ClosureWithPanicAndRecover},
 	}, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}})
 }
+
+		// More Edge Cases (Round 10)
