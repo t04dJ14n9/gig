@@ -52,6 +52,22 @@ func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolin
 		a := v.pop()
 		v.push(a.Neg())
 
+	case bytecode.OpReal:
+		// real(complex) -> float64
+		c := v.pop()
+		v.push(value.MakeFloat(real(c.Complex())))
+
+	case bytecode.OpImag:
+		// imag(complex) -> float64
+		c := v.pop()
+		v.push(value.MakeFloat(imag(c.Complex())))
+
+	case bytecode.OpComplex:
+		// complex(real, imag) -> complex128
+		im := v.pop().Float()
+		re := v.pop().Float()
+		v.push(value.MakeComplex(re, im))
+
 	// Bitwise
 	case bytecode.OpAnd:
 		b := v.pop()

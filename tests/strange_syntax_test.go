@@ -703,6 +703,27 @@ func TestStrangeSyntax(t *testing.T) {
 		"StructWithMixedTypeFields":         {strangeSyntaxSrc, "StructWithMixedTypeFields", nil, strange_syntax.StructWithMixedTypeFields},
 		"TimeDurationOperation":             {strangeSyntaxSrc, "TimeDurationOperation", nil, strange_syntax.TimeDurationOperation},
 		"TimeNowOperation":                  {strangeSyntaxSrc, "TimeNowOperation", nil, strange_syntax.TimeNowOperation},
+
+		// More Edge Cases (Round 11)
+		"ErrorNilComparison":                {strangeSyntaxSrc, "ErrorNilComparison", nil, strange_syntax.ErrorNilComparison},
+		"ErrorWithNil":                      {strangeSyntaxSrc, "ErrorWithNil", nil, strange_syntax.ErrorWithNil},
+		"ErrorFromFunc":                     {strangeSyntaxSrc, "ErrorFromFunc", nil, strange_syntax.ErrorFromFunc},
+		"SliceAppendVariadic":               {strangeSyntaxSrc, "SliceAppendVariadic", nil, strange_syntax.SliceAppendVariadic},
+		"SliceAppendSlice":                  {strangeSyntaxSrc, "SliceAppendSlice", nil, strange_syntax.SliceAppendSlice},
+		"MapIterateAndDelete":               {strangeSyntaxSrc, "MapIterateAndDelete", nil, strange_syntax.MapIterateAndDelete},
+		"StructWithEmptyInterface":          {strangeSyntaxSrc, "StructWithEmptyInterface", nil, strange_syntax.StructWithEmptyInterface},
+		"StructWithTwoInterfaces":           {strangeSyntaxSrc, "StructWithTwoInterfaces", nil, strange_syntax.StructWithTwoInterfaces},
+		"ComplexRealImag":                   {strangeSyntaxSrc, "ComplexRealImag", nil, strange_syntax.ComplexRealImag},
+		"ComplexFromRealImag":               {strangeSyntaxSrc, "ComplexFromRealImag", nil, strange_syntax.ComplexFromRealImag},
+		"ComplexOperations":                 {strangeSyntaxSrc, "ComplexOperations", nil, strange_syntax.ComplexOperations},
+		"StringCompareRound11":              {strangeSyntaxSrc, "StringCompareRound11", nil, strange_syntax.StringCompareRound11},
+		"StringToByteSliceRound11":          {strangeSyntaxSrc, "StringToByteSliceRound11", nil, strange_syntax.StringToByteSliceRound11},
+		"ByteSliceToStringRound11":          {strangeSyntaxSrc, "ByteSliceToStringRound11", nil, strange_syntax.ByteSliceToStringRound11},
+		"RuneSliceToString":                 {strangeSyntaxSrc, "RuneSliceToString", nil, strange_syntax.RuneSliceToString},
+		"StringToRuneSlice":                 {strangeSyntaxSrc, "StringToRuneSlice", nil, strange_syntax.StringToRuneSlice},
+		"RangeOverStringCount":              {strangeSyntaxSrc, "RangeOverStringCount", nil, strange_syntax.RangeOverStringCount},
+		"RangeOverStringIndex":              {strangeSyntaxSrc, "RangeOverStringIndex", nil, strange_syntax.RangeOverStringIndex},
+		"RangeOverStringRune":               {strangeSyntaxSrc, "RangeOverStringRune", nil, strange_syntax.RangeOverStringRune},
 	}
 
 	runTestSet(t, testSet{src: strangeSyntaxSrc, tests: tests})
