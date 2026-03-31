@@ -36,12 +36,6 @@ func (m *mockSSAValue) Referrers() *[]ssa.Instruction {
 }
 func (m *mockSSAValue) Pos() token.Pos { return token.NoPos }
 
-// mockBasicBlock implements ssa.BasicBlock for testing.
-type mockBasicBlock struct {
-	succs []*mockBasicBlock
-	preds []*mockBasicBlock
-}
-
 // ---------------------------------------------------------------------------
 // isIntType tests
 // ---------------------------------------------------------------------------
