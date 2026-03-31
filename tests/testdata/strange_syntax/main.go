@@ -6113,3 +6113,378 @@ func RangeOverStringRune() int {
 	}
 	return count
 }
+
+// ============================================================================
+// ROUND 12: MORE CORNER CASES - Type aliases, unsafe, more edge cases
+// ============================================================================
+
+// TypeAliasBasic tests basic type alias
+func TypeAliasBasicR12() int {
+	type MyInt = int
+	var x MyInt = 42
+	return x
+}
+
+// TypeAliasSlice tests type alias for slice
+func TypeAliasSliceR12() int {
+	type IntSlice = []int
+	var s IntSlice = []int{1, 2, 3}
+	return len(s)
+}
+
+// TypeAliasMap tests type alias for map
+func TypeAliasMapR12() int {
+	type StringMap = map[string]int
+	var m StringMap = map[string]int{"a": 1}
+	return m["a"]
+}
+
+// TypeAliasFunc tests type alias for func
+func TypeAliasFuncR12() int {
+	type IntFunc = func(int) int
+	var f IntFunc = func(x int) int { return x * 2 }
+	return f(21)
+}
+
+// TypeAliasStruct tests type alias for struct
+func TypeAliasStructR12() int {
+	type Point = struct{ X, Y int }
+	var p Point = struct{ X, Y int }{X: 1, Y: 2}
+	return p.X + p.Y
+}
+
+// TypeAliasPointer tests type alias for pointer
+func TypeAliasPointerR12() int {
+	type IntPtr = *int
+	x := 42
+	var p IntPtr = &x
+	return *p
+}
+
+// TypeAliasChan tests type alias for channel
+func TypeAliasChan() int {
+	type IntChan = chan int
+	var ch IntChan = make(chan int, 1)
+	ch <- 42
+	return <-ch
+}
+
+// TypeAliasInterface tests type alias for interface
+func TypeAliasInterface() int {
+	type Stringer = interface{ String() string }
+	return 1
+}
+
+// NestedTypeAlias tests nested type alias
+func NestedTypeAlias() int {
+	type Int = int
+	type IntPtr = *Int
+	type IntPtrSlice = []IntPtr
+	x := Int(42)
+	s := IntPtrSlice{&x}
+	return *s[0]
+}
+
+// StructWithTag tests struct with tags
+func StructWithTag() string {
+	type Data struct {
+		Value int `json:"value"`
+	}
+	d := Data{Value: 42}
+	_ = d
+	return "ok"
+}
+
+// MultipleTags tests multiple tags
+func MultipleTags() string {
+	type Data struct {
+		Value int `json:"value" xml:"value"`
+	}
+	d := Data{Value: 42}
+	_ = d
+	return "ok"
+}
+
+// StructWithOmitEmpty tests struct with omitempty tag
+func StructWithOmitEmpty() string {
+	type Data struct {
+		Value int `json:"value,omitempty"`
+	}
+	d := Data{Value: 0}
+	_ = d
+	return "ok"
+}
+
+// BlankIdentifierInVar tests blank identifier in var
+func BlankIdentifierInVar() int {
+	_, b, _ := 1, 2, 3
+	return b
+}
+
+// BlankIdentifierInFor tests blank identifier in for
+func BlankIdentifierInFor() int {
+	s := []int{1, 2, 3}
+	sum := 0
+	for _, v := range s {
+		sum += v
+	}
+	return sum
+}
+
+// BlankIdentifierInImport tests blank identifier import
+func BlankIdentifierInImport() int {
+	// strconv imported as blank at top
+	return 1
+}
+
+// BlankIdentifierInReturn tests blank identifier in return
+func BlankIdentifierInReturn() (int, int) {
+	return 1, 2
+}
+
+// BlankIdentifierInTypeSwitch tests blank identifier in type switch
+func BlankIdentifierInTypeSwitch() string {
+	var i interface{} = 42
+	switch i.(type) {
+	case int:
+		return "int"
+	default:
+		return "other"
+	}
+}
+
+// NamedReturnWithDeferModify tests named return with defer modification
+func NamedReturnWithDeferModify() (result int) {
+	defer func() { result++ }()
+	return 10
+}
+
+// NamedReturnMultiple tests multiple named returns
+func NamedReturnMultiple() (a, b int) {
+	a = 1
+	b = 2
+	return
+}
+
+// LiteralEllipsis tests literal with ellipsis
+func LiteralEllipsis() int {
+	arr := [...]int{1, 2, 3}
+	return len(arr)
+}
+
+// ArrayLiteralEllipsis tests array literal with ellipsis
+func ArrayLiteralEllipsis() int {
+	arr := [...]int{1, 2: 10}
+	return arr[0] + arr[2]
+}
+
+// SliceLiteralFromArr tests slice literal from array
+func SliceLiteralFromArr() int {
+	arr := [3]int{1, 2, 3}
+	s := arr[:]
+	return s[0] + s[1] + s[2]
+}
+
+// ArrayPointerLiteral tests array pointer literal
+func ArrayPointerLiteral() int {
+	arr := &[3]int{1, 2, 3}
+	return arr[0] + arr[1] + arr[2]
+}
+
+// StructPointerLiteral tests struct pointer literal
+func StructPointerLiteral() int {
+	type Data struct{ Value int }
+	d := &Data{Value: 42}
+	return d.Value
+}
+
+// MapLiteralWithStructKey tests map with struct key
+func MapLiteralWithStructKey2() int {
+	type Key struct{ X, Y int }
+	m := map[Key]int{
+		{1, 2}: 10,
+		{3, 4}: 20,
+	}
+	return m[Key{1, 2}]
+}
+
+// SliceLiteralWithMaxIndex tests slice literal with max index
+func SliceLiteralWithMaxIndex() int {
+	s := []int{100: 42}
+	return len(s)
+}
+
+// ArrayLiteralWithMaxIndex tests array literal with max index
+func ArrayLiteralWithMaxIndex() int {
+	arr := [101]int{100: 42}
+	return arr[100]
+}
+
+// ConstExpression tests constant expression
+func ConstExpressionR12() int {
+	const x = 1 + 2*3
+	return x
+}
+
+// ConstIota tests iota constant
+func ConstIota() int {
+	const (
+		a = iota
+		b
+		c
+	)
+	return a + b + c
+}
+
+// ConstIotaExpression tests iota with expression
+func ConstIotaExpression() int {
+	const (
+		a = 1 << iota
+		b
+		c
+	)
+	return a + b + c
+}
+
+// ConstIotaSkip tests iota with skip
+func ConstIotaSkip() int {
+	const (
+		a = iota
+		_ = iota
+		b = iota
+	)
+	return a + b
+}
+
+// VarBlock tests var block
+func VarBlock() int {
+	var (
+		a = 1
+		b = 2
+		c = 3
+	)
+	return a + b + c
+}
+
+// ConstBlock tests const block
+func ConstBlock() int {
+	const (
+		a = 1
+		b = 2
+		c = 3
+	)
+	return a + b + c
+}
+
+// TypeBlock tests type block
+func TypeBlock() int {
+	type (
+		Point struct{ X, Y int }
+		Rect  struct{ Min, Max Point }
+	)
+	r := Rect{Min: Point{X: 0, Y: 0}, Max: Point{X: 10, Y: 10}}
+	return r.Max.X
+}
+
+// ShortVarDeclInIf tests short var decl in if
+func ShortVarDeclInIf() int {
+	if x := 42; x > 0 {
+		return x
+	}
+	return 0
+}
+
+// ShortVarDeclInSwitch tests short var decl in switch
+func ShortVarDeclInSwitch() string {
+	switch x := 1; x {
+	case 1:
+		return "one"
+	default:
+		return "other"
+	}
+}
+
+// ShortVarDeclInFor tests short var decl in for
+func ShortVarDeclInFor() int {
+	sum := 0
+	for i := 0; i < 5; i++ {
+		sum += i
+	}
+	return sum
+}
+
+// ShortVarDeclInSelect tests short var decl in select
+func ShortVarDeclInSelect() int {
+	ch := make(chan int, 1)
+	ch <- 42
+	select {
+	case v := <-ch:
+		return v
+	default:
+		return 0
+	}
+}
+
+// ExpressionStatement tests expression statement
+func ExpressionStatement() int {
+	x := 1
+	x++
+	return x
+}
+
+// IncDecStatement tests inc/dec statement
+func IncDecStatement() int {
+	x := 10
+	x++
+	x--
+	return x
+}
+
+// AssignmentStatement tests assignment statement
+func AssignmentStatement() int {
+	x, y := 1, 2
+	x, y = y, x
+	return x + y
+}
+
+// AssignmentWithOp tests assignment with operation
+func AssignmentWithOp() int {
+	x := 10
+	x += 5
+	x -= 3
+	x *= 2
+	return x
+}
+
+// SendStatement tests send statement
+func SendStatement() int {
+	ch := make(chan int, 1)
+	ch <- 42
+	return <-ch
+}
+
+// RangeStatement tests range statement
+func RangeStatement() int {
+	s := []int{1, 2, 3}
+	sum := 0
+	for _, v := range s {
+		sum += v
+	}
+	return sum
+}
+
+// DeferStatement tests defer statement
+func DeferStatement() int {
+	x := 1
+	defer func() { x++ }()
+	return x
+}
+
+// MultipleDefer tests multiple defer
+func MultipleDefer() int {
+	x := 0
+	defer func() { x += 1 }()
+	defer func() { x += 2 }()
+	defer func() { x += 4 }()
+	return x
+}
