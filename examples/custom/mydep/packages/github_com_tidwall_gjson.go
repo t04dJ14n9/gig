@@ -2,8 +2,9 @@
 package packages
 
 import (
-	github_com_tidwall_gjson "github.com/tidwall/gjson"
 	"reflect"
+
+	github_com_tidwall_gjson "github.com/tidwall/gjson"
 
 	"git.woa.com/youngjin/gig/importer"
 	"git.woa.com/youngjin/gig/model/value"

@@ -24,16 +24,16 @@ import (
 // value, and only intercepts %T (for correct type name) and %v/%s (for
 // String() dispatch).
 type gigStructWrapper struct {
-	iface    any           // the underlying struct value (clean, no phantom fields)
-	typeName string        // qualified type name from gig tag (e.g., "pkg.Type")
-	stringer func() string // nil if no String() method
-	hasMethod bool         // true if String() method exists
+	iface     any           // the underlying struct value (clean, no phantom fields)
+	typeName  string        // qualified type name from gig tag (e.g., "pkg.Type")
+	stringer  func() string // nil if no String() method
+	hasMethod bool          // true if String() method exists
 }
 
 // Ensure gigStructWrapper implements the relevant interfaces.
 var (
-	_ fmt.Stringer   = (*gigStructWrapper)(nil)
-	_ fmt.Formatter  = (*gigStructWrapper)(nil)
+	_ fmt.Stringer  = (*gigStructWrapper)(nil)
+	_ fmt.Formatter = (*gigStructWrapper)(nil)
 )
 
 func (g *gigStructWrapper) String() string {
@@ -89,7 +89,7 @@ func (g *gigStructWrapper) Format(f fmt.State, verb rune) {
 // Handles both struct values and pointers to structs.
 func isGigStruct(v any) string {
 	rv := reflect.ValueOf(v)
-	
+
 	// Handle pointer to struct
 	if rv.Kind() == reflect.Ptr {
 		if rv.IsNil() {
@@ -97,7 +97,7 @@ func isGigStruct(v any) string {
 		}
 		rv = rv.Elem()
 	}
-	
+
 	if rv.Kind() != reflect.Struct {
 		return ""
 	}
@@ -126,31 +126,31 @@ func isGigStruct(v any) string {
 func ExternWrap(v Value) any {
 	iface := v.Interface()
 	typeName := isGigStruct(iface)
-	
+
 	// Debug: check if this is a gig struct
 	if false { // Enable for debugging: change to 'if true'
 		rv := reflect.ValueOf(iface)
-		fmt.Printf("[DEBUG ExternWrap] iface type: %T, kind: %v, typeName: %q\n", 
+		fmt.Printf("[DEBUG ExternWrap] iface type: %T, kind: %v, typeName: %q\n",
 			iface, rv.Kind(), typeName)
 	}
-	
+
 	if typeName == "" {
 		return iface
 	}
-	
+
 	// Check if the interpreted type has a String() method via the global resolver registry
 	// We need to check this BEFORE creating the wrapper to decide whether to wrap
 	stringerFunc, hasStringer := resolveStringer(v)
-	
+
 	if false { // Enable for debugging
 		fmt.Printf("[DEBUG ExternWrap] hasStringer: %v, stringerFunc: %v\n", hasStringer, stringerFunc != nil)
 	}
-	
+
 	// Always return the wrapper for gig structs - it handles all fmt verbs correctly
 	return &gigStructWrapper{
-		iface:    iface,
-		typeName: typeName,
-		stringer: stringerFunc,
+		iface:     iface,
+		typeName:  typeName,
+		stringer:  stringerFunc,
 		hasMethod: hasStringer,
 	}
 }
@@ -164,7 +164,7 @@ func resolveStringer(v Value) (func() string, bool) {
 			fmt.Printf("[DEBUG resolveStringer] receiver kind: %v, type: %v\n", rv.Kind(), rv.Type())
 		}
 	}
-	
+
 	// Try to call String() method via the global resolver registry
 	result, found := CallMethod(nil, "String", v)
 	if !found {
@@ -178,7 +178,7 @@ func resolveStringer(v Value) (func() string, bool) {
 			result, found = CallMethod(nil, "String", ptrValue)
 		}
 	}
-	
+
 	if !found {
 		return nil, false
 	}

@@ -2,8 +2,9 @@
 package packages
 
 import (
-	github_com_spf13_cast "github.com/spf13/cast"
 	time "time"
+
+	github_com_spf13_cast "github.com/spf13/cast"
 
 	"git.woa.com/youngjin/gig/importer"
 	"git.woa.com/youngjin/gig/model/value"
