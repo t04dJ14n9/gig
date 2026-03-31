@@ -107,3 +107,13 @@ func ClosureWithPanicAndRecover() int {
 	}
 	return fn()
 }
+
+// NamedReturnWithPanicRecover tests named return with panic recovery
+func NamedReturnWithPanicRecover() (result int) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = -1
+		}
+	}()
+	panic("test")
+}
