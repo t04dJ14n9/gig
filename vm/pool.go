@@ -84,39 +84,31 @@ func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string,
 	return value.MakeNil(), false
 }
 
-// VMPool is a thread-safe pool of VMs for a given program.
+// VMPool is a lock-free pool of VMs for a given program using sync.Pool.
+// This provides better performance under high concurrency compared to mutex-based pools.
 type VMPool struct {
-	mu    sync.Mutex
-	vms   []*vm // available VMs
-	newVM func() *vm
+	pool sync.Pool
 }
 
 // NewVMPool creates a VM pool for the given program.
 func NewVMPool(program *bytecode.CompiledProgram, initialGlobals []value.Value, goroutines *GoroutineTracker) *VMPool {
 	return &VMPool{
-		newVM: func() *vm {
-			return newVM(program, initialGlobals, goroutines)
+		pool: sync.Pool{
+			New: func() any {
+				return newVM(program, initialGlobals, goroutines)
+			},
 		},
 	}
 }
 
-// Get returns an idle VM from the pool.
+// Get returns an idle VM from the pool, or creates a new one if the pool is empty.
 func (p *VMPool) Get() VM {
-	p.mu.Lock()
-	if len(p.vms) > 0 {
-		v := p.vms[len(p.vms)-1]
-		p.vms = p.vms[:len(p.vms)-1]
-		p.mu.Unlock()
-		return v
-	}
-	p.mu.Unlock()
-	return p.newVM()
+	return p.pool.Get().(*vm)
 }
 
 // Put returns a VM to the pool for reuse.
+// The VM is reset before being returned to the pool.
 func (p *VMPool) Put(x VM) {
 	x.Reset()
-	p.mu.Lock()
-	p.vms = append(p.vms, x.(*vm))
-	p.mu.Unlock()
+	p.pool.Put(x.(*vm))
 }
