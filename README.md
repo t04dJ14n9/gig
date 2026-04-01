@@ -248,11 +248,11 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 
 | 工作负载                      | 原生 Go |         Gig |   Yaegi | GopherLua |      Gig vs Yaegi |
 | ----------------------------- | ------: | ----------: | ------: | --------: | ----------------: |
-| **Fibonacci(25)** 递归        |  450 μs | **23.5 ms** |  104 ms |   21.2 ms | **Gig 快 4.4 倍** |
-| **ArithmeticSum(1K)** 循环    |  336 ns | **72.9 μs** | 41.1 μs |   37.8 μs |    Yaegi 快 1.8 倍 |
-| **BubbleSort(100)** 嵌套循环  |  1935 ns |  **241.4 μs** | 1.26 ms |    781 μs | **Gig 快 5.2 倍** |
-| **Sieve(1000)** 质数筛        | 3770 ns |  **268.8 μs** |  205 μs |    197 μs |    Yaegi 快 1.3 倍 |
-| **ClosureCalls(1K)** 闭包调用 |  671 ns |  **338.3 μs** |  929 μs |    119 μs | **Gig 快 2.7 倍** |
+| **Fibonacci(25)** 递归        |  451 μs | **23.7 ms** |  100.6 ms |   21.3 ms | **Gig 快 4.2 倍** |
+| **ArithmeticSum(1K)** 循环    |  665 ns | **73.9 μs** | 41.9 μs |   38.7 μs |    Yaegi 快 1.8 倍 |
+| **BubbleSort(100)** 嵌套循环  |  6.4 μs |  **976.7 μs** | 1,229.6 μs |    784.4 μs | **Gig 快 1.3 倍** |
+| **Sieve(1000)** 质数筛        | 2.0 μs |  **271.0 μs** |  205.3 μs |    200.7 μs |    Yaegi 快 1.3 倍 |
+| **ClosureCalls(1K)** 闭包调用 |  345 ns |  **341.0 μs** |  936.6 μs |    120.3 μs | **Gig 快 2.7 倍** |
 | **Factorial(20)** 递归        |  20.8 ns | **1.76 μs** |   N/A |     N/A |           N/A |
 | **GCD(1000, 357)** 欧几里得   |  912 ns | **61.4 μs** |   N/A |     N/A |           N/A |
 | **VMPool 并发 (单次调用)**    |  N/A | **146.6 ns** |   N/A |     N/A |           N/A |
@@ -264,10 +264,10 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 
 | 工作负载                           | 原生 Go |        Gig |    Yaegi |      Gig vs Yaegi |
 | ---------------------------------- | ------: | ---------: | -------: | ----------------: |
-| **DirectCall** (strings/strconv)   | 26.7 μs | **543 μs** | 1,501 μs | **Gig 快 2.8 倍** |
-| **Reflect** (fmt/encoding)         | 22.9 μs | **358 μs** |   994 μs | **Gig 快 2.8 倍** |
-| **Method** (Builder/Buffer/Regexp) | 17.3 μs | **430 μs** | 1,185 μs | **Gig 快 2.8 倍** |
-| **Mixed** (函数 + 方法)            | 11.3 μs | **313 μs** |   834 μs | **Gig 快 2.7 倍** |
+| **DirectCall** (strings/strconv)   | 26.7 μs | **539.5 μs** | 1,518.8 μs | **Gig 快 2.8 倍** |
+| **Reflect** (fmt/encoding)         | 22.4 μs | **355.1 μs** | 1,010.5 μs | **Gig 快 2.8 倍** |
+| **Method** (Builder/Buffer/Regexp) | 17.3 μs | **440.2 μs** | 1,210.3 μs | **Gig 快 2.7 倍** |
+| **Mixed** (函数 + 方法)            | 11.0 μs | **306.5 μs** |   840.7 μs | **Gig 快 2.7 倍** |
 
 ### 内存效率
 
@@ -316,11 +316,12 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 
 ### 分析
 
-**Gig 在 7/9 项基准测试中优于 Yaegi**：
+**Gig 在 3/5 项核心基准测试中优于 Yaegi**：
 
-- **递归快 4.4 倍**（Fib25）—— O(1) 函数查找、帧池化，仅 7 次分配 vs 210 万次
+- **递归快 4.2 倍**（Fib25）—— O(1) 函数查找、帧池化，仅 7 次分配 vs 210 万次
 - **外部调用快 2.7–2.8 倍** —— 1,162 个生成的 DirectCall 包装器消除了 92% 标准库函数和方法的 `reflect.Value.Call()`
 - **闭包快 2.7 倍** —— 高效的闭包表示，通过共享 `*value.Value` 捕获变量
+- **排序快 1.3 倍**（BubbleSort）—— 优化的切片操作和循环
 - **紧凑循环**（ArithSum、Sieve）—— Yaegi 快 1.3-1.8 倍；Gig 的字节码解释开销在极短循环中更明显
 
 **GopherLua vs Gig**：GopherLua 在纯数值循环上接近 Gig，但是：
