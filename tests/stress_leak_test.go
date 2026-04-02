@@ -1,10 +1,9 @@
 // Package tests - stress_leak_test.go
 //
-// Long-running stress test to detect memory leaks in concurrent gig programs.
-// Run with: go test ./tests/ -run TestStress_MemoryLeak -v -timeout 6h
+// Long-running stress benchmarks to detect memory leaks in concurrent gig programs.
+// Run with: go test ./tests/ -bench BenchmarkStress_MemoryLeak -benchtime 30m -timeout 6h -v
 //
-// This test runs for 5 hours with concurrent goroutines, monitoring memory
-// usage every minute and reporting any leaks.
+// These are benchmarks (not tests) so they don't run during `go test ./...`.
 package tests
 
 import (
@@ -56,31 +55,17 @@ func EvaluateRule(userID int, name string, score float64) string {
 }
 `
 
-// ============================================================================
-// Memory Leak Detection Test (5 hours)
-// ============================================================================
+// runStressMemoryLeak is the core stress test logic, used by all benchmark variants.
+// duration controls how long the test runs.
+func runStressMemoryLeak(b *testing.B, duration time.Duration) {
+	b.Helper()
 
-func TestStress_MemoryLeak(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping long-running stress test in short mode")
-	}
-
-	// Check for environment variable to control duration
-	durationStr := os.Getenv("STRESS_DURATION")
-	duration := 5 * time.Hour
-	if durationStr != "" {
-		if d, err := time.ParseDuration(durationStr); err == nil {
-			duration = d
-		}
-	}
-
-	t.Logf("Starting %v memory leak stress test", duration)
-	t.Logf("Set STRESS_DURATION env var to customize (e.g., STRESS_DURATION=30m go test -run TestStress_MemoryLeak)")
+	b.Logf("Starting %v memory leak stress benchmark", duration)
 
 	// Build program once
 	prog, err := gig.Build(ruleEngineSource)
 	if err != nil {
-		t.Fatalf("Build error: %v", err)
+		b.Fatalf("Build error: %v", err)
 	}
 	defer prog.Close()
 
@@ -94,18 +79,18 @@ func TestStress_MemoryLeak(t *testing.T) {
 	baselineHeapSys := memStats.HeapSys
 	baselineGoroutines := runtime.NumGoroutine()
 
-	t.Logf("══════════════════════════════════════════════════════════════")
-	t.Logf("BASELINE MEASUREMENTS")
-	t.Logf("══════════════════════════════════════════════════════════════")
-	t.Logf("  HeapAlloc:    %d MB", baselineHeapAlloc/1024/1024)
-	t.Logf("  HeapSys:      %d MB", baselineHeapSys/1024/1024)
-	t.Logf("  Goroutines:   %d", baselineGoroutines)
-	t.Logf("══════════════════════════════════════════════════════════════")
+	b.Logf("══════════════════════════════════════════════════════════════")
+	b.Logf("BASELINE MEASUREMENTS")
+	b.Logf("══════════════════════════════════════════════════════════════")
+	b.Logf("  HeapAlloc:    %d MB", baselineHeapAlloc/1024/1024)
+	b.Logf("  HeapSys:      %d MB", baselineHeapSys/1024/1024)
+	b.Logf("  Goroutines:   %d", baselineGoroutines)
+	b.Logf("══════════════════════════════════════════════════════════════")
 
 	// Create log file for memory tracking
 	logFile, err := os.Create("stress_memory_leak.log")
 	if err != nil {
-		t.Fatalf("Failed to create log file: %v", err)
+		b.Fatalf("Failed to create log file: %v", err)
 	}
 	defer logFile.Close()
 
@@ -204,39 +189,39 @@ func TestStress_MemoryLeak(t *testing.T) {
 					stackInUseMB, numGC, goroutines, ops, ongoing, errCount)
 
 				// Log to test output
-				t.Logf("══════════════════════════════════════════════════════════════")
-				t.Logf("ITERATION %d | Elapsed: %v", iteration, elapsed.Round(time.Second))
-				t.Logf("══════════════════════════════════════════════════════════════")
-				t.Logf("  HeapAlloc:    %.2f MB (growth: %.2f MB, %.1f%%)", heapAllocMB, heapGrowthMB, heapGrowthPercent)
-				t.Logf("  HeapSys:      %.2f MB", heapSysMB)
-				t.Logf("  HeapInUse:    %.2f MB", heapInUseMB)
-				t.Logf("  HeapIdle:     %.2f MB", heapIdleMB)
-				t.Logf("  StackInUse:   %.2f MB", stackInUseMB)
-				t.Logf("  NumGC:        %d", numGC)
-				t.Logf("  Goroutines:   %d (baseline: %d)", goroutines, baselineGoroutines)
-				t.Logf("  TotalOps:     %d", ops)
-				t.Logf("  OngoingOps:   %d", ongoing)
-				t.Logf("  Errors:       %d", errCount)
-				t.Logf("══════════════════════════════════════════════════════════════")
+				b.Logf("══════════════════════════════════════════════════════════════")
+				b.Logf("ITERATION %d | Elapsed: %v", iteration, elapsed.Round(time.Second))
+				b.Logf("══════════════════════════════════════════════════════════════")
+				b.Logf("  HeapAlloc:    %.2f MB (growth: %.2f MB, %.1f%%)", heapAllocMB, heapGrowthMB, heapGrowthPercent)
+				b.Logf("  HeapSys:      %.2f MB", heapSysMB)
+				b.Logf("  HeapInUse:    %.2f MB", heapInUseMB)
+				b.Logf("  HeapIdle:     %.2f MB", heapIdleMB)
+				b.Logf("  StackInUse:   %.2f MB", stackInUseMB)
+				b.Logf("  NumGC:        %d", numGC)
+				b.Logf("  Goroutines:   %d (baseline: %d)", goroutines, baselineGoroutines)
+				b.Logf("  TotalOps:     %d", ops)
+				b.Logf("  OngoingOps:   %d", ongoing)
+				b.Logf("  Errors:       %d", errCount)
+				b.Logf("══════════════════════════════════════════════════════════════")
 
 				// Leak detection thresholds
 				// After 30 minutes, if heap has grown more than 100MB, warn
 				if elapsed > 30*time.Minute && heapGrowthMB > 100 {
-					t.Logf("⚠️  WARNING: Potential memory leak detected!")
-					t.Logf("   Heap has grown %.2f MB in %v", heapGrowthMB, elapsed)
+					b.Logf("⚠️  WARNING: Potential memory leak detected!")
+					b.Logf("   Heap has grown %.2f MB in %v", heapGrowthMB, elapsed)
 				}
 
 				// If heap growth exceeds 200MB, fail the test
 				if heapGrowthMB > 200 {
-					t.Errorf("🚨 CRITICAL: Memory leak detected! Heap grew %.2f MB", heapGrowthMB)
+					b.Errorf("🚨 CRITICAL: Memory leak detected! Heap grew %.2f MB", heapGrowthMB)
 				}
 
 				// Check for goroutine leak
 				// Expected goroutines: baseline + workers + monitor (up to 3)
 				expectedGoroutines := baselineGoroutines + concurrency + 3
 				// Only warn if goroutines exceed expected count significantly
-				if goroutines > expectedGoroutines + 10 {
-					t.Errorf("🚨 CRITICAL: Goroutine leak detected! %d goroutines (expected max %d)", goroutines, expectedGoroutines)
+				if goroutines > expectedGoroutines+10 {
+					b.Errorf("🚨 CRITICAL: Goroutine leak detected! %d goroutines (expected max %d)", goroutines, expectedGoroutines)
 				}
 			}
 		}
@@ -246,115 +231,101 @@ func TestStress_MemoryLeak(t *testing.T) {
 	<-ctx.Done()
 
 	// Graceful shutdown
-	t.Logf("Stopping workers...")
+	b.Logf("Stopping workers...")
 	close(stopCh) // Signal workers to stop
-	
+
 	// Give workers time to finish current operations
 	done := make(chan struct{})
 	go func() {
 		wg.Wait()
 		close(done)
 	}()
-	
+
 	select {
 	case <-done:
-		t.Logf("All workers stopped gracefully")
+		b.Logf("All workers stopped gracefully")
 	case <-time.After(30 * time.Second):
-		t.Logf("Timeout waiting for workers, forcing shutdown")
+		b.Logf("Timeout waiting for workers, forcing shutdown")
 		workerCancel()
 		wg.Wait()
 	}
-	
+
 	<-monitorDone
 
 	// Final measurement
 	runtime.GC()
 	runtime.ReadMemStats(&memStats)
 
-	t.Logf("\n")
-	t.Logf("══════════════════════════════════════════════════════════════")
-	t.Logf("FINAL REPORT")
-	t.Logf("══════════════════════════════════════════════════════════════")
-	t.Logf("  Duration:          %v", duration)
-	t.Logf("  Total Operations:  %d", totalOps.Load())
-	t.Logf("  Errors:            %d", errors.Load())
-	t.Logf("  Ops/Second:        %.0f", float64(totalOps.Load())/duration.Seconds())
-	t.Logf("────────────────────────────────────────────────────────────────")
-	t.Logf("  Baseline HeapAlloc:  %d MB", baselineHeapAlloc/1024/1024)
-	t.Logf("  Final HeapAlloc:     %d MB", memStats.HeapAlloc/1024/1024)
-	t.Logf("  Heap Growth:         %.2f MB", float64(memStats.HeapAlloc-baselineHeapAlloc)/1024/1024)
-	t.Logf("────────────────────────────────────────────────────────────────")
-	t.Logf("  Baseline Goroutines: %d", baselineGoroutines)
-	t.Logf("  Final Goroutines:    %d", runtime.NumGoroutine())
-	t.Logf("  Goroutine Growth:    %d", runtime.NumGoroutine()-baselineGoroutines)
-	t.Logf("────────────────────────────────────────────────────────────────")
-	t.Logf("  NumGC:               %d", memStats.NumGC)
-	t.Logf("  GCSys:               %d MB", memStats.GCSys/1024/1024)
-	t.Logf("══════════════════════════════════════════════════════════════")
-	t.Logf("Log file saved to: stress_memory_leak.log")
+	b.Logf("\n")
+	b.Logf("══════════════════════════════════════════════════════════════")
+	b.Logf("FINAL REPORT")
+	b.Logf("══════════════════════════════════════════════════════════════")
+	b.Logf("  Duration:          %v", duration)
+	b.Logf("  Total Operations:  %d", totalOps.Load())
+	b.Logf("  Errors:            %d", errors.Load())
+	b.Logf("  Ops/Second:        %.0f", float64(totalOps.Load())/duration.Seconds())
+	b.Logf("────────────────────────────────────────────────────────────────")
+	b.Logf("  Baseline HeapAlloc:  %d MB", baselineHeapAlloc/1024/1024)
+	b.Logf("  Final HeapAlloc:     %d MB", memStats.HeapAlloc/1024/1024)
+	b.Logf("  Heap Growth:         %.2f MB", float64(memStats.HeapAlloc-baselineHeapAlloc)/1024/1024)
+	b.Logf("────────────────────────────────────────────────────────────────")
+	b.Logf("  Baseline Goroutines: %d", baselineGoroutines)
+	b.Logf("  Final Goroutines:    %d", runtime.NumGoroutine())
+	b.Logf("  Goroutine Growth:    %d", runtime.NumGoroutine()-baselineGoroutines)
+	b.Logf("────────────────────────────────────────────────────────────────")
+	b.Logf("  NumGC:               %d", memStats.NumGC)
+	b.Logf("  GCSys:               %d MB", memStats.GCSys/1024/1024)
+	b.Logf("══════════════════════════════════════════════════════════════")
+	b.Logf("Log file saved to: stress_memory_leak.log")
 
 	// Determine pass/fail
 	heapGrowthMB := float64(memStats.HeapAlloc-baselineHeapAlloc) / 1024 / 1024
 	goroutineGrowth := runtime.NumGoroutine() - baselineGoroutines
 
 	if heapGrowthMB > 50 {
-		t.Errorf("FAIL: Heap growth %.2f MB exceeds 50 MB threshold", heapGrowthMB)
+		b.Errorf("FAIL: Heap growth %.2f MB exceeds 50 MB threshold", heapGrowthMB)
 	}
 
 	if goroutineGrowth > 5 {
-		t.Errorf("FAIL: Goroutine growth %d exceeds 5 threshold", goroutineGrowth)
+		b.Errorf("FAIL: Goroutine growth %d exceeds 5 threshold", goroutineGrowth)
 	}
 
 	if heapGrowthMB <= 50 && goroutineGrowth <= 5 {
-		t.Logf("✅ PASS: No memory leaks detected!")
+		b.Logf("✅ PASS: No memory leaks detected!")
 	}
 }
 
 // ============================================================================
-// Shorter tests for CI/CD (30 minutes)
+// Benchmark variants (only run with -bench flag)
 // ============================================================================
 
-func TestStress_MemoryLeak_Short(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping stress test in short mode")
+// BenchmarkStress_MemoryLeak runs a 5-hour memory leak stress test.
+// Usage: go test ./tests/ -bench BenchmarkStress_MemoryLeak$ -benchtime 1x -timeout 6h -v
+func BenchmarkStress_MemoryLeak(b *testing.B) {
+	durationStr := os.Getenv("STRESS_DURATION")
+	duration := 5 * time.Hour
+	if durationStr != "" {
+		if d, err := time.ParseDuration(durationStr); err == nil {
+			duration = d
+		}
 	}
-
-	// 30-minute test for CI/CD
-	origEnv := os.Getenv("STRESS_DURATION")
-	os.Setenv("STRESS_DURATION", "30m")
-	defer func() {
-		if origEnv == "" {
-			os.Unsetenv("STRESS_DURATION")
-		} else {
-			os.Setenv("STRESS_DURATION", origEnv)
-		}
-	}()
-
-	TestStress_MemoryLeak(t)
+	for i := 0; i < b.N; i++ {
+		runStressMemoryLeak(b, duration)
+	}
 }
 
-// ============================================================================
-// Quick sanity check (5 minutes)
-// ============================================================================
-
-func TestStress_MemoryLeak_Quick(t *testing.T) {
-	// 5-minute quick test
-	origEnv := os.Getenv("STRESS_DURATION")
-	os.Setenv("STRESS_DURATION", "5m")
-	defer func() {
-		if origEnv == "" {
-			os.Unsetenv("STRESS_DURATION")
-		} else {
-			os.Setenv("STRESS_DURATION", origEnv)
-		}
-	}()
-
-	TestStress_MemoryLeak(t)
+// BenchmarkStress_MemoryLeak_Short runs a 30-minute memory leak stress test.
+// Usage: go test ./tests/ -bench BenchmarkStress_MemoryLeak_Short -benchtime 1x -timeout 1h -v
+func BenchmarkStress_MemoryLeak_Short(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		runStressMemoryLeak(b, 30*time.Minute)
+	}
 }
 
-// ============================================================================
-// Helper: analyze memory log
-// ============================================================================
-
-// Run this after the test to analyze the log:
-// go run cmd/analyze_memory_log.go stress_memory_leak.log
+// BenchmarkStress_MemoryLeak_Quick runs a 5-minute memory leak stress test.
+// Usage: go test ./tests/ -bench BenchmarkStress_MemoryLeak_Quick -benchtime 1x -timeout 10m -v
+func BenchmarkStress_MemoryLeak_Quick(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		runStressMemoryLeak(b, 5*time.Minute)
+	}
+}

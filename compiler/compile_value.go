@@ -85,198 +85,12 @@ func (c *compiler) compileConst(cnst *ssa.Const) {
 	var v any
 	switch t := cnst.Type().(type) {
 	case *types.Basic:
-		switch t.Kind() { //nolint:exhaustive
-		case types.Bool, types.UntypedBool:
-			v = cnst.Value != nil && cnst.Value.Kind() == constant.Bool && constant.BoolVal(cnst.Value)
-		case types.Int, types.UntypedInt, types.UntypedRune:
-			if cnst.Value != nil {
-				i, exact := constant.Int64Val(cnst.Value)
-				if exact {
-					v = int(i)
-				} else {
-					v = int(0)
-				}
-			} else {
-				v = int(0)
-			}
-		case types.Int8:
-			if cnst.Value != nil {
-				i, _ := constant.Int64Val(cnst.Value)
-				v = int8(i)
-			} else {
-				v = int8(0)
-			}
-		case types.Int16:
-			if cnst.Value != nil {
-				i, _ := constant.Int64Val(cnst.Value)
-				v = int16(i)
-			} else {
-				v = int16(0)
-			}
-		case types.Int32:
-			if cnst.Value != nil {
-				i, _ := constant.Int64Val(cnst.Value)
-				v = int32(i)
-			} else {
-				v = int32(0)
-			}
-		case types.Int64:
-			if cnst.Value != nil {
-				i, exact := constant.Int64Val(cnst.Value)
-				if exact {
-					v = i
-				} else {
-					v = int64(0)
-				}
-			} else {
-				v = int64(0)
-			}
-		case types.Uint:
-			if cnst.Value != nil {
-				u, _ := constant.Uint64Val(cnst.Value)
-				v = uint(u)
-			} else {
-				v = uint(0)
-			}
-		case types.Uint8:
-			if cnst.Value != nil {
-				u, _ := constant.Uint64Val(cnst.Value)
-				v = uint8(u)
-			} else {
-				v = uint8(0)
-			}
-		case types.Uint16:
-			if cnst.Value != nil {
-				u, _ := constant.Uint64Val(cnst.Value)
-				v = uint16(u)
-			} else {
-				v = uint16(0)
-			}
-		case types.Uint32:
-			if cnst.Value != nil {
-				u, _ := constant.Uint64Val(cnst.Value)
-				v = uint32(u)
-			} else {
-				v = uint32(0)
-			}
-		case types.Uint64:
-			if cnst.Value != nil {
-				u, _ := constant.Uint64Val(cnst.Value)
-				v = u
-			} else {
-				v = uint64(0)
-			}
-		case types.Uintptr:
-			if cnst.Value != nil {
-				u, _ := constant.Uint64Val(cnst.Value)
-				v = uint64(u)
-			} else {
-				v = uint64(0)
-			}
-		case types.Float32:
-			if cnst.Value != nil {
-				f, _ := constant.Float64Val(cnst.Value)
-				v = float32(f)
-			} else {
-				v = float32(0)
-			}
-		case types.Float64, types.UntypedFloat:
-			if cnst.Value != nil {
-				f, _ := constant.Float64Val(cnst.Value)
-				v = f
-			} else {
-				v = 0.0
-			}
-		case types.String, types.UntypedString:
-			if cnst.Value != nil {
-				v = constant.StringVal(cnst.Value)
-			} else {
-				v = ""
-			}
-		case types.Complex64:
-			if cnst.Value != nil {
-				re := constant.Real(cnst.Value)
-				im := constant.Imag(cnst.Value)
-				reVal, _ := constant.Float64Val(re)
-				imVal, _ := constant.Float64Val(im)
-				v = complex(float32(reVal), float32(imVal))
-			} else {
-				v = complex64(0)
-			}
-		case types.Complex128:
-			if cnst.Value != nil {
-				re := constant.Real(cnst.Value)
-				im := constant.Imag(cnst.Value)
-				reVal, _ := constant.Float64Val(re)
-				imVal, _ := constant.Float64Val(im)
-				v = complex(reVal, imVal)
-			} else {
-				v = complex128(0)
-			}
-		case types.UntypedComplex:
-			if cnst.Value != nil {
-				re := constant.Real(cnst.Value)
-				im := constant.Imag(cnst.Value)
-				reVal, _ := constant.Float64Val(re)
-				imVal, _ := constant.Float64Val(im)
-				v = complex(reVal, imVal)
-			} else {
-				v = complex128(0)
-			}
-		default:
-			v = nil
-		}
+		v = basicConstValue(t.Kind(), cnst.Value)
 	case *types.Named:
 		// Handle named types by extracting their underlying basic type
 		if cnst.Value != nil {
-			switch underlying := t.Underlying().(type) {
-			case *types.Basic:
-				switch underlying.Kind() { //nolint:exhaustive
-				case types.Int, types.UntypedInt, types.UntypedRune:
-					i, exact := constant.Int64Val(cnst.Value)
-					if exact {
-						v = int(i)
-					} else {
-						v = int(0)
-					}
-				case types.Int8:
-					i, _ := constant.Int64Val(cnst.Value)
-					v = int8(i)
-				case types.Int16:
-					i, _ := constant.Int64Val(cnst.Value)
-					v = int16(i)
-				case types.Int32:
-					i, _ := constant.Int64Val(cnst.Value)
-					v = int32(i)
-				case types.Int64:
-					i, _ := constant.Int64Val(cnst.Value)
-					v = i
-				case types.Uint:
-					u, _ := constant.Uint64Val(cnst.Value)
-					v = uint(u)
-				case types.Uint8:
-					u, _ := constant.Uint64Val(cnst.Value)
-					v = uint8(u)
-				case types.Uint16:
-					u, _ := constant.Uint64Val(cnst.Value)
-					v = uint16(u)
-				case types.Uint32:
-					u, _ := constant.Uint64Val(cnst.Value)
-					v = uint32(u)
-				case types.Uint64:
-					u, _ := constant.Uint64Val(cnst.Value)
-					v = u
-				case types.Float32:
-					f, _ := constant.Float64Val(cnst.Value)
-					v = float32(f)
-				case types.Float64, types.UntypedFloat:
-					f, _ := constant.Float64Val(cnst.Value)
-					v = f
-				case types.String, types.UntypedString:
-					v = constant.StringVal(cnst.Value)
-				case types.Bool, types.UntypedBool:
-					v = cnst.Value != nil && cnst.Value.Kind() == constant.Bool && constant.BoolVal(cnst.Value)
-				}
+			if underlying, ok := t.Underlying().(*types.Basic); ok {
+				v = basicConstValue(underlying.Kind(), cnst.Value)
 			}
 		} else {
 			// cnst.Value == nil: emit zero value for named types
@@ -286,60 +100,9 @@ func (c *compiler) compileConst(cnst *ssa.Const) {
 		}
 	case *types.Alias:
 		// Handle type aliases (e.g., type MyInt = int) - they are identical to the aliased type
-		// Use the underlying type for value handling
 		if cnst.Value != nil {
-			switch underlying := t.Underlying().(type) {
-			case *types.Basic:
-				switch underlying.Kind() { //nolint:exhaustive
-				case types.Int, types.UntypedInt, types.UntypedRune:
-					i, exact := constant.Int64Val(cnst.Value)
-					if exact {
-						v = int(i)
-					} else {
-						v = int(0)
-					}
-				case types.Int8:
-					i, _ := constant.Int64Val(cnst.Value)
-					v = int8(i)
-				case types.Int16:
-					i, _ := constant.Int64Val(cnst.Value)
-					v = int16(i)
-				case types.Int32:
-					i, _ := constant.Int64Val(cnst.Value)
-					v = int32(i)
-				case types.Int64:
-					i, exact := constant.Int64Val(cnst.Value)
-					if exact {
-						v = i
-					} else {
-						v = int64(0)
-					}
-				case types.Uint:
-					u, _ := constant.Uint64Val(cnst.Value)
-					v = uint(u)
-				case types.Uint8:
-					u, _ := constant.Uint64Val(cnst.Value)
-					v = uint8(u)
-				case types.Uint16:
-					u, _ := constant.Uint64Val(cnst.Value)
-					v = uint16(u)
-				case types.Uint32:
-					u, _ := constant.Uint64Val(cnst.Value)
-					v = uint32(u)
-				case types.Uint64:
-					u, _ := constant.Uint64Val(cnst.Value)
-					v = u
-				case types.Float32:
-					f, _ := constant.Float64Val(cnst.Value)
-					v = float32(f)
-				case types.Float64, types.UntypedFloat:
-					f, _ := constant.Float64Val(cnst.Value)
-					v = f
-				case types.String, types.UntypedString:
-					v = constant.StringVal(cnst.Value)
-				case types.Bool, types.UntypedBool:
-					v = cnst.Value != nil && cnst.Value.Kind() == constant.Bool && constant.BoolVal(cnst.Value)
-				}
+			if underlying, ok := t.Underlying().(*types.Basic); ok {
+				v = basicConstValue(underlying.Kind(), cnst.Value)
 			}
 		} else {
 			// cnst.Value == nil: emit zero value for alias types
@@ -369,6 +132,118 @@ func (c *compiler) compileConst(cnst *ssa.Const) {
 
 	idx := c.addConstant(v)
 	c.emit(bytecode.OpConst, idx)
+}
+
+// basicConstValue extracts a Go value from a constant.Value based on the basic type kind.
+// Returns nil for unsupported kinds.
+func basicConstValue(kind types.BasicKind, val constant.Value) any { //nolint:gocyclo,cyclop
+	if val == nil {
+		// Return zero values for nil constants
+		switch kind { //nolint:exhaustive
+		case types.Bool, types.UntypedBool:
+			return false
+		case types.Int, types.UntypedInt, types.UntypedRune:
+			return int(0)
+		case types.Int8:
+			return int8(0)
+		case types.Int16:
+			return int16(0)
+		case types.Int32:
+			return int32(0)
+		case types.Int64:
+			return int64(0)
+		case types.Uint:
+			return uint(0)
+		case types.Uint8:
+			return uint8(0)
+		case types.Uint16:
+			return uint16(0)
+		case types.Uint32:
+			return uint32(0)
+		case types.Uint64:
+			return uint64(0)
+		case types.Uintptr:
+			return uint64(0)
+		case types.Float32:
+			return float32(0)
+		case types.Float64, types.UntypedFloat:
+			return 0.0
+		case types.String, types.UntypedString:
+			return ""
+		case types.Complex64:
+			return complex64(0)
+		case types.Complex128, types.UntypedComplex:
+			return complex128(0)
+		default:
+			return nil
+		}
+	}
+
+	switch kind { //nolint:exhaustive
+	case types.Bool, types.UntypedBool:
+		return val.Kind() == constant.Bool && constant.BoolVal(val)
+	case types.Int, types.UntypedInt, types.UntypedRune:
+		i, exact := constant.Int64Val(val)
+		if exact {
+			return int(i)
+		}
+		return int(0)
+	case types.Int8:
+		i, _ := constant.Int64Val(val)
+		return int8(i)
+	case types.Int16:
+		i, _ := constant.Int64Val(val)
+		return int16(i)
+	case types.Int32:
+		i, _ := constant.Int64Val(val)
+		return int32(i)
+	case types.Int64:
+		i, exact := constant.Int64Val(val)
+		if exact {
+			return i
+		}
+		return int64(0)
+	case types.Uint:
+		u, _ := constant.Uint64Val(val)
+		return uint(u)
+	case types.Uint8:
+		u, _ := constant.Uint64Val(val)
+		return uint8(u)
+	case types.Uint16:
+		u, _ := constant.Uint64Val(val)
+		return uint16(u)
+	case types.Uint32:
+		u, _ := constant.Uint64Val(val)
+		return uint32(u)
+	case types.Uint64:
+		u, _ := constant.Uint64Val(val)
+		return u
+	case types.Uintptr:
+		u, _ := constant.Uint64Val(val)
+		return uint64(u)
+	case types.Float32:
+		f, _ := constant.Float64Val(val)
+		return float32(f)
+	case types.Float64, types.UntypedFloat:
+		f, _ := constant.Float64Val(val)
+		return f
+	case types.String, types.UntypedString:
+		return constant.StringVal(val)
+	case types.Complex64:
+		re := constant.Real(val)
+		im := constant.Imag(val)
+		reVal, _ := constant.Float64Val(re)
+		imVal, _ := constant.Float64Val(im)
+		return complex(float32(reVal), float32(imVal))
+	case types.Complex128, types.UntypedComplex:
+		re := constant.Real(val)
+		im := constant.Imag(val)
+		reVal, _ := constant.Float64Val(re)
+		imVal, _ := constant.Float64Val(im)
+		return complex(reVal, imVal)
+	default:
+		return nil
+	}
 }
 
 // constTypeToReflect converts a go/types.Type to reflect.Type for nil constant emission.
