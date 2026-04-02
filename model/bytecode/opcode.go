@@ -63,6 +63,19 @@ type OpCode byte
 //   - Interface ops: type assertions, conversions
 //   - Concurrency: goroutines, channels
 //   - Builtins: len, cap, append, copy, etc.
+// Sentinel values shared between compiler and VM.
+const (
+	// SliceEndSentinel is emitted by the compiler as the "high" or "max" operand
+	// of a slice expression when the user omits it (e.g., a[1:]). The VM
+	// interprets this as "use the container's length."
+	SliceEndSentinel = 0xFFFF
+
+	// NoSourceLocal is emitted by the compiler as the source-local operand of
+	// OpChangeType when the source value is not a local variable. The VM uses
+	// it to skip the source-local update that shares backing arrays.
+	NoSourceLocal = 0xFFFF
+)
+
 const (
 	// ========================================
 	// Stack Operations

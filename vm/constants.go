@@ -1,6 +1,8 @@
 // constants.go defines named constants replacing magic numbers across the VM.
 package vm
 
+import "git.woa.com/youngjin/gig/model/bytecode"
+
 // VM-wide constants extracted from magic numbers across the codebase.
 const (
 	// initialStackSize is the starting size of the operand stack for main
@@ -21,11 +23,11 @@ const (
 
 	// sliceEndSentinel is the sentinel value meaning "use the container's
 	// length" in slice operations (OpSlice high operand).
-	sliceEndSentinel = 0xFFFF
+	sliceEndSentinel = bytecode.SliceEndSentinel
 
 	// noSourceLocalSentinel is the sentinel value meaning "no source local"
 	// in convert operations.
-	noSourceLocalSentinel = 0xFFFF
+	noSourceLocalSentinel = bytecode.NoSourceLocal
 
 	// maxStackSize is the hard ceiling for the operand stack. Each slot is
 	// a 32-byte value.Value, so 1<<20 slots = 32 MB per VM.
