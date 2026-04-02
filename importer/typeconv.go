@@ -22,6 +22,37 @@ func init() {
 // typeCache caches converted types to prevent infinite recursion for self-referential types.
 var typeCache sync.Map // map[reflect.Type]types.Type
 
+// reflectToBasicKind maps reflect.Kind to types.BasicKind for basic type detection.
+// Used by convertReflectType (named type alias check) and convertReflectTypeForUnderlying.
+var reflectToBasicKind = map[reflect.Kind]types.BasicKind{
+	reflect.Bool:          types.Bool,
+	reflect.Int:           types.Int,
+	reflect.Int8:          types.Int8,
+	reflect.Int16:         types.Int16,
+	reflect.Int32:         types.Int32,
+	reflect.Int64:         types.Int64,
+	reflect.Uint:          types.Uint,
+	reflect.Uint8:         types.Uint8,
+	reflect.Uint16:        types.Uint16,
+	reflect.Uint32:        types.Uint32,
+	reflect.Uint64:        types.Uint64,
+	reflect.Uintptr:       types.Uintptr,
+	reflect.Float32:       types.Float32,
+	reflect.Float64:       types.Float64,
+	reflect.Complex64:     types.Complex64,
+	reflect.Complex128:    types.Complex128,
+	reflect.String:        types.String,
+	reflect.UnsafePointer: types.UnsafePointer,
+}
+
+// basicTypeFromReflectKind returns the types.Typ for a reflect.Kind, or nil if not a basic kind.
+func basicTypeFromReflectKind(k reflect.Kind) *types.Basic {
+	if bk, ok := reflectToBasicKind[k]; ok {
+		return types.Typ[bk]
+	}
+	return nil
+}
+
 // typePkgCache caches *types.Package objects by package path to ensure
 // that the same package path always maps to the same *types.Package instance.
 var typePkgCache sync.Map // map[string]*types.Package
@@ -139,54 +170,8 @@ func convertReflectType(rt reflect.Type) types.Type {
 		// For basic kinds, types.Typ[kind] gives the canonical type with the kind's name.
 		// If the reflect type's name matches the canonical kind name, it's a basic type alias.
 		isBasicAlias := false
-		// Convert reflect.Kind to types.Kind for indexing types.Typ
-		var typeKind types.BasicKind
-		switch rt.Kind() {
-		case reflect.Bool:
-			typeKind = types.Bool
-		case reflect.Int:
-			typeKind = types.Int
-		case reflect.Int8:
-			typeKind = types.Int8
-		case reflect.Int16:
-			typeKind = types.Int16
-		case reflect.Int32:
-			typeKind = types.Int32
-		case reflect.Int64:
-			typeKind = types.Int64
-		case reflect.Uint:
-			typeKind = types.Uint
-		case reflect.Uint8:
-			typeKind = types.Uint8
-		case reflect.Uint16:
-			typeKind = types.Uint16
-		case reflect.Uint32:
-			typeKind = types.Uint32
-		case reflect.Uint64:
-			typeKind = types.Uint64
-		case reflect.Uintptr:
-			typeKind = types.Uintptr
-		case reflect.Float32:
-			typeKind = types.Float32
-		case reflect.Float64:
-			typeKind = types.Float64
-		case reflect.Complex64:
-			typeKind = types.Complex64
-		case reflect.Complex128:
-			typeKind = types.Complex128
-		case reflect.String:
-			typeKind = types.String
-		case reflect.UnsafePointer:
-			typeKind = types.UnsafePointer
-		default:
-			// Not a basic kind, can't be a basic type alias
-			typeKind = types.Invalid
-		}
-		if typeKind != types.Invalid {
-			bt := types.Typ[typeKind]
-			if bt != nil && bt.Name() == rt.Name() {
-				isBasicAlias = true
-			}
+		if bt := basicTypeFromReflectKind(rt.Kind()); bt != nil && bt.Name() == rt.Name() {
+			isBasicAlias = true
 		}
 		// If it's a basic type alias, don't treat as named type - fall through to basic handling
 		// For interface types, don't wrap in Named - just return the interface directly
@@ -213,42 +198,11 @@ func convertReflectType(rt reflect.Type) types.Type {
 	}
 
 	switch rt.Kind() {
-	case reflect.Bool:
-		return types.Typ[types.Bool]
-	case reflect.Int:
-		return types.Typ[types.Int]
-	case reflect.Int8:
-		return types.Typ[types.Int8]
-	case reflect.Int16:
-		return types.Typ[types.Int16]
-	case reflect.Int32:
-		return types.Typ[types.Int32]
-	case reflect.Int64:
-		return types.Typ[types.Int64]
-	case reflect.Uint:
-		return types.Typ[types.Uint]
-	case reflect.Uint8:
-		return types.Typ[types.Uint8]
-	case reflect.Uint16:
-		return types.Typ[types.Uint16]
-	case reflect.Uint32:
-		return types.Typ[types.Uint32]
-	case reflect.Uint64:
-		return types.Typ[types.Uint64]
-	case reflect.Uintptr:
-		return types.Typ[types.Uintptr]
-	case reflect.Float32:
-		return types.Typ[types.Float32]
-	case reflect.Float64:
-		return types.Typ[types.Float64]
-	case reflect.Complex64:
-		return types.Typ[types.Complex64]
-	case reflect.Complex128:
-		return types.Typ[types.Complex128]
-	case reflect.String:
-		return types.Typ[types.String]
-	case reflect.UnsafePointer:
-		return types.Typ[types.UnsafePointer]
+	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
+		reflect.String, reflect.UnsafePointer:
+		return basicTypeFromReflectKind(rt.Kind())
 
 	case reflect.Array:
 		elem := convertReflectType(rt.Elem())
@@ -324,41 +278,11 @@ func convertReflectType(rt reflect.Type) types.Type {
 // It returns the actual underlying type (e.g., struct, pointer, slice).
 func convertReflectTypeForUnderlying(rt reflect.Type) types.Type {
 	// For basic named types, return the corresponding basic type
+	if bt := basicTypeFromReflectKind(rt.Kind()); bt != nil {
+		return bt
+	}
+
 	switch rt.Kind() {
-	case reflect.Bool:
-		return types.Typ[types.Bool]
-	case reflect.Int:
-		return types.Typ[types.Int]
-	case reflect.Int8:
-		return types.Typ[types.Int8]
-	case reflect.Int16:
-		return types.Typ[types.Int16]
-	case reflect.Int32:
-		return types.Typ[types.Int32]
-	case reflect.Int64:
-		return types.Typ[types.Int64]
-	case reflect.Uint:
-		return types.Typ[types.Uint]
-	case reflect.Uint8:
-		return types.Typ[types.Uint8]
-	case reflect.Uint16:
-		return types.Typ[types.Uint16]
-	case reflect.Uint32:
-		return types.Typ[types.Uint32]
-	case reflect.Uint64:
-		return types.Typ[types.Uint64]
-	case reflect.Uintptr:
-		return types.Typ[types.Uintptr]
-	case reflect.Float32:
-		return types.Typ[types.Float32]
-	case reflect.Float64:
-		return types.Typ[types.Float64]
-	case reflect.Complex64:
-		return types.Typ[types.Complex64]
-	case reflect.Complex128:
-		return types.Typ[types.Complex128]
-	case reflect.String:
-		return types.Typ[types.String]
 	case reflect.Struct:
 		return convertStructType(rt)
 	case reflect.Ptr:
@@ -476,14 +400,40 @@ func addMethodsToNamed(named *types.Named, rt reflect.Type) {
 	isInterface := rt.Kind() == reflect.Interface
 
 	// Enumerate all exported methods on the value receiver
-	for i := 0; i < rt.NumMethod(); i++ {
-		method := rt.Method(i)
+	addMethodsFromType(named, rt, isInterface, false)
+
+	// For interface types, don't process pointer receiver methods
+	if isInterface {
+		return
+	}
+
+	// Also enumerate methods on the pointer receiver (*T)
+	addMethodsFromType(named, reflect.PointerTo(rt), false, true)
+}
+
+// addMethodsFromType adds exported methods from methodSource to the named type.
+// If skipReceiver is false (interface types), parameters start at index 0.
+// If isPointerRecv is true, skips methods already present on named and uses pointer receiver.
+func addMethodsFromType(named *types.Named, methodSource reflect.Type, isInterface, isPointerRecv bool) {
+	for i := 0; i < methodSource.NumMethod(); i++ {
+		method := methodSource.Method(i)
 		if !method.IsExported() {
 			continue
 		}
-		// method.Type is:
-		//   - For concrete types: func(ReceiverType, params...) (results...)
-		//   - For interface types: func(params...) (results...) - NO receiver
+		// For pointer receiver pass, skip methods already added from value receiver
+		if isPointerRecv {
+			alreadyAdded := false
+			for j := 0; j < named.NumMethods(); j++ {
+				if named.Method(j).Name() == method.Name {
+					alreadyAdded = true
+					break
+				}
+			}
+			if alreadyAdded {
+				continue
+			}
+		}
+
 		methodType := method.Type
 		if methodType.Kind() != reflect.Func {
 			continue
@@ -495,11 +445,11 @@ func addMethodsToNamed(named *types.Named, rt reflect.Type) {
 
 		// Build the parameter list
 		// For interfaces, start at 0 (no receiver). For concrete types, skip receiver at 0.
-		var params []*types.Var
 		startIdx := 0
 		if !isInterface {
 			startIdx = 1
 		}
+		var params []*types.Var
 		for j := startIdx; j < methodType.NumIn(); j++ {
 			paramType := convertReflectType(methodType.In(j))
 			params = append(params, types.NewVar(0, nil, "", paramType))
@@ -512,69 +462,15 @@ func addMethodsToNamed(named *types.Named, rt reflect.Type) {
 			results = append(results, types.NewVar(0, nil, "", resultType))
 		}
 
-		// For non-interface types, the receiver is the named type itself
-		// For interface types, there is no receiver (nil)
+		// Build receiver: nil for interfaces, named for value, *named for pointer
 		var recv *types.Var
 		if !isInterface {
-			recv = types.NewVar(0, nil, "", named)
-		}
-
-		sig := types.NewSignatureType(
-			recv,
-			nil, nil,
-			types.NewTuple(params...),
-			types.NewTuple(results...),
-			methodType.IsVariadic(),
-		)
-
-		fn := types.NewFunc(0, named.Obj().Pkg(), method.Name, sig)
-		named.AddMethod(fn)
-	}
-
-	// For interface types, don't process pointer receiver methods
-	// (interfaces don't have pointer receivers in the same way)
-	if isInterface {
-		return
-	}
-
-	// Also enumerate methods on the pointer receiver (*T)
-	ptrType := reflect.PtrTo(rt)
-	for i := 0; i < ptrType.NumMethod(); i++ {
-		method := ptrType.Method(i)
-		if !method.IsExported() {
-			continue
-		}
-		// Skip methods that are already added (value receiver methods are a subset of pointer receiver methods)
-		alreadyAdded := false
-		for j := 0; j < named.NumMethods(); j++ {
-			if named.Method(j).Name() == method.Name {
-				alreadyAdded = true
-				break
+			recvType := types.Type(named)
+			if isPointerRecv {
+				recvType = types.NewPointer(named)
 			}
+			recv = types.NewVar(0, nil, "", recvType)
 		}
-		if alreadyAdded {
-			continue
-		}
-
-		methodType := method.Type
-		if methodType.Kind() != reflect.Func || methodType.NumIn() < 1 {
-			continue
-		}
-
-		var params []*types.Var
-		for j := 1; j < methodType.NumIn(); j++ {
-			paramType := convertReflectType(methodType.In(j))
-			params = append(params, types.NewVar(0, nil, "", paramType))
-		}
-
-		var results []*types.Var
-		for j := 0; j < methodType.NumOut(); j++ {
-			resultType := convertReflectType(methodType.Out(j))
-			results = append(results, types.NewVar(0, nil, "", resultType))
-		}
-
-		// Pointer receiver
-		recv := types.NewVar(0, nil, "", types.NewPointer(named))
 
 		sig := types.NewSignatureType(
 			recv,

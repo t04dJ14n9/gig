@@ -96,54 +96,35 @@ func (c *compiler) compileAlloc(i *ssa.Alloc) {
 	c.emit(bytecode.OpSetLocal, uint16(addrIdx))
 }
 
+// binOpMap maps Go token operators to bytecode opcodes.
+var binOpMap = map[token.Token]bytecode.OpCode{
+	token.ADD:     bytecode.OpAdd,
+	token.SUB:     bytecode.OpSub,
+	token.MUL:     bytecode.OpMul,
+	token.QUO:     bytecode.OpDiv,
+	token.REM:     bytecode.OpMod,
+	token.AND:     bytecode.OpAnd,
+	token.OR:      bytecode.OpOr,
+	token.XOR:     bytecode.OpXor,
+	token.AND_NOT: bytecode.OpAndNot,
+	token.SHL:     bytecode.OpLsh,
+	token.SHR:     bytecode.OpRsh,
+	token.EQL:     bytecode.OpEqual,
+	token.NEQ:     bytecode.OpNotEqual,
+	token.LSS:     bytecode.OpLess,
+	token.LEQ:     bytecode.OpLessEq,
+	token.GTR:     bytecode.OpGreater,
+	token.GEQ:     bytecode.OpGreaterEq,
+	token.LAND:    bytecode.OpAnd,
+	token.LOR:     bytecode.OpOr,
+}
+
 // compileBinOp compiles a binary operation.
 func (c *compiler) compileBinOp(i *ssa.BinOp) {
 	c.compileValue(i.X)
 	c.compileValue(i.Y)
 
-	var op bytecode.OpCode
-	switch i.Op { //nolint:exhaustive
-	case token.ADD:
-		op = bytecode.OpAdd
-	case token.SUB:
-		op = bytecode.OpSub
-	case token.MUL:
-		op = bytecode.OpMul
-	case token.QUO:
-		op = bytecode.OpDiv
-	case token.REM:
-		op = bytecode.OpMod
-	case token.AND:
-		op = bytecode.OpAnd
-	case token.OR:
-		op = bytecode.OpOr
-	case token.XOR:
-		op = bytecode.OpXor
-	case token.AND_NOT:
-		op = bytecode.OpAndNot
-	case token.SHL:
-		op = bytecode.OpLsh
-	case token.SHR:
-		op = bytecode.OpRsh
-	case token.EQL:
-		op = bytecode.OpEqual
-	case token.NEQ:
-		op = bytecode.OpNotEqual
-	case token.LSS:
-		op = bytecode.OpLess
-	case token.LEQ:
-		op = bytecode.OpLessEq
-	case token.GTR:
-		op = bytecode.OpGreater
-	case token.GEQ:
-		op = bytecode.OpGreaterEq
-	case token.LAND:
-		op = bytecode.OpAnd
-	case token.LOR:
-		op = bytecode.OpOr
-	}
-
-	c.emit(op)
+	c.emit(binOpMap[i.Op])
 
 	resultIdx := c.symbolTable.AllocLocal(i)
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
