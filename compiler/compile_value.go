@@ -18,10 +18,7 @@ func (c *compiler) compileValue(v ssa.Value) {
 		c.compileConst(val)
 	case *ssa.Function:
 		if fnIdx, ok := c.funcIndex[val]; ok {
-			c.currentFunc.Instructions = append(c.currentFunc.Instructions,
-				byte(bytecode.OpClosure),
-				byte(fnIdx>>8), byte(fnIdx),
-				byte(0))
+			c.emitClosure(fnIdx, 0)
 		} else {
 			c.emit(bytecode.OpNil)
 		}
@@ -64,9 +61,7 @@ func (c *compiler) compileValue(v ssa.Value) {
 				}
 			}
 		}
-		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
-			byte(bytecode.OpGlobal),
-			byte(globalIdx>>8), byte(globalIdx))
+		c.emit(bytecode.OpGlobal, uint16(globalIdx))
 	default:
 		if idx, ok := c.symbolTable.GetLocal(v); ok {
 			c.emit(bytecode.OpLocal, uint16(idx))
@@ -493,10 +488,7 @@ func (c *compiler) compileMakeClosure(i *ssa.MakeClosure) {
 		c.compileValue(binding)
 	}
 
-	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
-		byte(bytecode.OpClosure),
-		byte(fnIdx>>8), byte(fnIdx),
-		byte(len(i.Bindings)))
+	c.emitClosure(fnIdx, len(i.Bindings))
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
 
@@ -574,13 +566,13 @@ func (c *compiler) compileSlice(i *ssa.Slice) {
 	if i.High != nil {
 		c.compileValue(i.High)
 	} else {
-		c.emit(bytecode.OpConst, uint16(c.addConstant(int64(0xFFFF))))
+		c.emit(bytecode.OpConst, uint16(c.addConstant(int64(bytecode.SliceEndSentinel))))
 	}
 
 	if i.Max != nil {
 		c.compileValue(i.Max)
 	} else {
-		c.emit(bytecode.OpConst, uint16(c.addConstant(int64(0xFFFF))))
+		c.emit(bytecode.OpConst, uint16(c.addConstant(int64(bytecode.SliceEndSentinel))))
 	}
 
 	c.emit(bytecode.OpSlice)
@@ -622,7 +614,7 @@ func (c *compiler) compileChangeType(i *ssa.ChangeType) {
 
 	// Try to find the source local index. If the source is a local variable,
 	// we pass its index so the VM can update it for slice aliasing.
-	srcLocalIdx := uint16(0xFFFF) // sentinel: no source local
+	srcLocalIdx := uint16(bytecode.NoSourceLocal)
 	if srcIdx, ok := c.symbolTable.GetLocal(i.X); ok {
 		srcLocalIdx = uint16(srcIdx)
 	}
@@ -674,10 +666,7 @@ func (c *compiler) compileDefer(i *ssa.Defer) {
 			}
 			// Create the closure (leaves it on stack, no SETLOCAL)
 			fnIdx := c.funcIndex[val]
-			c.currentFunc.Instructions = append(c.currentFunc.Instructions,
-				byte(bytecode.OpClosure),
-				byte(fnIdx>>8), byte(fnIdx),
-				byte(len(val.FreeVars)))
+			c.emitClosure(fnIdx, len(val.FreeVars))
 			// Push arguments AFTER closure
 			for _, arg := range i.Call.Args {
 				c.compileValue(arg)
@@ -727,10 +716,7 @@ func (c *compiler) compileDefer(i *ssa.Defer) {
 		}
 		// Create closure (on stack, no SETLOCAL)
 		fnIdx := c.funcIndex[val.Fn.(*ssa.Function)]
-		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
-			byte(bytecode.OpClosure),
-			byte(fnIdx>>8), byte(fnIdx),
-			byte(len(val.Bindings)))
+		c.emitClosure(fnIdx, len(val.Bindings))
 		// Push arguments AFTER closure
 		for _, arg := range i.Call.Args {
 			c.compileValue(arg)
@@ -758,17 +744,12 @@ func (c *compiler) compileGo(i *ssa.Go) {
 	if fn, ok := i.Call.Value.(*ssa.Function); ok {
 		funcIdx := c.funcIndex[fn]
 		numArgs := len(i.Call.Args)
-		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
-			byte(bytecode.OpGoCall),
-			byte(funcIdx>>8), byte(funcIdx),
-			byte(numArgs))
+		c.emitCallOp(bytecode.OpGoCall, uint16(funcIdx), numArgs)
 		return
 	}
 
 	c.compileValue(i.Call.Value)
 
 	numArgs := len(i.Call.Args)
-	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
-		byte(bytecode.OpGoCallIndirect),
-		byte(numArgs))
+	c.emit(bytecode.OpGoCallIndirect, uint16(numArgs))
 }

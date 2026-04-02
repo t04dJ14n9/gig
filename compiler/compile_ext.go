@@ -54,10 +54,7 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 
 		funcIdx := c.addConstant(methodInfo)
 		numArgs := len(i.Call.Args)
-		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
-			byte(bytecode.OpCallExternal),
-			byte(funcIdx>>8), byte(funcIdx),
-			byte(numArgs))
+		c.emitCallOp(bytecode.OpCallExternal, funcIdx, numArgs)
 		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 		return
 	}
@@ -83,10 +80,7 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 
 	funcIdx := c.addConstant(extFuncInfo)
 	numArgs := len(i.Call.Args)
-	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
-		byte(bytecode.OpCallExternal),
-		byte(funcIdx>>8), byte(funcIdx),
-		byte(numArgs))
+	c.emitCallOp(bytecode.OpCallExternal, funcIdx, numArgs)
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
 

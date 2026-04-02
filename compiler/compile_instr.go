@@ -240,10 +240,7 @@ func (c *compiler) compileCall(i *ssa.Call) {
 		}
 		funcIdx := c.addConstant(methodInfo)
 		numArgs := len(i.Call.Args) + 1 // +1 for receiver
-		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
-			byte(bytecode.OpCallExternal),
-			byte(funcIdx>>8), byte(funcIdx),
-			byte(numArgs))
+		c.emitCallOp(bytecode.OpCallExternal, funcIdx, numArgs)
 		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 		return
 	}
@@ -261,10 +258,7 @@ func (c *compiler) compileCall(i *ssa.Call) {
 
 			funcIdx := c.funcIndex[fn]
 			numArgs := len(i.Call.Args)
-			c.currentFunc.Instructions = append(c.currentFunc.Instructions,
-				byte(bytecode.OpCall),
-				byte(funcIdx>>8), byte(funcIdx),
-				byte(numArgs))
+			c.emitCallOp(bytecode.OpCall, uint16(funcIdx), numArgs)
 			c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 			return
 		}

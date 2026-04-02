@@ -33,6 +33,25 @@ func (c *compiler) emit(op bytecode.OpCode, operands ...uint16) {
 	}
 }
 
+// emitCallOp emits a call-family instruction with a uint16 index and a byte arg count.
+// Used for OpCall, OpCallExternal, and OpGoCall which share the [op, idx_hi, idx_lo, numArgs] format.
+func (c *compiler) emitCallOp(op bytecode.OpCode, funcIdx uint16, numArgs int) {
+	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+		byte(op),
+		byte(funcIdx>>8), byte(funcIdx),
+		byte(numArgs))
+}
+
+// emitClosure emits an OpClosure instruction: [OpClosure, fnIdx_hi, fnIdx_lo, numFreeVars].
+// fnIdx is int because funcIndex map values are int.
+func (c *compiler) emitClosure(fnIdx int, numFreeVars int) {
+	idx := uint16(fnIdx)
+	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+		byte(bytecode.OpClosure),
+		byte(idx>>8), byte(idx),
+		byte(numFreeVars))
+}
+
 // emitJump emits an unconditional jump instruction.
 func (c *compiler) emitJump(target *ssa.BasicBlock) {
 	offset := len(c.currentFunc.Instructions)
