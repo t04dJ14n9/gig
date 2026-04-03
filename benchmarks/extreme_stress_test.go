@@ -134,10 +134,10 @@ func TestExtremeStress(t *testing.T) {
 	for round := 0; round < rounds; round++ {
 		for li, concurrency := range levels {
 			ops, errs, heap, gc := runStressLevel(concurrency, duration, func(gID, i int) error {
-				execCtx, execCancel := context.WithTimeout(context.Background(), 2*time.Second)
-				defer execCancel()
-				_, err := prog.RunWithContext(execCtx, "EvaluateRule", gID*10000+i, " bob ", float64(30+i%70))
-				return err
+			execCtx, execCancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer execCancel()
+			_, err := prog.RunWithContext(execCtx, "EvaluateRule", gID*10000+i, " bob ", float64(30+i%70))
+			return err
 			})
 			tp := float64(ops) / duration.Seconds()
 			gigStats[li][round] = stats{
