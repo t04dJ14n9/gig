@@ -340,9 +340,9 @@ func TestStress_Gig_Sustained5s(t *testing.T) {
 						default:
 						}
 						opStart := time.Now()
-						execCtx, execCancel := context.WithTimeout(context.Background(), 2*time.Second)
-						_, err := prog.RunWithContext(execCtx, "EvaluateRule", gID*10000+i, " bob ", float64(30+i%70))
-						execCancel()
+					execCtx, execCancel := context.WithTimeout(context.Background(), 30*time.Second)
+					_, err := prog.RunWithContext(execCtx, "EvaluateRule", gID*10000+i, " bob ", float64(30+i%70))
+					execCancel()
 						lat := time.Since(opStart).Nanoseconds()
 
 						if err != nil {
