@@ -5,6 +5,16 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"encoding/base64"
+	"encoding/binary"
+	"encoding/json"
+	"bytes"
+	"io"
+	"archive/tar"
+	"archive/zip"
+	"text/tabwriter"
+	"text/scanner"
+	"unicode/utf8"
 )
 
 // ============================================================================
@@ -6487,4 +6497,1377 @@ func MultipleDefer() int {
 	defer func() { x += 2 }()
 	defer func() { x += 4 }()
 	return x
+}
+// ============================================================================
+// MORE EDGE CASES (Round 7) - Trying to find bugs
+// ============================================================================
+
+// DeepNestedClosureChain tests deeply nested closure returning closure
+func DeepNestedClosureChain() int {
+	f1 := func(x int) func(int) func(int) int {
+		return func(y int) func(int) int {
+			return func(z int) int {
+				return x + y + z
+			}
+		}
+	}
+	return f1(1)(2)(3)
+}
+
+// ClosureMutatingCapturedVars tests closure mutating multiple captured vars
+func ClosureMutatingCapturedVars() int {
+	x, y, z := 1, 2, 3
+	f := func() {
+		x *= 10
+		y *= 20
+		z *= 30
+	}
+	g := func() {
+		x++
+		y++
+		z++
+	}
+	f()
+	g()
+	return x + y + z // 10+1 + 40+1 + 90+1 = 143
+}
+
+// RecursiveClosureWithDefer tests recursive closure with defer
+func RecursiveClosureWithDefer() int {
+	result := 0
+	var f func(int)
+	f = func(n int) {
+		if n <= 0 {
+			return
+		}
+		defer func() {
+			result += n
+		}()
+		f(n - 1)
+	}
+	f(5)
+	return result // 1+2+3+4+5 = 15
+}
+
+// DeferInRecursiveCall tests defer in recursive function
+func DeferInRecursiveCall() int {
+	var helper func(int) int
+	helper = func(n int) int {
+		if n <= 0 {
+			return 0
+		}
+		defer func() {
+			// This should execute in reverse order
+		}()
+		return n + helper(n-1)
+	}
+	return helper(10) // 55
+}
+
+// DeferModifyingNamedReturns tests defer modifying named returns
+func DeferModifyingNamedReturns() (result int) {
+	defer func() {
+		result *= 2
+	}()
+	defer func() {
+		result += 10
+	}()
+	result = 5
+	return // Returns (5 + 10) * 2 = 30
+}
+
+// DeferInClosureReturning tests defer in closure that returns
+func DeferInClosureReturning() int {
+	f := func() (result int) {
+		defer func() {
+			result = 999
+		}()
+		return 0
+	}
+	return f()
+}
+
+// LinkedListCycle tests linked list with cycle
+func LinkedListCycle() int {
+	type Node struct {
+		Value int
+		Next  *Node
+	}
+	
+	n1 := &Node{Value: 1}
+	n2 := &Node{Value: 2}
+	n3 := &Node{Value: 3}
+	n1.Next = n2
+	n2.Next = n3
+	n3.Next = n1 // Cycle
+	
+	// Traverse up to 10 nodes to avoid infinite loop
+	sum := 0
+	current := n1
+	for i := 0; i < 10; i++ {
+		sum += current.Value
+		current = current.Next
+	}
+	return sum // 1+2+3+1+2+3+1+2+3+1 = 19
+}
+
+// TreeWithParentRef tests tree with parent references
+// ChainedTypeAssertions tests chained type assertions
+func ChainedTypeAssertions() int {
+	var i interface{} = "hello"
+	
+	// Chain of assertions
+	s, ok := i.(string)
+	if !ok {
+		return -1
+	}
+	
+	var j interface{} = s
+	s2, ok2 := j.(string)
+	if !ok2 {
+		return -2
+	}
+	
+	return len(s2)
+}
+
+// NestedInterfaceAssertions tests nested interface assertions
+func NestedInterfaceAssertions() int {
+	var outer interface{}
+	var inner interface{} = 42
+	outer = inner
+	
+	// Assert twice
+	i1, ok1 := outer.(interface{})
+	if !ok1 {
+		return -1
+	}
+	i2, ok2 := i1.(int)
+	if !ok2 {
+		return -2
+	}
+	return i2
+}
+
+// TypeSwitchWithMultipleTypes tests type switch with many types
+func TypeSwitchWithMultipleTypes() int {
+	values := []interface{}{42, "hello", 3.14, true, []int{1, 2, 3}}
+	result := 0
+	for _, v := range values {
+		switch v.(type) {
+		case int:
+			result += 1
+		case string:
+			result += 2
+		case float64:
+			result += 3
+		case bool:
+			result += 4
+		default:
+			result += 5
+		}
+	}
+	return result // 1 + 2 + 3 + 4 + 5 = 15
+}
+
+// MapWithComplexKeys2 tests map with struct keys
+func MapWithComplexKeys2() int {
+	type Key struct {
+		X, Y int
+	}
+	m := make(map[Key]int)
+	m[Key{1, 2}] = 10
+	m[Key{3, 4}] = 20
+	
+	return m[Key{1, 2}] + m[Key{3, 4}]
+}
+
+// NestedMapOperations tests nested maps
+func NestedMapOperations() int {
+	m := make(map[string]map[string]int)
+	m["outer"] = make(map[string]int)
+	m["outer"]["inner"] = 42
+	
+	return m["outer"]["inner"]
+}
+
+// MapIterationWithDelete tests map iteration with deletion
+func MapIterationWithDelete() int {
+	m := map[string]int{"a": 1, "b": 2, "c": 3}
+	count := 0
+	for k, v := range m {
+		if v > 1 {
+			delete(m, k)
+		}
+		count++
+	}
+	return len(m) + count // Remaining items + iterations
+}
+
+// NestedSliceAppend tests nested slice append
+func NestedSliceAppend() int {
+	var s [][]int
+	s = append(s, []int{1, 2})
+	s = append(s, []int{3, 4})
+	s[0] = append(s[0], 5)
+	
+	sum := 0
+	for _, inner := range s {
+		for _, v := range inner {
+			sum += v
+		}
+	}
+	return sum // 1+2+5+3+4 = 15
+}
+
+// SliceResliceMultiple tests multiple reslicing
+func SliceResliceMultiple() int {
+	s := make([]int, 10)
+	for i := range s {
+		s[i] = i
+	}
+	
+	s1 := s[2:5]  // [2, 3, 4]
+	s2 := s1[1:3] // [3, 4]
+	s3 := s2[0:2] // [3, 4]
+	
+	return s3[0] + s3[1] // 3 + 4 = 7
+}
+
+// SliceWithCapacityGrowth tests slice capacity growth
+func SliceWithCapacityGrowth() int {
+	s := make([]int, 0, 2)
+	initialCap := cap(s)
+	
+	for i := 0; i < 10; i++ {
+		s = append(s, i)
+	}
+	
+	return len(s) + initialCap // 10 + 2 = 12
+}
+
+// IntegerOverflow tests integer overflow behavior
+func IntegerOverflow() int {
+	max := int(^uint(0) >> 1)
+	result := max + 1 // Overflow
+	return result
+}
+
+// ShiftOperations tests shift operations
+func ShiftOperations() int {
+	x := 1
+	y := x << 31 // Shift left 31 bits
+	z := y >> 31 // Shift back
+	return int(z)
+}
+
+// FloatSpecialValues tests float special values
+func FloatSpecialValues() int {
+	// Use math.Inf to get infinity values
+	// inf := math.Inf(1)  // Can't use math package in tests
+	// negInf := math.Inf(-1)
+	
+	// Test with very large numbers instead
+	large := 1e308
+	veryLarge := large * 10 // This becomes +Inf at runtime
+	
+	if veryLarge > 0 {
+		return 1
+	}
+	return 0
+}
+
+// DeeplyNestedIfElse tests deeply nested if-else
+func DeeplyNestedIfElse() int {
+	x, y, z := 1, 2, 3
+	
+	if x > 0 {
+		if y > 0 {
+			if z > 0 {
+				return 1
+			} else {
+				return 2
+			}
+		} else {
+			if z > 0 {
+				return 3
+			} else {
+				return 4
+			}
+		}
+	} else {
+		if y > 0 {
+			if z > 0 {
+				return 5
+			} else {
+				return 6
+			}
+		} else {
+			return 7
+		}
+	}
+}
+
+// SwitchWithComplexConditions tests switch with complex conditions
+func SwitchWithComplexConditions() int {
+	x := 5
+	switch {
+	case x < 0:
+		return 0
+	case x >= 0 && x < 3:
+		return 1
+	case x >= 3 && x < 7:
+		return 2
+	default:
+		return 3
+	}
+}
+
+// ForWithComplexCondition tests for with complex condition
+func ForWithComplexCondition() int {
+	sum := 0
+	for i, j := 0, 10; i < j; i, j = i+1, j-1 {
+		sum += i + j
+	}
+	return sum
+}
+
+// ChannelSelectWithMultipleCases tests select with multiple cases
+func ChannelSelectWithMultipleCases() int {
+	ch1 := make(chan int, 1)
+	ch2 := make(chan int, 1)
+	
+	ch1 <- 1
+	ch2 <- 2
+	
+	result := 0
+	for i := 0; i < 2; i++ {
+		select {
+		case v := <-ch1:
+			result += v
+		case v := <-ch2:
+			result += v
+		}
+	}
+	return result // 1 + 2 = 3
+}
+
+// NilChannelInSelect tests nil channel in select
+func NilChannelInSelect() int {
+	var nilCh chan int
+	ch := make(chan int, 1)
+	ch <- 42
+	
+	select {
+	case v := <-ch:
+		return v
+	case <-nilCh: // Never ready
+		return -1
+	default:
+		return 0
+	}
+}
+
+// MultipleAssignmentChain tests chained multiple assignments
+func MultipleAssignmentChain() int {
+	a, b, c := 1, 2, 3
+	d, e, f := a+1, b+1, c+1
+	g, h, i := d+e, e+f, f+d
+	
+	return g + h + i
+}
+
+// AssignmentWithFunctionCall tests assignment with function calls
+func AssignmentWithFunctionCall() int {
+	getValue := func() (int, int, int) {
+		return 10, 20, 30
+	}
+	
+	a, b, c := getValue()
+	d, e, f := getValue()
+	
+	return a + b + c + d + e + f // 60 + 60 = 120
+}
+
+// SwapMultipleValues tests swapping multiple values
+func SwapMultipleValues() int {
+	a, b, c := 1, 2, 3
+	a, b, c = c, a, b
+	
+	return a*100 + b*10 + c // 300 + 10 + 2 = 312
+}
+
+// ============================================================================
+// Missing Round 7 functions
+// ============================================================================
+
+// MapWithComplexKeys tests map with complex struct keys
+func MapWithComplexKeys() int {
+	type Key struct {
+		X int
+		Y int
+	}
+	
+	m := make(map[Key]string)
+	m[Key{X: 1, Y: 2}] = "first"
+	m[Key{X: 3, Y: 4}] = "second"
+	
+	return len(m) // Should be 2
+}
+
+// ComplexArithmetic tests complex number arithmetic
+func ComplexArithmetic() int {
+	var c1 complex128 = 3 + 4i
+	var c2 complex128 = 1 + 2i
+	
+	sum := c1 + c2
+	prod := c1 * c2
+	
+	// real(3+4i + 1+2i) = 4, imag = 6
+	// real((3+4i)*(1+2i)) = 3-8 = -5, imag = 6+4 = 10
+	return int(real(sum)) + int(imag(sum)) + int(real(prod)) + int(imag(prod)) // 4 + 6 + -5 + 10 = 15
+}
+
+// NilInterfaceMethodCall tests calling method on nil interface
+func NilInterfaceMethodCall() int {
+	var i interface{} = nil
+	
+	// Check if nil
+	if i == nil {
+		return 1
+	}
+	return 0
+}
+
+// MethodSetTest tests method set on type
+func MethodSetTest() int {
+	type Counter struct {
+		value int
+	}
+	
+	// Value receiver method
+	getValue := func(c Counter) int {
+		return c.value
+	}
+	
+	c := Counter{value: 42}
+	return getValue(c) // Should be 42
+}
+
+// MethodOnNilPointer tests calling method on nil pointer
+func MethodOnNilPointer() int {
+	type Container struct {
+		Value int
+	}
+	
+	var ptr *Container
+	
+	// Safe nil check
+	if ptr == nil {
+		return 1
+	}
+	return 0
+}
+
+// ============================================================================
+// ROUND 8: COMPLEX THIRD-PARTY LIBRARY INTERACTIONS
+// ============================================================================
+
+// ============================================================================
+// ENCODING/BASE64 - Complex encoding/decoding scenarios
+// ============================================================================
+
+// Base64ComplexRoundTrip tests complex base64 round-trip with different encodings
+func Base64ComplexRoundTrip() int {
+	data := []byte("Hello, 世界! This is a complex test with unicode characters.")
+	
+	// Standard encoding
+	stdEnc := base64.StdEncoding.EncodeToString(data)
+	decoded1, _ := base64.StdEncoding.DecodeString(stdEnc)
+	
+	// URL encoding
+	urlEnc := base64.URLEncoding.EncodeToString(data)
+	decoded2, _ := base64.URLEncoding.DecodeString(urlEnc)
+	
+	// Raw encoding (no padding)
+	rawEnc := base64.RawStdEncoding.EncodeToString(data)
+	decoded3, _ := base64.RawStdEncoding.DecodeString(rawEnc)
+	
+	// Calculate result based on successful decodes
+	result := 0
+	if bytes.Equal(decoded1, data) {
+		result += 1
+	}
+	if bytes.Equal(decoded2, data) {
+		result += 2
+	}
+	if bytes.Equal(decoded3, data) {
+		result += 4
+	}
+	
+	return result // Should be 7 if all succeed
+}
+
+// Base64Streaming tests streaming base64 encoding/decoding
+func Base64Streaming() int {
+	var buf bytes.Buffer
+	encoder := base64.NewEncoder(base64.StdEncoding, &buf)
+	encoder.Write([]byte("chunk1"))
+	encoder.Write([]byte("chunk2"))
+	encoder.Write([]byte("chunk3"))
+	encoder.Close()
+	
+	encoded := buf.String()
+	
+	// Decode
+	decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(encoded))
+	decoded, _ := io.ReadAll(decoder)
+	
+	return len(decoded) // Should be 18 ("chunk1chunk2chunk3")
+}
+
+// Base64WithCorruptInput tests handling of corrupt base64 input
+func Base64WithCorruptInput() int {
+	valid := base64.StdEncoding.EncodeToString([]byte("valid"))
+	corrupt := "SGVsbG8gV29ybGQ!=" // Extra padding
+	
+	result := 0
+	
+	_, err1 := base64.StdEncoding.DecodeString(valid)
+	if err1 == nil {
+		result += 1
+	}
+	
+	_, err2 := base64.StdEncoding.DecodeString(corrupt)
+	if err2 != nil {
+		result += 2
+	}
+	
+	return result // Should be 3
+}
+
+// ============================================================================
+// ENCODING/BINARY - Byte order operations
+// ============================================================================
+
+// BinaryReadWrite tests binary read/write with different byte orders
+func BinaryReadWrite() int {
+	var buf bytes.Buffer
+	
+	// Write in big-endian
+	binary.Write(&buf, binary.BigEndian, uint16(0x1234))
+	binary.Write(&buf, binary.BigEndian, uint32(0x12345678))
+	binary.Write(&buf, binary.BigEndian, int64(-123456789))
+	
+	// Read back
+	var u16 uint16
+	var u32 uint32
+	var i64 int64
+	
+	binary.Read(&buf, binary.BigEndian, &u16)
+	binary.Read(&buf, binary.BigEndian, &u32)
+	binary.Read(&buf, binary.BigEndian, &i64)
+	
+	result := 0
+	if u16 == 0x1234 {
+		result += 1
+	}
+	if u32 == 0x12345678 {
+		result += 2
+	}
+	if i64 == -123456789 {
+		result += 4
+	}
+	
+	return result // Should be 7
+}
+
+// BinarySliceConversion tests binary conversion of slices
+func BinarySliceConversion() int {
+	data := []uint16{0x0102, 0x0304, 0x0506}
+	
+	var buf bytes.Buffer
+	binary.Write(&buf, binary.LittleEndian, data)
+	
+	var decoded []uint16
+	decoded = make([]uint16, 3)
+	binary.Read(&buf, binary.LittleEndian, decoded)
+	
+	if decoded[0] == 0x0102 && decoded[1] == 0x0304 && decoded[2] == 0x0506 {
+		return 1
+	}
+	return 0
+}
+
+// BinarySize tests binary.Size function
+func BinarySize() int {
+	size := binary.Size(uint16(0)) + binary.Size(uint32(0)) + binary.Size(int64(0))
+	
+	// 2 + 4 + 8 = 14
+	return size
+}
+
+// ============================================================================
+// ENCODING/JSON - Advanced JSON operations
+// ============================================================================
+
+// JSONRawMessage tests json.RawMessage for delayed decoding
+func JSONRawMessage() int {
+	type Envelope struct {
+		Type    string          `json:"type"`
+		Payload json.RawMessage `json:"payload"`
+	}
+	
+	data := `{"type":"greeting","payload":{"message":"Hello"}}`
+	
+	var env Envelope
+	json.Unmarshal([]byte(data), &env)
+	
+	if env.Type == "greeting" {
+		// Now decode the payload
+		var payload map[string]string
+		json.Unmarshal(env.Payload, &payload)
+		if payload["message"] == "Hello" {
+			return 1
+		}
+	}
+	return 0
+}
+
+// JSONCustomMarshaler tests custom JSON marshalers
+func JSONCustomMarshaler() int {
+	type Point struct {
+		X int
+		Y int
+	}
+	
+	// Custom marshaler
+	marshalPoint := func(p Point) ([]byte, error) {
+		return json.Marshal([]int{p.X, p.Y})
+	}
+	
+	p := Point{X: 10, Y: 20}
+	data, _ := marshalPoint(p)
+	
+	var coords []int
+	json.Unmarshal(data, &coords)
+	
+	if coords[0] == 10 && coords[1] == 20 {
+		return 1
+	}
+	return 0
+}
+
+// JSONOmitEmpty tests json omitempty tag behavior
+func JSONOmitEmpty() int {
+	type Data struct {
+		Required string `json:"required"`
+		Optional string `json:"optional,omitempty"`
+		Number   int    `json:"number,omitempty"`
+	}
+	
+	d := Data{
+		Required: "must have",
+		Optional: "",
+		Number:   0,
+	}
+	
+	data, _ := json.Marshal(d)
+	
+	// Should not contain "optional" or "number" fields
+	str := string(data)
+	result := 0
+	if strings.Contains(str, `"required":"must have"`) {
+		result += 1
+	}
+	if !strings.Contains(str, `"optional"`) {
+		result += 2
+	}
+	if !strings.Contains(str, `"number"`) {
+		result += 4
+	}
+	
+	return result // Should be 7
+}
+
+// JSONStringIgnoreCase tests JSON field name matching
+func JSONStringIgnoreCase() int {
+	type Data struct {
+		FieldName string `json:"field_name"`
+	}
+	
+	// JSON with different casing
+	data := `{"field_name":"test"}`
+	
+	var d Data
+	json.Unmarshal([]byte(data), &d)
+	
+	if d.FieldName == "test" {
+		return 1
+	}
+	return 0
+}
+
+// JSONComplexMap tests JSON with complex map keys
+func JSONComplexMap() int {
+	// Map with struct keys (requires encoding as array of pairs)
+	type Item struct {
+		Key   string `json:"key"`
+		Value int    `json:"value"`
+	}
+	
+	items := []Item{
+		{Key: "a", Value: 1},
+		{Key: "b", Value: 2},
+	}
+	
+	data, _ := json.Marshal(items)
+	
+	var decoded []Item
+	json.Unmarshal(data, &decoded)
+	
+	if len(decoded) == 2 && decoded[0].Key == "a" && decoded[1].Value == 2 {
+		return 1
+	}
+	return 0
+}
+
+// ============================================================================
+// IO - Complex IO patterns
+// ============================================================================
+
+// IOPipe tests io.Pipe for in-process streaming
+func IOPipe() int {
+	r, w := io.Pipe()
+	
+	// Writer goroutine (simulated with closure)
+	go func() {
+		w.Write([]byte("Hello, "))
+		w.Write([]byte("Pipe!"))
+		w.Close()
+	}()
+	
+	// Reader
+	data, _ := io.ReadAll(r)
+	
+	if string(data) == "Hello, Pipe!" {
+		return 1
+	}
+	return 0
+}
+
+// IOLimitReader tests io.LimitReader
+func IOLimitReader() int {
+	src := strings.NewReader("This is a long string")
+	limited := io.LimitReader(src, 10)
+	
+	data, _ := io.ReadAll(limited)
+	
+	if len(data) == 10 && string(data) == "This is a " {
+		return 1
+	}
+	return 0
+}
+
+// IOSectionReader tests io.SectionReader
+func IOSectionReader() int {
+	src := strings.NewReader("0123456789ABCDEF")
+	section := io.NewSectionReader(src, 5, 5)
+	
+	data, _ := io.ReadAll(section)
+	
+	if string(data) == "56789" {
+		return 1
+	}
+	return 0
+}
+
+// IOTeeReader tests io.TeeReader
+func IOTeeReader() int {
+	src := strings.NewReader("Hello World")
+	var buf bytes.Buffer
+	
+	tee := io.TeeReader(src, &buf)
+	
+	// Read from tee
+	readData, _ := io.ReadAll(tee)
+	
+	// Both should have the same content
+	if string(readData) == "Hello World" && buf.String() == "Hello World" {
+		return 1
+	}
+	return 0
+}
+
+// IOMultiReader tests io.MultiReader
+func IOMultiReader() int {
+	r1 := strings.NewReader("First ")
+	r2 := strings.NewReader("Second ")
+	r3 := strings.NewReader("Third")
+	
+	multi := io.MultiReader(r1, r2, r3)
+	data, _ := io.ReadAll(multi)
+	
+	if string(data) == "First Second Third" {
+		return 1
+	}
+	return 0
+}
+
+// IOMultiWriter tests io.MultiWriter
+func IOMultiWriter() int {
+	var buf1, buf2, buf3 bytes.Buffer
+	
+	mw := io.MultiWriter(&buf1, &buf2, &buf3)
+	mw.Write([]byte("broadcast"))
+	
+	if buf1.String() == "broadcast" && buf2.String() == "broadcast" && buf3.String() == "broadcast" {
+		return 1
+	}
+	return 0
+}
+
+// IOCopy tests io.Copy with various sources and destinations
+func IOCopy() int {
+	src := strings.NewReader("Data to copy")
+	var dst bytes.Buffer
+	
+	n, _ := io.Copy(&dst, src)
+	
+	if n == 12 && dst.String() == "Data to copy" {
+		return 1
+	}
+	return 0
+}
+
+// IOCopyBuffer tests io.CopyBuffer with custom buffer
+func IOCopyBuffer() int {
+	src := strings.NewReader("Custom buffer")
+	var dst bytes.Buffer
+	buf := make([]byte, 5) // Small buffer to force multiple reads
+	
+	n, _ := io.CopyBuffer(&dst, src, buf)
+	
+	if n == 13 && dst.String() == "Custom buffer" {
+		return 1
+	}
+	return 0
+}
+
+// ============================================================================
+// ARCHIVE/TAR - Tar header operations
+// ============================================================================
+
+// TarHeader tests tar.Header creation and manipulation
+func TarHeader() int {
+	hdr := &tar.Header{
+		Name:     "test.txt",
+		Mode:     0644,
+		Size:     100,
+		ModTime:  time.Now(),
+		Typeflag: byte(tar.TypeReg),
+	}
+	
+	result := 0
+	if hdr.Name == "test.txt" {
+		result += 1
+	}
+	if hdr.Mode == 0644 {
+		result += 2
+	}
+	if hdr.Size == 100 {
+		result += 4
+	}
+	if hdr.Typeflag == byte(tar.TypeReg) {
+		result += 8
+	}
+	
+	return result // Should be 15
+}
+
+// TarWriteRead tests tar archive write and read
+func TarWriteRead() int {
+	var buf bytes.Buffer
+	
+	// Create tar archive
+	tw := tar.NewWriter(&buf)
+	
+	hdr := &tar.Header{
+		Name: "hello.txt",
+		Mode: 0644,
+		Size: int64(len("Hello, Tar!")),
+	}
+	
+	tw.WriteHeader(hdr)
+	tw.Write([]byte("Hello, Tar!"))
+	tw.Close()
+	
+	// Read tar archive
+	tr := tar.NewReader(&buf)
+	
+	hdr2, _ := tr.Next()
+	content, _ := io.ReadAll(tr)
+	
+	if hdr2.Name == "hello.txt" && string(content) == "Hello, Tar!" {
+		return 1
+	}
+	return 0
+}
+
+// TarMultipleFiles tests tar archive with multiple files
+func TarMultipleFiles() int {
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	
+	files := []struct {
+		name    string
+		content string
+	}{
+		{"file1.txt", "Content 1"},
+		{"file2.txt", "Content 2"},
+		{"file3.txt", "Content 3"},
+	}
+	
+	for _, f := range files {
+		hdr := &tar.Header{
+			Name: f.name,
+			Mode: 0644,
+			Size: int64(len(f.content)),
+		}
+		tw.WriteHeader(hdr)
+		tw.Write([]byte(f.content))
+	}
+	tw.Close()
+	
+	// Read back
+	tr := tar.NewReader(&buf)
+	count := 0
+	for {
+		_, err := tr.Next()
+		if err != nil {
+			break
+		}
+		io.ReadAll(tr)
+		count++
+	}
+	
+	return count // Should be 3
+}
+
+// ============================================================================
+// ARCHIVE/ZIP - Zip operations
+// ============================================================================
+
+// ZipHeader tests zip.FileHeader creation
+func ZipHeader() int {
+	hdr := &zip.FileHeader{
+		Name:               "test.txt",
+		UncompressedSize:   100,
+		UncompressedSize64: 100,
+		Method:             zip.Deflate,
+	}
+	
+	result := 0
+	if hdr.Name == "test.txt" {
+		result += 1
+	}
+	if hdr.Method == zip.Deflate {
+		result += 2
+	}
+	if hdr.UncompressedSize == 100 {
+		result += 4
+	}
+	
+	return result // Should be 7
+}
+
+// ZipWriteRead tests zip archive write and read
+func ZipWriteRead() int {
+	var buf bytes.Buffer
+	
+	// Create zip archive
+	zw := zip.NewWriter(&buf)
+	
+	w, _ := zw.Create("hello.txt")
+	w.Write([]byte("Hello, Zip!"))
+	zw.Close()
+	
+	// Read zip archive
+	zr, _ := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	
+	if len(zr.File) == 1 && zr.File[0].Name == "hello.txt" {
+		rc, _ := zr.File[0].Open()
+		content, _ := io.ReadAll(rc)
+		rc.Close()
+		if string(content) == "Hello, Zip!" {
+			return 1
+		}
+	}
+	return 0
+}
+
+// ZipMultipleFiles tests zip archive with multiple files
+func ZipMultipleFiles() int {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	
+	files := []struct {
+		name    string
+		content string
+	}{
+		{"dir/file1.txt", "Content 1"},
+		{"dir/file2.txt", "Content 2"},
+		{"file3.txt", "Content 3"},
+	}
+	
+	for _, f := range files {
+		w, _ := zw.Create(f.name)
+		w.Write([]byte(f.content))
+	}
+	zw.Close()
+	
+	// Read back
+	zr, _ := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	
+	return len(zr.File) // Should be 3
+}
+
+// ============================================================================
+// TEXT/TABWRITER - Aligned output
+// ============================================================================
+
+// TabwriterBasic tests basic tabwriter functionality
+func TabwriterBasic() int {
+	var buf bytes.Buffer
+	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+	
+	fmt.Fprintln(tw, "Name\tAge\tCity")
+	fmt.Fprintln(tw, "Alice\t30\tNew York")
+	fmt.Fprintln(tw, "Bob\t25\tLos Angeles")
+	tw.Flush()
+	
+	lines := strings.Count(buf.String(), "\n")
+	return lines // Should be 3
+}
+
+// TabwriterAligned tests tabwriter alignment
+func TabwriterAligned() int {
+	var buf bytes.Buffer
+	tw := tabwriter.NewWriter(&buf, 8, 8, 2, ' ', 0)
+	
+	fmt.Fprintln(tw, "A\tB")
+	fmt.Fprintln(tw, "AAA\tBBB")
+	tw.Flush()
+	
+	output := buf.String()
+	// Verify alignment by checking length
+	if len(output) > 0 {
+		return 1
+	}
+	return 0
+}
+
+// ============================================================================
+// TEXT/SCANNER - Lexical scanning
+// ============================================================================
+
+// ScannerBasic tests basic scanner functionality
+func ScannerBasic() int {
+	var s scanner.Scanner
+	s.Init(strings.NewReader("hello world 123"))
+	
+	count := 0
+	for {
+		tok := s.Scan()
+		if int(tok) == scanner.EOF {
+			break
+		}
+		count++
+	}
+	
+	return count // Should be 3 (hello, world, 123)
+}
+
+// ScannerNumbers tests scanning numbers
+func ScannerNumbers() int {
+	var s scanner.Scanner
+	s.Init(strings.NewReader("42 3.14 -17"))
+	
+	count := 0
+	for {
+		tok := s.Scan()
+		if int(tok) == scanner.EOF {
+			break
+		}
+		if int(tok) == scanner.Int || int(tok) == scanner.Float {
+			count++
+		}
+	}
+	
+	return count // Should be 3
+}
+
+// ScannerCustomMode tests scanner with custom mode
+func ScannerCustomMode() int {
+	var s scanner.Scanner
+	s.Init(strings.NewReader("var x = 42"))
+	s.Mode = uint(scanner.ScanIdents | scanner.ScanInts)
+	
+	tokens := []string{}
+	for {
+		tok := s.Scan()
+		if int(tok) == scanner.EOF {
+			break
+		}
+		tokens = append(tokens, s.TokenText())
+	}
+	
+	if len(tokens) == 4 && tokens[0] == "var" && tokens[3] == "42" {
+		return 1
+	}
+	return 0
+}
+
+// ============================================================================
+// UNICODE/UTF8 - UTF-8 operations
+// ============================================================================
+
+// UTF8RuneCount tests utf8.RuneCountInString
+func UTF8RuneCount() int {
+	s := "Hello, 世界"
+	count := utf8.RuneCountInString(s)
+	return count // Should be 9 (7 ASCII + 2 Chinese)
+}
+
+// UTF8EncodeDecode tests utf8 encode/decode
+func UTF8EncodeDecode() int {
+	r := '世'
+	buf := make([]byte, 3)
+	n := utf8.EncodeRune(buf, r)
+	
+	if n == 3 {
+		decodedRune, _ := utf8.DecodeRune(buf)
+		if decodedRune == r {
+			return 1
+		}
+	}
+	return 0
+}
+
+// UTF8Valid tests utf8.Valid
+func UTF8Valid() int {
+	valid := []byte("Hello, 世界")
+	invalid := []byte{0xff, 0xfe, 0xfd}
+	
+	result := 0
+	if utf8.Valid(valid) {
+		result += 1
+	}
+	if !utf8.Valid(invalid) {
+		result += 2
+	}
+	
+	return result // Should be 3
+}
+
+// ============================================================================
+// COMBINED COMPLEX SCENARIOS
+// ============================================================================
+
+// CombinedEncodingPipeline tests multiple encoding layers
+func CombinedEncodingPipeline() int {
+	data := "Hello, Multi-encoding World!"
+	
+	// Step 1: JSON encode
+	jsonData, _ := json.Marshal(map[string]string{"data": data})
+	
+	// Step 2: Base64 encode
+	base64Data := base64.StdEncoding.EncodeToString(jsonData)
+	
+	// Step 3: Base64 decode
+	jsonDecoded, _ := base64.StdEncoding.DecodeString(base64Data)
+	
+	// Step 4: JSON decode
+	var result map[string]string
+	json.Unmarshal(jsonDecoded, &result)
+	
+	if result["data"] == data {
+		return 1
+	}
+	return 0
+}
+
+// CombinedArchiveWithCompression tests tar with gzip-like compression
+func CombinedArchiveWithCompression() int {
+	var tarBuf bytes.Buffer
+	
+	// Create tar
+	tw := tar.NewWriter(&tarBuf)
+	hdr := &tar.Header{
+		Name: "test.txt",
+		Mode: 0644,
+		Size: int64(len("test content")),
+	}
+	tw.WriteHeader(hdr)
+	tw.Write([]byte("test content"))
+	tw.Close()
+	
+	// Read tar
+	tr := tar.NewReader(&tarBuf)
+	hdr2, _ := tr.Next()
+	content, _ := io.ReadAll(tr)
+	
+	if hdr2.Name == "test.txt" && string(content) == "test content" {
+		return 1
+	}
+	return 0
+}
+
+// CombinedIOAndEncoding tests io operations with encoding
+func CombinedIOAndEncoding() int {
+	var buf bytes.Buffer
+	
+	// Write binary data
+	binary.Write(&buf, binary.BigEndian, uint32(12345))
+	binary.Write(&buf, binary.BigEndian, uint32(67890))
+	
+	// Base64 encode the binary
+	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
+	
+	// Decode
+	decoded, _ := base64.StdEncoding.DecodeString(encoded)
+	
+	// Read back binary
+	reader := bytes.NewReader(decoded)
+	var v1, v2 uint32
+	binary.Read(reader, binary.BigEndian, &v1)
+	binary.Read(reader, binary.BigEndian, &v2)
+	
+	if v1 == 12345 && v2 == 67890 {
+		return 1
+	}
+	return 0
+}
+
+// CombinedNestedClosuresWithThirdParty tests closures with third-party libraries
+func CombinedNestedClosuresWithThirdParty() int {
+	// Create encoder function
+	encodeJSON := func(v interface{}) ([]byte, error) {
+		return json.Marshal(v)
+	}
+	
+	// Create nested encoder that adds metadata
+	encodeWithMeta := func(v interface{}) ([]byte, error) {
+		wrapped := map[string]interface{}{
+			"timestamp": "2026-04-03",
+			"data":      v,
+		}
+		return encodeJSON(wrapped)
+	}
+	
+	// Use it
+	data := map[string]int{"x": 1, "y": 2}
+	result, _ := encodeWithMeta(data)
+	
+	// Verify
+	var decoded map[string]interface{}
+	json.Unmarshal(result, &decoded)
+	
+	if decoded["timestamp"] == "2026-04-03" {
+		return 1
+	}
+	return 0
+}
+
+// CombinedDeferWithIO tests defer with io operations
+// CombinedPanicRecoverWithJSON tests panic/recover in JSON operations
+func CombinedPanicRecoverWithJSON() int {
+	result := func() (ret int) {
+		defer func() {
+			if r := recover(); r != nil {
+				ret = -1
+			}
+		}()
+		
+		// This should not panic
+		data, _ := json.Marshal(map[string]int{"key": 42})
+		var decoded map[string]int
+		json.Unmarshal(data, &decoded)
+		
+		return decoded["key"]
+	}()
+	
+	return result // Should be 42
+}
+
+// CombinedChannelWithEncoding tests channels with encoding operations
+func CombinedChannelWithEncoding() int {
+	ch := make(chan []byte, 3)
+	
+	// Producer
+	go func() {
+		data := []string{"a", "b", "c"}
+		for _, s := range data {
+			encoded, _ := json.Marshal(s)
+			ch <- encoded
+		}
+		close(ch)
+	}()
+	
+	// Consumer
+	count := 0
+	for encoded := range ch {
+		var decoded string
+		json.Unmarshal(encoded, &decoded)
+		if decoded != "" {
+			count++
+		}
+	}
+	
+	return count // Should be 3
+}
+
+// CombinedStructMethodsAndJSON tests struct methods with JSON marshaling
+func CombinedStructMethodsAndJSON() int {
+	type Counter struct {
+		Value int `json:"value"`
+	}
+	
+	c := &Counter{Value: 10}
+	
+	// Modify via method
+	increment := func(c *Counter) {
+		c.Value++
+	}
+	
+	increment(c)
+	increment(c)
+	increment(c)
+	
+	// Serialize
+	data, _ := json.Marshal(c)
+	
+	var decoded Counter
+	json.Unmarshal(data, &decoded)
+	
+	return decoded.Value // Should be 13
+}
+
+// CombinedInterfaceAndEncoding tests interface implementation with encoding
+func CombinedInterfaceAndEncoding() int {
+	var buf bytes.Buffer
+	var w io.Writer = &buf
+	
+	// Write JSON to interface
+	data, _ := json.Marshal(map[string]string{"key": "value"})
+	w.Write(data)
+	
+	// Read back
+	var decoded map[string]string
+	json.Unmarshal(buf.Bytes(), &decoded)
+	
+	if decoded["key"] == "value" {
+		return 1
+	}
+	return 0
 }

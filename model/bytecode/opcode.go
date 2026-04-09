@@ -437,6 +437,11 @@ const (
 	// Stack: [... closure args...] -> [...]
 	OpDeferIndirect
 
+	// OpDeferExternal defers an external function or method call.
+	// Operands: [func_idx:2, num_args:1]
+	// Stack: [... args...] -> [...]
+	OpDeferExternal
+
 	// OpRunDefers executes all pending deferred calls synchronously.
 	// This is used for named return values where defers may modify return values
 	// before the function actually returns.
@@ -735,6 +740,7 @@ func buildOperandWidthTable() [256]int {
 	t[OpMethodCall] = 3 // method_idx(2) + num_args(1)
 	t[OpDefer] = 2
 	t[OpDeferIndirect] = 2  // num_args(2)
+	t[OpDeferExternal] = 3  // func_idx(2) + num_args(1)
 	t[OpCallExternal] = 3   // func_idx(2) + num_args(1)
 	t[OpCallIndirect] = 1   // num_args(1)
 	t[OpGoCall] = 3         // func_idx(2) + num_args(1)
@@ -949,6 +955,8 @@ func (op OpCode) String() string {
 		return "DEFER"
 	case OpDeferIndirect:
 		return "DEFERINDIRECT"
+	case OpDeferExternal:
+		return "DEFEREXTERNAL"
 	case OpRunDefers:
 		return "RUNDEFERS"
 	case OpRecover:

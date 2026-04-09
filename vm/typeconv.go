@@ -117,7 +117,10 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 		if elem != nil {
 			return reflect.SliceOf(elem)
 		}
-		return nil
+		// If elem is nil due to a cycle (e.g., []*TreeNode where TreeNode has cycle),
+		// use []interface{} as a placeholder. The VM will convert slice elements
+		// at assignment time when the concrete type is known.
+		return reflect.SliceOf(reflect.TypeFor[interface{}]())
 	case *types.Array:
 		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
 		if elem != nil {
@@ -274,7 +277,9 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 			// For named empty structs, the ReflectTypeNames registry handles identification.
 			return reflect.TypeOf(struct{}{})
 		}
-		return reflect.StructOf(fields)
+		result := reflect.StructOf(fields)
+		
+		return result
 	case *types.Signature:
 		// Function type - need to build the function type dynamically
 		// Get parameter types

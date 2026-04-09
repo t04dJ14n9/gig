@@ -323,6 +323,13 @@ func (v *vm) resolveExternalFunc(funcIdx int) *extCallCacheEntry {
 	return entry
 }
 
+// toReflectArg converts a single value.Value arg to reflect.Value for the given target type.
+// No wrapping is needed — encoding/container/sync/etc. all work on raw struct values.
+// fmt.Stringer dispatch is handled at the DirectCall wrapper level via value.FmtWrap.
+func toReflectArg(arg value.Value, targetType reflect.Type) reflect.Value {
+	return arg.ToReflectValue(targetType)
+}
+
 // buildReflectArgs converts []value.Value args to []reflect.Value for reflect.Call,
 // handling SSA-packed variadic slices. fnType is the target function type.
 func buildReflectArgs(args []value.Value, fnType reflect.Type) []reflect.Value {
@@ -338,7 +345,7 @@ func buildReflectArgs(args []value.Value, fnType reflect.Type) []reflect.Value {
 			sliceLen := rv.Len()
 			in := make([]reflect.Value, numIn-1+sliceLen)
 			for i := 0; i < numArgs-1; i++ {
-				in[i] = args[i].ToReflectValue(fnType.In(i))
+				in[i] = toReflectArg(args[i], fnType.In(i))
 			}
 			elemType := fnType.In(numIn - 1).Elem()
 			for i := 0; i < sliceLen; i++ {
@@ -359,9 +366,9 @@ func buildReflectArgs(args []value.Value, fnType reflect.Type) []reflect.Value {
 		for i, arg := range args {
 			if i >= numIn-1 {
 				variadicType := fnType.In(numIn - 1).Elem()
-				in[i] = arg.ToReflectValue(variadicType)
+				in[i] = toReflectArg(arg, variadicType)
 			} else {
-				in[i] = arg.ToReflectValue(fnType.In(i))
+				in[i] = toReflectArg(arg, fnType.In(i))
 			}
 		}
 		return in
@@ -370,10 +377,10 @@ func buildReflectArgs(args []value.Value, fnType reflect.Type) []reflect.Value {
 	in := make([]reflect.Value, numArgs)
 	for i, arg := range args {
 		if i < numIn {
-			in[i] = arg.ToReflectValue(fnType.In(i))
+			in[i] = toReflectArg(arg, fnType.In(i))
 		} else if isVariadic {
 			variadicType := fnType.In(numIn - 1).Elem()
-			in[i] = arg.ToReflectValue(variadicType)
+			in[i] = toReflectArg(arg, variadicType)
 		}
 	}
 	return in

@@ -233,7 +233,22 @@ func (v Value) Field(i int) Value {
 // SetField sets struct field at index i.
 func (v Value) SetField(i int, val Value) {
 	if rv, ok := v.obj.(reflect.Value); ok {
-		rv.Field(i).Set(val.ToReflectValue(rv.Type().Field(i).Type))
+		field := rv.Field(i)
+		fieldType := rv.Type().Field(i).Type
+		
+		// Handle slice conversion: []*T -> []interface{} for cyclic struct fields
+		if fieldType.Kind() == reflect.Slice && fieldType.Elem().Kind() == reflect.Interface {
+			if valRV, ok := val.ReflectValue(); ok && valRV.Kind() == reflect.Slice {
+				if valRV.Type().Elem().Kind() != reflect.Interface {
+					// Convert slice of concrete types to slice of interface{}
+					convertedSlice := convertSliceToInterface(valRV, fieldType)
+					field.Set(convertedSlice)
+					return
+				}
+			}
+		}
+		
+		field.Set(val.ToReflectValue(fieldType))
 		return
 	}
 	panic("invalid reflect.Value in SetField()")
@@ -320,6 +335,18 @@ func (v Value) SetElem(val Value) {
 				}
 				valRV := val.ToReflectValue(elemType)
 				if !valRV.Type().AssignableTo(elemType) {
+					// Handle slice conversion: []*T -> []interface{} for cyclic struct fields
+					if elemType.Kind() == reflect.Slice && valRV.Kind() == reflect.Slice {
+						if elemType.Elem().Kind() == reflect.Interface && valRV.Type().Elem().Kind() != reflect.Interface {
+							// Convert slice of concrete types to slice of interface{}
+							convertedSlice := convertSliceToInterface(valRV, elemType)
+							if convertedSlice.Type().AssignableTo(elemType) {
+								targetRV.Set(convertedSlice)
+								return
+							}
+						}
+					}
+					
 					// Auto-unwrap pointer if elem matches
 					if valRV.Kind() == reflect.Ptr && !valRV.IsNil() && valRV.Type().Elem().AssignableTo(elemType) {
 						targetRV.Set(valRV.Elem())
@@ -360,4 +387,33 @@ func Package(vals ...Value) []Value {
 // Unpackage unpacks a slice of values.
 func Unpackage(vals []Value) []Value {
 	return vals
+}
+
+// convertSliceToInterface converts a slice of concrete types to slice of interface{}.
+// This is needed for self-referential structs where []*T becomes []interface{} due to cycle breaking.
+func convertSliceToInterface(slice reflect.Value, targetType reflect.Type) reflect.Value {
+	if slice.Kind() != reflect.Slice || targetType.Kind() != reflect.Slice {
+		return slice
+	}
+	if targetType.Elem().Kind() != reflect.Interface {
+		return slice
+	}
+	if slice.Type().Elem().Kind() == reflect.Interface {
+		return slice // Already interface slice
+	}
+
+	// Create new slice with target type
+	newSlice := reflect.MakeSlice(targetType, slice.Len(), slice.Cap())
+	for i := 0; i < slice.Len(); i++ {
+		elem := slice.Index(i)
+		// Wrap each element in interface{}
+		// For pointers, we need to convert to interface{} explicitly
+		if elem.CanInterface() {
+			newSlice.Index(i).Set(reflect.ValueOf(elem.Interface()))
+		} else {
+			// Unexported field - this shouldn't happen but handle gracefully
+			newSlice.Index(i).Set(elem)
+		}
+	}
+	return newSlice
 }

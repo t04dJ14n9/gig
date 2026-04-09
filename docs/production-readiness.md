@@ -69,8 +69,12 @@ These libraries work correctly because they only perform pure computation.
 `sort`, `cmp`, `slices`, `maps`, `container/heap`, `container/list`, `container/ring`
 
 ### Encoding & Serialization
-`encoding/json`, `encoding/xml`, `encoding/base64`, `encoding/hex`, `encoding/csv`,
-`encoding/asn1`, `encoding/binary`, `encoding/gob`, `encoding/ascii85`, `encoding/pem`
+`encoding/json`, `encoding/base64`, `encoding/hex`, `encoding/csv`,
+`encoding/asn1`, `encoding/binary`, `encoding/ascii85`, `encoding/pem`
+
+> **Note:** `encoding/xml` and `encoding/gob` are intentionally not supported.
+> XML requires named struct types (incompatible with `reflect.StructOf`).
+> GOB has similar limitations with recursive types. Use `encoding/json` instead.
 
 ### Regular Expressions
 `regexp`, `regexp/syntax`

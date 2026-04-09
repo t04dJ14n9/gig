@@ -303,6 +303,15 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 					}
 				}
 			}
+			
+			// Handle slice conversion: []*T -> []interface{} for cyclic struct fields
+			if typ.Kind() == reflect.Slice && rv.Kind() == reflect.Slice {
+				if typ.Elem().Kind() == reflect.Interface && rv.Type().Elem().Kind() != reflect.Interface {
+					// Convert slice of concrete types to slice of interface{}
+					return convertSliceToInterface(rv, typ)
+				}
+			}
+			
 			return rv
 		}
 		return reflect.ValueOf(v.obj)

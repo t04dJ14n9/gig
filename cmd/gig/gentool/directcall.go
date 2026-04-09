@@ -40,6 +40,13 @@ func isSprintfLike(fi *funcInfo) bool {
 	return true
 }
 
+// isFmtPackage returns true if the package reference refers to "fmt".
+// Functions in the fmt package need FmtWrap for interface{} args so that
+// gig structs with String() methods are properly formatted.
+func isFmtPackage(pkgRef string) bool {
+	return pkgRef == "fmt"
+}
+
 func generateDirectCall(fi *funcInfo, pkgRef string) string {
 	sig := fi.Sig
 	params := sig.Params()
@@ -70,6 +77,10 @@ func generateDirectCall(fi *funcInfo, pkgRef string) string {
 	if results.Len() > 6 {
 		return ""
 	}
+
+	// Determine if this function needs FmtWrap for interface{} args.
+	// fmt.* functions check for Stringer/Formatter interfaces, so they need wrapping.
+	useFmtWrap := isFmtPackage(pkgRef)
 
 	b := &strings.Builder{}
 	b.WriteString(fmt.Sprintf("func direct_%s_%s(args []value.Value) value.Value {\n", pkgRef, fi.Name))
@@ -103,9 +114,16 @@ func generateDirectCall(fi *funcInfo, pkgRef string) string {
 		elemType := sliceType.Elem()
 
 		if isEmptyInterface(elemType) {
+			// For fmt.* functions, use FmtWrap to enable Stringer dispatch.
+			// For everything else, use plain Interface() — encoding/sort/etc.
+			// work natively on the raw struct.
+			wrapExpr := "args[i].Interface()"
+			if useFmtWrap {
+				wrapExpr = "value.FmtWrap(args[i])"
+			}
 			b.WriteString(fmt.Sprintf("\tvarArgs := make([]interface{}, len(args)-%d)\n", fixedCount))
 			b.WriteString(fmt.Sprintf("\tfor i := %d; i < len(args); i++ {\n", fixedCount))
-			b.WriteString(fmt.Sprintf("\t\tvarArgs[i-%d] = value.ExternWrap(args[i])\n", fixedCount))
+			b.WriteString(fmt.Sprintf("\t\tvarArgs[i-%d] = %s\n", fixedCount, wrapExpr))
 			b.WriteString("\t}\n")
 			argExprs = append(argExprs, "varArgs...")
 		} else {
@@ -270,7 +288,7 @@ func extractArg(t types.Type, valExpr string, pkgRef string) string {
 			if obj.Name() == errorTypeName {
 				return fmt.Sprintf("%s.Interface().(error)", valExpr)
 			}
-			// 'any' and other builtin aliases: extract as interface{}
+			// 'any' and other builtin aliases: pass raw value
 			return fmt.Sprintf("%s.Interface()", valExpr)
 		}
 	}

@@ -93,10 +93,10 @@ func init() {
 	pkg.AddConstant("MaxInt32", math.MaxInt32, "")
 	pkg.AddConstant("MaxInt64", math.MaxInt64, "")
 	pkg.AddConstant("MaxInt8", math.MaxInt8, "")
-	pkg.AddConstant("MaxUint", uint(math.MaxUint), "")
+	pkg.AddConstant("MaxUint", uint64(math.MaxUint), "")
 	pkg.AddConstant("MaxUint16", math.MaxUint16, "")
 	pkg.AddConstant("MaxUint32", math.MaxUint32, "")
-	pkg.AddConstant("MaxUint64", uint(math.MaxUint64), "")
+	pkg.AddConstant("MaxUint64", uint64(math.MaxUint64), "")
 	pkg.AddConstant("MaxUint8", math.MaxUint8, "")
 	pkg.AddConstant("MinInt", math.MinInt, "")
 	pkg.AddConstant("MinInt16", math.MinInt16, "")
@@ -241,7 +241,7 @@ func direct_math_Float32frombits(args []value.Value) value.Value {
 
 func direct_math_Float64bits(args []value.Value) value.Value {
 	a0 := args[0].Float()
-	return value.MakeUint(uint64(math.Float64bits(a0)))
+	return value.MakeUint64(math.Float64bits(a0))
 }
 
 func direct_math_Float64frombits(args []value.Value) value.Value {

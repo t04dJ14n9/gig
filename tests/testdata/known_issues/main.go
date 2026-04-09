@@ -27,12 +27,12 @@ import (
 // OTHER KNOWN BUGS
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Bug 8: Method dispatch type collision — json.Encoder.Encode vs xml.Encoder.Encode
+// Bug 8: Method dispatch type collision — json.Encoder.Encode
 //
-// When a program uses both json.Encoder and xml.Encoder, the compiled program
-// contains methods with the same name "Encode" on different receiver types.
-// The method resolver picks xml.Encoder.Encode for json.Encoder.Encode calls,
-// causing: panic: interface {} is *json.Encoder, not *xml.Encoder
+// When a program uses multiple types with the same method name "Encode",
+// the compiled program contains methods with the same name on different
+// receiver types. The method resolver could pick the wrong one.
+// This was fixed by including the full receiver type in the method cache key.
 //
 // This is the same reflect.StructOf type identity issue that was partially
 // fixed for other cases. The fix likely requires making the method cache
