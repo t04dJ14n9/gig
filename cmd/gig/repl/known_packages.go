@@ -25,7 +25,6 @@ var knownPackages = map[string]string{
 
 	// Encoding
 	"json":   "encoding/json",
-	"xml":    "encoding/xml",
 	"base64": "encoding/base64",
 	"hex":    "encoding/hex",
 	"csv":    "encoding/csv",

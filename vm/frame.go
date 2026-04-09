@@ -2,6 +2,8 @@
 package vm
 
 import (
+	"reflect"
+
 	"git.woa.com/youngjin/gig/model/bytecode"
 	"git.woa.com/youngjin/gig/model/value"
 )
@@ -52,6 +54,16 @@ type DeferInfo struct {
 
 	// closure is the closure to call (for OpDeferIndirect).
 	closure *Closure
+
+	// externalFunc is an external function or method value to call via reflection.
+	// This is used for defer statements that capture external type methods, e.g.:
+	//   encoder := base64.NewEncoder(...)
+	//   defer encoder.Close()  // externalFunc will hold the Close method value
+	externalFunc reflect.Value
+	
+	// externalInfo holds external function/method metadata (for OpDeferExternal).
+	// This is used for interface method invocations in defer.
+	externalInfo interface{}
 }
 
 // newFrame creates a new call frame for a function with a zero base pointer.

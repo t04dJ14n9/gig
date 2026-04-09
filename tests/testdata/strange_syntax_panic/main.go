@@ -17,6 +17,25 @@ func MultipleDefersWithRecover() int {
 	panic("test")
 }
 
+// MultipleDeferWithPanic tests multiple defers with panic
+func MultipleDeferWithPanic() int {
+	result := 0
+	defer func() {
+		result += 100
+		if r := recover(); r != nil {
+			result += 10
+		}
+	}()
+	defer func() {
+		result += 1
+		panic("panic from defer")
+	}()
+	defer func() {
+		result += 2
+	}()
+	return result // Should be 2 + 1 + 100 + 10 = 113
+}
+
 // PanicInDefer tests panic in defer
 func PanicInDefer() int {
 	defer func() {

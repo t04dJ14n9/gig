@@ -9,6 +9,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 
 	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/external"
 )
 
 // compileValue compiles an SSA value to push it onto the stack.
@@ -655,6 +656,30 @@ func (c *compiler) compileSend(i *ssa.Send) {
 
 // compileDefer compiles a Defer instruction.
 func (c *compiler) compileDefer(i *ssa.Defer) {
+	// Handle interface method invocation (e.g., defer iface.Method())
+	// SSA represents this with Call.IsInvoke() == true
+	if i.Call.IsInvoke() {
+		// Push the receiver (interface value) as the first argument
+		c.compileValue(i.Call.Value)
+		// Push remaining arguments
+		for _, arg := range i.Call.Args {
+			c.compileValue(arg)
+		}
+		methodInfo := &external.ExternalMethodInfo{
+			MethodName: i.Call.Method.Name(),
+		}
+		// Extract receiver type if available
+		if recvType := i.Call.Value.Type(); recvType != nil {
+			if named := extractNamedType(recvType); named != nil {
+				methodInfo.ReceiverTypeName = named.Obj().Name()
+			}
+		}
+		funcIdx := c.addConstant(methodInfo)
+		numArgs := len(i.Call.Args) + 1 // +1 for receiver
+		c.emitCallOp(bytecode.OpDeferExternal, uint16(funcIdx), numArgs)
+		return
+	}
+	
 	switch val := i.Call.Value.(type) {
 	case *ssa.Function:
 		// If the function has free variables, we need to create a closure

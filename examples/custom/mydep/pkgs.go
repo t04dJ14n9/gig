@@ -19,7 +19,6 @@ import (
 	_ "encoding/csv"
 	_ "encoding/hex"
 	_ "encoding/json"
-	_ "encoding/xml"
 	_ "errors"
 	_ "fmt"
 	_ "html"

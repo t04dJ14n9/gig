@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/external"
 	"git.woa.com/youngjin/gig/model/value"
 )
 
@@ -212,6 +213,25 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 			args: args,
 		})
 
+	case bytecode.OpDeferExternal:
+		funcIdx := frame.readUint16()
+		numArgs := int(frame.readByte())
+		
+		// Pop arguments from stack
+		args := make([]value.Value, numArgs)
+		for i := numArgs - 1; i >= 0; i-- {
+			args[i] = v.pop()
+		}
+		
+		// Get the external function/method info
+		externalInfo := v.program.Constants[funcIdx]
+		
+		// Store as external defer
+		frame.defers = append(frame.defers, DeferInfo{
+			args:         args,
+			externalInfo: externalInfo,
+		})
+
 	case bytecode.OpDeferIndirect:
 		numArgs := int(frame.readUint16())
 
@@ -224,16 +244,40 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 		// Pop closure from stack
 		closureVal := v.pop()
 		closure, ok := closureVal.RawObj().(*Closure)
-		if !ok {
+		if ok {
+			// Gig closure - add to defer list
+			frame.defers = append(frame.defers, DeferInfo{
+				fn:      closure.Fn,
+				args:    args,
+				closure: closure,
+			})
+		} else if rv, ok := closureVal.ReflectValue(); ok {
+			if rv.Kind() == reflect.Func {
+				// External function/method value - add to defer list
+				frame.defers = append(frame.defers, DeferInfo{
+					args:         args,
+					externalFunc: rv,
+				})
+			} else if rv.Kind() == reflect.Interface && !rv.IsNil() {
+				// Interface wrapping a function
+				concrete := rv.Elem()
+				if concrete.Kind() == reflect.Func {
+					frame.defers = append(frame.defers, DeferInfo{
+						args:         args,
+						externalFunc: concrete,
+					})
+				} else {
+					// Invalid defer value
+					return nil
+				}
+			} else {
+				// Invalid defer value
+				return nil
+			}
+		} else {
+			// Invalid defer value - this shouldn't happen in well-formed programs
 			return nil
 		}
-
-		// Add to defer list with closure
-		frame.defers = append(frame.defers, DeferInfo{
-			fn:      closure.Fn,
-			args:    args,
-			closure: closure,
-		})
 
 	case bytecode.OpRunDefers:
 		// Execute all pending deferred calls synchronously in LIFO order.
@@ -243,6 +287,43 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 			// Pop the last defer (LIFO)
 			d := frame.defers[len(frame.defers)-1]
 			frame.defers = frame.defers[:len(frame.defers)-1]
+
+			// Handle external info (OpDeferExternal for interface methods)
+			if d.externalInfo != nil {
+				if methodInfo, ok := d.externalInfo.(*external.ExternalMethodInfo); ok {
+					if err := v.callExternalMethod(methodInfo, d.args); err != nil {
+						// Propagate error
+						return err
+					}
+					// Pop the result (deferred calls should not return values)
+					if methodInfo.DirectCall == nil {
+						// Reflection call may push a result
+						_ = v.pop()
+					}
+				}
+				continue
+			}
+			
+			// Handle external function defers
+			if d.externalFunc.IsValid() {
+				// Convert arguments to reflect.Value
+				argVals := make([]reflect.Value, len(d.args))
+				for i, arg := range d.args {
+					// Get the argument type from function signature
+					funcType := d.externalFunc.Type()
+					if i < funcType.NumIn() {
+						argType := funcType.In(i)
+						argVals[i] = arg.ToReflectValue(argType)
+					} else {
+						// Variadic argument
+						argVals[i] = reflect.ValueOf(arg.Interface())
+					}
+				}
+				
+				// Call the external function
+				d.externalFunc.Call(argVals)
+				continue
+			}
 
 			// Get free variables from closure if present
 			var freeVars []*value.Value

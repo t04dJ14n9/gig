@@ -4,8 +4,10 @@
 // interfaces (fmt.Stringer, fmt.Formatter) so that standard library and
 // third-party code can discover them via type assertion / reflection.
 //
-// This is NOT fmt-specific — it works for any package that checks for
-// interface satisfaction on values passed as interface{}.
+// DESIGN: Only fmt.Stringer and fmt.Formatter need a wrapper, because
+// reflect.StructOf types can't have methods. Encoding packages (json, etc.)
+// work natively on the raw struct via struct tags and reflection —
+// wrapping them would actually *break* native encoding by intercepting it.
 package value
 
 import (
@@ -13,8 +15,6 @@ import (
 	"reflect"
 	"strings"
 )
-
-// Note: Debug prints are disabled by default. Enable by changing 'if false' to 'if true' in ExternWrap and resolveStringer
 
 // gigStructWrapper wraps an interpreter-synthesized struct value to implement
 // Go interfaces (fmt.Stringer, fmt.Formatter) that the underlying anonymous
@@ -86,22 +86,41 @@ func (g *gigStructWrapper) Format(f fmt.State, verb rune) {
 // isGigStruct checks if a Go value is an interpreter-synthesized struct
 // by looking for the "gig" struct tag on its first field.
 // Returns the qualified type name (e.g., "pkg.TypeName") or "" if not a gig struct.
-// Handles both struct values and pointers to structs.
+// Handles struct values, pointers to structs, and multiple levels of pointers (**T, ***T, etc.).
 func isGigStruct(v any) string {
+	if v == nil {
+		return ""
+	}
 	rv := reflect.ValueOf(v)
+	rt := rv.Type()
 
-	// Handle pointer to struct
-	if rv.Kind() == reflect.Ptr {
+	// Handle multiple levels of pointers: **T, ***T, etc.
+	for rv.Kind() == reflect.Ptr {
 		if rv.IsNil() {
-			return ""
+			elemType := rt.Elem()
+			for elemType.Kind() == reflect.Ptr {
+				elemType = elemType.Elem()
+			}
+			if elemType.Kind() != reflect.Struct || elemType.NumField() == 0 {
+				return ""
+			}
+			gigTag := elemType.Field(0).Tag.Get("gig")
+			if gigTag == "" {
+				return ""
+			}
+			if strings.HasPrefix(gigTag, "#") {
+				return gigTag[1:]
+			}
+			return gigTag
 		}
 		rv = rv.Elem()
+		rt = rv.Type()
 	}
 
 	if rv.Kind() != reflect.Struct {
 		return ""
 	}
-	rt := rv.Type()
+	rt = rv.Type()
 	if rt.NumField() == 0 {
 		return ""
 	}
@@ -109,42 +128,43 @@ func isGigStruct(v any) string {
 	if gigTag == "" {
 		return ""
 	}
-	// Tag format: "#pkg.TypeName" — strip the leading "#"
 	if strings.HasPrefix(gigTag, "#") {
 		return gigTag[1:]
 	}
 	return gigTag
 }
 
-// ExternWrap prepares a value.Value for passing to external Go code as interface{}.
-// If the value is an interpreter-synthesized struct with compiled methods
-// (e.g., String()), returns a wrapper that implements the corresponding Go
-// interfaces. Otherwise returns the raw interface{} value.
+// ExternWrap is a pass-through that returns the raw interface{} value.
+// For most external Go code (json, container, sync, etc.),
+// the raw struct is what they need — struct tags and reflection work natively.
 //
-// This is the general-purpose boundary function — use it whenever passing
-// interpreter values to ...interface{} variadic args in ANY external package.
+// Use FmtWrap instead when passing values to fmt.* functions that check
+// for fmt.Stringer/fmt.Formatter interfaces.
 func ExternWrap(v Value) any {
-	iface := v.Interface()
-	typeName := isGigStruct(iface)
+	return v.Interface()
+}
 
-	// Debug: check if this is a gig struct
-	if false { // Enable for debugging: change to 'if true'
-		rv := reflect.ValueOf(iface)
-		fmt.Printf("[DEBUG ExternWrap] iface type: %T, kind: %v, typeName: %q\n",
-			iface, rv.Kind(), typeName)
+// FmtWrap prepares a value.Value for passing to fmt.* functions.
+// If the value is an interpreter-synthesized struct with compiled methods
+// (e.g., String()), returns a wrapper that implements fmt.Stringer and
+// fmt.Formatter. Otherwise returns the raw interface{} value.
+//
+// This is the boundary function for fmt.Print/Sprint/Fprintf/etc. — use it
+// whenever passing interpreter values to ...interface{} variadic args in
+// fmt-family functions.
+func FmtWrap(v Value) any {
+	iface := v.Interface()
+	if iface == nil {
+		return iface
 	}
 
+	typeName := isGigStruct(iface)
 	if typeName == "" {
 		return iface
 	}
 
 	// Check if the interpreted type has a String() method via the global resolver registry
-	// We need to check this BEFORE creating the wrapper to decide whether to wrap
 	stringerFunc, hasStringer := resolveStringer(v)
-
-	if false { // Enable for debugging
-		fmt.Printf("[DEBUG ExternWrap] hasStringer: %v, stringerFunc: %v\n", hasStringer, stringerFunc != nil)
-	}
 
 	// Always return the wrapper for gig structs - it handles all fmt verbs correctly
 	return &gigStructWrapper{
@@ -158,20 +178,11 @@ func ExternWrap(v Value) any {
 // resolveStringer attempts to resolve the String() method for a value.
 // Returns a function that can be called later, and a boolean indicating if found.
 func resolveStringer(v Value) (func() string, bool) {
-	// Debug: check receiver type
-	if false { // Enable for debugging
-		if rv, ok := v.ReflectValue(); ok {
-			fmt.Printf("[DEBUG resolveStringer] receiver kind: %v, type: %v\n", rv.Kind(), rv.Type())
-		}
-	}
-
 	// Try to call String() method via the global resolver registry
 	result, found := CallMethod(nil, "String", v)
 	if !found {
 		// If not found, try with pointer to the value (for pointer receiver methods)
-		// This handles the case where the value is a struct but method is on *Struct
 		if rv, ok := v.ReflectValue(); ok && rv.Kind() == reflect.Struct {
-			// Create a pointer wrapper
 			ptrRV := reflect.New(rv.Type())
 			ptrRV.Elem().Set(rv)
 			ptrValue := MakeFromReflect(ptrRV)
@@ -183,10 +194,6 @@ func resolveStringer(v Value) (func() string, bool) {
 		return nil, false
 	}
 	str := result.String()
-	// Return a closure that captures the string - this is OK because
-	// String() should return the same value for the same receiver state
-	// If the receiver is mutated after wrapping, this could be stale
-	// TODO: Consider making this dynamic if needed
 	return func() string { return str }, true
 }
 
@@ -194,9 +201,6 @@ func resolveStringer(v Value) (func() string, bool) {
 // handles %T for gigStructWrapper values. Go's fmt.Sprintf("%T") bypasses
 // fmt.Formatter entirely and uses reflect.TypeOf().String(), so we must
 // intercept %T ourselves.
-//
-// This is NOT fmt-specific — it can be used by any package that has
-// Sprintf-like semantics (format string + ...interface{}).
 func SprintfExtern(format string, args ...any) string {
 	// Fast path: no %T in format string — use standard fmt.Sprintf
 	if !strings.Contains(format, "%T") {

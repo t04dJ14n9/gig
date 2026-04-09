@@ -572,8 +572,8 @@ func BytesBufferCapResolved() int {
 }
 
 // ── Resolved Issue 34: json.Encoder method dispatch collision ───────────────
-// Previously, when a program used both json.Encoder and xml.Encoder, the
-// compiled method cache would confuse them because both have an "Encode" method.
+// Previously, when a program used multiple encoder types with the same method name,
+// the compiled method cache would confuse them because both have an "Encode" method.
 // The reflect.StructOf type identity fix (ReflectTypeCache) resolved this.
 
 // JsonEncodeResolved tests json.NewEncoder.Encode call works correctly.

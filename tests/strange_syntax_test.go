@@ -7,6 +7,7 @@ import (
 	"git.woa.com/youngjin/gig"
 	_ "git.woa.com/youngjin/gig/stdlib/packages"
 	"git.woa.com/youngjin/gig/tests/testdata/strange_syntax"
+	"git.woa.com/youngjin/gig/tests/testdata/strange_syntax_known_issue"
 	"git.woa.com/youngjin/gig/tests/testdata/strange_syntax_panic"
 )
 
@@ -15,6 +16,9 @@ var strangeSyntaxSrc string
 
 //go:embed testdata/strange_syntax_panic/main.go
 var strangeSyntaxPanicSrc string
+
+//go:embed testdata/strange_syntax_known_issue/main.go
+var strangeSyntaxKnownIssueSrc string
 
 // TestStrangeSyntax runs comprehensive strange syntax tests to find interpreter bugs
 func TestStrangeSyntax(t *testing.T) {
@@ -770,6 +774,128 @@ func TestStrangeSyntax(t *testing.T) {
 		"RangeStatement":                    {strangeSyntaxSrc, "RangeStatement", nil, strange_syntax.RangeStatement},
 		"DeferStatement":                    {strangeSyntaxSrc, "DeferStatement", nil, strange_syntax.DeferStatement},
 		"MultipleDefer":                     {strangeSyntaxSrc, "MultipleDefer", nil, strange_syntax.MultipleDefer},
+		
+		// Deep Nested Closures (Round 7 - New Tests)
+		"DeepNestedClosureChain":            {strangeSyntaxSrc, "DeepNestedClosureChain", nil, strange_syntax.DeepNestedClosureChain},
+		"ClosureMutatingCapturedVars":       {strangeSyntaxSrc, "ClosureMutatingCapturedVars", nil, strange_syntax.ClosureMutatingCapturedVars},
+		"RecursiveClosureWithDefer":         {strangeSyntaxSrc, "RecursiveClosureWithDefer", nil, strange_syntax.RecursiveClosureWithDefer},
+		
+		// Complex Defer Scenarios (Round 7 - New Tests)
+		"DeferInRecursiveCall":              {strangeSyntaxSrc, "DeferInRecursiveCall", nil, strange_syntax.DeferInRecursiveCall},
+		"DeferModifyingNamedReturns":        {strangeSyntaxSrc, "DeferModifyingNamedReturns", nil, strange_syntax.DeferModifyingNamedReturns},
+		"DeferInClosureReturning":           {strangeSyntaxSrc, "DeferInClosureReturning", nil, strange_syntax.DeferInClosureReturning},
+		
+		// Self-Referential Structures (Round 7 - New Tests)
+		"LinkedListCycle":                   {strangeSyntaxSrc, "LinkedListCycle", nil, strange_syntax.LinkedListCycle},
+		// TreeWithParentRef - remains in known issues (self-referential struct with slice field)
+		
+		// Complex Type Assertions (Round 7 - New Tests)
+		"ChainedTypeAssertions":             {strangeSyntaxSrc, "ChainedTypeAssertions", nil, strange_syntax.ChainedTypeAssertions},
+		"TypeSwitchWithMultipleTypes":       {strangeSyntaxSrc, "TypeSwitchWithMultipleTypes", nil, strange_syntax.TypeSwitchWithMultipleTypes},
+		"NestedInterfaceAssertions":         {strangeSyntaxSrc, "NestedInterfaceAssertions", nil, strange_syntax.NestedInterfaceAssertions},
+		
+		// Complex Map Operations (Round 7 - New Tests)
+		"MapWithComplexKeys":                {strangeSyntaxSrc, "MapWithComplexKeys", nil, strange_syntax.MapWithComplexKeys},
+		"NestedMapOperations":               {strangeSyntaxSrc, "NestedMapOperations", nil, strange_syntax.NestedMapOperations},
+		"MapIterationWithDelete":            {strangeSyntaxSrc, "MapIterationWithDelete", nil, strange_syntax.MapIterationWithDelete},
+		
+		// Complex Slice Operations (Round 7 - New Tests)
+		"NestedSliceAppend":                 {strangeSyntaxSrc, "NestedSliceAppend", nil, strange_syntax.NestedSliceAppend},
+		"SliceResliceMultiple":              {strangeSyntaxSrc, "SliceResliceMultiple", nil, strange_syntax.SliceResliceMultiple},
+		"SliceWithCapacityGrowth":           {strangeSyntaxSrc, "SliceWithCapacityGrowth", nil, strange_syntax.SliceWithCapacityGrowth},
+		
+		// Boundary Conditions (Round 7 - New Tests)
+		"IntegerOverflow":                   {strangeSyntaxSrc, "IntegerOverflow", nil, strange_syntax.IntegerOverflow},
+		"ShiftOperations":                   {strangeSyntaxSrc, "ShiftOperations", nil, strange_syntax.ShiftOperations},
+		"FloatSpecialValues":                {strangeSyntaxSrc, "FloatSpecialValues", nil, strange_syntax.FloatSpecialValues},
+		"ComplexArithmetic":                 {strangeSyntaxSrc, "ComplexArithmetic", nil, strange_syntax.ComplexArithmetic},
+		
+		// Interface Embedding (Round 7 - New Tests)
+		"NilInterfaceMethodCall":            {strangeSyntaxSrc, "NilInterfaceMethodCall", nil, strange_syntax.NilInterfaceMethodCall},
+		
+		// Method Sets (Round 7 - New Tests)
+		"MethodSetTest":                     {strangeSyntaxSrc, "MethodSetTest", nil, strange_syntax.MethodSetTest},
+		"MethodOnNilPointer":                {strangeSyntaxSrc, "MethodOnNilPointer", nil, strange_syntax.MethodOnNilPointer},
+		
+		// Complex Control Flow (Round 7 - New Tests)
+		"DeeplyNestedIfElse":                {strangeSyntaxSrc, "DeeplyNestedIfElse", nil, strange_syntax.DeeplyNestedIfElse},
+		"SwitchWithComplexConditions":       {strangeSyntaxSrc, "SwitchWithComplexConditions", nil, strange_syntax.SwitchWithComplexConditions},
+		"ForWithComplexCondition":           {strangeSyntaxSrc, "ForWithComplexCondition", nil, strange_syntax.ForWithComplexCondition},
+		
+		// Channel Patterns (Round 7 - New Tests)
+		"ChannelSelectWithMultipleCases":    {strangeSyntaxSrc, "ChannelSelectWithMultipleCases", nil, strange_syntax.ChannelSelectWithMultipleCases},
+		"NilChannelInSelect":                {strangeSyntaxSrc, "NilChannelInSelect", nil, strange_syntax.NilChannelInSelect},
+		
+		// Complex Assignments (Round 7 - New Tests)
+		"MultipleAssignmentChain":           {strangeSyntaxSrc, "MultipleAssignmentChain", nil, strange_syntax.MultipleAssignmentChain},
+		"AssignmentWithFunctionCall":        {strangeSyntaxSrc, "AssignmentWithFunctionCall", nil, strange_syntax.AssignmentWithFunctionCall},
+		"SwapMultipleValues":                {strangeSyntaxSrc, "SwapMultipleValues", nil, strange_syntax.SwapMultipleValues},
+		
+		// ============================================================================
+		// ROUND 8: COMPLEX THIRD-PARTY LIBRARY INTERACTIONS
+		// ============================================================================
+		
+		// ENCODING/BASE64
+		"Base64ComplexRoundTrip":           {strangeSyntaxSrc, "Base64ComplexRoundTrip", nil, strange_syntax.Base64ComplexRoundTrip},
+		"Base64Streaming":                  {strangeSyntaxSrc, "Base64Streaming", nil, strange_syntax.Base64Streaming},
+		"Base64WithCorruptInput":           {strangeSyntaxSrc, "Base64WithCorruptInput", nil, strange_syntax.Base64WithCorruptInput},
+		
+		// ENCODING/BINARY
+		"BinaryReadWrite":                  {strangeSyntaxSrc, "BinaryReadWrite", nil, strange_syntax.BinaryReadWrite},
+		"BinarySliceConversion":            {strangeSyntaxSrc, "BinarySliceConversion", nil, strange_syntax.BinarySliceConversion},
+		"BinarySize":                       {strangeSyntaxSrc, "BinarySize", nil, strange_syntax.BinarySize},
+		
+		// ENCODING/JSON ADVANCED
+		"JSONRawMessage":                   {strangeSyntaxSrc, "JSONRawMessage", nil, strange_syntax.JSONRawMessage},
+		"JSONCustomMarshaler":              {strangeSyntaxSrc, "JSONCustomMarshaler", nil, strange_syntax.JSONCustomMarshaler},
+		"JSONOmitEmpty":                    {strangeSyntaxSrc, "JSONOmitEmpty", nil, strange_syntax.JSONOmitEmpty},
+		"JSONStringIgnoreCase":             {strangeSyntaxSrc, "JSONStringIgnoreCase", nil, strange_syntax.JSONStringIgnoreCase},
+		"JSONComplexMap":                   {strangeSyntaxSrc, "JSONComplexMap", nil, strange_syntax.JSONComplexMap},
+		
+		// IO COMPLEX
+		"IOPipe":                           {strangeSyntaxSrc, "IOPipe", nil, strange_syntax.IOPipe},
+		"IOLimitReader":                    {strangeSyntaxSrc, "IOLimitReader", nil, strange_syntax.IOLimitReader},
+		"IOSectionReader":                  {strangeSyntaxSrc, "IOSectionReader", nil, strange_syntax.IOSectionReader},
+		"IOTeeReader":                      {strangeSyntaxSrc, "IOTeeReader", nil, strange_syntax.IOTeeReader},
+		"IOMultiReader":                    {strangeSyntaxSrc, "IOMultiReader", nil, strange_syntax.IOMultiReader},
+		"IOMultiWriter":                    {strangeSyntaxSrc, "IOMultiWriter", nil, strange_syntax.IOMultiWriter},
+		"IOCopy":                           {strangeSyntaxSrc, "IOCopy", nil, strange_syntax.IOCopy},
+		"IOCopyBuffer":                     {strangeSyntaxSrc, "IOCopyBuffer", nil, strange_syntax.IOCopyBuffer},
+		
+		// ARCHIVE/TAR
+		"TarHeader":                        {strangeSyntaxSrc, "TarHeader", nil, strange_syntax.TarHeader},
+		"TarWriteRead":                     {strangeSyntaxSrc, "TarWriteRead", nil, strange_syntax.TarWriteRead},
+		"TarMultipleFiles":                 {strangeSyntaxSrc, "TarMultipleFiles", nil, strange_syntax.TarMultipleFiles},
+		
+		// ARCHIVE/ZIP
+		"ZipHeader":                        {strangeSyntaxSrc, "ZipHeader", nil, strange_syntax.ZipHeader},
+		"ZipWriteRead":                     {strangeSyntaxSrc, "ZipWriteRead", nil, strange_syntax.ZipWriteRead},
+		"ZipMultipleFiles":                 {strangeSyntaxSrc, "ZipMultipleFiles", nil, strange_syntax.ZipMultipleFiles},
+		
+		// TEXT/TABWRITER
+		"TabwriterBasic":                   {strangeSyntaxSrc, "TabwriterBasic", nil, strange_syntax.TabwriterBasic},
+		"TabwriterAligned":                 {strangeSyntaxSrc, "TabwriterAligned", nil, strange_syntax.TabwriterAligned},
+		
+		// TEXT/SCANNER
+		"ScannerBasic":                     {strangeSyntaxSrc, "ScannerBasic", nil, strange_syntax.ScannerBasic},
+		"ScannerNumbers":                   {strangeSyntaxSrc, "ScannerNumbers", nil, strange_syntax.ScannerNumbers},
+		"ScannerCustomMode":                {strangeSyntaxSrc, "ScannerCustomMode", nil, strange_syntax.ScannerCustomMode},
+		
+		// UNICODE/UTF8
+		"UTF8RuneCount":                    {strangeSyntaxSrc, "UTF8RuneCount", nil, strange_syntax.UTF8RuneCount},
+		"UTF8EncodeDecode":                 {strangeSyntaxSrc, "UTF8EncodeDecode", nil, strange_syntax.UTF8EncodeDecode},
+		"UTF8Valid":                        {strangeSyntaxSrc, "UTF8Valid", nil, strange_syntax.UTF8Valid},
+		
+		// COMBINED COMPLEX SCENARIOS
+		"CombinedEncodingPipeline":         {strangeSyntaxSrc, "CombinedEncodingPipeline", nil, strange_syntax.CombinedEncodingPipeline},
+		"CombinedArchiveWithCompression":   {strangeSyntaxSrc, "CombinedArchiveWithCompression", nil, strange_syntax.CombinedArchiveWithCompression},
+		"CombinedIOAndEncoding":            {strangeSyntaxSrc, "CombinedIOAndEncoding", nil, strange_syntax.CombinedIOAndEncoding},
+		"CombinedNestedClosuresWithThirdParty": {strangeSyntaxSrc, "CombinedNestedClosuresWithThirdParty", nil, strange_syntax.CombinedNestedClosuresWithThirdParty},
+		// CombinedDeferWithIO - moved to known issues (defer with base64 encoder)
+		"CombinedPanicRecoverWithJSON":     {strangeSyntaxSrc, "CombinedPanicRecoverWithJSON", nil, strange_syntax.CombinedPanicRecoverWithJSON},
+		"CombinedChannelWithEncoding":      {strangeSyntaxSrc, "CombinedChannelWithEncoding", nil, strange_syntax.CombinedChannelWithEncoding},
+		"CombinedStructMethodsAndJSON":     {strangeSyntaxSrc, "CombinedStructMethodsAndJSON", nil, strange_syntax.CombinedStructMethodsAndJSON},
+		"CombinedInterfaceAndEncoding":     {strangeSyntaxSrc, "CombinedInterfaceAndEncoding", nil, strange_syntax.CombinedInterfaceAndEncoding},
 	}
 
 	runTestSet(t, testSet{src: strangeSyntaxSrc, tests: tests})
@@ -777,7 +903,7 @@ func TestStrangeSyntax(t *testing.T) {
 
 // TestStrangeSyntaxWithPanic tests cases that need panic enabled
 func TestStrangeSyntaxWithPanic(t *testing.T) {
-	// Run TypeAssertionPanic from main file (it's the only panic test in that file)
+	// Run TypeAssertionPanic from main file
 	runTestSet(t, testSet{src: strangeSyntaxSrc, tests: map[string]testCase{
 		"TypeAssertionPanic": {strangeSyntaxSrc, "TypeAssertionPanic", nil, strange_syntax.TypeAssertionPanic},
 	}, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}})
@@ -785,6 +911,7 @@ func TestStrangeSyntaxWithPanic(t *testing.T) {
 	// Run other panic tests from separate file
 	runTestSet(t, testSet{src: strangeSyntaxPanicSrc, tests: map[string]testCase{
 		"MultipleDefersWithRecover":  {strangeSyntaxPanicSrc, "MultipleDefersWithRecover", nil, strange_syntax_panic.MultipleDefersWithRecover},
+		"MultipleDeferWithPanic":     {strangeSyntaxPanicSrc, "MultipleDeferWithPanic", nil, strange_syntax_panic.MultipleDeferWithPanic},
 		"PanicInDefer":               {strangeSyntaxPanicSrc, "PanicInDefer", nil, strange_syntax_panic.PanicInDefer},
 		"NestedPanics":               {strangeSyntaxPanicSrc, "NestedPanics", nil, strange_syntax_panic.NestedPanics},
 		"ClosureWithDefer":           {strangeSyntaxPanicSrc, "ClosureWithDefer", nil, strange_syntax_panic.ClosureWithDefer},
@@ -794,4 +921,21 @@ func TestStrangeSyntaxWithPanic(t *testing.T) {
 		"ClosureWithPanicAndRecover": {strangeSyntaxPanicSrc, "ClosureWithPanicAndRecover", nil, strange_syntax_panic.ClosureWithPanicAndRecover},
 		"NamedReturnWithPanicRecover": {strangeSyntaxPanicSrc, "NamedReturnWithPanicRecover", nil, strange_syntax_panic.NamedReturnWithPanicRecover},
 	}, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}})
+}
+
+// TestStrangeSyntaxKnownIssues tests cases that are known to fail due to interpreter limitations.
+// These tests are tracked separately and should be fixed in the future.
+func TestStrangeSyntaxKnownIssues(t *testing.T) {
+	// Known issues:
+	// 1. TreeWithParentRef - Self-referential struct with slice field (type conversion needed) - FIXED!
+	// 2. CombinedDeferWithIO - Defer with external type methods (workaround: use closure) - FIXED!
+	// Note: XMLEmbeddedStruct and GobRecursiveStructure removed — encoding/xml and encoding/gob dropped.
+
+	knownIssueTests := map[string]testCase{
+		"TreeWithParentRef":        {strangeSyntaxKnownIssueSrc, "TreeWithParentRef", nil, strange_syntax_known_issue.TreeWithParentRef},
+		"CombinedDeferWithIO":      {strangeSyntaxKnownIssueSrc, "CombinedDeferWithIO", nil, strange_syntax_known_issue.CombinedDeferWithIO},
+	}
+	
+	// Run each test and check if they pass now
+	runTestSet(t, testSet{src: strangeSyntaxKnownIssueSrc, tests: knownIssueTests})
 }
