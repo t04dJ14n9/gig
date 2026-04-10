@@ -738,30 +738,70 @@ func (c *compiler) compileDefer(i *ssa.Defer) {
 	
 	switch val := i.Call.Value.(type) {
 	case *ssa.Function:
-		// If the function has free variables, we need to create a closure
-		if len(val.FreeVars) > 0 {
-			// First create the closure (OpDeferIndirect expects: closure, args... on stack)
-			// Push the free variable bindings
-			for _, fv := range val.FreeVars {
-				c.compileValue(fv)
+		// Check if this is a known internal function
+		if _, known := c.funcIndex[val]; known {
+			// If the function has free variables, we need to create a closure
+			if len(val.FreeVars) > 0 {
+				// First create the closure (OpDeferIndirect expects: closure, args... on stack)
+				// Push the free variable bindings
+				for _, fv := range val.FreeVars {
+					c.compileValue(fv)
+				}
+				// Create the closure (leaves it on stack, no SETLOCAL)
+				fnIdx := c.funcIndex[val]
+				c.emitClosure(fnIdx, len(val.FreeVars))
+				// Push arguments AFTER closure
+				for _, arg := range i.Call.Args {
+					c.compileValue(arg)
+				}
+				numArgs := len(i.Call.Args)
+				c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
+				return
 			}
-			// Create the closure (leaves it on stack, no SETLOCAL)
-			fnIdx := c.funcIndex[val]
-			c.emitClosure(fnIdx, len(val.FreeVars))
-			// Push arguments AFTER closure
+			// No free variables - push args then use OpDefer directly
 			for _, arg := range i.Call.Args {
 				c.compileValue(arg)
 			}
-			numArgs := len(i.Call.Args)
-			c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
+			fnIdx := c.funcIndex[val]
+			c.emit(bytecode.OpDefer, uint16(fnIdx))
 			return
 		}
-		// No free variables - push args then use OpDefer directly
+
+		// External function or method wrapper (not in funcIndex).
+		// This happens for method values on external types, e.g., defer mu.Unlock()
+		// where mu is sync.Mutex — SSA creates a synthetic *ssa.Function with
+		// Pkg==nil and Blocks==nil.
+		if val.Signature.Recv() != nil {
+			// External method: use OpDeferExternal with method info
+			for _, arg := range i.Call.Args {
+				c.compileValue(arg)
+			}
+			methodName := extractMethodName(val.Name())
+			methodInfo := &external.ExternalMethodInfo{
+				MethodName: methodName,
+			}
+			// Try to resolve DirectCall
+			if c.lookup != nil && val.Signature.Recv() != nil {
+				typeName := extractReceiverTypeName(val.Signature.Recv().Type())
+				if typeName != "" {
+					if dc, ok := c.lookup.LookupMethodDirectCall(typeName, methodName); ok {
+						methodInfo.DirectCall = dc
+					}
+				}
+			}
+			funcIdx := c.addConstant(methodInfo)
+			numArgs := len(i.Call.Args)
+			c.emitCallOp(bytecode.OpDeferExternal, uint16(funcIdx), numArgs)
+			return
+		}
+
+		// External package function: use OpDeferIndirect with compileValue
+		c.compileValue(i.Call.Value)
 		for _, arg := range i.Call.Args {
 			c.compileValue(arg)
 		}
-		fnIdx := c.funcIndex[val]
-		c.emit(bytecode.OpDefer, uint16(fnIdx))
+		numArgs := len(i.Call.Args)
+		c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
 
 	case *ssa.MakeClosure:
 		// Check if this MakeClosure was already compiled (has a local slot)
@@ -819,34 +859,40 @@ func (c *compiler) compileDefer(i *ssa.Defer) {
 // compileGo compiles a Go instruction.
 func (c *compiler) compileGo(i *ssa.Go) {
 	if fn, ok := i.Call.Value.(*ssa.Function); ok {
-		// If the function has free variables, we need to create a closure
-		// so the child goroutine can access captured variables (e.g., channels,
-		// mutexes from the enclosing scope). Without this, OpGoCall passes
-		// nil for freeVars and the child VM cannot access them.
-		if len(fn.FreeVars) > 0 {
-			// Push the free variable bindings first
-			for _, fv := range fn.FreeVars {
-				c.compileValue(fv)
+		// Check if this is a known internal function
+		if _, known := c.funcIndex[fn]; known {
+			// If the function has free variables, we need to create a closure
+			// so the child goroutine can access captured variables (e.g., channels,
+			// mutexes from the enclosing scope). Without this, OpGoCall passes
+			// nil for freeVars and the child VM cannot access them.
+			if len(fn.FreeVars) > 0 {
+				// Push the free variable bindings first
+				for _, fv := range fn.FreeVars {
+					c.compileValue(fv)
+				}
+				// Create the closure (leaves it on stack)
+				fnIdx := c.funcIndex[fn]
+				c.emitClosure(fnIdx, len(fn.FreeVars))
+				// Push arguments AFTER closure
+				for _, arg := range i.Call.Args {
+					c.compileValue(arg)
+				}
+				numArgs := len(i.Call.Args)
+				c.emit(bytecode.OpGoCallIndirect, uint16(numArgs))
+				return
 			}
-			// Create the closure (leaves it on stack)
-			fnIdx := c.funcIndex[fn]
-			c.emitClosure(fnIdx, len(fn.FreeVars))
-			// Push arguments AFTER closure
+			// No free variables — use OpGoCall directly
 			for _, arg := range i.Call.Args {
 				c.compileValue(arg)
 			}
+			funcIdx := c.funcIndex[fn]
 			numArgs := len(i.Call.Args)
-			c.emit(bytecode.OpGoCallIndirect, uint16(numArgs))
+			c.emitCallOp(bytecode.OpGoCall, uint16(funcIdx), numArgs)
 			return
 		}
-		// No free variables — use OpGoCall directly
-		for _, arg := range i.Call.Args {
-			c.compileValue(arg)
-		}
-		funcIdx := c.funcIndex[fn]
-		numArgs := len(i.Call.Args)
-		c.emitCallOp(bytecode.OpGoCall, uint16(funcIdx), numArgs)
-		return
+
+		// External function/method wrapper (not in funcIndex).
+		// Fall through to OpGoCallIndirect path which handles external callables.
 	}
 
 	// Indirect call (closure or MakeClosure result): push callee FIRST,

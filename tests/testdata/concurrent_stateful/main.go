@@ -812,12 +812,11 @@ func CASIncrement() int {
 // CASSwap sets value if current equals expected (simulated CAS).
 func CASSwap(expected, newValue int) bool {
 	casMu.Lock()
+	defer casMu.Unlock()
 	if casValue == expected {
 		casValue = newValue
-		casMu.Unlock()
 		return true
 	}
-	casMu.Unlock()
 	return false
 }
 
