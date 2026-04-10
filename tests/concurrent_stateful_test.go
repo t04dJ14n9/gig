@@ -873,3 +873,401 @@ func TestComplexSync(t *testing.T) {
 	}
 	t.Log("Complex sync (Cond + Mutex): producer/consumer pattern works correctly")
 }
+
+// ============================================================================
+// 19. Atomic-style counter with Mutex
+// ============================================================================
+
+func TestAtomicCounter(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	// Reset
+	_, _ = prog.Run("AtomicSet", int64(0))
+
+	const numGoroutines = 50
+	const addsPerGoroutine = 20
+	totalAdds := int64(numGoroutines * addsPerGoroutine)
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < addsPerGoroutine; j++ {
+				_, err := prog.Run("AtomicAdd", int64(1))
+				if err != nil {
+					t.Errorf("AtomicAdd error: %v", err)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	result, err := prog.Run("AtomicGet")
+	if err != nil {
+		t.Fatalf("AtomicGet error: %v", err)
+	}
+	got := toInt64(result)
+	if got != totalAdds {
+		t.Fatalf("AtomicCounter = %d, want %d", got, totalAdds)
+	}
+	t.Logf("Atomic-style counter = %d (exact)", got)
+}
+
+// ============================================================================
+// 20. Global protected slice
+// ============================================================================
+
+func TestGlobalProtectedSlice(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	_, _ = prog.Run("ResetBuf")
+
+	const numGoroutines = 50
+	const appendsPerGoroutine = 10
+	totalAppends := numGoroutines * appendsPerGoroutine
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < appendsPerGoroutine; j++ {
+				_, err := prog.Run("AppendProtected", j)
+				if err != nil {
+					t.Errorf("AppendProtected error: %v", err)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	result, err := prog.Run("GetBufLen")
+	if err != nil {
+		t.Fatalf("GetBufLen error: %v", err)
+	}
+	got := toInt64(result)
+	if got != int64(totalAppends) {
+		t.Fatalf("Protected slice len = %d, want %d", got, totalAppends)
+	}
+	t.Logf("Protected slice len = %d (exact)", got)
+}
+
+// ============================================================================
+// 21. Global protected map
+// ============================================================================
+
+func TestGlobalProtectedMap(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	_, _ = prog.Run("ResetProtectedMap")
+
+	const numGoroutines = 50
+	const putsPerGoroutine = 10
+	totalPuts := numGoroutines * putsPerGoroutine
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+	for i := 0; i < numGoroutines; i++ {
+		i := i
+		go func() {
+			defer wg.Done()
+			for j := 0; j < putsPerGoroutine; j++ {
+				key := fmt.Sprintf("k-%d-%d", i, j)
+				_, err := prog.Run("MapPutProtected", key, i*100+j)
+				if err != nil {
+					t.Errorf("MapPutProtected error: %v", err)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	result, err := prog.Run("MapLenProtected")
+	if err != nil {
+		t.Fatalf("MapLenProtected error: %v", err)
+	}
+	got := toInt64(result)
+	if got != int64(totalPuts) {
+		t.Fatalf("Protected map len = %d, want %d", got, totalPuts)
+	}
+	t.Logf("Protected map len = %d (exact)", got)
+}
+
+
+
+// ============================================================================
+// 23. Bidirectional channel with goroutines
+// ============================================================================
+
+func TestBidirectionalChannel(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	result, err := prog.Run("BidirectionalChannel")
+	if err != nil {
+		t.Fatalf("BidirectionalChannel error: %v", err)
+	}
+	got := toInt64(result)
+	if got != 42 {
+		t.Fatalf("BidirectionalChannel = %d, want 42", got)
+	}
+	t.Logf("Bidirectional channel = %d (exact)", got)
+}
+
+// ============================================================================
+// 24. Multi-channel merge
+// ============================================================================
+
+func TestMultiChannelMerge(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	result, err := prog.Run("MultiChannelMerge")
+	if err != nil {
+		t.Fatalf("MultiChannelMerge error: %v", err)
+	}
+	got := toInt64(result)
+	if got != 1665 {
+		t.Fatalf("MultiChannelMerge = %d, want 1665", got)
+	}
+	t.Logf("Multi-channel merge = %d (exact)", got)
+}
+
+// ============================================================================
+// 25. Goroutine with result channel
+// ============================================================================
+
+func TestGoroutineWithResult(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	result, err := prog.Run("GoroutineWithResult")
+	if err != nil {
+		t.Fatalf("GoroutineWithResult error: %v", err)
+	}
+	got := toInt64(result)
+	if got != 42 {
+		t.Fatalf("GoroutineWithResult = %d, want 42", got)
+	}
+	t.Logf("Goroutine with result channel = %d (exact)", got)
+}
+
+// ============================================================================
+// 26. Barrier pattern
+// ============================================================================
+
+func TestBarrierSum(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	result, err := prog.Run("BarrierSum")
+	if err != nil {
+		t.Fatalf("BarrierSum error: %v", err)
+	}
+	expected := concurrent_stateful.BarrierSum()
+	got := toInt64(result)
+	if got != int64(expected) {
+		t.Fatalf("BarrierSum = %d, want %d", got, expected)
+	}
+	t.Logf("Barrier sum = %d (matches native)", got)
+}
+
+// ============================================================================
+// 27. Value-type RWMutex
+// ============================================================================
+
+func TestValueTypeRWMutex(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	_, err := prog.Run("ValueTypeRWWrite", 100)
+	if err != nil {
+		t.Fatalf("ValueTypeRWWrite error: %v", err)
+	}
+
+	const numReaders = 50
+	var wg sync.WaitGroup
+	wg.Add(numReaders)
+	for i := 0; i < numReaders; i++ {
+		go func() {
+			defer wg.Done()
+			r, err := prog.Run("ValueTypeRWRead")
+			if err != nil {
+				t.Errorf("ValueTypeRWRead error: %v", err)
+				return
+			}
+			if toInt64(r) != 100 {
+				t.Errorf("ValueTypeRWRead = %d, want 100", toInt64(r))
+			}
+		}()
+	}
+	wg.Wait()
+	t.Log("Value-type RWMutex: 50 concurrent reads all returned 100")
+}
+
+// ============================================================================
+// 28. Global string with RWMutex
+// ============================================================================
+
+func TestGlobalString(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	// Set value
+	_, err := prog.Run("SetGlobalString", "hello world")
+	if err != nil {
+		t.Fatalf("SetGlobalString error: %v", err)
+	}
+
+	// Concurrent reads
+	const numReaders = 50
+	var wg sync.WaitGroup
+	wg.Add(numReaders)
+	for i := 0; i < numReaders; i++ {
+		go func() {
+			defer wg.Done()
+			r, err := prog.Run("GetGlobalString")
+			if err != nil {
+				t.Errorf("GetGlobalString error: %v", err)
+				return
+			}
+			if s, ok := r.(string); !ok || s != "hello world" {
+				t.Errorf("GetGlobalString = %v, want 'hello world'", r)
+			}
+		}()
+	}
+	wg.Wait()
+	t.Log("Global string: 50 concurrent reads all matched")
+}
+
+// ============================================================================
+// 29. CAS pattern
+// ============================================================================
+
+func TestCASPatter(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	// Set initial value
+	_, err := prog.Run("CASSwap", 0, 10)
+	if err != nil {
+		t.Fatalf("CASSwap error: %v", err)
+	}
+
+	// Concurrent increments
+	const numGoroutines = 50
+	const incrementsPerGoroutine = 10
+	totalIncrements := numGoroutines * incrementsPerGoroutine
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < incrementsPerGoroutine; j++ {
+				_, err := prog.Run("CASIncrement")
+				if err != nil {
+					t.Errorf("CASIncrement error: %v", err)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	result, err := prog.Run("CASGet")
+	if err != nil {
+		t.Fatalf("CASGet error: %v", err)
+	}
+	got := toInt64(result)
+	expected := int64(10 + totalIncrements)
+	if got != expected {
+		t.Fatalf("CAS counter = %d, want %d", got, expected)
+	}
+	t.Logf("CAS counter = %d (exact)", got)
+}
+
+// ============================================================================
+// 30. Global bool flag
+// ============================================================================
+
+func TestGlobalFlag(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	// Concurrent flag setting and reading
+	const numOps = 100
+	var wg sync.WaitGroup
+	wg.Add(numOps)
+	for i := 0; i < numOps; i++ {
+		i := i
+		go func() {
+			defer wg.Done()
+			if i%2 == 0 {
+				_, _ = prog.Run("SetFlag", i%4 == 0)
+			} else {
+				_, _ = prog.Run("GetFlag")
+			}
+		}()
+	}
+	wg.Wait()
+	t.Log("Global bool flag: 100 concurrent ops completed without panic")
+}
+
+// ============================================================================
+// 31. Multiple sync.Once instances
+// ============================================================================
+
+func TestMultipleOnce(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	const numGoroutines = 50
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines * 2)
+	resultsA := make(chan int, numGoroutines)
+	resultsB := make(chan int, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			r, err := prog.Run("OnceInitA")
+			if err != nil {
+				t.Errorf("OnceInitA error: %v", err)
+				return
+			}
+			resultsA <- int(toInt64(r))
+		}()
+		go func() {
+			defer wg.Done()
+			r, err := prog.Run("OnceInitB")
+			if err != nil {
+				t.Errorf("OnceInitB error: %v", err)
+				return
+			}
+			resultsB <- int(toInt64(r))
+		}()
+	}
+	wg.Wait()
+	close(resultsA)
+	close(resultsB)
+
+	for v := range resultsA {
+		if v != 100 {
+			t.Errorf("OnceInitA = %d, want 100", v)
+		}
+	}
+	for v := range resultsB {
+		if v != 200 {
+			t.Errorf("OnceInitB = %d, want 200", v)
+		}
+	}
+	t.Log("Multiple sync.Once: A=100, B=200 (both exact)")
+}
