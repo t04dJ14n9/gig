@@ -38,6 +38,13 @@ type CompiledProgram struct {
 	// Globals maps global variable names to their indices.
 	Globals map[string]int
 
+	// GlobalZeroValues maps global variable index to its zero reflect.Value.
+	// Used by the VM to initialize zero-valued globals to their proper zero value
+	// instead of leaving them as nil value.Value{}. This enables pointer-receiver
+	// method calls on value-type globals like sync.Mutex, sync.WaitGroup, etc.
+	// Only populated for globals whose zero value is a non-nil struct/map/slice/chan.
+	GlobalZeroValues map[int]reflect.Value
+
 	// Types is the type pool for runtime type operations.
 	Types []types.Type
 

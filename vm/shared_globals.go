@@ -3,6 +3,7 @@
 package vm
 
 import (
+	"reflect"
 	"sync"
 
 	"git.woa.com/youngjin/gig/model/value"
@@ -39,6 +40,20 @@ func (sg *SharedGlobals) InitExternalVars(extVarValues map[int]any) {
 	for idx, ptr := range extVarValues {
 		if idx < len(sg.globals) {
 			sg.globals[idx] = value.FromInterface(ptr)
+		}
+	}
+}
+
+// InitZeroValues applies zero-valued struct globals from the compiler.
+// SSA may store nil constants for zero-valued structs (e.g., sync.Mutex{}),
+// so we replace nil/invalid globals with their proper zero reflect.Value.
+func (sg *SharedGlobals) InitZeroValues(zeroValues map[int]reflect.Value) {
+	for idx, zeroRV := range zeroValues {
+		if idx < len(sg.globals) {
+			g := sg.globals[idx]
+			if !g.IsValid() || g.IsNil() {
+				sg.globals[idx] = value.MakeFromReflect(zeroRV)
+			}
 		}
 	}
 }

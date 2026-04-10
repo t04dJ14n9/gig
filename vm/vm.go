@@ -155,6 +155,20 @@ func newVM(program *bytecode.CompiledProgram, initialGlobals []value.Value, goro
 		}
 	}
 
+	// Initialize zero-valued struct globals to their proper zero reflect.Value.
+	// Go SSA may store nil constants for zero-valued struct globals (sync.Mutex{})
+	// which results in KindNil values. We replace these with the actual zero
+	// reflect.Value so pointer-receiver methods (e.g. mu.Lock()) can work.
+	// This must run AFTER init snapshot copy AND external var init.
+	for idx, zeroRV := range program.GlobalZeroValues {
+		if idx < len(globals) {
+			g := globals[idx]
+			if !g.IsValid() || g.IsNil() {
+				globals[idx] = value.MakeFromReflect(zeroRV)
+			}
+		}
+	}
+
 	return &vm{
 		program:        program,
 		stack:          make([]value.Value, initialStackSize),
@@ -201,6 +215,15 @@ func (v *vm) Reset() {
 	for idx, ptr := range v.program.ExternalVarValues {
 		if idx < len(v.globals) {
 			v.globals[idx] = value.FromInterface(ptr)
+		}
+	}
+	// Re-apply zero-valued struct globals (may have been overwritten by SSA init nil stores).
+	for idx, zeroRV := range v.program.GlobalZeroValues {
+		if idx < len(v.globals) {
+			g := v.globals[idx]
+			if !g.IsValid() || g.IsNil() {
+				v.globals[idx] = value.MakeFromReflect(zeroRV)
+			}
 		}
 	}
 }

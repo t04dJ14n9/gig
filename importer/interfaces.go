@@ -30,6 +30,10 @@ type PackageLookup interface {
 	// External type lookup
 	// Returns the real reflect.Type for an external named type.
 	LookupExternalType(t types.Type) (reflect.Type, bool)
+
+	// LookupExternalTypeByName resolves an external type by package path and type name.
+	// Returns the real reflect.Type and whether it was found.
+	LookupExternalTypeByName(pkgPath, typeName string) (reflect.Type, bool)
 }
 
 // NewPackageLookup creates a PackageLookup backed by the given registry.
@@ -92,4 +96,13 @@ func (l *registryLookup) LookupExternalVar(pkgPath, varName string) (ptr any, ok
 
 func (l *registryLookup) LookupExternalType(t types.Type) (reflect.Type, bool) {
 	return l.reg.LookupExternalType(t)
+}
+
+func (l *registryLookup) LookupExternalTypeByName(pkgPath, typeName string) (reflect.Type, bool) {
+	pkg := l.reg.GetPackageByPath(pkgPath)
+	if pkg == nil {
+		return nil, false
+	}
+	rt, ok := pkg.Types[typeName]
+	return rt, ok
 }
