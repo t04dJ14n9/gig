@@ -57,20 +57,34 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 
 	case bytecode.OpGlobal:
 		idx := frame.readUint16()
-		globals := v.getGlobals()
-		if int(idx) < len(globals) {
-			// Push a pointer to the global slot
-			// This allows OpDeref/OpSetDeref to work correctly
-			ptr := &globals[idx]
-			v.push(value.FromInterface(ptr))
+		if sg := v.shared; sg != nil {
+			// Shared mode: push a GlobalRef that uses locked access.
+			// This prevents data races from raw pointer exposure.
+			if int(idx) < sg.Len() {
+				ref := &GlobalRef{sg: sg, idx: int(idx)}
+				v.push(value.FromInterface(ref))
+			}
+		} else {
+			globals := v.globals
+			if int(idx) < len(globals) {
+				ptr := &globals[idx]
+				v.push(value.FromInterface(ptr))
+			}
 		}
 
 	case bytecode.OpSetGlobal:
 		idx := frame.readUint16()
 		val := v.pop()
-		globals := v.getGlobals()
-		if int(idx) < len(globals) {
-			globals[idx] = val
+		if sg := v.shared; sg != nil {
+			// Shared mode: use locked write
+			if int(idx) < sg.Len() {
+				sg.Set(int(idx), val)
+			}
+		} else {
+			globals := v.globals
+			if int(idx) < len(globals) {
+				globals[idx] = val
+			}
 		}
 
 	case bytecode.OpFree:
@@ -196,6 +210,15 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 
 	case bytecode.OpDeref:
 		ptr := v.pop()
+		// Fast path: GlobalRef from shared-mode OpGlobal — use locked read.
+		if ptr.Kind() == value.KindReflect || ptr.Kind() == value.KindInterface {
+			if iface := ptr.Interface(); iface != nil {
+				if ref, ok := iface.(*GlobalRef); ok {
+					v.push(ref.Load())
+					break
+				}
+			}
+		}
 		switch ptr.Kind() {
 		case value.KindPointer:
 			v.push(ptr.Elem())
@@ -236,6 +259,13 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 	case bytecode.OpSetDeref:
 		val := v.pop()
 		ptr := v.pop()
+		// Fast path: GlobalRef from shared-mode OpGlobal — use locked write.
+		if iface := ptr.Interface(); iface != nil {
+			if ref, ok := iface.(*GlobalRef); ok {
+				ref.Store(val)
+				break
+			}
+		}
 		ptr.SetElem(val)
 
 	case bytecode.OpNew:

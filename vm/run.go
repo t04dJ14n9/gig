@@ -510,6 +510,13 @@ func (v *vm) run() (value.Value, error) {
 			// Fast path: *int64 pointer (from native int slice OpIndexAddr)
 			if p, ok := ptr.IntPtr(); ok {
 				*p = val.RawInt()
+			} else if iface := ptr.Interface(); iface != nil {
+				// GlobalRef from shared-mode OpGlobal — use locked write
+				if ref, ok := iface.(*GlobalRef); ok {
+					ref.Store(val)
+				} else {
+					ptr.SetElem(val)
+				}
 			} else {
 				ptr.SetElem(val)
 			}

@@ -14,11 +14,11 @@ type VM interface {
 	ExecuteWithValues(funcName string, ctx context.Context, args []value.Value) (value.Value, error)
 	Globals() []value.Value
 	Reset()
-	// BindSharedGlobals makes this VM execute against the provided shared globals
-	// slice. All global loads/stores will go through globalsPtr, which points at
-	// the Program-owned backing store. This must be called before Execute and
-	// paired with UnbindSharedGlobals after execution finishes.
-	BindSharedGlobals(globals *[]value.Value)
+	// BindSharedGlobals makes this VM execute against the provided SharedGlobals.
+	// All global loads/stores will go through the shared (locked) globals,
+	// enabling concurrent execution in stateful mode. This must be called before
+	// Execute and paired with UnbindSharedGlobals after execution finishes.
+	BindSharedGlobals(sg *SharedGlobals)
 
 	// UnbindSharedGlobals detaches the VM from shared globals so that Reset (called
 	// when the VM is returned to the pool) does not clobber the shared state.
