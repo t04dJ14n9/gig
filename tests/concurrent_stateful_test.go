@@ -1001,6 +1001,26 @@ func TestGlobalProtectedMap(t *testing.T) {
 }
 
 
+// ============================================================================
+// 22. Defer in goroutine with global state
+// ============================================================================
+
+func TestDeferInGoroutine(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	result, err := prog.Run("DeferInGoroutine")
+	if err != nil {
+		t.Fatalf("DeferInGoroutine error: %v", err)
+	}
+	got := toInt64(result)
+	if got != 30 {
+		t.Fatalf("DeferInGoroutine = %d, want 30", got)
+	}
+	t.Logf("Defer in goroutine = %d (exact)", got)
+}
+
+
 
 // ============================================================================
 // 23. Bidirectional channel with goroutines
