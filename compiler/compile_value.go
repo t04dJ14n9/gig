@@ -48,6 +48,62 @@ func (c *compiler) compileValue(v ssa.Value) {
 			globalIdx = len(c.globals)
 			c.globals[globalName] = globalIdx
 
+			// Record the zero value for this global. SSA globals have type *T.
+			// For external named struct types (e.g., sync.Mutex), allocate a
+			// heap object via reflect.New(T) and store the POINTER in the global
+			// slot. This ensures all method calls (including concurrent ones)
+			// operate on the same underlying object — no copy, no write-back.
+			// For basic types (int, string, etc.), store proper zero values.
+			if ptrType, ok := val.Type().(*types.Pointer); ok {
+				elemType := ptrType.Elem()
+				switch t := elemType.(type) {
+				case *types.Named:
+					obj := t.Obj()
+					if obj != nil && obj.Pkg() != nil && c.lookup != nil {
+						pkgPath := obj.Pkg().Path()
+						typeName := obj.Name()
+						if rt, found := c.lookup.LookupExternalTypeByName(pkgPath, typeName); found {
+							if rt.Kind() == reflect.Struct {
+								// Store pointer *T, not value T. All method calls
+								// will use this same heap-allocated object.
+								c.globalZeroValues[globalIdx] = reflect.New(rt)
+							}
+						}
+					}
+				case *types.Basic:
+					switch t.Kind() {
+					case types.Bool:
+						c.globalZeroValues[globalIdx] = reflect.ValueOf(false)
+					case types.Int:
+						c.globalZeroValues[globalIdx] = reflect.ValueOf(int(0))
+					case types.Int8:
+						c.globalZeroValues[globalIdx] = reflect.ValueOf(int8(0))
+					case types.Int16:
+						c.globalZeroValues[globalIdx] = reflect.ValueOf(int16(0))
+					case types.Int32:
+						c.globalZeroValues[globalIdx] = reflect.ValueOf(int32(0))
+					case types.Int64:
+						c.globalZeroValues[globalIdx] = reflect.ValueOf(int64(0))
+					case types.Uint:
+						c.globalZeroValues[globalIdx] = reflect.ValueOf(uint(0))
+					case types.Uint8:
+						c.globalZeroValues[globalIdx] = reflect.ValueOf(uint8(0))
+					case types.Uint16:
+						c.globalZeroValues[globalIdx] = reflect.ValueOf(uint16(0))
+					case types.Uint32:
+						c.globalZeroValues[globalIdx] = reflect.ValueOf(uint32(0))
+					case types.Uint64:
+						c.globalZeroValues[globalIdx] = reflect.ValueOf(uint64(0))
+					case types.Float32:
+						c.globalZeroValues[globalIdx] = reflect.ValueOf(float32(0))
+					case types.Float64:
+						c.globalZeroValues[globalIdx] = reflect.ValueOf(float64(0))
+					case types.String:
+						c.globalZeroValues[globalIdx] = reflect.ValueOf("")
+					}
+				}
+			}
+
 			// For external variables, look up the variable pointer and dereference it
 			// to get the actual value. SSA represents the global as having an extra
 			// level of indirection, so we need to store the value, not the pointer.
@@ -762,18 +818,44 @@ func (c *compiler) compileDefer(i *ssa.Defer) {
 
 // compileGo compiles a Go instruction.
 func (c *compiler) compileGo(i *ssa.Go) {
-	for _, arg := range i.Call.Args {
-		c.compileValue(arg)
-	}
-
 	if fn, ok := i.Call.Value.(*ssa.Function); ok {
+		// If the function has free variables, we need to create a closure
+		// so the child goroutine can access captured variables (e.g., channels,
+		// mutexes from the enclosing scope). Without this, OpGoCall passes
+		// nil for freeVars and the child VM cannot access them.
+		if len(fn.FreeVars) > 0 {
+			// Push the free variable bindings first
+			for _, fv := range fn.FreeVars {
+				c.compileValue(fv)
+			}
+			// Create the closure (leaves it on stack)
+			fnIdx := c.funcIndex[fn]
+			c.emitClosure(fnIdx, len(fn.FreeVars))
+			// Push arguments AFTER closure
+			for _, arg := range i.Call.Args {
+				c.compileValue(arg)
+			}
+			numArgs := len(i.Call.Args)
+			c.emit(bytecode.OpGoCallIndirect, uint16(numArgs))
+			return
+		}
+		// No free variables — use OpGoCall directly
+		for _, arg := range i.Call.Args {
+			c.compileValue(arg)
+		}
 		funcIdx := c.funcIndex[fn]
 		numArgs := len(i.Call.Args)
 		c.emitCallOp(bytecode.OpGoCall, uint16(funcIdx), numArgs)
 		return
 	}
 
+	// Indirect call (closure or MakeClosure result): push callee FIRST,
+	// then args. OpGoCallIndirect pops args first, then callee.
 	c.compileValue(i.Call.Value)
+
+	for _, arg := range i.Call.Args {
+		c.compileValue(arg)
+	}
 
 	numArgs := len(i.Call.Args)
 	c.emit(bytecode.OpGoCallIndirect, uint16(numArgs))

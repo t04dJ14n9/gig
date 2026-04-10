@@ -561,6 +561,9 @@ func (m *mockLookup) LookupExternalVar(pkgPath, varName string) (ptr any, ok boo
 func (m *mockLookup) LookupExternalType(t types.Type) (reflect.Type, bool) {
 	return nil, false
 }
+func (m *mockLookup) LookupExternalTypeByName(pkgPath, typeName string) (reflect.Type, bool) {
+	return nil, false
+}
 
 // Verify mockLookup satisfies the interface.
 var _ PackageLookup = (*mockLookup)(nil)

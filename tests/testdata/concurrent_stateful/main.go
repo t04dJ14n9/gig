@@ -27,10 +27,10 @@ func GetUnprotected() int {
 // ============================================================================
 // Mutex-protected globals (exact correctness under concurrency)
 //
-// NOTE: Global struct variables with pointer-receiver methods (like sync.Mutex)
-// must be stored as pointers (*sync.Mutex), not values (sync.Mutex), because
-// the interpreter stores globals in value.Value slots, and value-type globals
-// cannot be addressed for pointer-receiver method calls.
+// Both value-type (sync.Mutex) and pointer-type (*sync.Mutex) globals work
+// correctly. The interpreter heap-allocates value-type struct globals via
+// reflect.New(T), so all method calls operate on the same underlying object.
+// See docs/concurrent-globals.md for details.
 // ============================================================================
 
 var (
@@ -226,4 +226,224 @@ func GetCountB() int {
 	val := countB
 	muB.Unlock()
 	return val
+}
+
+// ============================================================================
+// Value-type sync.Mutex (not pointer) — tests heap-allocation fix
+//
+// These use 'var mu sync.Mutex' (value type) not '*sync.Mutex'.
+// The interpreter heap-allocates these via reflect.New(T), so they
+// behave identically to pointer-form in concurrent scenarios.
+// ============================================================================
+
+var (
+	valueMu               sync.Mutex
+	valueProtectedCounter int
+)
+
+func init() {
+	valueProtectedCounter = 0
+}
+
+// ValueTypeIncrement increments using value-type sync.Mutex.
+func ValueTypeIncrement() int {
+	valueMu.Lock()
+	valueProtectedCounter = valueProtectedCounter + 1
+	val := valueProtectedCounter
+	valueMu.Unlock()
+	return val
+}
+
+// ValueTypeGet returns the counter protected by value-type mutex.
+func ValueTypeGet() int {
+	valueMu.Lock()
+	val := valueProtectedCounter
+	valueMu.Unlock()
+	return val
+}
+
+// ============================================================================
+// sync.RWMutex — multiple readers, single writer
+// ============================================================================
+
+var (
+	rwMu      sync.RWMutex
+	rwCounter int
+)
+
+func init() {
+	rwCounter = 0
+}
+
+// RWMutexWrite increments with write lock.
+func RWMutexWrite() int {
+	rwMu.Lock()
+	rwCounter++
+	val := rwCounter
+	rwMu.Unlock()
+	return val
+}
+
+// RWMutexRead reads with read lock.
+func RWMutexRead() int {
+	rwMu.RLock()
+	val := rwCounter
+	rwMu.RUnlock()
+	return val
+}
+
+// ============================================================================
+// sync.Once — exactly-once initialization (anonymous closure)
+// ============================================================================
+
+var onceForTest sync.Once
+var onceValue int
+
+// OnceInit returns the once-initialized value.
+// Tests that sync.Once.Do with an anonymous closure correctly writes
+// to a global variable — the closure must operate on the shared globals.
+func OnceInit() int {
+	onceForTest.Do(func() {
+		onceValue = 42
+	})
+	return onceValue
+}
+
+// ============================================================================
+// sync.WaitGroup — goroutine synchronization inside guest code
+// ============================================================================
+
+// WaitGroupSum uses a local WaitGroup to synchronize goroutines spawned
+// inside the guest program using a for-loop with go func(n int) pattern.
+func WaitGroupSum() int {
+	const N = 50
+	var wg sync.WaitGroup
+	ch := make(chan int, N)
+	wg.Add(N)
+	for i := 0; i < N; i++ {
+		go func(n int) {
+			ch <- n
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+	close(ch)
+	sum := 0
+	for v := range ch {
+		sum += v
+	}
+	return sum
+}
+
+// ============================================================================
+// sync.Map — concurrent-safe map
+// ============================================================================
+
+var concurrentMap sync.Map
+
+// MapStore stores a key-value pair.
+func MapStore(key string, value int) {
+	concurrentMap.Store(key, value)
+}
+
+// MapLoad loads a value by key.
+func MapLoad(key string) (int, bool) {
+	v, ok := concurrentMap.Load(key)
+	if !ok {
+		return 0, false
+	}
+	return v.(int), true
+}
+
+// MapLoadOrStore loads or stores a value.
+func MapLoadOrStore(key string, value int) (int, bool) {
+	v, loaded := concurrentMap.LoadOrStore(key, value)
+	return v.(int), loaded
+}
+
+// MapDelete deletes a key.
+func MapDelete(key string) {
+	concurrentMap.Delete(key)
+}
+
+// ============================================================================
+// Nested locks — lock ordering to prevent deadlock
+// ============================================================================
+
+var (
+	nestedMuA sync.Mutex
+	nestedMuB sync.Mutex
+	nestedSum int
+)
+
+func init() {
+	nestedSum = 0
+}
+
+// NestedLockAB locks A then B (consistent ordering).
+func NestedLockAB() int {
+	nestedMuA.Lock()
+	nestedMuB.Lock()
+	nestedSum = nestedSum + 1
+	val := nestedSum
+	nestedMuB.Unlock()
+	nestedMuA.Unlock()
+	return val
+}
+
+// NestedLockBA locks B then A (reverse ordering — potential deadlock).
+// This tests that the interpreter handles lock ordering correctly.
+func NestedLockBA() int {
+	nestedMuB.Lock()
+	nestedMuA.Lock()
+	nestedSum = nestedSum + 1
+	val := nestedSum
+	nestedMuA.Unlock()
+	nestedMuB.Unlock()
+	return val
+}
+
+// ============================================================================
+// Complex mixed synchronization — channel-based signal
+// ============================================================================
+
+var (
+	complexMu      sync.Mutex
+	complexReady   bool
+	complexResult  int
+	complexSignal  chan bool
+)
+
+func init() {
+	complexSignal = make(chan bool, 1)
+}
+
+// ComplexProducer sets the result and signals via channel.
+func ComplexProducer(value int) {
+	complexMu.Lock()
+	complexResult = value
+	complexReady = true
+	complexMu.Unlock()
+	complexSignal <- true
+}
+
+// ComplexConsumer waits for the signal and returns the result.
+func ComplexConsumer() int {
+	<-complexSignal
+	complexMu.Lock()
+	val := complexResult
+	complexMu.Unlock()
+	return val
+}
+
+// ResetComplexState resets for testing.
+func ResetComplexState() {
+	complexMu.Lock()
+	complexReady = false
+	complexResult = 0
+	select {
+	case <-complexSignal:
+	default:
+	}
+	complexMu.Unlock()
 }

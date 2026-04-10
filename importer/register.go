@@ -221,6 +221,16 @@ func (r *Registry) LookupExternalType(t types.Type) (reflect.Type, bool) {
 	return nil, false
 }
 
+// LookupExternalTypeByName looks up an external type by package path and type name.
+func (r *Registry) LookupExternalTypeByName(pkgPath, typeName string) (reflect.Type, bool) {
+	pkg := r.GetPackageByPath(pkgPath)
+	if pkg == nil {
+		return nil, false
+	}
+	rt, ok := pkg.Types[typeName]
+	return rt, ok
+}
+
 // --- Global registry (backward compatibility) ---
 
 // globalRegistry is the default registry used by global convenience functions.

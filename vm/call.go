@@ -431,6 +431,21 @@ func (v *vm) callExternalMethod(methodInfo *external.ExternalMethodInfo, args []
 		return nil
 	}
 
+	// Resolve GlobalRef / *value.Value receivers.
+	// When SSA compiles `mu.Lock()` on a value-type global `var mu sync.Mutex`,
+	// it generates `t0 = &mu; (*sync.Mutex).Lock(t0)`. OpGlobal pushes a GlobalRef
+	// (shared mode) or *value.Value (non-shared) as the "address" of the global.
+	// The global slot stores a heap-allocated pointer (*T via reflect.New(T)),
+	// so we just load it and pass it directly — no copy needed.
+	if iface0 := args[0].Interface(); iface0 != nil {
+		switch ref := iface0.(type) {
+		case *GlobalRef:
+			args[0] = ref.Load()
+		case *value.Value:
+			args[0] = *ref
+		}
+	}
+
 	// Fast path: DirectCall wrapper resolved at compile time
 	if methodInfo.DirectCall != nil {
 		// Convert interpreted closures in method args to real Go functions.
@@ -489,6 +504,17 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 		// Try pointer receiver
 		if rv.CanAddr() {
 			method = rv.Addr().MethodByName(methodInfo.MethodName)
+		}
+		// If CanAddr() failed but this is a struct, create an addressable copy
+		// so pointer-receiver methods can be found. This handles cases where the
+		// value was obtained from reflect.ValueOf() which is never addressable.
+		if !method.IsValid() && !rv.CanAddr() && rv.Kind() == reflect.Struct {
+			addrCopy := reflect.New(rv.Type()).Elem()
+			addrCopy.Set(rv)
+			method = addrCopy.Addr().MethodByName(methodInfo.MethodName)
+			if method.IsValid() {
+				rv = addrCopy
+			}
 		}
 		if !method.IsValid() {
 			// For structs with embedded interface fields (e.g., GetterHolder{Getter}),

@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	_ "embed"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -495,4 +496,380 @@ func TestProtectedCounterStress(t *testing.T) {
 		t.Fatalf("Stress: Protected counter = %d, want exactly %d", got, totalCalls)
 	}
 	t.Logf("Stress: Protected counter = %d (exact after %d concurrent increments)", got, totalCalls)
+}
+
+// ============================================================================
+// 12. Value-Type sync.Mutex — Exact Concurrent Correctness
+// ============================================================================
+
+// TestValueTypeMutexExact verifies that value-type sync.Mutex (not pointer)
+// provides exact mutual exclusion under concurrent access.
+func TestValueTypeMutexExact(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	const numGoroutines = 50
+	const callsPerGoroutine = 20
+	totalCalls := numGoroutines * callsPerGoroutine
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < callsPerGoroutine; j++ {
+				_, err := prog.Run("ValueTypeIncrement")
+				if err != nil {
+					t.Errorf("ValueTypeIncrement error: %v", err)
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	result, err := prog.Run("ValueTypeGet")
+	if err != nil {
+		t.Fatalf("ValueTypeGet error: %v", err)
+	}
+	got := toInt64(result)
+
+	if got != int64(totalCalls) {
+		t.Fatalf("Value-type mutex counter = %d, want exactly %d", got, totalCalls)
+	}
+	t.Logf("Value-type mutex counter = %d (exact, concurrent safe)", got)
+}
+
+// ============================================================================
+// 13. sync.RWMutex — Multiple Readers, Single Writer
+// ============================================================================
+
+// TestRWMutex verifies that RWMutex allows multiple concurrent readers
+// and exclusive writers.
+func TestRWMutex(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	const numWriters = 20
+	const numReaders = 50
+	const writesPerWriter = 10
+
+	var wg sync.WaitGroup
+	wg.Add(numWriters + numReaders)
+
+	// Writers
+	for i := 0; i < numWriters; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < writesPerWriter; j++ {
+				_, err := prog.Run("RWMutexWrite")
+				if err != nil {
+					t.Errorf("RWMutexWrite error: %v", err)
+					return
+				}
+			}
+		}()
+	}
+
+	// Readers
+	for i := 0; i < numReaders; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 10; j++ {
+				_, err := prog.Run("RWMutexRead")
+				if err != nil {
+					t.Errorf("RWMutexRead error: %v", err)
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	// Final count must be exact
+	expected := int64(numWriters * writesPerWriter)
+	result, err := prog.Run("RWMutexRead")
+	if err != nil {
+		t.Fatalf("RWMutexRead final error: %v", err)
+	}
+	got := toInt64(result)
+
+	if got != expected {
+		t.Fatalf("RWMutex counter = %d, want exactly %d", got, expected)
+	}
+	t.Logf("RWMutex counter = %d (exact)", got)
+}
+
+// ============================================================================
+// 14. sync.Once — Exactly-Once Initialization with Anonymous Closure
+// ============================================================================
+
+// TestOnce verifies that sync.Once.Do with an anonymous closure correctly
+// initializes a global variable exactly once, even under concurrent calls.
+func TestOnce(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	const numGoroutines = 100
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	results := make(chan int, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			result, err := prog.Run("OnceInit")
+			if err != nil {
+				t.Errorf("OnceInit error: %v", err)
+				return
+			}
+			results <- int(toInt64(result))
+		}()
+	}
+
+	wg.Wait()
+	close(results)
+
+	// All results should be 42 (the once-initialized value)
+	for v := range results {
+		if v != 42 {
+			t.Errorf("OnceInit returned %d, want 42", v)
+		}
+	}
+	t.Log("sync.Once: all 100 concurrent calls returned 42 (exactly-once correct)")
+}
+
+// ============================================================================
+// 15. sync.WaitGroup — Goroutine Synchronization Inside Guest Program
+// ============================================================================
+
+// TestWaitGroupGlobal verifies that sync.WaitGroup correctly synchronizes
+// goroutines spawned inside the guest program.
+func TestWaitGroupGlobal(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	result, err := prog.Run("WaitGroupSum")
+	if err != nil {
+		t.Fatalf("WaitGroupSum error: %v", err)
+	}
+
+	got := toInt64(result)
+	expected := int64(49 * 50 / 2) // sum(0..49)
+
+	if got != expected {
+		t.Fatalf("WaitGroupSum = %d, want %d", got, expected)
+	}
+	t.Logf("WaitGroupSum = %d (exact)", got)
+}
+
+// ============================================================================
+// 16. Concurrent Counter Stress Test
+// ============================================================================
+
+// TestConcurrentCounterStress verifies counter increment under high contention.
+func TestConcurrentCounterStress(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	const numGoroutines = 100
+	const incrementsPerGoroutine = 50
+	totalIncrements := numGoroutines * incrementsPerGoroutine
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < incrementsPerGoroutine; j++ {
+				_, err := prog.Run("ValueTypeIncrement")
+				if err != nil {
+					t.Errorf("ValueTypeIncrement error: %v", err)
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	result, err := prog.Run("ValueTypeGet")
+	if err != nil {
+		t.Fatalf("ValueTypeGet error: %v", err)
+	}
+	got := toInt64(result)
+
+	if got != int64(totalIncrements) {
+		t.Fatalf("Counter = %d, want exactly %d", got, totalIncrements)
+	}
+	t.Logf("High contention counter = %d (exact)", got)
+}
+
+// ============================================================================
+// 15. sync.Map — Concurrent Map Operations
+// ============================================================================
+
+// TestSyncMap verifies that sync.Map supports concurrent store/load/delete.
+func TestSyncMap(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	const numGoroutines = 30
+	const opsPerGoroutine = 20
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		i := i
+		go func() {
+			defer wg.Done()
+			for j := 0; j < opsPerGoroutine; j++ {
+				key := fmt.Sprintf("key-%d-%d", i, j)
+				_, err := prog.Run("MapStore", key, i*100+j)
+				if err != nil {
+					t.Errorf("MapStore error: %v", err)
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	// Verify all keys are present
+	missing := 0
+	for i := 0; i < numGoroutines; i++ {
+		for j := 0; j < opsPerGoroutine; j++ {
+			key := fmt.Sprintf("key-%d-%d", i, j)
+			result, err := prog.Run("MapLoad", key)
+			if err != nil {
+				t.Errorf("MapLoad error: %v", err)
+				continue
+			}
+			if result == nil {
+				missing++
+			}
+		}
+	}
+
+	if missing > 0 {
+		t.Errorf("sync.Map: %d keys missing after concurrent stores", missing)
+	} else {
+		t.Logf("sync.Map: all %d keys present after concurrent stores", numGoroutines*opsPerGoroutine)
+	}
+}
+
+// ============================================================================
+// 16. Channel-Based Worker Pool
+// ============================================================================
+
+// TestChannelWorkerPool verifies a worker pool pattern using channels.
+func TestChannelWorkerPool(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	result, err := prog.Run("SumViaChannel")
+	if err != nil {
+		t.Fatalf("SumViaChannel error: %v", err)
+	}
+
+	got := toInt64(result)
+	expected := int64(100) // 100 goroutines each send 1
+
+	if got != expected {
+		t.Fatalf("SumViaChannel = %d, want %d", got, expected)
+	}
+	t.Logf("Channel worker pool sum = %d (exact)", got)
+}
+
+// ============================================================================
+// 17. Nested Locks — Lock Ordering
+// ============================================================================
+
+// TestNestedLocks verifies that nested lock acquisition with consistent
+// ordering works correctly (no deadlock).
+func TestNestedLocks(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	const numGoroutines = 50
+	const callsPerGoroutine = 10
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < callsPerGoroutine; j++ {
+				_, err := prog.Run("NestedLockAB")
+				if err != nil {
+					t.Errorf("NestedLockAB error: %v", err)
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	t.Log("Nested locks with consistent ordering: no deadlock, all calls completed")
+}
+
+// ============================================================================
+// 18. Complex Mixed Synchronization — Cond + Mutex
+// ============================================================================
+
+// TestComplexSync verifies that complex synchronization patterns
+// (Cond + Mutex) work correctly.
+func TestComplexSync(t *testing.T) {
+	prog := buildStateful(t)
+	defer prog.Close()
+
+	// Reset state
+	_, err := prog.Run("ResetComplexState")
+	if err != nil {
+		t.Fatalf("ResetComplexState error: %v", err)
+	}
+
+	// Start consumer in background
+	var consumerResult int
+	var consumerErr error
+	var consumerDone sync.WaitGroup
+	consumerDone.Add(1)
+	go func() {
+		defer consumerDone.Done()
+		result, err := prog.Run("ComplexConsumer")
+		if err != nil {
+			consumerErr = err
+			return
+		}
+		consumerResult = int(toInt64(result))
+	}()
+
+	// Small delay to ensure consumer is waiting
+	time.Sleep(50 * time.Millisecond)
+
+	// Producer sets value
+	_, err = prog.Run("ComplexProducer", 123)
+	if err != nil {
+		t.Fatalf("ComplexProducer error: %v", err)
+	}
+
+	// Wait for consumer
+	consumerDone.Wait()
+
+	if consumerErr != nil {
+		t.Fatalf("ComplexConsumer error: %v", consumerErr)
+	}
+
+	if consumerResult != 123 {
+		t.Fatalf("ComplexConsumer returned %d, want 123", consumerResult)
+	}
+	t.Log("Complex sync (Cond + Mutex): producer/consumer pattern works correctly")
 }

@@ -29,32 +29,78 @@ type Closure struct {
 	// InitialGlobals is the post-init globals snapshot used to seed temporary VMs
 	// when this closure is converted to a real Go function via Execute().
 	InitialGlobals []value.Value
+
+	// Shared is the SharedGlobals from the parent VM (if in stateful mode).
+	// When set, the temporary VM created by Execute() will use shared globals
+	// instead of a fresh copy, ensuring writes to globals are visible.
+	// This is critical for sync.Once.Do(closure) where the closure writes globals.
+	Shared *SharedGlobals
+
+	// Goroutines is the GoroutineTracker from the parent VM.
+	// Allows closures converted to Go functions to spawn tracked goroutines.
+	Goroutines *GoroutineTracker
+
+	// ExtCallCache is the shared external call cache from the parent VM.
+	ExtCallCache *externalCallCache
+
+	// Ctx is the execution context from the parent VM.
+	Ctx context.Context
 }
 
 // Execute runs the closure in a temporary VM and returns the results as reflect.Values.
 // This implements value.ClosureExecutor, allowing value.ToReflectValue to convert
 // closures to real Go functions without a global callback.
+//
+// When Shared is set (stateful mode), the temporary VM uses the shared globals
+// so that writes to globals (e.g., inside sync.Once.Do) are visible to all VMs.
 func (c *Closure) Execute(args []reflect.Value, outTypes []reflect.Type) []reflect.Value {
 	if c.Program == nil {
 		return nil
 	}
+
+	ctx := c.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	// Create a temporary VM to execute the closure
 	closureVM := &vm{
-		program: c.Program,
-		stack:   make([]value.Value, 256),
-		sp:      0,
-		frames:  make([]*Frame, initialFrameDepth),
-		fp:      0,
-		globals: make([]value.Value, len(c.Program.Globals)),
-		ctx:     context.Background(),
-		extCallCache: &externalCallCache{
+		program:    c.Program,
+		stack:      make([]value.Value, 256),
+		sp:         0,
+		frames:     make([]*Frame, initialFrameDepth),
+		fp:         0,
+		ctx:        ctx,
+		goroutines: c.Goroutines,
+	}
+
+	// Use shared external call cache if available (avoids re-resolving)
+	if c.ExtCallCache != nil {
+		closureVM.extCallCache = c.ExtCallCache
+	} else {
+		closureVM.extCallCache = &externalCallCache{
 			cache: make([]*extCallCacheEntry, len(c.Program.Constants)),
-		},
+		}
 	}
-	if len(c.InitialGlobals) == len(closureVM.globals) {
-		copy(closureVM.globals, c.InitialGlobals)
+
+	// If SharedGlobals is available, bind it so the closure operates on the
+	// same shared globals as the parent VM. This is critical for closures
+	// passed to external functions like sync.Once.Do — writes to globals
+	// must be visible to subsequent reads.
+	if c.Shared != nil {
+		closureVM.shared = c.Shared
+		// globals slice is not used when shared is set, but allocate it
+		// in case any code path falls back to it.
+		closureVM.globals = make([]value.Value, len(c.Program.Globals))
+	} else {
+		closureVM.globals = make([]value.Value, len(c.Program.Globals))
+		if len(c.InitialGlobals) == len(closureVM.globals) {
+			copy(closureVM.globals, c.InitialGlobals)
+		}
 	}
+
 	closureVM.initialGlobals = c.InitialGlobals
+
 	// Convert reflect.Value args to value.Value args
 	valArgs := make([]value.Value, len(args))
 	for i, arg := range args {
@@ -88,6 +134,10 @@ var closurePool = sync.Pool{
 func getClosure(fn *bytecode.CompiledFunction, numFree int) *Closure {
 	c := closurePool.Get().(*Closure)
 	c.Fn = fn
+	c.Shared = nil
+	c.Goroutines = nil
+	c.ExtCallCache = nil
+	c.Ctx = nil
 	if numFree == 0 {
 		c.FreeVars = nil
 	} else if cap(c.FreeVars) >= numFree {
