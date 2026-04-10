@@ -85,8 +85,8 @@ func WithRegistry(r importer.PackageRegistry) BuildOption {
 
 // WithStatefulGlobals enables persistent package-level globals across Run calls.
 // When enabled, mutations to package-level variables in one Run call are visible
-// to subsequent Run calls on the same Program.  Top-level Run calls are serialized
-// so that shared global state remains deterministic.
+// to subsequent Run calls on the same Program. Multiple concurrent Run calls are
+// supported — global variable access is protected by a sync.RWMutex.
 //
 // By default (when this option is not passed), each Run starts from the
 // post-init() global state snapshot and mutations are discarded after the call.

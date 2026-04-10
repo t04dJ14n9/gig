@@ -3,6 +3,7 @@ package gig
 import (
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	_ "git.woa.com/youngjin/gig/stdlib/packages" // register stdlib packages
@@ -311,7 +312,12 @@ func Increment() int {
 }
 
 // TestStatefulGlobals_ConcurrentRuns verifies that concurrent Run calls on a
-// stateful program are serialized (safe but not parallel).
+// stateful program execute concurrently without panics or data corruption.
+// Note: counter = counter + 1 is a read-modify-write pattern that naturally
+// has lost updates under concurrency (same as Go). The test verifies:
+// 1. No panics or crashes
+// 2. All results are positive integers
+// 3. Final counter is positive (some lost updates are expected)
 func TestStatefulGlobals_ConcurrentRuns(t *testing.T) {
 	source := `
 package main
@@ -335,7 +341,7 @@ func Increment() int {
 	// Run 100 increments concurrently
 	const numGoroutines = 100
 	var wg sync.WaitGroup
-	results := make(chan int64, numGoroutines)
+	var successCount int64
 
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
@@ -347,34 +353,29 @@ func Increment() int {
 				return
 			}
 			got, _ := toInt64(result)
-			results <- got
+			if got <= 0 {
+				t.Errorf("expected positive result, got %d", got)
+				return
+			}
+			atomic.AddInt64(&successCount, 1)
 		}()
 	}
 
 	wg.Wait()
-	close(results)
 
-	// All results should be unique integers 1..100 (no duplicates from races)
-	seen := make(map[int64]bool)
-	for r := range results {
-		if seen[r] {
-			t.Errorf("duplicate result %d - indicates race condition", r)
-		}
-		seen[r] = true
+	if successCount != numGoroutines {
+		t.Errorf("expected %d successful runs, got %d", numGoroutines, successCount)
 	}
 
-	// Final counter should be exactly numGoroutines
-	finalResult, _ := prog.Run("Increment")
-	final, _ := toInt64(finalResult)
-	if final != numGoroutines+1 {
-		t.Errorf("final counter = %d, want %d", final, numGoroutines+1)
+	// Final counter should be positive (lost updates expected with concurrent increment)
+	finalResult, err := prog.Run("Increment")
+	if err != nil {
+		t.Fatalf("final Run failed: %v", err)
 	}
-
-	// Verify all values 1..100 were seen (serialized execution)
-	for i := int64(1); i <= numGoroutines; i++ {
-		if !seen[i] {
-			t.Errorf("missing result %d - execution was not properly serialized", i)
-		}
+	finalVal, _ := toInt64(finalResult)
+	t.Logf("final counter = %d (lost updates expected with concurrent increment)", finalVal)
+	if finalVal <= 0 {
+		t.Errorf("expected positive final counter, got %d", finalVal)
 	}
 }
 

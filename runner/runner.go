@@ -7,7 +7,6 @@ package runner
 
 import (
 	"context"
-	"sync"
 	"time"
 	"unsafe"
 
@@ -51,9 +50,8 @@ type Runner struct {
 	progKey uintptr
 
 	// stateful mode fields
-	stateful      bool
-	sharedGlobals []value.Value
-	runMu         sync.Mutex
+	stateful bool
+	shared   *vm.SharedGlobals // thread-safe shared globals for concurrent stateful execution
 }
 
 // New creates a new Runner for the given compiled bytecode program.
@@ -77,10 +75,8 @@ func New(program *bytecode.CompiledProgram, initialGlobals []value.Value, opts .
 	}
 
 	if cfg.stateful {
-		r.sharedGlobals = make([]value.Value, len(program.Globals))
-		if len(initialGlobals) == len(r.sharedGlobals) {
-			copy(r.sharedGlobals, initialGlobals)
-		}
+		r.shared = vm.NewSharedGlobals(initialGlobals, len(program.Globals))
+		r.shared.InitExternalVars(program.ExternalVarValues)
 	}
 
 	// Register per-program method resolver for fmt.Stringer support.
@@ -113,13 +109,12 @@ func (r *Runner) RunWithContext(ctx context.Context, funcName string, params ...
 }
 
 // RunWithValues executes a function with pre-converted Value arguments.
+// In stateful mode, multiple concurrent calls are allowed. Each call gets its
+// own VM from the pool but shares the same locked SharedGlobals.
 func (r *Runner) RunWithValues(ctx context.Context, funcName string, args []value.Value) (value.Value, error) {
 	if r.stateful {
-		r.runMu.Lock()
-		defer r.runMu.Unlock()
-
 		v := r.vmPool.Get()
-		v.BindSharedGlobals(&r.sharedGlobals)
+		v.BindSharedGlobals(r.shared)
 		result, err := v.ExecuteWithValues(funcName, ctx, args)
 		v.UnbindSharedGlobals()
 		r.vmPool.Put(v)

@@ -75,7 +75,7 @@ func (t *GoroutineTracker) WaitContext(ctx context.Context) error {
 }
 
 // newChildVM creates a child VM for goroutine execution.
-// The child VM shares the globals pointer and external call cache with the parent.
+// The child VM shares the SharedGlobals and external call cache with the parent.
 func (v *vm) newChildVM() *vm {
 	child := &vm{
 		program:        v.program,
@@ -83,15 +83,18 @@ func (v *vm) newChildVM() *vm {
 		sp:             0,
 		frames:         make([]*Frame, initialFrameDepth),
 		fp:             0,
-		globals:        nil, // Not used when globalsPtr is set
-		globalsPtr:     v.globalsPtr,
+		globals:        nil, // Not used when shared is set
+		shared:         v.shared,
 		ctx:            v.ctx,
 		extCallCache:   v.extCallCache,
 		initialGlobals: v.initialGlobals,
 		goroutines:     v.goroutines,
 	}
-	if child.globalsPtr == nil {
-		child.globalsPtr = &v.globals
+	if child.shared == nil {
+		// No SharedGlobals: create one on-the-fly wrapping parent's local globals.
+		// This allows goroutines spawned in non-stateful mode to share globals
+		// with the parent VM.
+		child.shared = &SharedGlobals{globals: v.globals}
 	}
 	return child
 }
@@ -107,7 +110,7 @@ func (v *vm) newDeferVM() *vm {
 		frames:       make([]*Frame, initialFrameDepth),
 		fp:           0,
 		globals:      v.getGlobals(),
-		globalsPtr:   v.globalsPtr,
+		shared:       v.shared,
 		ctx:          v.ctx,
 		extCallCache: v.extCallCache,
 	}

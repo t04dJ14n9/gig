@@ -102,9 +102,10 @@ type vm struct {
 	// globals stores global variables.
 	globals []value.Value
 
-	// globalsPtr is a pointer to shared globals (for goroutine communication).
-	// If set, globals operations use this pointer instead of the local slice.
-	globalsPtr *[]value.Value
+	// shared is a pointer to the SharedGlobals for stateful/goroutine mode.
+	// If set, global variable operations use the shared (locked) globals
+	// instead of the local slice. This enables concurrent execution.
+	shared *SharedGlobals
 
 	// ctx is the execution context for cancellation/timeout.
 	ctx context.Context
@@ -182,10 +183,10 @@ func (v *vm) Reset() {
 	for i := range v.frames {
 		v.frames[i] = nil
 	}
-	// If globalsPtr is set (shared globals from stateful mode or goroutine),
+	// If shared globals are set (stateful mode or goroutine),
 	// do not restore the local globals copy — the caller manages the shared state.
-	if v.globalsPtr != nil {
-		v.globalsPtr = nil
+	if v.shared != nil {
+		v.shared = nil
 		return
 	}
 	// Stateless mode: restore globals to post-init snapshot, or zero them.
@@ -222,14 +223,16 @@ func (v *vm) growFrames() bool {
 	return true
 }
 
-// BindSharedGlobals makes this VM execute against the provided shared globals slice.
-func (v *vm) BindSharedGlobals(globals *[]value.Value) {
-	v.globalsPtr = globals
+// BindSharedGlobals makes this VM execute against the provided SharedGlobals.
+// All global loads/stores will go through the shared (locked) globals.
+func (v *vm) BindSharedGlobals(sg *SharedGlobals) {
+	v.shared = sg
 }
 
-// UnbindSharedGlobals detaches the VM from shared globals.
+// UnbindSharedGlobals detaches the VM from shared globals so that Reset (called
+// when the VM is returned to the pool) does not clobber the shared state.
 func (v *vm) UnbindSharedGlobals() {
-	v.globalsPtr = nil
+	v.shared = nil
 }
 
 // Globals returns the VM's global variable slice.
@@ -309,10 +312,12 @@ func (v *vm) ExecuteWithValues(funcName string, ctx context.Context, args []valu
 	return v.run()
 }
 
-// getGlobals returns the globals slice, using the shared pointer if available.
+// getGlobals returns the globals slice for non-locked access.
+// For shared mode, returns the raw slice from SharedGlobals.
+// Individual OpGlobal/OpSetGlobal use locked methods directly.
 func (v *vm) getGlobals() []value.Value {
-	if v.globalsPtr != nil {
-		return *v.globalsPtr
+	if v.shared != nil {
+		return v.shared.Globals()
 	}
 	return v.globals
 }
