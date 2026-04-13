@@ -358,50 +358,31 @@ func constTypeToReflect(t types.Type) reflect.Type {
 
 // compileField compiles a Field instruction.
 func (c *compiler) compileField(i *ssa.Field) {
-	resultIdx := c.symbolTable.AllocLocal(i)
-	c.compileValue(i.X)
-	c.emit(bytecode.OpField, uint16(i.Field))
-	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	c.compileSimpleUnaryOp(i, i.X, bytecode.OpField, uint16(i.Field))
 }
 
 // compileFieldAddr compiles a FieldAddr instruction.
 func (c *compiler) compileFieldAddr(i *ssa.FieldAddr) {
-	resultIdx := c.symbolTable.AllocLocal(i)
-	c.compileValue(i.X)
-	c.emit(bytecode.OpFieldAddr, uint16(i.Field))
-	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	c.compileSimpleUnaryOp(i, i.X, bytecode.OpFieldAddr, uint16(i.Field))
 }
 
 // compileIndex compiles an Index instruction.
 func (c *compiler) compileIndex(i *ssa.Index) {
-	resultIdx := c.symbolTable.AllocLocal(i)
-	c.compileValue(i.X)
-	c.compileValue(i.Index)
-	c.emit(bytecode.OpIndex)
-	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	c.compileSimpleBinaryOp(i, i.X, i.Index, bytecode.OpIndex)
 }
 
 // compileIndexAddr compiles an IndexAddr instruction.
 func (c *compiler) compileIndexAddr(i *ssa.IndexAddr) {
-	resultIdx := c.symbolTable.AllocLocal(i)
-	c.compileValue(i.X)
-	c.compileValue(i.Index)
-	c.emit(bytecode.OpIndexAddr)
-	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	c.compileSimpleBinaryOp(i, i.X, i.Index, bytecode.OpIndexAddr)
 }
 
 // compileLookup compiles a Lookup instruction.
 func (c *compiler) compileLookup(i *ssa.Lookup) {
-	resultIdx := c.symbolTable.AllocLocal(i)
-	c.compileValue(i.X)
-	c.compileValue(i.Index)
-
+	opcode := bytecode.OpIndex
 	if i.CommaOk {
-		c.emit(bytecode.OpIndexOk)
-	} else {
-		c.emit(bytecode.OpIndex)
+		opcode = bytecode.OpIndexOk
 	}
-	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	c.compileSimpleBinaryOp(i, i.X, i.Index, opcode)
 }
 
 // compileStore compiles a Store instruction.
@@ -501,18 +482,12 @@ func (c *compiler) compileMapUpdate(i *ssa.MapUpdate) {
 
 // compileRange compiles a Range instruction.
 func (c *compiler) compileRange(i *ssa.Range) {
-	resultIdx := c.symbolTable.AllocLocal(i)
-	c.compileValue(i.X)
-	c.emit(bytecode.OpRange)
-	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	c.compileSimpleUnaryOp(i, i.X, bytecode.OpRange)
 }
 
 // compileNext compiles a Next instruction.
 func (c *compiler) compileNext(i *ssa.Next) {
-	resultIdx := c.symbolTable.AllocLocal(i)
-	c.compileValue(i.Iter)
-	c.emit(bytecode.OpRangeNext)
-	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	c.compileSimpleUnaryOp(i, i.Iter, bytecode.OpRangeNext)
 }
 
 // compileSelect compiles a Select instruction.
