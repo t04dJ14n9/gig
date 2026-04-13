@@ -25,69 +25,27 @@ func init() {
 var typeCache sync.Map // map[reflect.Type]types.Type
 
 // convertToConstantValue converts a Go value to a constant.Value for use in types.Const.
-// Handles basic types (bool, int, uint, float, complex, string) and falls back
-// to reflection for other types.
+// Uses reflection to handle all basic types uniformly.
 func convertToConstantValue(val any) constant.Value {
-	switch v := val.(type) {
-	case bool:
-		return constant.MakeBool(v)
-	case int:
-		return constant.MakeInt64(int64(v))
-	case int8:
-		return constant.MakeInt64(int64(v))
-	case int16:
-		return constant.MakeInt64(int64(v))
-	case int32:
-		return constant.MakeInt64(int64(v))
-	case int64:
-		return constant.MakeInt64(v)
-	case uint:
-		return constant.MakeUint64(uint64(v))
-	case uint8:
-		return constant.MakeUint64(uint64(v))
-	case uint16:
-		return constant.MakeUint64(uint64(v))
-	case uint32:
-		return constant.MakeUint64(uint64(v))
-	case uint64:
-		return constant.MakeUint64(v)
-	case float32:
-		return constant.MakeFloat64(float64(v))
-	case float64:
-		return constant.MakeFloat64(v)
-	case complex64:
-		// complex values are represented as binary operations
-		re := constant.MakeFloat64(float64(real(v)))
-		im := constant.MakeFloat64(float64(imag(v)))
+	rv := reflect.ValueOf(val)
+	switch rv.Kind() {
+	case reflect.Bool:
+		return constant.MakeBool(rv.Bool())
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return constant.MakeInt64(rv.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return constant.MakeUint64(rv.Uint())
+	case reflect.Float32, reflect.Float64:
+		return constant.MakeFloat64(rv.Float())
+	case reflect.Complex64, reflect.Complex128:
+		c := rv.Complex()
+		re := constant.MakeFloat64(real(c))
+		im := constant.MakeFloat64(imag(c))
 		return constant.BinaryOp(re, token.ADD, constant.BinaryOp(im, token.MUL, constant.MakeImag(constant.MakeInt64(1))))
-	case complex128:
-		re := constant.MakeFloat64(real(v))
-		im := constant.MakeFloat64(imag(v))
-		return constant.BinaryOp(re, token.ADD, constant.BinaryOp(im, token.MUL, constant.MakeImag(constant.MakeInt64(1))))
-	case string:
-		return constant.MakeString(v)
+	case reflect.String:
+		return constant.MakeString(rv.String())
 	default:
-		// For other types, try to convert via reflection
-		rv := reflect.ValueOf(val)
-		switch rv.Kind() {
-		case reflect.Bool:
-			return constant.MakeBool(rv.Bool())
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			return constant.MakeInt64(rv.Int())
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-			return constant.MakeUint64(rv.Uint())
-		case reflect.Float32, reflect.Float64:
-			return constant.MakeFloat64(rv.Float())
-		case reflect.Complex64, reflect.Complex128:
-			c := rv.Complex()
-			re := constant.MakeFloat64(real(c))
-			im := constant.MakeFloat64(imag(c))
-			return constant.BinaryOp(re, token.ADD, constant.BinaryOp(im, token.MUL, constant.MakeImag(constant.MakeInt64(1))))
-		case reflect.String:
-			return constant.MakeString(rv.String())
-		default:
-			return constant.MakeUnknown()
-		}
+		return constant.MakeUnknown()
 	}
 }
 
@@ -222,7 +180,8 @@ func convertReflectType(rt reflect.Type) types.Type {
 
 // convertReflectTypeForUnderlying converts a reflect.Type to its underlying types.Type.
 // This is used for named types to avoid wrapping in another Named type.
-// It returns the actual underlying type (e.g., struct, pointer, slice).
+// Unlike convertReflectType, it does NOT cache results in typeCache — doing so
+// would overwrite the Named type entry that the caller stored for recursion breaking.
 func convertReflectTypeForUnderlying(rt reflect.Type) types.Type {
 	// For basic named types, return the corresponding basic type
 	if bt := bytecode.BasicTypeFromReflectKind(rt.Kind()); bt != nil {
@@ -233,18 +192,13 @@ func convertReflectTypeForUnderlying(rt reflect.Type) types.Type {
 	case reflect.Struct:
 		return convertStructType(rt)
 	case reflect.Ptr:
-		elem := convertReflectType(rt.Elem())
-		return types.NewPointer(elem)
+		return types.NewPointer(convertReflectType(rt.Elem()))
 	case reflect.Slice:
-		elem := convertReflectType(rt.Elem())
-		return types.NewSlice(elem)
+		return types.NewSlice(convertReflectType(rt.Elem()))
 	case reflect.Array:
-		elem := convertReflectType(rt.Elem())
-		return types.NewArray(elem, int64(rt.Len()))
+		return types.NewArray(convertReflectType(rt.Elem()), int64(rt.Len()))
 	case reflect.Map:
-		key := convertReflectType(rt.Key())
-		elem := convertReflectType(rt.Elem())
-		return types.NewMap(key, elem)
+		return types.NewMap(convertReflectType(rt.Key()), convertReflectType(rt.Elem()))
 	case reflect.Func:
 		return convertFuncType(rt)
 	case reflect.Interface:

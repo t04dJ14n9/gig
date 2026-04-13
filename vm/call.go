@@ -491,61 +491,13 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 		args[0] = value.MakeFromReflect(rv)
 	}
 
-	// Look up the method by name
-	method := rv.MethodByName(methodInfo.MethodName)
-	if !method.IsValid() {
-		// Try pointer receiver
-		if rv.CanAddr() {
-			method = rv.Addr().MethodByName(methodInfo.MethodName)
-		}
-		// If CanAddr() failed but this is a struct, create an addressable copy
-		// so pointer-receiver methods can be found. This handles cases where the
-		// value was obtained from reflect.ValueOf() which is never addressable.
-		if !method.IsValid() && !rv.CanAddr() && rv.Kind() == reflect.Struct {
-			addrCopy := reflect.New(rv.Type()).Elem()
-			addrCopy.Set(rv)
-			method = addrCopy.Addr().MethodByName(methodInfo.MethodName)
-			if method.IsValid() {
-				rv = addrCopy
-			}
-		}
-		if !method.IsValid() {
-			// For structs with embedded interface fields (e.g., GetterHolder{Getter}),
-			// check if any field is an interface that contains the method.
-			// This handles the case where typeToReflect converts interfaces to interface{}
-			// and the method is actually on the concrete value stored in the interface field.
-			if rv.Kind() == reflect.Struct {
-				for i := 0; i < rv.NumField(); i++ {
-					field := rv.Field(i)
-					if field.Kind() == reflect.Interface && !field.IsNil() {
-						concrete := field.Elem()
-						m := concrete.MethodByName(methodInfo.MethodName)
-						if m.IsValid() {
-							// Found the method on the embedded interface's concrete value.
-							// Replace receiver with the concrete value and dispatch.
-							args[0] = value.MakeFromReflect(concrete)
-							method = m
-							break
-						}
-						// Also try pointer receiver on the concrete value
-						if concrete.CanAddr() {
-							m = concrete.Addr().MethodByName(methodInfo.MethodName)
-							if m.IsValid() {
-								args[0] = value.MakeFromReflect(concrete.Addr())
-								method = m
-								break
-							}
-						}
-					}
-				}
-			}
-		}
-		if !method.IsValid() {
-			// Reflection-based lookup failed. This happens when typeToReflect
-			// strips named types to anonymous structs (e.g., Impl → struct{val int}).
-			// Fall back to calling a compiled method from the function table.
-			return v.callCompiledMethod(methodInfo.MethodName, methodInfo.ReceiverTypeName, args)
-		}
+	// Look up the method by name (including pointer receiver and embedded interface fallbacks)
+	method, found := findMethod(rv, methodInfo.MethodName, args)
+	if !found {
+		// Reflection-based lookup failed. This happens when typeToReflect
+		// strips named types to anonymous structs (e.g., Impl → struct{val int}).
+		// Fall back to calling a compiled method from the function table.
+		return v.callCompiledMethod(methodInfo.MethodName, methodInfo.ReceiverTypeName, args)
 	}
 
 	// Build arguments (skip the receiver at args[0])
@@ -577,6 +529,61 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 		v.push(value.FromInterface(results))
 	}
 	return nil
+}
+
+// findMethod resolves a method by name on a reflect.Value, trying (in order):
+// 1. Direct method lookup on the value
+// 2. Pointer receiver method via Addr()
+// 3. Pointer receiver via addressable copy (for non-addressable structs)
+// 4. Methods on concrete values inside embedded interface fields
+//
+// args[0] may be updated if the method is found on an embedded interface's concrete value.
+func findMethod(rv reflect.Value, methodName string, args []value.Value) (reflect.Value, bool) {
+	method := rv.MethodByName(methodName)
+	if method.IsValid() {
+		return method, true
+	}
+
+	// Try pointer receiver
+	if rv.CanAddr() {
+		method = rv.Addr().MethodByName(methodName)
+		if method.IsValid() {
+			return method, true
+		}
+	}
+
+	// Create an addressable copy for non-addressable structs
+	if !rv.CanAddr() && rv.Kind() == reflect.Struct {
+		addrCopy := reflect.New(rv.Type()).Elem()
+		addrCopy.Set(rv)
+		method = addrCopy.Addr().MethodByName(methodName)
+		if method.IsValid() {
+			return method, true
+		}
+	}
+
+	// Search embedded interface fields for the method
+	if rv.Kind() == reflect.Struct {
+		for i := 0; i < rv.NumField(); i++ {
+			field := rv.Field(i)
+			if field.Kind() != reflect.Interface || field.IsNil() {
+				continue
+			}
+			concrete := field.Elem()
+			if m := concrete.MethodByName(methodName); m.IsValid() {
+				args[0] = value.MakeFromReflect(concrete)
+				return m, true
+			}
+			if concrete.CanAddr() {
+				if m := concrete.Addr().MethodByName(methodName); m.IsValid() {
+					args[0] = value.MakeFromReflect(concrete.Addr())
+					return m, true
+				}
+			}
+		}
+	}
+
+	return reflect.Value{}, false
 }
 
 // callCompiledMethod searches the compiled function table for a method with the

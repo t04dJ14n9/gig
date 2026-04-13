@@ -33,6 +33,88 @@ func derefAllocLocal(ptr value.Value) value.Value {
 	return ptr
 }
 
+// runDefersDuringPanic runs deferred functions in LIFO order during a panic.
+// It uses the shared VM + recursive run() so that OpRecover (inside the deferred
+// function) can clear v.panicking on the same VM instance.
+// Returns true if the panic was recovered by a deferred function.
+//
+// Caller must sync v.sp before calling; v.sp is updated on return.
+func (v *vm) runDefersDuringPanic(frame *Frame) bool {
+	recovered := false
+	if len(frame.defers) == 0 {
+		return recovered
+	}
+
+	for i := len(frame.defers) - 1; i >= 0; i-- {
+		d := frame.defers[i]
+		if d.fn == nil {
+			continue
+		}
+
+		// Get free variables from closure if present
+		var freeVars []*value.Value
+		if d.closure != nil {
+			freeVars = d.closure.FreeVars
+		}
+
+		if v.panicking {
+			// Panic is active: push state onto panicStack so that
+			// OpRecover (inside the deferred function) can access it.
+			// Clear v.panicking so the recursive run() doesn't immediately
+			// re-enter the panic handler on the defer's frame.
+			v.panicStack = append(v.panicStack, panicState{
+				panicking: true,
+				panicVal:  v.panicVal,
+			})
+			v.panicking = false
+			v.panicVal = value.MakeNil()
+
+			v.callFunction(d.fn, d.args, freeVars)
+			v.deferDepth++
+			_, _ = v.run()
+			v.deferDepth--
+
+			if v.panicking {
+				// The defer itself panicked (and was not recovered).
+				// Pop the saved state — this new panic replaces the old one.
+				v.panicStack = v.panicStack[:len(v.panicStack)-1]
+				continue
+			}
+
+			// Pop the saved state and check if recover() consumed it.
+			saved := v.panicStack[len(v.panicStack)-1]
+			v.panicStack = v.panicStack[:len(v.panicStack)-1]
+
+			if saved.panicking {
+				// The defer didn't call recover() — restore the panic.
+				v.panicking = true
+				v.panicVal = saved.panicVal
+			} else {
+				// recover() was called — panic is resolved.
+				// Continue running remaining defers in normal mode.
+				recovered = true
+			}
+		} else {
+			// Panic already recovered: run remaining defers normally.
+			// Use child VM to avoid interfering with the parent frame stack.
+			childVM := v.newDeferVM()
+			deferFrame := newFrame(d.fn, d.args, freeVars)
+			childVM.frames[0] = deferFrame
+			childVM.fp = 1
+			_, _ = childVM.run()
+
+			// If the child VM panicked, re-enter panic mode.
+			if childVM.panicking {
+				v.panicking = true
+				v.panicVal = childVM.panicVal
+				recovered = false
+			}
+		}
+	}
+	frame.defers = nil
+	return recovered
+}
+
 // run is the main execution loop for the VM.
 // It fetches, decodes, and executes bytecode instructions until:
 //   - All call frames return (normal termination)
@@ -101,91 +183,10 @@ func (v *vm) run() (value.Value, error) {
 		// Allow panic handling at any defer depth — this enables nested panics
 		// (panic inside a deferred function) to be properly recovered.
 		if v.panicking {
-			// Run deferred functions in LIFO order.
-			// Unlike OpRunDefers (which uses child VMs), the panic path uses the
-			// shared VM + recursive run() so that OpRecover can clear v.panicking
-			// on the same VM instance. The parent frame stays on the stack until
-			// recovery is confirmed, allowing proper return value handling.
-			//
-			// In Go, ALL defers run regardless of whether a panic is recovered.
-			// After recover() clears the panic, remaining defers still execute
-			// but in normal mode (no panic context).
-			recovered := false
-			if len(frame.defers) > 0 {
-				for i := len(frame.defers) - 1; i >= 0; i-- {
-					d := frame.defers[i]
-					if d.fn == nil {
-						continue
-					}
-
-					// Get free variables from closure if present
-					var freeVars []*value.Value
-					if d.closure != nil {
-						freeVars = d.closure.FreeVars
-					}
-
-					if v.panicking {
-						// Panic is active: push state onto panicStack so that
-						// OpRecover (inside the deferred function) can access it.
-						// Clear v.panicking so the recursive run() doesn't immediately
-						// re-enter the panic handler on the defer's frame.
-						v.panicStack = append(v.panicStack, panicState{
-							panicking: true,
-							panicVal:  v.panicVal,
-						})
-						v.panicking = false
-						v.panicVal = value.MakeNil()
-
-						v.sp = sp
-						v.callFunction(d.fn, d.args, freeVars)
-						v.deferDepth++
-						_, _ = v.run()
-						v.deferDepth--
-						sp = v.sp
-
-						if v.panicking {
-							// The defer itself panicked (and was not recovered).
-							// Pop the saved state — this new panic replaces the old one.
-							v.panicStack = v.panicStack[:len(v.panicStack)-1]
-							// Continue to next defer with the new panic active.
-							continue
-						}
-
-						// Pop the saved state and check if recover() consumed it.
-						saved := v.panicStack[len(v.panicStack)-1]
-						v.panicStack = v.panicStack[:len(v.panicStack)-1]
-
-						if saved.panicking {
-							// The defer didn't call recover() — restore the panic.
-							v.panicking = true
-							v.panicVal = saved.panicVal
-						} else {
-							// recover() was called and cleared the saved state.
-							// Panic is resolved. Continue running remaining defers
-							// in normal mode (Go requires ALL defers run).
-							recovered = true
-						}
-					} else {
-						// Panic already recovered: run remaining defers normally.
-						// Use child VM like OpRunDefers to avoid interfering with
-						// the parent frame stack.
-						childVM := v.newDeferVM()
-						deferFrame := newFrame(d.fn, d.args, freeVars)
-						childVM.frames[0] = deferFrame
-						childVM.fp = 1
-						_, _ = childVM.run()
-
-						// If the child VM panicked (defer panicked during
-						// post-recovery execution), re-enter panic mode.
-						if childVM.panicking {
-							v.panicking = true
-							v.panicVal = childVM.panicVal
-							recovered = false
-						}
-					}
-				}
-				frame.defers = nil
-			}
+			// Sync sp so runDefersDuringPanic can use v.sp for recursive run() calls.
+			v.sp = sp
+			recovered := v.runDefersDuringPanic(frame)
+			sp = v.sp
 
 			// Check if panic was recovered during deferred execution
 			if recovered || !v.panicking {
