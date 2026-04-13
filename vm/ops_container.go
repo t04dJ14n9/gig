@@ -26,6 +26,16 @@ func (v *vm) resolveType(typeIdxVal value.Value) (types.Type, bool) {
 	return nil, false
 }
 
+// mustReflectValue extracts a reflect.Value from a value.Value or returns an
+// invalid reflect.Value if the value doesn't contain a reflect.Value.
+// This helper reduces repetitive if rv, ok := val.ReflectValue() patterns.
+func (v *vm) mustReflectValue(val value.Value) reflect.Value {
+	if rv, ok := val.ReflectValue(); ok {
+		return rv
+	}
+	return reflect.Value{}
+}
+
 // executeContainer handles slice, map, channel creation, index, append,
 // copy, delete, range, len, and cap opcodes.
 func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx,unparam // frame: uniform dispatch signature
@@ -115,7 +125,8 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			v.push(container.Index(idx))
 		case value.KindReflect:
 			// Handle reflect.Value containing a slice, array, or map
-			if rv, ok := container.ReflectValue(); ok {
+			rv := v.mustReflectValue(container)
+			if rv.IsValid() {
 				switch rv.Kind() {
 				case reflect.Slice, reflect.Array:
 					idx := int(key.Int())
@@ -146,7 +157,8 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 		switch container.Kind() {
 		case value.KindMap:
 			// For maps, check if key exists
-			if rv, ok := container.ReflectValue(); ok {
+			rv := v.mustReflectValue(container)
+			if rv.IsValid() {
 				k := key.ToReflectValue(rv.Type().Key())
 				elem := rv.MapIndex(k)
 				if !elem.IsValid() {
@@ -158,11 +170,8 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 				v.pushCommaOk(value.MakeNil(), false)
 			}
 		case value.KindReflect:
-			if rv, ok := container.ReflectValue(); ok {
-				if !rv.IsValid() {
-					v.pushCommaOk(value.MakeNil(), false)
-					break
-				}
+			rv := v.mustReflectValue(container)
+			if rv.IsValid() {
 				switch rv.Kind() {
 				case reflect.Map:
 					if rv.Type().Key() == nil {
@@ -216,7 +225,8 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			// For OpSetIndex, nil value means set to typed nil (not delete)
 			container.SetMapIndexWithDelete(key, val, false)
 		case value.KindReflect:
-			if rv, ok := container.ReflectValue(); ok {
+			rv := v.mustReflectValue(container)
+			if rv.IsValid() {
 				switch rv.Kind() {
 				case reflect.Slice, reflect.Array:
 					idx := int(key.Int())
@@ -261,7 +271,8 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			break
 		}
 
-		if rv, ok := container.ReflectValue(); ok {
+		rv := v.mustReflectValue(container)
+		if rv.IsValid() {
 			// If it's a pointer to an array or slice, dereference it first
 			if rv.Kind() == reflect.Ptr {
 				elemKind := rv.Elem().Kind()
@@ -360,7 +371,8 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			v.push(value.MakeInt(int64(obj.Len())))
 		case value.KindInterface, value.KindReflect:
 			// Handle both interface values and reflect-wrapped values
-			if rv, ok := obj.ReflectValue(); ok {
+			rv := v.mustReflectValue(obj)
+			if rv.IsValid() {
 				kind := rv.Kind()
 				if kind == reflect.Interface {
 					// Unwrap interface to get underlying value
@@ -388,7 +400,8 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 		case value.KindSlice, value.KindArray, value.KindChan:
 			v.push(value.MakeInt(int64(obj.Cap())))
 		case value.KindReflect:
-			if rv, ok := obj.ReflectValue(); ok {
+			rv := v.mustReflectValue(obj)
+			if rv.IsValid() {
 				v.push(value.MakeInt(int64(rv.Cap())))
 			} else {
 				v.push(value.MakeInt(0))
@@ -412,7 +425,7 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 				break
 			}
 			// Cross-type: dst is native []int64, src is reflect slice (e.g. []int)
-			if srcRV, ok2 := src.ReflectValue(); ok2 && srcRV.Kind() == reflect.Slice {
+			if srcRV := v.mustReflectValue(src); srcRV.IsValid() && srcRV.Kind() == reflect.Slice {
 				n := len(ds)
 				if srcRV.Len() < n {
 					n = srcRV.Len()
@@ -425,8 +438,8 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			}
 		}
 		// Copy slice
-		if dstRV, ok := dst.ReflectValue(); ok {
-			if srcRV, ok := src.ReflectValue(); ok {
+		if dstRV := v.mustReflectValue(dst); dstRV.IsValid() {
+			if srcRV := v.mustReflectValue(src); srcRV.IsValid() {
 				n := reflect.Copy(dstRV, srcRV)
 				v.push(value.MakeInt(int64(n)))
 			} else if ss, ok2 := src.IntSlice(); ok2 {
@@ -453,7 +466,7 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 		if m.IsNil() {
 			break
 		}
-		if rv, ok := m.ReflectValue(); ok && rv.IsNil() {
+		if rv := v.mustReflectValue(m); rv.IsValid() && rv.IsNil() {
 			break
 		}
 		// For OpDelete, we want to delete the entry (deleteIfNil=true)
