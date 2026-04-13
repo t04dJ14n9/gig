@@ -50,6 +50,19 @@ func isIntSliceType(t types.Type) bool {
 	return false
 }
 
+// buildTypeMap constructs a boolean map for a set of SSA values, marking entries
+// where the given predicate returns true. This consolidates the pattern used for
+// type-specialization maps like localIsInt and localIsIntSlice.
+func buildTypeMap(values map[ssa.Value]int, predicate func(types.Type) bool) []bool {
+	result := make([]bool, len(values))
+	for v, idx := range values {
+		if predicate(v.Type()) {
+			result[idx] = true
+		}
+	}
+	return result
+}
+
 // compileFunction compiles a single SSA function to bytecode.
 func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction, error) { //nolint:unparam // error return reserved for future compilation errors
 	cf := &bytecode.CompiledFunction{
@@ -82,34 +95,18 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 		c.symbolTable.freeVars[freeVar] = i
 	}
 
-	// First pass: collect Phi nodes and allocate slots for them
+	// Single-pass allocation for Phi, value, and Alloc instructions
 	for _, block := range fn.Blocks {
 		for _, instr := range block.Instrs {
-			if phi, ok := instr.(*ssa.Phi); ok {
-				slot := c.symbolTable.AllocLocal(phi)
-				c.phiSlots[phi] = slot
-			}
-		}
-	}
-
-	// Allocate locals for all other values in the function
-	for _, block := range fn.Blocks {
-		for _, instr := range block.Instrs {
-			if val, ok := instr.(ssa.Value); ok {
-				if _, isPhi := instr.(*ssa.Phi); !isPhi {
-					if _, isAlloc := instr.(*ssa.Alloc); !isAlloc {
-						c.symbolTable.AllocLocal(val)
-					}
-				}
-			}
-		}
-	}
-
-	// Pre-allocate slots for Alloc instructions too
-	for _, block := range fn.Blocks {
-		for _, instr := range block.Instrs {
-			if _, isAlloc := instr.(*ssa.Alloc); isAlloc {
-				c.symbolTable.AllocLocal(instr.(ssa.Value))
+			switch instr := instr.(type) {
+			case *ssa.Phi:
+				slot := c.symbolTable.AllocLocal(instr)
+				c.phiSlots[instr] = slot
+			case *ssa.Alloc:
+				c.symbolTable.AllocLocal(instr)
+			case ssa.Value:
+				// Allocate for all other value-producing instructions
+				c.symbolTable.AllocLocal(instr)
 			}
 		}
 	}
@@ -124,17 +121,9 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 	// the VM can deref them after panic recovery instead of returning nil.
 	c.currentFunc.ResultAllocSlots = detectResultAllocSlots(fn, c.symbolTable)
 
-	// Build local-is-int map for int-specialization
-	localIsInt := make([]bool, c.symbolTable.NumLocals())
-	localIsIntSlice := make([]bool, c.symbolTable.NumLocals())
-	for v, idx := range c.symbolTable.locals {
-		if isIntType(v.Type()) {
-			localIsInt[idx] = true
-		}
-		if isIntSliceType(v.Type()) {
-			localIsIntSlice[idx] = true
-		}
-	}
+	// Build local type maps for int-specialization (single pass)
+	localIsInt := buildTypeMap(c.symbolTable.locals, isIntType)
+	localIsIntSlice := buildTypeMap(c.symbolTable.locals, isIntSliceType)
 
 	// Compile basic blocks in reverse postorder
 	blocks := reversePostorder(fn)
