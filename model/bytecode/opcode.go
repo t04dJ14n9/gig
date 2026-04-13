@@ -801,6 +801,9 @@ func buildOperandWidthTable() [256]int {
 	return t
 }
 
+// unknownOpName is the string returned for unrecognized opcodes.
+const unknownOpName = "UNKNOWN"
+
 // opNameTable maps OpCode values to their string representations.
 // Built at init time for O(1) lookup performance.
 var opNameTable [256]string
@@ -808,7 +811,7 @@ var opNameTable [256]string
 func init() { //nolint:gochecknoinits,decorder // table init placed after var declarations for readability
 	// Initialize all entries to "UNKNOWN"
 	for i := range opNameTable {
-		opNameTable[i] = "UNKNOWN"
+		opNameTable[i] = unknownOpName
 	}
 
 	// Populate known opcodes
@@ -954,7 +957,7 @@ func (op OpCode) String() string {
 	if int(op) < len(opNameTable) {
 		return opNameTable[op]
 	}
-	return "UNKNOWN"
+	return unknownOpName
 }
 
 // OperandWidth returns the operand byte width for an opcode using O(1) array lookup.
