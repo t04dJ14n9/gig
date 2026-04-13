@@ -81,9 +81,9 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 			return reflect.SliceOf(elem)
 		}
 		// If elem is nil due to a cycle (e.g., []*TreeNode where TreeNode has cycle),
-		// use []interface{} as a placeholder. The VM will convert slice elements
+		// use []any as a placeholder. The VM will convert slice elements
 		// at assignment time when the concrete type is known.
-		return reflect.SliceOf(reflect.TypeFor[interface{}]())
+		return reflect.SliceOf(reflect.TypeFor[any]())
 	case *types.Array:
 		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
 		if elem != nil {
@@ -109,12 +109,12 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 			return reflect.PointerTo(elem)
 		}
 		// If elem is nil due to a cycle (self-referencing struct pointer),
-		// use interface{} as a placeholder. The VM stores such values as
-		// reflect.Value internally, and interface{} can hold any pointer value.
+		// use any as a placeholder. The VM stores such values as
+		// reflect.Value internally, and any can hold any pointer value.
 		return reflect.TypeFor[any]()
 	case *types.Interface:
 		// Interface type — use the empty interface (any) type
-		// For the VM, all interfaces are represented as interface{}
+		// For the VM, all interfaces are represented as any
 		return reflect.TypeFor[any]()
 	case *types.Named:
 		// Check if this is a registered external type (e.g., bytes.Buffer, strings.Builder).
@@ -220,7 +220,7 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 		// each field distinguishable via a struct tag so that reflect.StructOf
 		// produces a unique reflect.Type. Without this, structs like
 		// GetterHolder{Getter interface} and any other struct{SomeInterface interface}
-		// would collide because all interface fields become interface{} after conversion.
+		// would collide because all interface fields become any after conversion.
 		//
 		// For empty named structs (no fields, uniqueSuffix != ""), we share
 		// reflect.TypeOf(struct{}{}) and rely on the ReflectTypeNames registry
@@ -241,7 +241,7 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 			return reflect.TypeOf(struct{}{})
 		}
 		result := reflect.StructOf(fields)
-		
+
 		return result
 	case *types.Signature:
 		// Function type - need to build the function type dynamically

@@ -326,7 +326,6 @@ func buildFuncType(sig *types.Signature) reflect.Type {
 	return reflect.FuncOf(params, results, sig.Variadic())
 }
 
-
 // compileField compiles a Field instruction.
 func (c *compiler) compileField(i *ssa.Field) {
 	c.compileSimpleUnaryOp(i, i.X, bytecode.OpField, uint16(i.Field))

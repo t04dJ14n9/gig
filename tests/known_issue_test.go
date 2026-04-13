@@ -107,7 +107,7 @@ func TestKnownIssues_Tricky(t *testing.T) {
 		},
 		"Bug_BlankExpression": {
 			funcName: "StrangeSyntax_Bug4_BlankExpression",
-			native:   func() any { _ = 42; var s []interface{}; return s },
+			native:   func() any { _ = 42; var s []any; return s },
 			issue:    "Blank identifier expression loses type in interface return",
 			panics:   false,
 		},

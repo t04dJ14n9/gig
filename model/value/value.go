@@ -94,12 +94,12 @@ const (
 // Built at init time for O(1) lookup performance.
 var kindNameTable [256]string
 
-func init() {
+func init() { //nolint:gochecknoinits
 	// Initialize all entries to "unknown"
 	for i := range kindNameTable {
 		kindNameTable[i] = "unknown"
 	}
-	
+
 	// Populate known kinds
 	kindNameTable[KindArray] = "array"
 	kindNameTable[KindBool] = "bool"

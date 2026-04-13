@@ -215,7 +215,6 @@ func LoadOrStore(key string, value int) (int, bool) {
 
 	// Concurrent stores
 	for i := 0; i < numGoroutines; i++ {
-		i := i
 		go func() {
 			defer wg.Done()
 			for j := 0; j < opsPerGoroutine; j++ {
@@ -459,14 +458,13 @@ func Multiply(a, b int) int {
 	wg.Add(numGoroutines)
 
 	for i := 0; i < numGoroutines; i++ {
-		i := i
 		go func() {
 			defer wg.Done()
 			ctx := context.Background()
 			args := []value.Value{
 				value.FromInterface(int64(i)),
 				value.FromInterface(int64(i * 2)),
-				}
+			}
 			result, err := prog.RunWithValues(ctx, "Add", args)
 			if err != nil {
 				t.Errorf("Add error: %v", err)
@@ -674,4 +672,3 @@ func FanOut() int {
 	}
 	t.Logf("FanOut = %d (non-deterministic, verified non-negative)", got)
 }
-

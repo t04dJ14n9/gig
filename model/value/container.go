@@ -208,7 +208,7 @@ func (v Value) SetField(i int, val Value) {
 	if rv, ok := v.obj.(reflect.Value); ok {
 		field := rv.Field(i)
 		fieldType := rv.Type().Field(i).Type
-		
+
 		// Handle slice conversion: []*T -> []interface{} for cyclic struct fields
 		if fieldType.Kind() == reflect.Slice && fieldType.Elem().Kind() == reflect.Interface {
 			if valRV, ok := val.ReflectValue(); ok && valRV.Kind() == reflect.Slice {
@@ -220,7 +220,7 @@ func (v Value) SetField(i int, val Value) {
 				}
 			}
 		}
-		
+
 		field.Set(val.ToReflectValue(fieldType))
 		return
 	}
@@ -319,7 +319,7 @@ func (v Value) SetElem(val Value) {
 							}
 						}
 					}
-					
+
 					// Auto-unwrap pointer if elem matches
 					if valRV.Kind() == reflect.Ptr && !valRV.IsNil() && valRV.Type().Elem().AssignableTo(elemType) {
 						targetRV.Set(valRV.Elem())

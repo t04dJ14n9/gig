@@ -35,10 +35,10 @@ func BenchmarkExternWrap_Only(b *testing.B) {
 	v := reflect.New(anonStructType).Elem()
 	v.Field(0).SetString("Alice")
 	v.Field(1).SetInt(30)
-	
+
 	// 预先创建 Value 对象（模拟 VM 中的情况）
 	val := value.MakeFromReflect(v)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = value.FmtWrap(val)
@@ -51,13 +51,13 @@ func BenchmarkExternWrap_Breakdown(b *testing.B) {
 	v.Field(0).SetString("Alice")
 	v.Field(1).SetInt(30)
 	val := value.MakeFromReflect(v)
-	
+
 	b.Run("Interface", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			_ = val.Interface()
 		}
 	})
-	
+
 	b.Run("ExternWrap", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			_ = value.FmtWrap(val)
@@ -69,19 +69,19 @@ func BenchmarkExternWrap_Breakdown(b *testing.B) {
 func BenchmarkFullChain(b *testing.B) {
 	// 原生结构体
 	native := NativeStruct{Name: "Alice", Age: 30}
-	
+
 	// gig 匿名结构体
 	v := reflect.New(anonStructType).Elem()
 	v.Field(0).SetString("Alice")
 	v.Field(1).SetInt(30)
 	gigVal := value.MakeFromReflect(v)
-	
+
 	b.Run("Native/Direct", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			json.Marshal(native)
 		}
 	})
-	
+
 	b.Run("Native/Reflect", func(b *testing.B) {
 		marshalFunc := reflect.ValueOf(json.Marshal)
 		for i := 0; i < b.N; i++ {
@@ -89,7 +89,7 @@ func BenchmarkFullChain(b *testing.B) {
 			marshalFunc.Call(args)
 		}
 	})
-	
+
 	b.Run("Gig/Reflect_NoWrap", func(b *testing.B) {
 		marshalFunc := reflect.ValueOf(json.Marshal)
 		for i := 0; i < b.N; i++ {
@@ -97,7 +97,7 @@ func BenchmarkFullChain(b *testing.B) {
 			marshalFunc.Call(args)
 		}
 	})
-	
+
 	b.Run("Gig/Reflect_WithWrap", func(b *testing.B) {
 		marshalFunc := reflect.ValueOf(json.Marshal)
 		for i := 0; i < b.N; i++ {
@@ -111,18 +111,18 @@ func BenchmarkFullChain(b *testing.B) {
 // Benchmark: fmt.Sprintf 调用链
 func BenchmarkFmtChain(b *testing.B) {
 	native := NativeStruct{Name: "Alice", Age: 30}
-	
+
 	v := reflect.New(anonStructType).Elem()
 	v.Field(0).SetString("Alice")
 	v.Field(1).SetInt(30)
 	gigVal := value.MakeFromReflect(v)
-	
+
 	b.Run("Native/Direct", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			fmt.Sprintf("%v", native)
 		}
 	})
-	
+
 	b.Run("Native/Reflect", func(b *testing.B) {
 		sprintfFunc := reflect.ValueOf(fmt.Sprintf)
 		for i := 0; i < b.N; i++ {
@@ -130,7 +130,7 @@ func BenchmarkFmtChain(b *testing.B) {
 			sprintfFunc.Call(args)
 		}
 	})
-	
+
 	b.Run("Gig/Reflect_NoWrap", func(b *testing.B) {
 		sprintfFunc := reflect.ValueOf(fmt.Sprintf)
 		for i := 0; i < b.N; i++ {
@@ -138,7 +138,7 @@ func BenchmarkFmtChain(b *testing.B) {
 			sprintfFunc.Call(args)
 		}
 	})
-	
+
 	b.Run("Gig/Reflect_WithWrap", func(b *testing.B) {
 		sprintfFunc := reflect.ValueOf(fmt.Sprintf)
 		for i := 0; i < b.N; i++ {
@@ -155,13 +155,13 @@ func BenchmarkDirectCall_vs_Reflect(b *testing.B) {
 	v.Field(0).SetString("Alice")
 	v.Field(1).SetInt(30)
 	gigVal := value.MakeFromReflect(v)
-	
+
 	b.Run("Reflect_NoWrap", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			json.Marshal(gigVal.Interface())
 		}
 	})
-	
+
 	b.Run("Reflect_WithWrap", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			wrapped := value.FmtWrap(gigVal)

@@ -20,17 +20,17 @@ import (
 )
 
 type MemorySample struct {
-	Timestamp   time.Time
-	HeapAlloc   float64
-	HeapSys     float64
-	HeapInUse   float64
-	HeapIdle    float64
-	StackInUse  float64
-	NumGC       int
-	Goroutines  int
-	TotalOps    int64
-	OngoingOps  int
-	Errors      int
+	Timestamp  time.Time
+	HeapAlloc  float64
+	HeapSys    float64
+	HeapInUse  float64
+	HeapIdle   float64
+	StackInUse float64
+	NumGC      int
+	Goroutines int
+	TotalOps   int64
+	OngoingOps int
+	Errors     int
 }
 
 func main() {
@@ -48,7 +48,7 @@ func main() {
 		fmt.Printf("Error opening file: %v\n", err)
 		os.Exit(1)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Parse CSV
 	reader := csv.NewReader(bufio.NewReader(file))
@@ -57,12 +57,12 @@ func main() {
 	records, err := reader.ReadAll()
 	if err != nil {
 		fmt.Printf("Error reading CSV: %v\n", err)
-		os.Exit(1)
+		os.Exit(1) //nolint:gocritic // exitAfterDefer - deferred close is cleanup only
 	}
 
 	if len(records) < 2 {
 		fmt.Println("Not enough data points")
-		os.Exit(1)
+		os.Exit(1) //nolint:gocritic // exitAfterDefer - deferred close is cleanup only
 	}
 
 	// Skip header, parse samples
@@ -91,62 +91,62 @@ func parseRecord(record []string) (MemorySample, error) {
 
 	t, err := time.Parse(time.RFC3339, record[0])
 	if err != nil {
-		return sample, fmt.Errorf("invalid timestamp: %v", err)
+		return sample, fmt.Errorf("invalid timestamp: %w", err)
 	}
 	sample.Timestamp = t
 
 	sample.HeapAlloc, err = strconv.ParseFloat(record[1], 64)
 	if err != nil {
-		return sample, fmt.Errorf("invalid HeapAlloc: %v", err)
+		return sample, fmt.Errorf("invalid HeapAlloc: %w", err)
 	}
 
 	sample.HeapSys, err = strconv.ParseFloat(record[2], 64)
 	if err != nil {
-		return sample, fmt.Errorf("invalid HeapSys: %v", err)
+		return sample, fmt.Errorf("invalid HeapSys: %w", err)
 	}
 
 	sample.HeapInUse, err = strconv.ParseFloat(record[3], 64)
 	if err != nil {
-		return sample, fmt.Errorf("invalid HeapInUse: %v", err)
+		return sample, fmt.Errorf("invalid HeapInUse: %w", err)
 	}
 
 	sample.HeapIdle, err = strconv.ParseFloat(record[4], 64)
 	if err != nil {
-		return sample, fmt.Errorf("invalid HeapIdle: %v", err)
+		return sample, fmt.Errorf("invalid HeapIdle: %w", err)
 	}
 
 	sample.StackInUse, err = strconv.ParseFloat(record[5], 64)
 	if err != nil {
-		return sample, fmt.Errorf("invalid StackInUse: %v", err)
+		return sample, fmt.Errorf("invalid StackInUse: %w", err)
 	}
 
 	numGC, err := strconv.Atoi(record[6])
 	if err != nil {
-		return sample, fmt.Errorf("invalid NumGC: %v", err)
+		return sample, fmt.Errorf("invalid NumGC: %w", err)
 	}
 	sample.NumGC = numGC
 
 	goroutines, err := strconv.Atoi(record[7])
 	if err != nil {
-		return sample, fmt.Errorf("invalid Goroutines: %v", err)
+		return sample, fmt.Errorf("invalid Goroutines: %w", err)
 	}
 	sample.Goroutines = goroutines
 
 	totalOps, err := strconv.ParseInt(record[8], 10, 64)
 	if err != nil {
-		return sample, fmt.Errorf("invalid TotalOps: %v", err)
+		return sample, fmt.Errorf("invalid TotalOps: %w", err)
 	}
 	sample.TotalOps = totalOps
 
 	ongoingOps, err := strconv.Atoi(record[9])
 	if err != nil {
-		return sample, fmt.Errorf("invalid OngoingOps: %v", err)
+		return sample, fmt.Errorf("invalid OngoingOps: %w", err)
 	}
 	sample.OngoingOps = ongoingOps
 
 	errors, err := strconv.Atoi(record[10])
 	if err != nil {
-		return sample, fmt.Errorf("invalid Errors: %v", err)
+		return sample, fmt.Errorf("invalid Errors: %w", err)
 	}
 	sample.Errors = errors
 
@@ -291,7 +291,7 @@ func plotLine(samples []MemorySample, getValue func(MemorySample) float64, width
 	for i := 0; i < len(samples); i += step {
 		v := getValue(samples[i])
 		bar := int((v - min) / range_ * float64(width-1))
-		
+
 		// Avoid duplicate bars
 		if bar == lastBar && i > 0 && i < len(samples)-step {
 			continue
@@ -299,7 +299,7 @@ func plotLine(samples []MemorySample, getValue func(MemorySample) float64, width
 		lastBar = bar
 
 		// Draw bar
-		fmt.Printf("%s |", samples[i].Timestamp.Format("15:04:05"))
+		fmt.Printf("%s |", samples[i].Timestamp.Format(time.TimeOnly))
 		for j := 0; j < width; j++ {
 			if j <= bar {
 				fmt.Print("█")

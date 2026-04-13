@@ -63,6 +63,7 @@ type OpCode byte
 //   - Interface ops: type assertions, conversions
 //   - Concurrency: goroutines, channels
 //   - Builtins: len, cap, append, copy, etc.
+//
 // Sentinel values shared between compiler and VM.
 const (
 	// SliceEndSentinel is emitted by the compiler as the "high" or "max" operand
@@ -804,12 +805,12 @@ func buildOperandWidthTable() [256]int {
 // Built at init time for O(1) lookup performance.
 var opNameTable [256]string
 
-func init() {
+func init() { //nolint:gochecknoinits,decorder // table init placed after var declarations for readability
 	// Initialize all entries to "UNKNOWN"
 	for i := range opNameTable {
 		opNameTable[i] = "UNKNOWN"
 	}
-	
+
 	// Populate known opcodes
 	opNameTable[OpAdd] = "ADD"
 	opNameTable[OpAddLocalConst] = "ADDLOCALCONST"
