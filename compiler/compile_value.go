@@ -270,31 +270,19 @@ func basicZeroValue(kind types.BasicKind) any {
 var basicKindToReflect = bytecode.BasicKindToReflectType
 
 // isEmptyStruct checks if a type is an empty struct (struct{}).
-// Handles Named types, Aliases, and direct Struct types.
 func isEmptyStruct(t types.Type) bool {
-	// Check if it's a Named type with empty underlying struct
-	if named, ok := t.(*types.Named); ok {
-		if structType, ok := named.Underlying().(*types.Struct); ok {
-			return structType.NumFields() == 0
-		}
+	// Named or Alias wrapper
+	switch u := t.(type) {
+	case *types.Named:
+		t = u.Underlying()
+	case *types.Alias:
+		t = u.Underlying()
 	}
-	// Check if it's an Alias with empty underlying struct
-	if alias, ok := t.(*types.Alias); ok {
-		if structType, ok := alias.Underlying().(*types.Struct); ok {
-			return structType.NumFields() == 0
-		}
-	}
-	// Check if it's a direct Struct type
-	if structType, ok := t.(*types.Struct); ok {
-		return structType.NumFields() == 0
+	// Check the underlying Struct type
+	if st, ok := t.(*types.Struct); ok {
+		return st.NumFields() == 0
 	}
 	return false
-}
-
-// convertTypeElement recursively converts an element type, returning nil if conversion fails.
-func convertTypeElement(t types.Type) reflect.Type {
-	rt := constTypeToReflect(t)
-	return rt
 }
 
 func constTypeToReflect(t types.Type) reflect.Type {
@@ -307,23 +295,23 @@ func constTypeToReflect(t types.Type) reflect.Type {
 	case *types.Basic:
 		return basicKindToReflect[typ.Kind()]
 	case *types.Map:
-		keyRT := convertTypeElement(typ.Key())
-		elemRT := convertTypeElement(typ.Elem())
+		keyRT := constTypeToReflect(typ.Key())
+		elemRT := constTypeToReflect(typ.Elem())
 		if keyRT != nil && elemRT != nil {
 			return reflect.MapOf(keyRT, elemRT)
 		}
 	case *types.Slice:
-		elemRT := convertTypeElement(typ.Elem())
+		elemRT := constTypeToReflect(typ.Elem())
 		if elemRT != nil {
 			return reflect.SliceOf(elemRT)
 		}
 	case *types.Pointer:
-		elemRT := convertTypeElement(typ.Elem())
+		elemRT := constTypeToReflect(typ.Elem())
 		if elemRT != nil {
 			return reflect.PointerTo(elemRT)
 		}
 	case *types.Chan:
-		elemRT := convertTypeElement(typ.Elem())
+		elemRT := constTypeToReflect(typ.Elem())
 		if elemRT != nil {
 			return reflect.ChanOf(chanDirection(typ), elemRT)
 		}
