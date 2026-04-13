@@ -230,7 +230,6 @@ func TestConcurrentRunWithValues(t *testing.T) {
 	wg.Add(numGoroutines)
 
 	for i := 0; i < numGoroutines; i++ {
-		i := i
 		go func() {
 			defer wg.Done()
 			ctx := context.Background()
@@ -425,7 +424,6 @@ func TestConcurrentMultiply(t *testing.T) {
 	wg.Add(numGoroutines)
 
 	for i := 0; i < numGoroutines; i++ {
-		i := i
 		go func() {
 			defer wg.Done()
 			ctx := context.Background()
@@ -726,7 +724,6 @@ func TestSyncMap(t *testing.T) {
 	wg.Add(numGoroutines)
 
 	for i := 0; i < numGoroutines; i++ {
-		i := i
 		go func() {
 			defer wg.Done()
 			for j := 0; j < opsPerGoroutine; j++ {
@@ -974,7 +971,6 @@ func TestGlobalProtectedMap(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numGoroutines)
 	for i := 0; i < numGoroutines; i++ {
-		i := i
 		go func() {
 			defer wg.Done()
 			for j := 0; j < putsPerGoroutine; j++ {
@@ -1000,7 +996,6 @@ func TestGlobalProtectedMap(t *testing.T) {
 	t.Logf("Protected map len = %d (exact)", got)
 }
 
-
 // ============================================================================
 // 22. Defer in goroutine with global state
 // ============================================================================
@@ -1019,8 +1014,6 @@ func TestDeferInGoroutine(t *testing.T) {
 	}
 	t.Logf("Defer in goroutine = %d (exact)", got)
 }
-
-
 
 // ============================================================================
 // 23. Bidirectional channel with goroutines
@@ -1227,7 +1220,6 @@ func TestGlobalFlag(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numOps)
 	for i := 0; i < numOps; i++ {
-		i := i
 		go func() {
 			defer wg.Done()
 			if i%2 == 0 {

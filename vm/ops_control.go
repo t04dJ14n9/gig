@@ -173,16 +173,16 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 	case bytecode.OpDeferExternal:
 		funcIdx := frame.readUint16()
 		numArgs := int(frame.readByte())
-		
+
 		// Pop arguments from stack
 		args := make([]value.Value, numArgs)
 		for i := numArgs - 1; i >= 0; i-- {
 			args[i] = v.pop()
 		}
-		
+
 		// Get the external function/method info
 		externalInfo := v.program.Constants[funcIdx]
-		
+
 		// Store as external defer
 		frame.defers = append(frame.defers, DeferInfo{
 			args:         args,
@@ -260,7 +260,7 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 				}
 				continue
 			}
-			
+
 			// Handle external function defers
 			if d.externalFunc.IsValid() {
 				// Convert arguments to reflect.Value
@@ -276,7 +276,7 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 						argVals[i] = reflect.ValueOf(arg.Interface())
 					}
 				}
-				
+
 				// Call the external function
 				d.externalFunc.Call(argVals)
 				continue
