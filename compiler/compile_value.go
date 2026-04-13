@@ -672,10 +672,8 @@ func (c *compiler) compileDeferFunction(i *ssa.Defer, val *ssa.Function) {
 	if _, known := c.funcIndex[val]; known {
 		if len(val.FreeVars) > 0 {
 			// Has free variables — create closure, then push args
-			for _, fv := range val.FreeVars {
-				c.compileValue(fv)
-			}
-			c.emitClosure(c.funcIndex[val], len(val.FreeVars))
+			fnIdx := c.funcIndex[val]
+			c.compileAndEmitClosureFromFreeVars(val.FreeVars, fnIdx)
 			c.compileDeferArgs(i)
 			c.emit(bytecode.OpDeferIndirect, uint16(len(i.Call.Args)))
 			return
@@ -757,28 +755,21 @@ func (c *compiler) compileGo(i *ssa.Go) {
 			// mutexes from the enclosing scope). Without this, OpGoCall passes
 			// nil for freeVars and the child VM cannot access them.
 			if len(fn.FreeVars) > 0 {
-				// Push the free variable bindings first
-				for _, fv := range fn.FreeVars {
-					c.compileValue(fv)
-				}
-				// Create the closure (leaves it on stack)
+				// Create closure, then push arguments
 				fnIdx := c.funcIndex[fn]
-				c.emitClosure(fnIdx, len(fn.FreeVars))
+				c.compileAndEmitClosureFromFreeVars(fn.FreeVars, fnIdx)
 				// Push arguments AFTER closure
 				for _, arg := range i.Call.Args {
 					c.compileValue(arg)
 				}
-				numArgs := len(i.Call.Args)
-				c.emit(bytecode.OpGoCallIndirect, uint16(numArgs))
+				c.emit(bytecode.OpGoCallIndirect, uint16(len(i.Call.Args)))
 				return
 			}
 			// No free variables — use OpGoCall directly
 			for _, arg := range i.Call.Args {
 				c.compileValue(arg)
 			}
-			funcIdx := c.funcIndex[fn]
-			numArgs := len(i.Call.Args)
-			c.emitCallOp(bytecode.OpGoCall, uint16(funcIdx), numArgs)
+			c.emitCallOp(bytecode.OpGoCall, uint16(c.funcIndex[fn]), len(i.Call.Args))
 			return
 		}
 
@@ -794,6 +785,5 @@ func (c *compiler) compileGo(i *ssa.Go) {
 		c.compileValue(arg)
 	}
 
-	numArgs := len(i.Call.Args)
-	c.emit(bytecode.OpGoCallIndirect, uint16(numArgs))
+	c.emit(bytecode.OpGoCallIndirect, uint16(len(i.Call.Args)))
 }

@@ -93,3 +93,23 @@ func (c *compiler) compileUnaryOpWithSetLocal(
 	resultIdx := c.symbolTable.AllocLocal(resultValue)
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
+
+// compileAndEmitClosure handles compilation of free variables and emission of a closure.
+// Returns the number of free variables compiled.
+func (c *compiler) compileAndEmitClosure(freeVars []ssa.Value, fnIdx int) int {
+	for _, fv := range freeVars {
+		c.compileValue(fv)
+	}
+	c.emitClosure(fnIdx, len(freeVars))
+	return len(freeVars)
+}
+
+// compileAndEmitClosureFromFreeVars handles compilation of free variables and emission of a closure,
+// accepting the native []*ssa.FreeVar type directly without conversion.
+// This is used by defer and go instructions where FreeVars is natively []*ssa.FreeVar.
+func (c *compiler) compileAndEmitClosureFromFreeVars(freeVars []*ssa.FreeVar, fnIdx int) {
+	for _, fv := range freeVars {
+		c.compileValue(fv)
+	}
+	c.emitClosure(fnIdx, len(freeVars))
+}
