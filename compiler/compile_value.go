@@ -71,35 +71,8 @@ func (c *compiler) compileValue(v ssa.Value) {
 						}
 					}
 				case *types.Basic:
-					switch t.Kind() {
-					case types.Bool:
-						c.globalZeroValues[globalIdx] = reflect.ValueOf(false)
-					case types.Int:
-						c.globalZeroValues[globalIdx] = reflect.ValueOf(int(0))
-					case types.Int8:
-						c.globalZeroValues[globalIdx] = reflect.ValueOf(int8(0))
-					case types.Int16:
-						c.globalZeroValues[globalIdx] = reflect.ValueOf(int16(0))
-					case types.Int32:
-						c.globalZeroValues[globalIdx] = reflect.ValueOf(int32(0))
-					case types.Int64:
-						c.globalZeroValues[globalIdx] = reflect.ValueOf(int64(0))
-					case types.Uint:
-						c.globalZeroValues[globalIdx] = reflect.ValueOf(uint(0))
-					case types.Uint8:
-						c.globalZeroValues[globalIdx] = reflect.ValueOf(uint8(0))
-					case types.Uint16:
-						c.globalZeroValues[globalIdx] = reflect.ValueOf(uint16(0))
-					case types.Uint32:
-						c.globalZeroValues[globalIdx] = reflect.ValueOf(uint32(0))
-					case types.Uint64:
-						c.globalZeroValues[globalIdx] = reflect.ValueOf(uint64(0))
-					case types.Float32:
-						c.globalZeroValues[globalIdx] = reflect.ValueOf(float32(0))
-					case types.Float64:
-						c.globalZeroValues[globalIdx] = reflect.ValueOf(float64(0))
-					case types.String:
-						c.globalZeroValues[globalIdx] = reflect.ValueOf("")
+					if rt, ok := bytecode.BasicKindToReflectType[t.Kind()]; ok {
+						c.globalZeroValues[globalIdx] = reflect.Zero(rt)
 					}
 				}
 			}
@@ -264,11 +237,6 @@ func basicZeroValue(kind types.BasicKind) any {
 	return basicZeroValues[kind] // nil for unsupported kinds
 }
 
-// basicKindToReflect maps go/types.BasicKind to reflect.Type for constant emission.
-// basicKindToReflect is an alias to the canonical mapping in model/bytecode.
-// Deprecated: Use bytecode.BasicKindToReflectType instead.
-var basicKindToReflect = bytecode.BasicKindToReflectType
-
 // isEmptyStruct checks if a type is an empty struct (struct{}).
 func isEmptyStruct(t types.Type) bool {
 	// Named or Alias wrapper
@@ -293,7 +261,7 @@ func constTypeToReflect(t types.Type) reflect.Type {
 
 	switch typ := t.Underlying().(type) {
 	case *types.Basic:
-		return basicKindToReflect[typ.Kind()]
+		return bytecode.BasicKindToReflectType[typ.Kind()]
 	case *types.Map:
 		keyRT := constTypeToReflect(typ.Key())
 		elemRT := constTypeToReflect(typ.Elem())

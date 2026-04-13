@@ -77,33 +77,6 @@ func (c *compiler) compileBinaryOpWithSetLocal(
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
 
-// compileUnaryOpWithSetLocal handles the common pattern for unary operations:
-// 1. Compile the operand
-// 2. Emit the operation
-// 3. Allocate local and emit OpSetLocal
-//
-// This consolidates the pattern used by UnOp and similar instructions.
-func (c *compiler) compileUnaryOpWithSetLocal(
-	x ssa.Value,
-	resultValue ssa.Value,
-	opcode bytecode.OpCode,
-) {
-	c.compileValue(x)
-	c.emit(opcode)
-	resultIdx := c.symbolTable.AllocLocal(resultValue)
-	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
-}
-
-// compileAndEmitClosure handles compilation of free variables and emission of a closure.
-// Returns the number of free variables compiled.
-func (c *compiler) compileAndEmitClosure(freeVars []ssa.Value, fnIdx int) int {
-	for _, fv := range freeVars {
-		c.compileValue(fv)
-	}
-	c.emitClosure(fnIdx, len(freeVars))
-	return len(freeVars)
-}
-
 // compileAndEmitClosureFromFreeVars handles compilation of free variables and emission of a closure,
 // accepting the native []*ssa.FreeVar type directly without conversion.
 // This is used by defer and go instructions where FreeVars is natively []*ssa.FreeVar.
@@ -116,13 +89,6 @@ func (c *compiler) compileAndEmitClosureFromFreeVars(freeVars []*ssa.FreeVar, fn
 
 // compileDeferCallArgs compiles arguments for a Defer call.
 func (c *compiler) compileDeferCallArgs(args []ssa.Value) {
-	for _, arg := range args {
-		c.compileValue(arg)
-	}
-}
-
-// compileGoCallArgs compiles arguments for a Go call.
-func (c *compiler) compileGoCallArgs(args []ssa.Value) {
 	for _, arg := range args {
 		c.compileValue(arg)
 	}
