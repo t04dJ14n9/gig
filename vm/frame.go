@@ -60,10 +60,10 @@ type DeferInfo struct {
 	//   encoder := base64.NewEncoder(...)
 	//   defer encoder.Close()  // externalFunc will hold the Close method value
 	externalFunc reflect.Value
-	
+
 	// externalInfo holds external function/method metadata (for OpDeferExternal).
 	// This is used for interface method invocations in defer.
-	externalInfo interface{}
+	externalInfo any
 }
 
 // newFrame creates a new call frame for a function with a zero base pointer.

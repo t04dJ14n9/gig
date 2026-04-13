@@ -1013,10 +1013,10 @@ var resolved_issueTests = map[string]testCase{
 	"SortReverseResolved":      {resolvedIssueSrc, "SortReverseResolved", nil, resolved_issue.SortReverseResolved},
 	"SortIntsInPlaceResolved":  {resolvedIssueSrc, "SortIntsInPlaceResolved", nil, resolved_issue.SortIntsInPlaceResolved},
 	// Resolved Issue 29-31: fmt.Stringer, %T, %v
-	"FmtStringerResolved":     {resolvedIssueSrc, "FmtStringerResolved", nil, resolved_issue.FmtStringerResolved},
+	"FmtStringerResolved":        {resolvedIssueSrc, "FmtStringerResolved", nil, resolved_issue.FmtStringerResolved},
 	"FmtStringerPointerResolved": {resolvedIssueSrc, "FmtStringerPointerResolved", nil, resolved_issue.FmtStringerPointerResolved},
-	"FmtSprintfTypeResolved":  {resolvedIssueSrc, "FmtSprintfTypeResolved", nil, resolved_issue.FmtSprintfTypeResolved},
-	"FmtSprintfFieldResolved": {resolvedIssueSrc, "FmtSprintfFieldResolved", nil, resolved_issue.FmtSprintfFieldResolved},
+	"FmtSprintfTypeResolved":     {resolvedIssueSrc, "FmtSprintfTypeResolved", nil, resolved_issue.FmtSprintfTypeResolved},
+	"FmtSprintfFieldResolved":    {resolvedIssueSrc, "FmtSprintfFieldResolved", nil, resolved_issue.FmtSprintfFieldResolved},
 	// Resolved Issue 32: int64/uint64 return type preservation (formerly known issue Bug 6)
 	"StrconvParseIntResolved":  {resolvedIssueSrc, "StrconvParseIntResolved", nil, resolved_issue.StrconvParseIntResolved},
 	"StrconvParseUintResolved": {resolvedIssueSrc, "StrconvParseUintResolved", nil, resolved_issue.StrconvParseUintResolved},

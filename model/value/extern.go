@@ -46,40 +46,40 @@ func (g *gigStructWrapper) String() string {
 func (g *gigStructWrapper) Format(f fmt.State, verb rune) {
 	switch verb {
 	case 'T':
-		fmt.Fprint(f, g.typeName)
+		_, _ = fmt.Fprint(f, g.typeName)
 	case 'v', 's':
 		if g.stringer != nil && (verb == 's' || (verb == 'v' && !f.Flag('#'))) {
-			fmt.Fprint(f, g.stringer())
+			_, _ = fmt.Fprint(f, g.stringer())
 			return
 		}
 		// Delegate to the underlying value — it's clean (no phantom fields)
 		if verb == 'v' && f.Flag('#') {
-			fmt.Fprintf(f, "%s{", g.typeName)
+			_, _ = fmt.Fprintf(f, "%s{", g.typeName)
 			rv := reflect.ValueOf(g.iface)
 			rt := rv.Type()
 			for i := 0; i < rt.NumField(); i++ {
 				if i > 0 {
-					fmt.Fprint(f, " ")
+					_, _ = fmt.Fprint(f, " ")
 				}
-				fmt.Fprintf(f, "%s:%v", rt.Field(i).Name, rv.Field(i).Interface())
+				_, _ = fmt.Fprintf(f, "%s:%v", rt.Field(i).Name, rv.Field(i).Interface())
 			}
-			fmt.Fprint(f, "}")
+			_, _ = fmt.Fprint(f, "}")
 		} else if verb == 'v' && f.Flag('+') {
 			rv := reflect.ValueOf(g.iface)
 			rt := rv.Type()
-			fmt.Fprint(f, "{")
+			_, _ = fmt.Fprint(f, "{")
 			for i := 0; i < rt.NumField(); i++ {
 				if i > 0 {
-					fmt.Fprint(f, " ")
+					_, _ = fmt.Fprint(f, " ")
 				}
-				fmt.Fprintf(f, "%s:%v", rt.Field(i).Name, rv.Field(i).Interface())
+				_, _ = fmt.Fprintf(f, "%s:%v", rt.Field(i).Name, rv.Field(i).Interface())
 			}
-			fmt.Fprint(f, "}")
+			_, _ = fmt.Fprint(f, "}")
 		} else {
-			fmt.Fprintf(f, "%v", g.iface)
+			_, _ = fmt.Fprintf(f, "%v", g.iface)
 		}
 	default:
-		fmt.Fprintf(f, "%"+string(verb), g.iface)
+		_, _ = fmt.Fprintf(f, "%"+string(verb), g.iface)
 	}
 }
 
@@ -145,7 +145,7 @@ func isGigStruct(v any) string {
 func FmtWrap(v Value) any {
 	iface := v.Interface()
 	if iface == nil {
-		return iface
+		return nil
 	}
 
 	typeName := isGigStruct(iface)

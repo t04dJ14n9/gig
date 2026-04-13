@@ -122,4 +122,3 @@ func (i *Importer) buildPackage(extPkg *ExternalPackage) *types.Package {
 
 	return pkg
 }
-
