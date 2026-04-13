@@ -176,6 +176,130 @@ func (v Value) Interface() any {
 }
 
 // ToReflectValue converts to reflect.Value.
+// toReflectInt converts Value to reflect.Value for integer types.
+func (v Value) toReflectInt(typ reflect.Type) reflect.Value {
+	var intRV reflect.Value
+	switch v.size {
+	case Size8:
+		intRV = reflect.ValueOf(int8(v.num))
+	case Size16:
+		intRV = reflect.ValueOf(int16(v.num))
+	case Size32:
+		intRV = reflect.ValueOf(int32(v.num))
+	case Size64:
+		intRV = reflect.ValueOf(v.num) // int64
+	default:
+		intRV = reflect.ValueOf(int(v.num)) // SizePtr / Size0 → int
+	}
+	if intRV.Type().ConvertibleTo(typ) {
+		return intRV.Convert(typ)
+	}
+	return intRV
+}
+
+// toReflectUint converts Value to reflect.Value for unsigned integer types.
+func (v Value) toReflectUint(typ reflect.Type) reflect.Value {
+	var uintRV reflect.Value
+	switch v.size {
+	case Size8:
+		uintRV = reflect.ValueOf(uint8(v.num))
+	case Size16:
+		uintRV = reflect.ValueOf(uint16(v.num))
+	case Size32:
+		uintRV = reflect.ValueOf(uint32(v.num))
+	case Size64:
+		uintRV = reflect.ValueOf(uint64(v.num))
+	default:
+		uintRV = reflect.ValueOf(uint(v.num)) // SizePtr / Size0 → uint
+	}
+	if uintRV.Type().ConvertibleTo(typ) {
+		return uintRV.Convert(typ)
+	}
+	return uintRV
+}
+
+// toReflectFunc converts Value to reflect.Value for function types.
+func (v Value) toReflectFunc(typ reflect.Type) reflect.Value {
+	if typ.Kind() == reflect.Func {
+		if ce, ok := v.obj.(ClosureExecutor); ok {
+			numOut := typ.NumOut()
+			outTypes := make([]reflect.Type, numOut)
+			for i := 0; i < numOut; i++ {
+				outTypes[i] = typ.Out(i)
+			}
+			fn := reflect.MakeFunc(typ, func(args []reflect.Value) []reflect.Value {
+				results := ce.Execute(args, outTypes)
+				out := make([]reflect.Value, numOut)
+				for i := 0; i < numOut; i++ {
+					if i < len(results) && results[i].IsValid() {
+						if results[i].Type().ConvertibleTo(outTypes[i]) {
+							out[i] = results[i].Convert(outTypes[i])
+						} else {
+							out[i] = results[i]
+						}
+					} else {
+						out[i] = reflect.Zero(outTypes[i])
+					}
+				}
+				return out
+			})
+			return fn
+		}
+	}
+	return reflect.ValueOf(v.obj)
+}
+
+// toReflectSlice converts Value to reflect.Value for slice types.
+func (v Value) toReflectSlice(typ reflect.Type) reflect.Value {
+	if s, ok := v.obj.([]int64); ok && typ.Kind() == reflect.Slice {
+		target := reflect.MakeSlice(typ, len(s), cap(s))
+		for i, n := range s {
+			target.Index(i).SetInt(n)
+		}
+		return target
+	}
+	if s, ok := v.obj.([]Value); ok && typ.Kind() == reflect.Slice {
+		target := reflect.MakeSlice(typ, len(s), cap(s))
+		elemType := typ.Elem()
+		for i, elem := range s {
+			target.Index(i).Set(elem.ToReflectValue(elemType))
+		}
+		return target
+	}
+	if rv, ok := v.obj.(reflect.Value); ok {
+		return rv
+	}
+	return reflect.ValueOf(v.obj)
+}
+
+// toReflectReflect handles KindReflect values with special pointer-to-function conversions.
+func (v Value) toReflectReflect(typ reflect.Type) reflect.Value {
+	if rv, ok := v.obj.(reflect.Value); ok {
+		// Handle *func(...) target type
+		if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Func {
+			if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+				if vp, ok2 := rv.Interface().(*Value); ok2 {
+					funcRV := vp.ToReflectValue(typ.Elem())
+					ptr := reflect.New(typ.Elem())
+					ptr.Elem().Set(funcRV)
+					return ptr
+				}
+			}
+		}
+		
+		// Handle slice conversion: []*T -> []interface{}
+		if typ.Kind() == reflect.Slice && rv.Kind() == reflect.Slice {
+			if typ.Elem().Kind() == reflect.Interface && rv.Type().Elem().Kind() != reflect.Interface {
+				return convertSliceToInterface(rv, typ)
+			}
+		}
+		
+		return rv
+	}
+	return reflect.ValueOf(v.obj)
+}
+
+
 func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 	switch v.kind {
 	case KindNil:
@@ -183,43 +307,9 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 	case KindBool:
 		return reflect.ValueOf(v.Bool())
 	case KindInt:
-		// Create the correct integer type based on size
-		var intRV reflect.Value
-		switch v.size {
-		case Size8:
-			intRV = reflect.ValueOf(int8(v.num))
-		case Size16:
-			intRV = reflect.ValueOf(int16(v.num))
-		case Size32:
-			intRV = reflect.ValueOf(int32(v.num))
-		case Size64:
-			intRV = reflect.ValueOf(v.num) // int64
-		default:
-			intRV = reflect.ValueOf(int(v.num)) // SizePtr / Size0 → int
-		}
-		if intRV.Type().ConvertibleTo(typ) {
-			return intRV.Convert(typ)
-		}
-		return intRV
+		return v.toReflectInt(typ)
 	case KindUint:
-		// Create the correct unsigned integer type based on size
-		var uintRV reflect.Value
-		switch v.size {
-		case Size8:
-			uintRV = reflect.ValueOf(uint8(v.num))
-		case Size16:
-			uintRV = reflect.ValueOf(uint16(v.num))
-		case Size32:
-			uintRV = reflect.ValueOf(uint32(v.num))
-		case Size64:
-			uintRV = reflect.ValueOf(uint64(v.num))
-		default:
-			uintRV = reflect.ValueOf(uint(v.num)) // SizePtr / Size0 → uint
-		}
-		if uintRV.Type().ConvertibleTo(typ) {
-			return uintRV.Convert(typ)
-		}
-		return uintRV
+		return v.toReflectUint(typ)
 	case KindFloat:
 		return reflect.ValueOf(v.Float()).Convert(typ)
 	case KindString:
@@ -231,90 +321,13 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 	case KindComplex:
 		return reflect.ValueOf(v.obj.(complex128))
 	case KindFunc:
-		// If the target type is a function type, wrap the closure in a real Go function
-		// using reflect.MakeFunc. This allows closures to be stored in typed containers
-		// (maps, struct fields) that expect concrete function types like func() int.
-		if typ.Kind() == reflect.Func {
-			if ce, ok := v.obj.(ClosureExecutor); ok {
-				numOut := typ.NumOut()
-				outTypes := make([]reflect.Type, numOut)
-				for i := 0; i < numOut; i++ {
-					outTypes[i] = typ.Out(i)
-				}
-				fn := reflect.MakeFunc(typ, func(args []reflect.Value) []reflect.Value {
-					results := ce.Execute(args, outTypes)
-					// Convert results to match the expected return types
-					out := make([]reflect.Value, numOut)
-					for i := 0; i < numOut; i++ {
-						if i < len(results) && results[i].IsValid() {
-							if results[i].Type().ConvertibleTo(outTypes[i]) {
-								out[i] = results[i].Convert(outTypes[i])
-							} else {
-								out[i] = results[i]
-							}
-						} else {
-							out[i] = reflect.Zero(outTypes[i])
-						}
-					}
-					return out
-				})
-				return fn
-			}
-		}
-		return reflect.ValueOf(v.obj)
+		return v.toReflectFunc(typ)
 	case KindBytes:
 		return reflect.ValueOf(v.obj.([]byte))
 	case KindSlice:
-		// Native int slice → target type conversion
-		if s, ok := v.obj.([]int64); ok && typ.Kind() == reflect.Slice {
-			target := reflect.MakeSlice(typ, len(s), cap(s))
-			for i, n := range s {
-				target.Index(i).SetInt(n)
-			}
-			return target
-		}
-		// []value.Value → typed slice conversion (e.g. []func() int)
-		if s, ok := v.obj.([]Value); ok && typ.Kind() == reflect.Slice {
-			target := reflect.MakeSlice(typ, len(s), cap(s))
-			elemType := typ.Elem()
-			for i, elem := range s {
-				target.Index(i).Set(elem.ToReflectValue(elemType))
-			}
-			return target
-		}
-		if rv, ok := v.obj.(reflect.Value); ok {
-			return rv
-		}
-		return reflect.ValueOf(v.obj)
+		return v.toReflectSlice(typ)
 	case KindReflect:
-		if rv, ok := v.obj.(reflect.Value); ok {
-			// Handle *func(...) target type: when the value is a *value.Value pointer
-			// (created by OpNew for Signature types) containing a closure, convert
-			// to a real Go function pointer via reflect.MakeFunc.
-			if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Func {
-				if rv.Kind() == reflect.Ptr && !rv.IsNil() {
-					if vp, ok2 := rv.Interface().(*Value); ok2 {
-						// Convert the inner closure to a real function
-						funcRV := vp.ToReflectValue(typ.Elem())
-						// Allocate a new pointer to hold the function
-						ptr := reflect.New(typ.Elem())
-						ptr.Elem().Set(funcRV)
-						return ptr
-					}
-				}
-			}
-			
-			// Handle slice conversion: []*T -> []interface{} for cyclic struct fields
-			if typ.Kind() == reflect.Slice && rv.Kind() == reflect.Slice {
-				if typ.Elem().Kind() == reflect.Interface && rv.Type().Elem().Kind() != reflect.Interface {
-					// Convert slice of concrete types to slice of interface{}
-					return convertSliceToInterface(rv, typ)
-				}
-			}
-			
-			return rv
-		}
-		return reflect.ValueOf(v.obj)
+		return v.toReflectReflect(typ)
 	default:
 		if rv, ok := v.obj.(reflect.Value); ok {
 			return rv
