@@ -58,3 +58,38 @@ func (c *compiler) compileSimpleBinaryOp(
 ) {
 	c.compileSimpleInstruction(resultValue, []ssa.Value{operand1, operand2}, opcode, emitOperands...)
 }
+
+// compileBinaryOpWithSetLocal handles the common pattern for binary operations:
+// 1. Compile both operands
+// 2. Emit the operation
+// 3. Allocate local and emit OpSetLocal
+//
+// This consolidates the pattern used by BinOp and similar instructions.
+func (c *compiler) compileBinaryOpWithSetLocal(
+	x, y ssa.Value,
+	resultValue ssa.Value,
+	opcode bytecode.OpCode,
+) {
+	c.compileValue(x)
+	c.compileValue(y)
+	c.emit(opcode)
+	resultIdx := c.symbolTable.AllocLocal(resultValue)
+	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+}
+
+// compileUnaryOpWithSetLocal handles the common pattern for unary operations:
+// 1. Compile the operand
+// 2. Emit the operation
+// 3. Allocate local and emit OpSetLocal
+//
+// This consolidates the pattern used by UnOp and similar instructions.
+func (c *compiler) compileUnaryOpWithSetLocal(
+	x ssa.Value,
+	resultValue ssa.Value,
+	opcode bytecode.OpCode,
+) {
+	c.compileValue(x)
+	c.emit(opcode)
+	resultIdx := c.symbolTable.AllocLocal(resultValue)
+	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+}

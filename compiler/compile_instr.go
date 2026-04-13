@@ -121,13 +121,7 @@ var binOpMap = map[token.Token]bytecode.OpCode{
 
 // compileBinOp compiles a binary operation.
 func (c *compiler) compileBinOp(i *ssa.BinOp) {
-	c.compileValue(i.X)
-	c.compileValue(i.Y)
-
-	c.emit(binOpMap[i.Op])
-
-	resultIdx := c.symbolTable.AllocLocal(i)
-	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	c.compileBinaryOpWithSetLocal(i.X, i.Y, i, binOpMap[i.Op])
 }
 
 // compileUnOp compiles a UnOp instruction.
