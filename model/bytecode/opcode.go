@@ -800,282 +800,160 @@ func buildOperandWidthTable() [256]int {
 	return t
 }
 
+// opNameTable maps OpCode values to their string representations.
+// Built at init time for O(1) lookup performance.
+var opNameTable [256]string
+
+func init() {
+	// Initialize all entries to "UNKNOWN"
+	for i := range opNameTable {
+		opNameTable[i] = "UNKNOWN"
+	}
+	
+	// Populate known opcodes
+	opNameTable[OpAdd] = "ADD"
+	opNameTable[OpAddLocalConst] = "ADDLOCALCONST"
+	opNameTable[OpAddLocalLocal] = "ADDLOCALLOCAL"
+	opNameTable[OpAddSetLocal] = "ADDSETLOCAL"
+	opNameTable[OpAddr] = "ADDR"
+	opNameTable[OpAnd] = "AND"
+	opNameTable[OpAndNot] = "ANDNOT"
+	opNameTable[OpAppend] = "APPEND"
+	opNameTable[OpAssert] = "ASSERT"
+	opNameTable[OpCall] = "CALL"
+	opNameTable[OpCallExternal] = "CALLEXTERNAL"
+	opNameTable[OpCallIndirect] = "CALLINDIRECT"
+	opNameTable[OpCap] = "CAP"
+	opNameTable[OpChangeType] = "CHANGETYPE"
+	opNameTable[OpClose] = "CLOSE"
+	opNameTable[OpClosure] = "CLOSURE"
+	opNameTable[OpComplex] = "COMPLEX"
+	opNameTable[OpConst] = "CONST"
+	opNameTable[OpConvert] = "CONVERT"
+	opNameTable[OpCopy] = "COPY"
+	opNameTable[OpDefer] = "DEFER"
+	opNameTable[OpDeferExternal] = "DEFEREXTERNAL"
+	opNameTable[OpDeferIndirect] = "DEFERINDIRECT"
+	opNameTable[OpDelete] = "DELETE"
+	opNameTable[OpDeref] = "DEREF"
+	opNameTable[OpDiv] = "DIV"
+	opNameTable[OpDup] = "DUP"
+	opNameTable[OpEqual] = "EQUAL"
+	opNameTable[OpFalse] = "FALSE"
+	opNameTable[OpField] = "FIELD"
+	opNameTable[OpFieldAddr] = "FIELDADDR"
+	opNameTable[OpFree] = "FREE"
+	opNameTable[OpGlobal] = "GLOBAL"
+	opNameTable[OpGoCall] = "GOCALL"
+	opNameTable[OpGoCallIndirect] = "GOCALLINDIRECT"
+	opNameTable[OpGreater] = "GREATER"
+	opNameTable[OpGreaterEq] = "GREATEREQ"
+	opNameTable[OpGreaterLocalLocalJumpTrue] = "GREATERLOCALLOCALJUMPTRUE"
+	opNameTable[OpHalt] = "HALT"
+	opNameTable[OpImag] = "IMAG"
+	opNameTable[OpIndex] = "INDEX"
+	opNameTable[OpIndexAddr] = "INDEXADDR"
+	opNameTable[OpIndexOk] = "INDEXOK"
+	opNameTable[OpIntGreaterLocalLocalJumpTrue] = "INTGREATERLOCALLOCALJUMPTRUE"
+	opNameTable[OpIntLessEqLocalConstJumpFalse] = "INTLESSEQLOCALCONSTJUMPFALSE"
+	opNameTable[OpIntLessEqLocalConstJumpTrue] = "INTLESSEQLOCALCONSTJUMPTRUE"
+	opNameTable[OpIntLessLocalConstJumpFalse] = "INTLESSLOCALCONSTJUMPFALSE"
+	opNameTable[OpIntLessLocalConstJumpTrue] = "INTLESSLOCALCONSTJUMPTRUE"
+	opNameTable[OpIntLessLocalLocalJumpFalse] = "INTLESSLOCALLOCALJUMPFALSE"
+	opNameTable[OpIntLessLocalLocalJumpTrue] = "INTLESSLOCALLOCALJUMPTRUE"
+	opNameTable[OpIntLocal] = "INTLOCAL"
+	opNameTable[OpIntLocalConstAddSetLocal] = "INTLOCALCONSTADDSETLOCAL"
+	opNameTable[OpIntLocalConstMulSetLocal] = "INTLOCALCONSTMULSETLOCAL"
+	opNameTable[OpIntLocalConstSubSetLocal] = "INTLOCALCONSTSUBSETLOCAL"
+	opNameTable[OpIntLocalLocalAddSetLocal] = "INTLOCALLOCALADDSETLOCAL"
+	opNameTable[OpIntLocalLocalMulSetLocal] = "INTLOCALLOCALMULSETLOCAL"
+	opNameTable[OpIntLocalLocalSubSetLocal] = "INTLOCALLOCALSUBSETLOCAL"
+	opNameTable[OpIntMoveLocal] = "INTMOVELOCAL"
+	opNameTable[OpIntSetLocal] = "INTSETLOCAL"
+	opNameTable[OpIntSliceGet] = "INTSLICEGET"
+	opNameTable[OpIntSliceSet] = "INTSLICESET"
+	opNameTable[OpIntSliceSetConst] = "INTSLICESETCONST"
+	opNameTable[OpJump] = "JUMP"
+	opNameTable[OpJumpFalse] = "JUMPFALSE"
+	opNameTable[OpJumpTrue] = "JUMPTRUE"
+	opNameTable[OpLen] = "LEN"
+	opNameTable[OpLess] = "LESS"
+	opNameTable[OpLessEq] = "LESSEQ"
+	opNameTable[OpLessEqLocalConstJumpFalse] = "LESSEQLOCALCONSTJUMPFALSE"
+	opNameTable[OpLessEqLocalConstJumpTrue] = "LESSEQLOCALCONSTJUMPTRUE"
+	opNameTable[OpLessLocalConstJumpFalse] = "LESSLOCALCONSTJUMPFALSE"
+	opNameTable[OpLessLocalConstJumpTrue] = "LESSLOCALCONSTJUMPTRUE"
+	opNameTable[OpLessLocalLocalJumpFalse] = "LESSLOCALLOCALJUMPFALSE"
+	opNameTable[OpLessLocalLocalJumpTrue] = "LESSLOCALLOCALJUMPTRUE"
+	opNameTable[OpLocal] = "LOCAL"
+	opNameTable[OpLocalConstAddSetLocal] = "LOCALCONSTADDSETLOCAL"
+	opNameTable[OpLocalConstMulSetLocal] = "LOCALCONSTMULSETLOCAL"
+	opNameTable[OpLocalConstSubSetLocal] = "LOCALCONSTSUBSETLOCAL"
+	opNameTable[OpLocalLocalAddSetLocal] = "LOCALLOCALADDSETLOCAL"
+	opNameTable[OpLocalLocalMulSetLocal] = "LOCALLOCALMULSETLOCAL"
+	opNameTable[OpLocalLocalSubSetLocal] = "LOCALLOCALSUBSETLOCAL"
+	opNameTable[OpLsh] = "LSH"
+	opNameTable[OpMake] = "MAKE"
+	opNameTable[OpMakeArray] = "MAKEARRAY"
+	opNameTable[OpMakeChan] = "MAKECHAN"
+	opNameTable[OpMakeMap] = "MAKEMAP"
+	opNameTable[OpMakeSlice] = "MAKESLICE"
+	opNameTable[OpMakeStruct] = "MAKESTRUCT"
+	opNameTable[OpMapIter] = "MAPITER"
+	opNameTable[OpMapIterNext] = "MAPITERNEXT"
+	opNameTable[OpMethod] = "METHOD"
+	opNameTable[OpMethodCall] = "METHODCALL"
+	opNameTable[OpMod] = "MOD"
+	opNameTable[OpMul] = "MUL"
+	opNameTable[OpMulLocalLocal] = "MULLOCALLOCAL"
+	opNameTable[OpNeg] = "NEG"
+	opNameTable[OpNew] = "NEW"
+	opNameTable[OpNil] = "NIL"
+	opNameTable[OpNop] = "NOP"
+	opNameTable[OpNot] = "NOT"
+	opNameTable[OpNotEqual] = "NOTEQUAL"
+	opNameTable[OpOr] = "OR"
+	opNameTable[OpPack] = "PACK"
+	opNameTable[OpPanic] = "PANIC"
+	opNameTable[OpPop] = "POP"
+	opNameTable[OpPrint] = "PRINT"
+	opNameTable[OpPrintln] = "PRINTLN"
+	opNameTable[OpRange] = "RANGE"
+	opNameTable[OpRangeNext] = "RANGENEXT"
+	opNameTable[OpReal] = "REAL"
+	opNameTable[OpRecover] = "RECOVER"
+	opNameTable[OpRecv] = "RECV"
+	opNameTable[OpRecvOk] = "RECVOK"
+	opNameTable[OpReturn] = "RETURN"
+	opNameTable[OpReturnVal] = "RETURNVAL"
+	opNameTable[OpRsh] = "RSH"
+	opNameTable[OpRunDefers] = "RUNDEFERS"
+	opNameTable[OpSelect] = "SELECT"
+	opNameTable[OpSend] = "SEND"
+	opNameTable[OpSetDeref] = "SETDEREF"
+	opNameTable[OpSetField] = "SETFIELD"
+	opNameTable[OpSetFree] = "SETFREE"
+	opNameTable[OpSetGlobal] = "SETGLOBAL"
+	opNameTable[OpSetIndex] = "SETINDEX"
+	opNameTable[OpSetLocal] = "SETLOCAL"
+	opNameTable[OpSlice] = "SLICE"
+	opNameTable[OpSub] = "SUB"
+	opNameTable[OpSubLocalConst] = "SUBLOCALCONST"
+	opNameTable[OpSubLocalLocal] = "SUBLOCALLOCAL"
+	opNameTable[OpSubSetLocal] = "SUBSETLOCAL"
+	opNameTable[OpTrue] = "TRUE"
+	opNameTable[OpTryRecv] = "TRYRECV"
+	opNameTable[OpTrySend] = "TRYSEND"
+	opNameTable[OpUnpack] = "UNPACK"
+	opNameTable[OpXor] = "XOR"
+}
+
 // String returns the name of the opcode as a human-readable string.
 func (op OpCode) String() string {
-	switch op {
-	case OpNop:
-		return "NOP"
-	case OpPop:
-		return "POP"
-	case OpDup:
-		return "DUP"
-	case OpConst:
-		return "CONST"
-	case OpNil:
-		return "NIL"
-	case OpTrue:
-		return "TRUE"
-	case OpFalse:
-		return "FALSE"
-	case OpLocal:
-		return "LOCAL"
-	case OpSetLocal:
-		return "SETLOCAL"
-	case OpGlobal:
-		return "GLOBAL"
-	case OpSetGlobal:
-		return "SETGLOBAL"
-	case OpFree:
-		return "FREE"
-	case OpSetFree:
-		return "SETFREE"
-	case OpAdd:
-		return "ADD"
-	case OpSub:
-		return "SUB"
-	case OpMul:
-		return "MUL"
-	case OpDiv:
-		return "DIV"
-	case OpMod:
-		return "MOD"
-	case OpNeg:
-		return "NEG"
-	case OpReal:
-		return "REAL"
-	case OpImag:
-		return "IMAG"
-	case OpComplex:
-		return "COMPLEX"
-	case OpAnd:
-		return "AND"
-	case OpOr:
-		return "OR"
-	case OpXor:
-		return "XOR"
-	case OpAndNot:
-		return "ANDNOT"
-	case OpLsh:
-		return "LSH"
-	case OpRsh:
-		return "RSH"
-	case OpEqual:
-		return "EQUAL"
-	case OpNotEqual:
-		return "NOTEQUAL"
-	case OpLess:
-		return "LESS"
-	case OpLessEq:
-		return "LESSEQ"
-	case OpGreater:
-		return "GREATER"
-	case OpGreaterEq:
-		return "GREATEREQ"
-	case OpNot:
-		return "NOT"
-	case OpJump:
-		return "JUMP"
-	case OpJumpTrue:
-		return "JUMPTRUE"
-	case OpJumpFalse:
-		return "JUMPFALSE"
-	case OpCall:
-		return "CALL"
-	case OpReturn:
-		return "RETURN"
-	case OpReturnVal:
-		return "RETURNVAL"
-	case OpMakeSlice:
-		return "MAKESLICE"
-	case OpMakeMap:
-		return "MAKEMAP"
-	case OpMakeChan:
-		return "MAKECHAN"
-	case OpMakeArray:
-		return "MAKEARRAY"
-	case OpMakeStruct:
-		return "MAKESTRUCT"
-	case OpIndex:
-		return "INDEX"
-	case OpIndexOk:
-		return "INDEXOK"
-	case OpSetIndex:
-		return "SETINDEX"
-	case OpSlice:
-		return "SLICE"
-	case OpMapIter:
-		return "MAPITER"
-	case OpMapIterNext:
-		return "MAPITERNEXT"
-	case OpField:
-		return "FIELD"
-	case OpSetField:
-		return "SETFIELD"
-	case OpAddr:
-		return "ADDR"
-	case OpFieldAddr:
-		return "FIELDADDR"
-	case OpIndexAddr:
-		return "INDEXADDR"
-	case OpDeref:
-		return "DEREF"
-	case OpSetDeref:
-		return "SETDEREF"
-	case OpAssert:
-		return "ASSERT"
-	case OpConvert:
-		return "CONVERT"
-	case OpChangeType:
-		return "CHANGETYPE"
-	case OpClosure:
-		return "CLOSURE"
-	case OpMethod:
-		return "METHOD"
-	case OpMethodCall:
-		return "METHODCALL"
-	case OpGoCall:
-		return "GOCALL"
-	case OpGoCallIndirect:
-		return "GOCALLINDIRECT"
-	case OpSend:
-		return "SEND"
-	case OpRecv:
-		return "RECV"
-	case OpRecvOk:
-		return "RECVOK"
-	case OpTrySend:
-		return "TRYSEND"
-	case OpTryRecv:
-		return "TRYRECV"
-	case OpClose:
-		return "CLOSE"
-	case OpSelect:
-		return "SELECT"
-	case OpDefer:
-		return "DEFER"
-	case OpDeferIndirect:
-		return "DEFERINDIRECT"
-	case OpDeferExternal:
-		return "DEFEREXTERNAL"
-	case OpRunDefers:
-		return "RUNDEFERS"
-	case OpRecover:
-		return "RECOVER"
-	case OpRange:
-		return "RANGE"
-	case OpRangeNext:
-		return "RANGENEXT"
-	case OpLen:
-		return "LEN"
-	case OpCap:
-		return "CAP"
-	case OpAppend:
-		return "APPEND"
-	case OpCopy:
-		return "COPY"
-	case OpDelete:
-		return "DELETE"
-	case OpPanic:
-		return "PANIC"
-	case OpPrint:
-		return "PRINT"
-	case OpPrintln:
-		return "PRINTLN"
-	case OpNew:
-		return "NEW"
-	case OpMake:
-		return "MAKE"
-	case OpCallExternal:
-		return "CALLEXTERNAL"
-	case OpCallIndirect:
-		return "CALLINDIRECT"
-	case OpPack:
-		return "PACK"
-	case OpUnpack:
-		return "UNPACK"
-	case OpHalt:
-		return "HALT"
-	case OpAddLocalLocal:
-		return "ADDLOCALLOCAL"
-	case OpSubLocalLocal:
-		return "SUBLOCALLOCAL"
-	case OpMulLocalLocal:
-		return "MULLOCALLOCAL"
-	case OpAddLocalConst:
-		return "ADDLOCALCONST"
-	case OpSubLocalConst:
-		return "SUBLOCALCONST"
-	case OpLessLocalLocalJumpTrue:
-		return "LESSLOCALLOCALJUMPTRUE"
-	case OpLessLocalConstJumpTrue:
-		return "LESSLOCALCONSTJUMPTRUE"
-	case OpLessEqLocalConstJumpTrue:
-		return "LESSEQLOCALCONSTJUMPTRUE"
-	case OpGreaterLocalLocalJumpTrue:
-		return "GREATERLOCALLOCALJUMPTRUE"
-	case OpLessLocalLocalJumpFalse:
-		return "LESSLOCALLOCALJUMPFALSE"
-	case OpLessLocalConstJumpFalse:
-		return "LESSLOCALCONSTJUMPFALSE"
-	case OpLessEqLocalConstJumpFalse:
-		return "LESSEQLOCALCONSTJUMPFALSE"
-	case OpAddSetLocal:
-		return "ADDSETLOCAL"
-	case OpSubSetLocal:
-		return "SUBSETLOCAL"
-	case OpLocalLocalAddSetLocal:
-		return "LOCALLOCALADDSETLOCAL"
-	case OpLocalConstAddSetLocal:
-		return "LOCALCONSTADDSETLOCAL"
-	case OpLocalConstSubSetLocal:
-		return "LOCALCONSTSUBSETLOCAL"
-	case OpIntLocalConstAddSetLocal:
-		return "INTLOCALCONSTADDSETLOCAL"
-	case OpIntLocalConstSubSetLocal:
-		return "INTLOCALCONSTSUBSETLOCAL"
-	case OpIntLocalLocalAddSetLocal:
-		return "INTLOCALLOCALADDSETLOCAL"
-	case OpIntLessLocalConstJumpFalse:
-		return "INTLESSLOCALCONSTJUMPFALSE"
-	case OpIntLessEqLocalConstJumpTrue:
-		return "INTLESSEQLOCALCONSTJUMPTRUE"
-	case OpIntLessEqLocalConstJumpFalse:
-		return "INTLESSEQLOCALCONSTJUMPFALSE"
-	case OpIntLessLocalLocalJumpFalse:
-		return "INTLESSLOCALLOCALJUMPFALSE"
-	case OpIntGreaterLocalLocalJumpTrue:
-		return "INTGREATERLOCALLOCALJUMPTRUE"
-	case OpIntSetLocal:
-		return "INTSETLOCAL"
-	case OpIntLocal:
-		return "INTLOCAL"
-	case OpIntLessLocalConstJumpTrue:
-		return "INTLESSLOCALCONSTJUMPTRUE"
-	case OpIntLessLocalLocalJumpTrue:
-		return "INTLESSLOCALLOCALJUMPTRUE"
-	case OpIntMoveLocal:
-		return "INTMOVELOCAL"
-	case OpIntSliceGet:
-		return "INTSLICEGET"
-	case OpIntSliceSet:
-		return "INTSLICESET"
-	case OpIntSliceSetConst:
-		return "INTSLICESETCONST"
-	case OpLocalLocalSubSetLocal:
-		return "LOCALLOCALSUBSETLOCAL"
-	case OpLocalLocalMulSetLocal:
-		return "LOCALLOCALMULSETLOCAL"
-	case OpLocalConstMulSetLocal:
-		return "LOCALCONSTMULSETLOCAL"
-	case OpIntLocalLocalSubSetLocal:
-		return "INTLOCALLOCALSUBSETLOCAL"
-	case OpIntLocalLocalMulSetLocal:
-		return "INTLOCALLOCALMULSETLOCAL"
-	case OpIntLocalConstMulSetLocal:
-		return "INTLOCALCONSTMULSETLOCAL"
-	default:
-		return "UNKNOWN"
+	if int(op) < len(opNameTable) {
+		return opNameTable[op]
 	}
+	return "UNKNOWN"
 }
 
 // OperandWidth returns the operand byte width for an opcode using O(1) array lookup.

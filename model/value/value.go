@@ -90,48 +90,43 @@ const (
 	KindBytes   // []byte stored natively (zero reflection)
 )
 
+// kindNameTable maps Kind values to their string representations.
+// Built at init time for O(1) lookup performance.
+var kindNameTable [256]string
+
+func init() {
+	// Initialize all entries to "unknown"
+	for i := range kindNameTable {
+		kindNameTable[i] = "unknown"
+	}
+	
+	// Populate known kinds
+	kindNameTable[KindArray] = "array"
+	kindNameTable[KindBool] = "bool"
+	kindNameTable[KindBytes] = "bytes"
+	kindNameTable[KindChan] = "chan"
+	kindNameTable[KindComplex] = "complex"
+	kindNameTable[KindFloat] = "float"
+	kindNameTable[KindFunc] = "func"
+	kindNameTable[KindInt] = "int"
+	kindNameTable[KindInterface] = "interface"
+	kindNameTable[KindInvalid] = "invalid"
+	kindNameTable[KindMap] = "map"
+	kindNameTable[KindNil] = "nil"
+	kindNameTable[KindPointer] = "pointer"
+	kindNameTable[KindReflect] = "reflect"
+	kindNameTable[KindSlice] = "slice"
+	kindNameTable[KindString] = "string"
+	kindNameTable[KindStruct] = "struct"
+	kindNameTable[KindUint] = "uint"
+}
+
 // String returns the name of the kind.
 func (k Kind) String() string {
-	switch k {
-	case KindInvalid:
-		return "invalid"
-	case KindNil:
-		return "nil"
-	case KindBool:
-		return "bool"
-	case KindInt:
-		return "int"
-	case KindUint:
-		return "uint"
-	case KindFloat:
-		return "float"
-	case KindString:
-		return "string"
-	case KindComplex:
-		return "complex"
-	case KindPointer:
-		return "pointer"
-	case KindSlice:
-		return "slice"
-	case KindArray:
-		return "array"
-	case KindMap:
-		return "map"
-	case KindChan:
-		return "chan"
-	case KindFunc:
-		return "func"
-	case KindStruct:
-		return "struct"
-	case KindInterface:
-		return "interface"
-	case KindReflect:
-		return "reflect"
-	case KindBytes:
-		return "bytes"
-	default:
-		return "unknown"
+	if int(k) < len(kindNameTable) {
+		return kindNameTable[k]
 	}
+	return "unknown"
 }
 
 // Size records the original Go bit-width for numeric kinds.
