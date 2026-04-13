@@ -265,24 +265,9 @@ func basicZeroValue(kind types.BasicKind) any {
 }
 
 // basicKindToReflect maps go/types.BasicKind to reflect.Type for constant emission.
-var basicKindToReflect = map[types.BasicKind]reflect.Type{
-	types.Bool:       reflect.TypeFor[bool](),
-	types.Int:        reflect.TypeFor[int](),
-	types.Int8:       reflect.TypeFor[int8](),
-	types.Int16:      reflect.TypeFor[int16](),
-	types.Int32:      reflect.TypeFor[int32](),
-	types.Int64:      reflect.TypeFor[int64](),
-	types.Uint:       reflect.TypeFor[uint](),
-	types.Uint8:      reflect.TypeFor[uint8](),
-	types.Uint16:     reflect.TypeFor[uint16](),
-	types.Uint32:     reflect.TypeFor[uint32](),
-	types.Uint64:     reflect.TypeFor[uint64](),
-	types.Float32:    reflect.TypeFor[float32](),
-	types.Float64:    reflect.TypeFor[float64](),
-	types.String:     reflect.TypeFor[string](),
-	types.Complex64:  reflect.TypeFor[complex64](),
-	types.Complex128: reflect.TypeFor[complex128](),
-}
+// basicKindToReflect is an alias to the canonical mapping in model/bytecode.
+// Deprecated: Use bytecode.BasicKindToReflectType instead.
+var basicKindToReflect = bytecode.BasicKindToReflectType
 
 // constTypeToReflect converts a go/types.Type to reflect.Type for nil constant emission.
 // Only handles reference types (map, slice, chan, pointer, func) since those are the
