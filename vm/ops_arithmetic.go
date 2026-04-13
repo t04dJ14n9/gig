@@ -8,6 +8,15 @@ import (
 	"git.woa.com/youngjin/gig/model/value"
 )
 
+// toShiftAmount extracts a uint shift amount from a Value of any numeric kind.
+// Used by OpLsh and OpRsh to ensure shift amounts are consistently handled.
+func toShiftAmount(shiftVal value.Value) uint {
+	if shiftVal.Kind() == value.KindUint {
+		return uint(shiftVal.Uint())
+	}
+	return uint(shiftVal.Int())
+}
+
 // executeArithmetic handles non-hot-path arithmetic, bitwise, and complex opcodes.
 // Hot-path ops (Add, Sub, Mul, comparisons, Not) are inlined in run.go.
 func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolint:cyclop,unparam // frame: uniform dispatch signature
@@ -62,23 +71,13 @@ func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolin
 
 	case bytecode.OpLsh:
 		shiftVal := v.pop()
-		var n uint
-		if shiftVal.Kind() == value.KindUint {
-			n = uint(shiftVal.Uint())
-		} else {
-			n = uint(shiftVal.Int())
-		}
+		n := toShiftAmount(shiftVal)
 		a := v.pop()
 		v.push(a.Lsh(n))
 
 	case bytecode.OpRsh:
 		shiftVal := v.pop()
-		var n uint
-		if shiftVal.Kind() == value.KindUint {
-			n = uint(shiftVal.Uint())
-		} else {
-			n = uint(shiftVal.Int())
-		}
+		n := toShiftAmount(shiftVal)
 		a := v.pop()
 		v.push(a.Rsh(n))
 	}
