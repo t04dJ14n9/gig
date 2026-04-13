@@ -5,7 +5,6 @@ package importer
 import (
 	"fmt"
 	"go/types"
-	"strings"
 	"sync"
 
 	"git.woa.com/youngjin/gig/model/external"
@@ -124,38 +123,3 @@ func (i *Importer) buildPackage(extPkg *ExternalPackage) *types.Package {
 	return pkg
 }
 
-// LookupPackage looks up a package by import path or name.
-// Returns the package or an error if not found.
-func LookupPackage(name string) (*ExternalPackage, error) {
-	// Try by path first
-	if pkg := GetPackageByPath(name); pkg != nil {
-		return pkg, nil
-	}
-
-	// Try by name
-	if pkg := GetPackageByName(name); pkg != nil {
-		return pkg, nil
-	}
-
-	return nil, fmt.Errorf("package %q not found", name)
-}
-
-// AutoImport tries to find and import a package by name or path suffix.
-// This enables automatic import resolution when users reference packages without explicit imports.
-// Returns the package path, the package, and whether it was found.
-func AutoImport(name string) (path string, pkg *ExternalPackage, ok bool) {
-	// Try exact match first
-	if pkg := GetPackageByName(name); pkg != nil {
-		return pkg.Path, pkg, true
-	}
-
-	// Try path suffix match (e.g., "json" matches "encoding/json")
-	for path, pkg := range GetAllPackages() {
-		parts := strings.Split(path, "/")
-		if parts[len(parts)-1] == name {
-			return path, pkg, true
-		}
-	}
-
-	return "", nil, false
-}

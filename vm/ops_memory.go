@@ -9,52 +9,11 @@ import (
 	"git.woa.com/youngjin/gig/model/value"
 )
 
-// executeMemory handles stack, constant, local/global/free variable, field,
-// address, dereference, new, and make opcodes.
+// executeMemory handles global/free variable, field, address, dereference, new, and make opcodes.
+// Note: OpNop, OpPop, OpDup, OpConst, OpNil, OpTrue, OpFalse, OpLocal, OpSetLocal
+// are inlined in run.go's hot path and never reach this handler.
 func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx
 	switch op {
-	// Stack operations
-	case bytecode.OpNop:
-		// No operation
-
-	case bytecode.OpPop:
-		v.pop()
-
-	case bytecode.OpDup:
-		val := v.peek()
-		v.push(val)
-
-	// Constants and locals
-	case bytecode.OpConst:
-		idx := frame.readUint16()
-		if int(idx) < len(v.program.PrebakedConstants) {
-			v.push(v.program.PrebakedConstants[idx])
-		} else if int(idx) < len(v.program.Constants) {
-			v.push(value.FromInterface(v.program.Constants[idx]))
-		}
-
-	case bytecode.OpNil:
-		v.push(value.MakeNil())
-
-	case bytecode.OpTrue:
-		v.push(value.MakeBool(true))
-
-	case bytecode.OpFalse:
-		v.push(value.MakeBool(false))
-
-	case bytecode.OpLocal:
-		idx := frame.readUint16()
-		if int(idx) < len(frame.locals) {
-			v.push(frame.locals[idx])
-		}
-
-	case bytecode.OpSetLocal:
-		idx := frame.readUint16()
-		val := v.pop()
-		if int(idx) < len(frame.locals) {
-			frame.locals[idx] = val
-		}
-
 	case bytecode.OpGlobal:
 		idx := frame.readUint16()
 		if sg := v.shared; sg != nil {
@@ -270,42 +229,16 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 
 	case bytecode.OpNew:
 		typeIdx := frame.readUint16()
-		// Allocate new pointer to value of the given type
 		if int(typeIdx) < len(v.program.Types) {
 			typ := v.program.Types[typeIdx]
-			// For function types, create a pointer to a Value (to store closures)
-			switch t := typ.(type) {
-			case *types.Signature:
-				_ = t // Function signature not needed for allocation
-				// Create a pointer to a nil Value
+			// Function types need a pointer to a Value (to store closures)
+			if _, isSig := typ.(*types.Signature); isSig {
 				var nilVal value.Value
-				newPtr := reflect.ValueOf(&nilVal)
-				v.push(value.MakeFromReflect(newPtr))
-			case *types.Slice:
-				// Use typeToReflect for proper typed slices (including function slices).
-				// This avoids creating []value.Value which can't be assigned to typed fields.
-				if rt := typeToReflect(typ, v.program); rt != nil {
-					newPtr := reflect.New(rt)
-					v.push(value.MakeFromReflect(newPtr))
-				} else {
-					v.push(value.MakeNil())
-				}
-			case *types.Array:
-				// Use typeToReflect for proper typed arrays (including function arrays).
-				if rt := typeToReflect(typ, v.program); rt != nil {
-					newPtr := reflect.New(rt)
-					v.push(value.MakeFromReflect(newPtr))
-				} else {
-					v.push(value.MakeNil())
-				}
-			default:
-				if rt := typeToReflect(typ, v.program); rt != nil {
-					// Create a new pointer to zero value of the type
-					newPtr := reflect.New(rt)
-					v.push(value.MakeFromReflect(newPtr))
-				} else {
-					v.push(value.MakeNil())
-				}
+				v.push(value.MakeFromReflect(reflect.ValueOf(&nilVal)))
+			} else if rt := typeToReflect(typ, v.program); rt != nil {
+				v.push(value.MakeFromReflect(reflect.New(rt)))
+			} else {
+				v.push(value.MakeNil())
 			}
 		} else {
 			v.push(value.MakeNil())

@@ -11,30 +11,26 @@ import (
 
 // executeOp executes a single bytecode instruction.
 // It routes to category-specific handlers for each opcode group.
+// Note: hot-path opcodes (arithmetic, comparisons, stack ops, jumps, returns,
+// calls) are inlined in run.go and never reach this dispatcher.
 func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error {
 	switch op {
-	// Arithmetic & comparisons
-	case bytecode.OpAdd, bytecode.OpSub, bytecode.OpMul, bytecode.OpDiv, bytecode.OpMod,
+	// Non-hot-path arithmetic & bitwise
+	case bytecode.OpDiv, bytecode.OpMod,
 		bytecode.OpNeg, bytecode.OpReal, bytecode.OpImag, bytecode.OpComplex,
 		bytecode.OpAnd, bytecode.OpOr, bytecode.OpXor, bytecode.OpAndNot,
-		bytecode.OpLsh, bytecode.OpRsh,
-		bytecode.OpEqual, bytecode.OpNotEqual, bytecode.OpLess, bytecode.OpLessEq,
-		bytecode.OpGreater, bytecode.OpGreaterEq, bytecode.OpNot:
+		bytecode.OpLsh, bytecode.OpRsh:
 		return v.executeArithmetic(op, frame)
 
-	// Memory & stack
-	case bytecode.OpNop, bytecode.OpPop, bytecode.OpDup,
-		bytecode.OpConst, bytecode.OpNil, bytecode.OpTrue, bytecode.OpFalse,
-		bytecode.OpLocal, bytecode.OpSetLocal, bytecode.OpGlobal, bytecode.OpSetGlobal,
+	// Memory: globals, free vars, fields, addresses, new
+	case bytecode.OpGlobal, bytecode.OpSetGlobal,
 		bytecode.OpFree, bytecode.OpSetFree,
 		bytecode.OpField, bytecode.OpSetField, bytecode.OpAddr, bytecode.OpFieldAddr, bytecode.OpIndexAddr,
-		bytecode.OpDeref, bytecode.OpSetDeref,
-		bytecode.OpNew, bytecode.OpMake:
+		bytecode.OpDeref, bytecode.OpSetDeref, bytecode.OpNew, bytecode.OpMake:
 		return v.executeMemory(op, frame)
 
-	// Calls & closures
-	case bytecode.OpCall, bytecode.OpCallExternal, bytecode.OpCallIndirect,
-		bytecode.OpClosure, bytecode.OpGoCall, bytecode.OpGoCallIndirect,
+	// Closures & goroutines
+	case bytecode.OpClosure, bytecode.OpGoCall, bytecode.OpGoCallIndirect,
 		bytecode.OpPack, bytecode.OpUnpack:
 		return v.executeCall(op, frame)
 
@@ -50,7 +46,7 @@ func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error {
 	case bytecode.OpAssert, bytecode.OpConvert, bytecode.OpChangeType:
 		return v.executeConvert(op, frame)
 
-	// Control flow, channels, defer, panic, print, halt
+	// Channels, defer, panic, print, halt
 	default:
 		return v.executeControl(op, frame)
 	}

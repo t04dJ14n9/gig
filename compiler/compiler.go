@@ -224,9 +224,3 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.CompiledProgram, err
 
 	return c.program, nil
 }
-
-// Compile is a convenience package-level function that compiles an SSA package.
-// It creates a compiler with the given PackageLookup and invokes compilation.
-func Compile(lookup PackageLookup, mainPkg *ssa.Package) (*bytecode.CompiledProgram, error) {
-	return NewCompiler(lookup).Compile(mainPkg)
-}

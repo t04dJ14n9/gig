@@ -10,54 +10,11 @@ import (
 	"git.woa.com/youngjin/gig/model/value"
 )
 
-// executeControl handles control flow (jump, return), channels, select,
-// defer, panic/recover, print, and halt opcodes.
+// executeControl handles channels, select, defer, panic/recover, print, and halt opcodes.
+// Note: OpJump, OpJumpTrue, OpJumpFalse, OpReturn, OpReturnVal are inlined in run.go's
+// hot path and never reach this handler.
 func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx
 	switch op {
-	case bytecode.OpJump:
-		offset := frame.readUint16()
-		frame.ip = int(offset)
-
-	case bytecode.OpJumpTrue:
-		offset := frame.readUint16()
-		cond := v.pop()
-		if cond.Bool() {
-			frame.ip = int(offset)
-		}
-
-	case bytecode.OpJumpFalse:
-		offset := frame.readUint16()
-		cond := v.pop()
-		if !cond.Bool() {
-			frame.ip = int(offset)
-		}
-
-	case bytecode.OpReturn:
-		// Pop frame and return it to pool
-		v.fpool.put(frame)
-		v.fp--
-		if v.fp > 0 {
-			// Restore stack pointer
-			prevFrame := v.frames[v.fp-1]
-			v.sp = prevFrame.basePtr
-		}
-		// Push nil for void returns (SSA may expect a value)
-		v.push(value.MakeNil())
-
-	case bytecode.OpReturnVal:
-		// Save return value
-		retVal := v.pop()
-		// Pop frame and return it to pool
-		v.fpool.put(frame)
-		v.fp--
-		if v.fp > 0 {
-			// Restore stack pointer
-			prevFrame := v.frames[v.fp-1]
-			v.sp = prevFrame.basePtr
-		}
-		// Push return value
-		v.push(retVal)
-
 	case bytecode.OpSend:
 		val := v.pop()
 		ch := v.pop()

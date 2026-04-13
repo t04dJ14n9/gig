@@ -222,69 +222,6 @@ func TestMapIndexIntKey(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// SetMapIndex tests
-// ---------------------------------------------------------------------------
-
-func TestSetMapIndex(t *testing.T) {
-	m := map[string]int{"a": 1}
-	v := FromInterface(m)
-
-	v.SetMapIndex(MakeString("b"), MakeInt(2))
-	if m["b"] != 2 {
-		t.Errorf("SetMapIndex failed: m[\"b\"] = %d, want 2", m["b"])
-	}
-
-	v.SetMapIndex(MakeString("a"), MakeInt(10))
-	if m["a"] != 10 {
-		t.Errorf("SetMapIndex failed: m[\"a\"] = %d, want 10", m["a"])
-	}
-}
-
-func TestSetMapIndexNil(t *testing.T) {
-	m := map[string]int{"a": 1, "b": 2}
-	v := FromInterface(m)
-
-	// Setting nil value should delete the key
-	v.SetMapIndex(MakeString("a"), MakeNil())
-	if _, ok := m["a"]; ok {
-		t.Error("SetMapIndex with nil should delete key")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// MapIter tests
-// ---------------------------------------------------------------------------
-
-func TestMapIter(t *testing.T) {
-	m := map[string]int{"a": 1, "b": 2, "c": 3}
-	v := FromInterface(m)
-
-	count := 0
-	v.MapIter(func(key, val Value) bool {
-		count++
-		return true
-	})
-
-	if count != 3 {
-		t.Errorf("MapIter visited %d entries, want 3", count)
-	}
-}
-
-func TestMapIterEarlyStop(t *testing.T) {
-	m := map[string]int{"a": 1, "b": 2, "c": 3, "d": 4}
-	v := FromInterface(m)
-
-	count := 0
-	v.MapIter(func(key, val Value) bool {
-		count++
-		return count < 2 // Stop after 2 iterations
-	})
-
-	if count != 2 {
-		t.Errorf("MapIter visited %d entries, want 2 (early stop)", count)
-	}
-}
-
 // ---------------------------------------------------------------------------
 // Field tests
 // ---------------------------------------------------------------------------
@@ -420,54 +357,6 @@ func TestSetElemValuePointer(t *testing.T) {
 	v.SetElem(MakeInt(789))
 	if inner.Int() != 789 {
 		t.Errorf("SetElem failed: inner = %d, want 789", inner.Int())
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Pointer tests
-// ---------------------------------------------------------------------------
-
-func TestPointer(t *testing.T) {
-	x := 42
-	ptr := &x
-	v := FromInterface(ptr)
-
-	// Pointer should return non-zero for valid pointer
-	if v.Pointer() == 0 {
-		t.Error("Pointer() returned 0 for non-nil pointer")
-	}
-}
-
-func TestPointerNil(t *testing.T) {
-	v := MakeNil()
-	if v.Pointer() != 0 {
-		t.Errorf("Pointer() for nil = %d, want 0", v.Pointer())
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Package/Unpackage tests
-// ---------------------------------------------------------------------------
-
-func TestPackage(t *testing.T) {
-	v1 := MakeInt(1)
-	v2 := MakeInt(2)
-	v3 := MakeInt(3)
-
-	pkg := Package(v1, v2, v3)
-	if len(pkg) != 3 {
-		t.Fatalf("Package returned %d values, want 3", len(pkg))
-	}
-	if pkg[0].Int() != 1 || pkg[1].Int() != 2 || pkg[2].Int() != 3 {
-		t.Errorf("Package values = %v, want [1, 2, 3]", pkg)
-	}
-}
-
-func TestUnpackage(t *testing.T) {
-	vals := []Value{MakeInt(1), MakeInt(2)}
-	result := Unpackage(vals)
-	if len(result) != 2 {
-		t.Errorf("Unpackage returned %d values, want 2", len(result))
 	}
 }
 

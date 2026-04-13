@@ -13,6 +13,28 @@ import (
 // Prevents stack overflow on deeply nested but acyclic types (e.g., [][][]...[]int).
 const maxTypeRecursionDepth = 256
 
+// basicKindToReflect maps go/types.BasicKind to reflect.Type.
+// Used by typeToReflectInner for fast O(1) lookup instead of a switch statement.
+var basicKindToReflect = map[types.BasicKind]reflect.Type{
+	types.Bool:       reflect.TypeFor[bool](),
+	types.Int:        reflect.TypeFor[int](),
+	types.Int8:       reflect.TypeFor[int8](),
+	types.Int16:      reflect.TypeFor[int16](),
+	types.Int32:      reflect.TypeFor[int32](),
+	types.Int64:      reflect.TypeFor[int64](),
+	types.Uint:       reflect.TypeFor[uint](),
+	types.Uint8:      reflect.TypeFor[uint8](),
+	types.Uint16:     reflect.TypeFor[uint16](),
+	types.Uint32:     reflect.TypeFor[uint32](),
+	types.Uint64:     reflect.TypeFor[uint64](),
+	types.Uintptr:    reflect.TypeFor[uintptr](),
+	types.Float32:    reflect.TypeFor[float32](),
+	types.Float64:    reflect.TypeFor[float64](),
+	types.Complex64:  reflect.TypeFor[complex64](),
+	types.Complex128: reflect.TypeFor[complex128](),
+	types.String:     reflect.TypeFor[string](),
+}
+
 // typeToReflect converts a go/types.Type to reflect.Type using the program-level
 // cache to ensure the same types.Type always maps to the same reflect.Type.
 // This prevents reflect.StructOf from returning different reflect.Type objects
@@ -74,44 +96,7 @@ func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type, uni
 func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueSuffix string, prog *bytecode.CompiledProgram, depth int) reflect.Type {
 	switch tt := t.(type) {
 	case *types.Basic:
-		switch tt.Kind() {
-		case types.Bool:
-			return reflect.TypeFor[bool]()
-		case types.Int:
-			return reflect.TypeFor[int]()
-		case types.Int8:
-			return reflect.TypeFor[int8]()
-		case types.Int16:
-			return reflect.TypeFor[int16]()
-		case types.Int32:
-			return reflect.TypeFor[int32]()
-		case types.Int64:
-			return reflect.TypeFor[int64]()
-		case types.Uint:
-			return reflect.TypeFor[uint]()
-		case types.Uint8:
-			return reflect.TypeFor[uint8]()
-		case types.Uint16:
-			return reflect.TypeFor[uint16]()
-		case types.Uint32:
-			return reflect.TypeFor[uint32]()
-		case types.Uint64:
-			return reflect.TypeFor[uint64]()
-		case types.Uintptr:
-			return reflect.TypeFor[uintptr]()
-		case types.Float32:
-			return reflect.TypeFor[float32]()
-		case types.Float64:
-			return reflect.TypeFor[float64]()
-		case types.Complex64:
-			return reflect.TypeFor[complex64]()
-		case types.Complex128:
-			return reflect.TypeFor[complex128]()
-		case types.String:
-			return reflect.TypeFor[string]()
-		default:
-			return nil
-		}
+		return basicKindToReflect[tt.Kind()] // nil for unsupported kinds
 	case *types.Slice:
 		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
 		if elem != nil {

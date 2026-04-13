@@ -12,7 +12,7 @@ var _ = bytecode.OpCode(0) // silence unused import warning
 
 // TestNewCompiler tests the compiler constructor.
 func TestNewCompiler(t *testing.T) {
-	lookup := importer.NewPackageLookup(importer.NewRegistry())
+	lookup := importer.NewRegistry()
 	c := compiler.NewCompiler(lookup)
 	if c == nil {
 		t.Fatal("NewCompiler returned nil")

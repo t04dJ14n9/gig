@@ -138,26 +138,14 @@ func (c *compiler) compileConst(cnst *ssa.Const) {
 	switch t := cnst.Type().(type) {
 	case *types.Basic:
 		v = basicConstValue(t.Kind(), cnst.Value)
-	case *types.Named:
-		// Handle named types by extracting their underlying basic type
+	case *types.Named, *types.Alias:
+		// Named types and type aliases share the same compilation logic:
+		// extract the underlying basic type for non-nil values.
 		if cnst.Value != nil {
 			if underlying, ok := t.Underlying().(*types.Basic); ok {
 				v = basicConstValue(underlying.Kind(), cnst.Value)
 			}
 		} else {
-			// cnst.Value == nil: emit zero value for named types
-			if rt := constTypeToReflect(t); rt != nil {
-				v = reflect.Zero(rt)
-			}
-		}
-	case *types.Alias:
-		// Handle type aliases (e.g., type MyInt = int) - they are identical to the aliased type
-		if cnst.Value != nil {
-			if underlying, ok := t.Underlying().(*types.Basic); ok {
-				v = basicConstValue(underlying.Kind(), cnst.Value)
-			}
-		} else {
-			// cnst.Value == nil: emit zero value for alias types
 			if rt := constTypeToReflect(t); rt != nil {
 				v = reflect.Zero(rt)
 			}
@@ -190,45 +178,7 @@ func (c *compiler) compileConst(cnst *ssa.Const) {
 // Returns nil for unsupported kinds.
 func basicConstValue(kind types.BasicKind, val constant.Value) any { //nolint:gocyclo,cyclop
 	if val == nil {
-		// Return zero values for nil constants
-		switch kind { //nolint:exhaustive
-		case types.Bool, types.UntypedBool:
-			return false
-		case types.Int, types.UntypedInt, types.UntypedRune:
-			return int(0)
-		case types.Int8:
-			return int8(0)
-		case types.Int16:
-			return int16(0)
-		case types.Int32:
-			return int32(0)
-		case types.Int64:
-			return int64(0)
-		case types.Uint:
-			return uint(0)
-		case types.Uint8:
-			return uint8(0)
-		case types.Uint16:
-			return uint16(0)
-		case types.Uint32:
-			return uint32(0)
-		case types.Uint64:
-			return uint64(0)
-		case types.Uintptr:
-			return uint64(0)
-		case types.Float32:
-			return float32(0)
-		case types.Float64, types.UntypedFloat:
-			return 0.0
-		case types.String, types.UntypedString:
-			return ""
-		case types.Complex64:
-			return complex64(0)
-		case types.Complex128, types.UntypedComplex:
-			return complex128(0)
-		default:
-			return nil
-		}
+		return basicZeroValue(kind)
 	}
 
 	switch kind { //nolint:exhaustive
@@ -298,6 +248,42 @@ func basicConstValue(kind types.BasicKind, val constant.Value) any { //nolint:go
 	}
 }
 
+// basicZeroValue returns the zero value for a basic type kind, or nil if unsupported.
+var basicZeroValues = map[types.BasicKind]any{
+	types.Bool: false, types.UntypedBool: false,
+	types.Int: int(0), types.UntypedInt: int(0), types.UntypedRune: int(0),
+	types.Int8: int8(0), types.Int16: int16(0), types.Int32: int32(0), types.Int64: int64(0),
+	types.Uint: uint(0), types.Uint8: uint8(0), types.Uint16: uint16(0),
+	types.Uint32: uint32(0), types.Uint64: uint64(0), types.Uintptr: uint64(0),
+	types.Float32: float32(0), types.Float64: 0.0, types.UntypedFloat: 0.0,
+	types.String: "", types.UntypedString: "",
+	types.Complex64: complex64(0), types.Complex128: complex128(0), types.UntypedComplex: complex128(0),
+}
+
+func basicZeroValue(kind types.BasicKind) any {
+	return basicZeroValues[kind] // nil for unsupported kinds
+}
+
+// basicKindToReflect maps go/types.BasicKind to reflect.Type for constant emission.
+var basicKindToReflect = map[types.BasicKind]reflect.Type{
+	types.Bool:       reflect.TypeFor[bool](),
+	types.Int:        reflect.TypeFor[int](),
+	types.Int8:       reflect.TypeFor[int8](),
+	types.Int16:      reflect.TypeFor[int16](),
+	types.Int32:      reflect.TypeFor[int32](),
+	types.Int64:      reflect.TypeFor[int64](),
+	types.Uint:       reflect.TypeFor[uint](),
+	types.Uint8:      reflect.TypeFor[uint8](),
+	types.Uint16:     reflect.TypeFor[uint16](),
+	types.Uint32:     reflect.TypeFor[uint32](),
+	types.Uint64:     reflect.TypeFor[uint64](),
+	types.Float32:    reflect.TypeFor[float32](),
+	types.Float64:    reflect.TypeFor[float64](),
+	types.String:     reflect.TypeFor[string](),
+	types.Complex64:  reflect.TypeFor[complex64](),
+	types.Complex128: reflect.TypeFor[complex128](),
+}
+
 // constTypeToReflect converts a go/types.Type to reflect.Type for nil constant emission.
 // Only handles reference types (map, slice, chan, pointer, func) since those are the
 // types that can have meaningful nil values with type information.
@@ -349,36 +335,7 @@ func constTypeToReflect(t types.Type) reflect.Type {
 			return reflect.ChanOf(dir, elemRT)
 		}
 	case *types.Basic:
-		switch typ.Kind() {
-		case types.Bool:
-			return reflect.TypeFor[bool]()
-		case types.Int:
-			return reflect.TypeFor[int]()
-		case types.Int8:
-			return reflect.TypeFor[int8]()
-		case types.Int16:
-			return reflect.TypeFor[int16]()
-		case types.Int32:
-			return reflect.TypeFor[int32]()
-		case types.Int64:
-			return reflect.TypeFor[int64]()
-		case types.Uint:
-			return reflect.TypeFor[uint]()
-		case types.Uint8:
-			return reflect.TypeFor[uint8]()
-		case types.Uint16:
-			return reflect.TypeFor[uint16]()
-		case types.Uint32:
-			return reflect.TypeFor[uint32]()
-		case types.Uint64:
-			return reflect.TypeFor[uint64]()
-		case types.Float32:
-			return reflect.TypeFor[float32]()
-		case types.Float64:
-			return reflect.TypeFor[float64]()
-		case types.String:
-			return reflect.TypeFor[string]()
-		}
+		return basicKindToReflect[typ.Kind()]
 	case *types.Interface:
 		// Interface with no methods = any
 		if typ.NumMethods() == 0 {
@@ -712,147 +669,121 @@ func (c *compiler) compileSend(i *ssa.Send) {
 
 // compileDefer compiles a Defer instruction.
 func (c *compiler) compileDefer(i *ssa.Defer) {
-	// Handle interface method invocation (e.g., defer iface.Method())
-	// SSA represents this with Call.IsInvoke() == true
+	// Interface method invocation (e.g., defer iface.Method())
 	if i.Call.IsInvoke() {
-		// Push the receiver (interface value) as the first argument
+		c.compileDeferInvoke(i)
+		return
+	}
+
+	switch val := i.Call.Value.(type) {
+	case *ssa.Function:
+		c.compileDeferFunction(i, val)
+	case *ssa.MakeClosure:
+		c.compileDeferMakeClosure(i, val)
+	default:
+		// Other cases: compile the callable, then push args
 		c.compileValue(i.Call.Value)
-		// Push remaining arguments
-		for _, arg := range i.Call.Args {
-			c.compileValue(arg)
+		c.compileDeferArgs(i)
+		c.emit(bytecode.OpDeferIndirect, uint16(len(i.Call.Args)))
+	}
+}
+
+// compileDeferInvoke handles defer of an interface method call.
+func (c *compiler) compileDeferInvoke(i *ssa.Defer) {
+	c.compileValue(i.Call.Value)
+	for _, arg := range i.Call.Args {
+		c.compileValue(arg)
+	}
+	methodInfo := &external.ExternalMethodInfo{
+		MethodName: i.Call.Method.Name(),
+	}
+	if recvType := i.Call.Value.Type(); recvType != nil {
+		if named := extractNamedType(recvType); named != nil {
+			methodInfo.ReceiverTypeName = named.Obj().Name()
 		}
-		methodInfo := &external.ExternalMethodInfo{
-			MethodName: i.Call.Method.Name(),
+	}
+	funcIdx := c.addConstant(methodInfo)
+	c.emitCallOp(bytecode.OpDeferExternal, uint16(funcIdx), len(i.Call.Args)+1)
+}
+
+// compileDeferFunction handles defer of a static function call.
+func (c *compiler) compileDeferFunction(i *ssa.Defer, val *ssa.Function) {
+	// Known internal function
+	if _, known := c.funcIndex[val]; known {
+		if len(val.FreeVars) > 0 {
+			// Has free variables — create closure, then push args
+			for _, fv := range val.FreeVars {
+				c.compileValue(fv)
+			}
+			c.emitClosure(c.funcIndex[val], len(val.FreeVars))
+			c.compileDeferArgs(i)
+			c.emit(bytecode.OpDeferIndirect, uint16(len(i.Call.Args)))
+			return
 		}
-		// Extract receiver type if available
-		if recvType := i.Call.Value.Type(); recvType != nil {
-			if named := extractNamedType(recvType); named != nil {
-				methodInfo.ReceiverTypeName = named.Obj().Name()
+		// No free variables — push args, use OpDefer directly
+		c.compileDeferArgs(i)
+		c.emit(bytecode.OpDefer, uint16(c.funcIndex[val]))
+		return
+	}
+
+	// External method wrapper (not in funcIndex)
+	if val.Signature.Recv() != nil {
+		c.compileDeferArgs(i)
+		methodName := extractMethodName(val.Name())
+		methodInfo := &external.ExternalMethodInfo{MethodName: methodName}
+		if c.lookup != nil {
+			typeName := extractReceiverTypeName(val.Signature.Recv().Type())
+			if typeName != "" {
+				if dc, ok := c.lookup.LookupMethodDirectCall(typeName, methodName); ok {
+					methodInfo.DirectCall = dc
+				}
 			}
 		}
 		funcIdx := c.addConstant(methodInfo)
-		numArgs := len(i.Call.Args) + 1 // +1 for receiver
-		c.emitCallOp(bytecode.OpDeferExternal, uint16(funcIdx), numArgs)
+		c.emitCallOp(bytecode.OpDeferExternal, uint16(funcIdx), len(i.Call.Args))
 		return
 	}
-	
-	switch val := i.Call.Value.(type) {
-	case *ssa.Function:
-		// Check if this is a known internal function
-		if _, known := c.funcIndex[val]; known {
-			// If the function has free variables, we need to create a closure
-			if len(val.FreeVars) > 0 {
-				// First create the closure (OpDeferIndirect expects: closure, args... on stack)
-				// Push the free variable bindings
-				for _, fv := range val.FreeVars {
-					c.compileValue(fv)
-				}
-				// Create the closure (leaves it on stack, no SETLOCAL)
-				fnIdx := c.funcIndex[val]
-				c.emitClosure(fnIdx, len(val.FreeVars))
-				// Push arguments AFTER closure
-				for _, arg := range i.Call.Args {
-					c.compileValue(arg)
-				}
-				numArgs := len(i.Call.Args)
-				c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
-				return
-			}
-			// No free variables - push args then use OpDefer directly
-			for _, arg := range i.Call.Args {
-				c.compileValue(arg)
-			}
-			fnIdx := c.funcIndex[val]
-			c.emit(bytecode.OpDefer, uint16(fnIdx))
-			return
-		}
 
-		// External function or method wrapper (not in funcIndex).
-		// This happens for method values on external types, e.g., defer mu.Unlock()
-		// where mu is sync.Mutex — SSA creates a synthetic *ssa.Function with
-		// Pkg==nil and Blocks==nil.
-		if val.Signature.Recv() != nil {
-			// External method: use OpDeferExternal with method info
-			for _, arg := range i.Call.Args {
-				c.compileValue(arg)
-			}
-			methodName := extractMethodName(val.Name())
-			methodInfo := &external.ExternalMethodInfo{
-				MethodName: methodName,
-			}
-			// Try to resolve DirectCall
-			if c.lookup != nil && val.Signature.Recv() != nil {
-				typeName := extractReceiverTypeName(val.Signature.Recv().Type())
-				if typeName != "" {
-					if dc, ok := c.lookup.LookupMethodDirectCall(typeName, methodName); ok {
-						methodInfo.DirectCall = dc
-					}
-				}
-			}
-			funcIdx := c.addConstant(methodInfo)
-			numArgs := len(i.Call.Args)
-			c.emitCallOp(bytecode.OpDeferExternal, uint16(funcIdx), numArgs)
-			return
-		}
+	// External package function
+	c.compileValue(i.Call.Value)
+	c.compileDeferArgs(i)
+	c.emit(bytecode.OpDeferIndirect, uint16(len(i.Call.Args)))
+}
 
-		// External package function: use OpDeferIndirect with compileValue
-		c.compileValue(i.Call.Value)
-		for _, arg := range i.Call.Args {
-			c.compileValue(arg)
+// compileDeferMakeClosure handles defer of a closure expression.
+func (c *compiler) compileDeferMakeClosure(i *ssa.Defer, val *ssa.MakeClosure) {
+	// Already compiled — load from local
+	if idx, ok := c.symbolTable.GetLocal(val); ok {
+		c.emit(bytecode.OpLocal, uint16(idx))
+		c.compileDeferArgs(i)
+		c.emit(bytecode.OpDeferIndirect, uint16(len(i.Call.Args)))
+		return
+	}
+	// Not yet compiled — create the closure now
+	for _, binding := range val.Bindings {
+		if fv, ok := binding.(*ssa.FreeVar); ok {
+			if idx, ok := c.symbolTable.freeVars[fv]; ok {
+				c.emit(bytecode.OpFree, uint16(idx))
+				continue
+			}
 		}
-		numArgs := len(i.Call.Args)
-		c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
+		if alloc, ok := binding.(*ssa.Alloc); ok {
+			if slotIdx, ok := c.symbolTable.GetLocal(alloc); ok {
+				c.emit(bytecode.OpLocal, uint16(slotIdx))
+				continue
+			}
+		}
+		c.compileValue(binding)
+	}
+	c.emitClosure(c.funcIndex[val.Fn.(*ssa.Function)], len(val.Bindings))
+	c.compileDeferArgs(i)
+	c.emit(bytecode.OpDeferIndirect, uint16(len(i.Call.Args)))
+}
 
-	case *ssa.MakeClosure:
-		// Check if this MakeClosure was already compiled (has a local slot)
-		if idx, ok := c.symbolTable.GetLocal(val); ok {
-			// Already compiled - load the closure from local FIRST
-			c.emit(bytecode.OpLocal, uint16(idx))
-			// Then push arguments
-			for _, arg := range i.Call.Args {
-				c.compileValue(arg)
-			}
-			numArgs := len(i.Call.Args)
-			c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
-			return
-		}
-		// Not yet compiled - create the closure now FIRST
-		// Compile bindings - need to handle FreeVar specially
-		for _, binding := range val.Bindings {
-			// Check if binding is a FreeVar (captured from enclosing function)
-			if fv, ok := binding.(*ssa.FreeVar); ok {
-				if idx, ok := c.symbolTable.freeVars[fv]; ok {
-					c.emit(bytecode.OpFree, uint16(idx))
-					continue
-				}
-			}
-			// Handle Alloc (pointer variable)
-			if alloc, ok := binding.(*ssa.Alloc); ok {
-				if slotIdx, ok := c.symbolTable.GetLocal(alloc); ok {
-					c.emit(bytecode.OpLocal, uint16(slotIdx))
-					continue
-				}
-			}
-			c.compileValue(binding)
-		}
-		// Create closure (on stack, no SETLOCAL)
-		fnIdx := c.funcIndex[val.Fn.(*ssa.Function)]
-		c.emitClosure(fnIdx, len(val.Bindings))
-		// Push arguments AFTER closure
-		for _, arg := range i.Call.Args {
-			c.compileValue(arg)
-		}
-		numArgs := len(i.Call.Args)
-		c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
-
-	default:
-		// Other cases - first compile the callable, then push args
-		c.compileValue(i.Call.Value)
-		for _, arg := range i.Call.Args {
-			c.compileValue(arg)
-		}
-		numArgs := len(i.Call.Args)
-		c.emit(bytecode.OpDeferIndirect, uint16(numArgs))
+// compileDeferArgs pushes the arguments for a deferred call.
+func (c *compiler) compileDeferArgs(i *ssa.Defer) {
+	for _, arg := range i.Call.Args {
+		c.compileValue(arg)
 	}
 }
 

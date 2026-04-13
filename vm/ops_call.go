@@ -2,72 +2,15 @@
 package vm
 
 import (
-	"reflect"
-
 	"git.woa.com/youngjin/gig/model/bytecode"
 	"git.woa.com/youngjin/gig/model/value"
 )
 
-// executeCall handles function call, closure creation, goroutine spawning,
-// and pack/unpack opcodes.
+// executeCall handles closure creation, goroutine spawning, and pack/unpack opcodes.
+// Note: OpCall, OpCallExternal, OpCallIndirect are inlined in run.go's hot path
+// and never reach this handler.
 func (v *vm) executeCall(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen
 	switch op {
-	case bytecode.OpCall:
-		funcIdx := frame.readUint16()
-		numArgs := frame.readByte()
-		v.callCompiledFunction(int(funcIdx), int(numArgs))
-
-	case bytecode.OpCallExternal:
-		funcIdx := frame.readUint16()
-		numArgs := frame.readByte()
-		if err := v.callExternal(int(funcIdx), int(numArgs)); err != nil {
-			return err
-		}
-
-	case bytecode.OpCallIndirect:
-		numArgs := frame.readByte()
-		// Pop arguments using stack-allocated buffer
-		var argsBuf [8]value.Value
-		var args []value.Value
-		if int(numArgs) <= len(argsBuf) {
-			args = argsBuf[:numArgs]
-		} else {
-			args = make([]value.Value, numArgs)
-		}
-		for i := int(numArgs) - 1; i >= 0; i-- {
-			args[i] = v.pop()
-		}
-		// Pop the callee
-		callee := v.pop()
-		switch fn := callee.RawObj().(type) {
-		case *Closure:
-			// Call closure: create new frame with free vars
-			v.callFunction(fn.Fn, args, fn.FreeVars)
-		case *bytecode.CompiledFunction:
-			// Call compiled function
-			v.callFunction(fn, args, nil)
-		default:
-			// Check if callee is a reflect-based function (e.g., from a typed container)
-			if rv, ok := callee.ReflectValue(); ok && rv.Kind() == reflect.Func {
-				in := make([]reflect.Value, numArgs)
-				fnType := rv.Type()
-				for i := 0; i < int(numArgs); i++ {
-					if i < fnType.NumIn() {
-						in[i] = args[i].ToReflectValue(fnType.In(i))
-					}
-				}
-				out := rv.Call(in)
-				if len(out) == 0 {
-					v.push(value.MakeNil())
-				} else {
-					v.push(value.MakeFromReflect(out[0]))
-				}
-			} else {
-				// Not a known callable — push nil
-				v.push(value.MakeNil())
-			}
-		}
-
 	case bytecode.OpClosure:
 		funcIdx := frame.readUint16()
 		numFree := frame.readByte()

@@ -32,13 +32,22 @@ type ExternalPackage struct {
 	registry PackageRegistry
 }
 
-// PackageRegistry manages external package registration.
+// PackageRegistry manages external package registration and lookup.
 // It provides methods to register, lookup, and query packages, types, and method DirectCalls.
-// PackageRegistry embeds PackageLookup for read operations and adds write operations.
 type PackageRegistry interface {
-	PackageLookup // Embed read interface
+	// Read operations
+	GetPackageByPath(path string) *ExternalPackage
+	GetPackageByName(name string) *ExternalPackage
+	GetAllPackages() map[string]*ExternalPackage
+	LookupPackage(name string) (*ExternalPackage, error)
+	AutoImport(name string) (path string, pkg *ExternalPackage, ok bool)
+	LookupExternalFunc(pkgPath, funcName string) (fn any, directCall func([]value.Value) value.Value, ok bool)
+	LookupMethodDirectCall(typeName, methodName string) (directCall func([]value.Value) value.Value, ok bool)
+	LookupExternalVar(pkgPath, varName string) (ptr any, ok bool)
+	LookupExternalType(t types.Type) (reflect.Type, bool)
+	LookupExternalTypeByName(pkgPath, typeName string) (reflect.Type, bool)
 
-	// Registration (write operations)
+	// Write operations
 	RegisterPackage(path, name string) *ExternalPackage
 	SetExternalType(t types.Type, rt reflect.Type)
 	AddMethodDirectCall(typeName, methodName string, dc func([]value.Value) value.Value)
@@ -55,8 +64,6 @@ type Registry struct {
 	packagesByAlias map[string]*ExternalPackage                // keyed by package name (for auto-import)
 	extTypes        map[types.Type]reflect.Type                // types.Type -> reflect.Type
 	methods         map[string]func([]value.Value) value.Value // "pkgPath.TypeName.MethodName" -> DirectCall
-
-	frozen bool // if true, mutations panic
 }
 
 // NewRegistry creates a new empty package registry.
@@ -69,30 +76,6 @@ func NewRegistry() *Registry {
 	}
 }
 
-// Freeze makes the registry read-only. Any subsequent mutation (RegisterPackage,
-// SetExternalType, AddMethodDirectCall) will panic. This is called after all stdlib
-// init() registrations are complete to prevent cross-program pollution.
-func (r *Registry) Freeze() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.frozen = true
-}
-
-// IsFrozen reports whether the registry has been frozen.
-func (r *Registry) IsFrozen() bool {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.frozen
-}
-
-// checkFrozen panics if the registry is frozen. Safe to call under any lock
-// since frozen transitions from false→true exactly once and never back.
-func (r *Registry) checkFrozen() {
-	if r.frozen {
-		panic("importer: mutation on frozen registry; the global registry is read-only after init")
-	}
-}
-
 func (r *Registry) RegisterPackage(path, name string) *ExternalPackage {
 	pkg := &ExternalPackage{
 		Path:     path,
@@ -102,7 +85,6 @@ func (r *Registry) RegisterPackage(path, name string) *ExternalPackage {
 		registry: r,
 	}
 	r.mu.Lock()
-	r.checkFrozen()
 	r.packagesByName[path] = pkg
 	r.packagesByAlias[name] = pkg
 	r.mu.Unlock()
@@ -134,7 +116,6 @@ func (r *Registry) GetAllPackages() map[string]*ExternalPackage {
 func (r *Registry) SetExternalType(t types.Type, rt reflect.Type) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.checkFrozen()
 	r.extTypes[t] = rt
 }
 
@@ -147,7 +128,6 @@ func (r *Registry) GetExternalType(t types.Type) reflect.Type {
 func (r *Registry) AddMethodDirectCall(typeName, methodName string, dc func([]value.Value) value.Value) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.checkFrozen()
 	r.methods[typeName+"."+methodName] = dc
 }
 
@@ -266,16 +246,6 @@ func GetAllPackages() map[string]*ExternalPackage {
 // LookupMethodDirectCall looks up a method DirectCall wrapper from the global registry.
 func LookupMethodDirectCall(typeName, methodName string) (func([]value.Value) value.Value, bool) {
 	return globalRegistry.LookupMethodDirectCall(typeName, methodName)
-}
-
-// SetExternalType associates a types.Type with a reflect.Type in the global registry.
-func SetExternalType(t types.Type, rt reflect.Type) {
-	globalRegistry.SetExternalType(t, rt)
-}
-
-// GetExternalType returns the reflect.Type associated with a types.Type from the global registry.
-func GetExternalType(t types.Type) reflect.Type {
-	return globalRegistry.GetExternalType(t)
 }
 
 // funcSignature creates a types.Signature from a function value using reflection.

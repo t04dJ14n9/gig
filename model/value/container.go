@@ -141,13 +141,10 @@ func (v Value) SetIndex(i int, val Value) {
 	}
 	if rv, ok := v.obj.(reflect.Value); ok {
 		elemType := rv.Type().Elem()
-		// For function element types, convert via ToReflectValue to wrap closures
-		// with reflect.MakeFunc (ClosureCaller) for proper typed function values.
 		if elemType.Kind() == reflect.Func {
 			rv.Index(i).Set(val.ToReflectValue(elemType))
 			return
 		}
-		// For []value.Value slices (used for function slices)
 		if elemType == reflect.TypeOf(Value{}) {
 			rv.Index(i).Set(reflect.ValueOf(val))
 			return
@@ -155,7 +152,6 @@ func (v Value) SetIndex(i int, val Value) {
 		rv.Index(i).Set(val.ToReflectValue(elemType))
 		return
 	}
-	// Handle native []value.Value slice
 	if slice, ok := v.obj.([]Value); ok {
 		slice[i] = val
 		return
@@ -175,13 +171,6 @@ func (v Value) MapIndex(k Value) Value {
 		return MakeFromReflect(elem)
 	}
 	panic("invalid reflect.Value in MapIndex()")
-}
-
-// SetMapIndex sets value at key k for map.
-// If val is nil and deleteIfNil is true, the key is deleted.
-// If val is nil and deleteIfNil is false, the key is set to a nil value of the element type.
-func (v Value) SetMapIndex(k, val Value) {
-	v.SetMapIndexWithDelete(k, val, true)
 }
 
 // SetMapIndexWithDelete sets a map entry with control over nil value handling.
@@ -204,22 +193,6 @@ func (v Value) SetMapIndexWithDelete(k, val Value, deleteIfNil bool) {
 		return
 	}
 	panic("invalid reflect.Value in SetMapIndex()")
-}
-
-// MapIter iterates over a map.
-func (v Value) MapIter(f func(key, val Value) bool) {
-	if rv, ok := v.obj.(reflect.Value); ok {
-		iter := rv.MapRange()
-		for iter.Next() {
-			key := MakeFromReflect(iter.Key())
-			val := MakeFromReflect(iter.Value())
-			if !f(key, val) {
-				break
-			}
-		}
-		return
-	}
-	panic("invalid reflect.Value in MapIter()")
 }
 
 // Field returns struct field at index i.
@@ -369,24 +342,6 @@ func (v Value) SetElem(val Value) {
 		}
 	}
 	panic("invalid reflect.Value in SetElem()")
-}
-
-// Pointer returns the underlying pointer value.
-func (v Value) Pointer() uintptr {
-	if rv, ok := v.obj.(reflect.Value); ok {
-		return rv.Pointer()
-	}
-	return 0
-}
-
-// Package packs multiple values into a slice.
-func Package(vals ...Value) []Value {
-	return vals
-}
-
-// Unpackage unpacks a slice of values.
-func Unpackage(vals []Value) []Value {
-	return vals
 }
 
 // convertSliceToInterface converts a slice of concrete types to slice of interface{}.

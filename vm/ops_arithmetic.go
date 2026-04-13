@@ -1,4 +1,6 @@
-// ops_arithmetic.go implements arithmetic, bitwise, comparison, and logical operations.
+// ops_arithmetic.go implements arithmetic, bitwise, and complex number operations.
+// Note: OpAdd, OpSub, OpMul, OpEqual, OpNotEqual, OpLess, OpLessEq, OpGreater,
+// OpGreaterEq, and OpNot are inlined in run.go's hot path and never reach this handler.
 package vm
 
 import (
@@ -6,38 +8,10 @@ import (
 	"git.woa.com/youngjin/gig/model/value"
 )
 
-// executeArithmetic handles arithmetic, bitwise, comparison, and logical opcodes.
+// executeArithmetic handles non-hot-path arithmetic, bitwise, and complex opcodes.
+// Hot-path ops (Add, Sub, Mul, comparisons, Not) are inlined in run.go.
 func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolint:cyclop,unparam // frame: uniform dispatch signature
 	switch op {
-	// Arithmetic
-	case bytecode.OpAdd:
-		b := v.pop()
-		a := v.pop()
-		// Fast path for int+int (most common case in loops)
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize()))
-		} else {
-			v.push(a.Add(b))
-		}
-
-	case bytecode.OpSub:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize()))
-		} else {
-			v.push(a.Sub(b))
-		}
-
-	case bytecode.OpMul:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize()))
-		} else {
-			v.push(a.Mul(b))
-		}
-
 	case bytecode.OpDiv:
 		b := v.pop()
 		a := v.pop()
@@ -53,17 +27,14 @@ func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolin
 		v.push(a.Neg())
 
 	case bytecode.OpReal:
-		// real(complex) -> float64
 		c := v.pop()
 		v.push(value.MakeFloat(real(c.Complex())))
 
 	case bytecode.OpImag:
-		// imag(complex) -> float64
 		c := v.pop()
 		v.push(value.MakeFloat(imag(c.Complex())))
 
 	case bytecode.OpComplex:
-		// complex(real, imag) -> complex128
 		im := v.pop().Float()
 		re := v.pop().Float()
 		v.push(value.MakeComplex(re, im))
@@ -110,66 +81,6 @@ func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolin
 		}
 		a := v.pop()
 		v.push(a.Rsh(n))
-
-	// Comparison
-	case bytecode.OpEqual:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeBool(a.RawInt() == b.RawInt()))
-		} else {
-			v.push(value.MakeBool(a.Equal(b)))
-		}
-
-	case bytecode.OpNotEqual:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeBool(a.RawInt() != b.RawInt()))
-		} else {
-			v.push(value.MakeBool(!a.Equal(b)))
-		}
-
-	case bytecode.OpLess:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeBool(a.RawInt() < b.RawInt()))
-		} else {
-			v.push(value.MakeBool(a.Cmp(b) < 0))
-		}
-
-	case bytecode.OpLessEq:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeBool(a.RawInt() <= b.RawInt()))
-		} else {
-			v.push(value.MakeBool(a.Cmp(b) <= 0))
-		}
-
-	case bytecode.OpGreater:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeBool(a.RawInt() > b.RawInt()))
-		} else {
-			v.push(value.MakeBool(a.Cmp(b) > 0))
-		}
-
-	case bytecode.OpGreaterEq:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeBool(a.RawInt() >= b.RawInt()))
-		} else {
-			v.push(value.MakeBool(a.Cmp(b) >= 0))
-		}
-
-	// Logical
-	case bytecode.OpNot:
-		a := v.pop()
-		v.push(value.MakeBool(!a.Bool()))
 	}
 
 	return nil
