@@ -113,3 +113,17 @@ func (c *compiler) compileAndEmitClosureFromFreeVars(freeVars []*ssa.FreeVar, fn
 	}
 	c.emitClosure(fnIdx, len(freeVars))
 }
+
+// compileDeferCallArgs compiles arguments for a Defer call.
+func (c *compiler) compileDeferCallArgs(args []ssa.Value) {
+	for _, arg := range args {
+		c.compileValue(arg)
+	}
+}
+
+// compileGoCallArgs compiles arguments for a Go call.
+func (c *compiler) compileGoCallArgs(args []ssa.Value) {
+	for _, arg := range args {
+		c.compileValue(arg)
+	}
+}

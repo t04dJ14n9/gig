@@ -269,92 +269,107 @@ func basicZeroValue(kind types.BasicKind) any {
 // Deprecated: Use bytecode.BasicKindToReflectType instead.
 var basicKindToReflect = bytecode.BasicKindToReflectType
 
-// constTypeToReflect converts a go/types.Type to reflect.Type for nil constant emission.
-// Only handles reference types (map, slice, chan, pointer, func) since those are the
-// types that can have meaningful nil values with type information.
-// Named empty structs now share reflect.TypeOf(struct{}{}) with the VM, so they
-// can be emitted directly.
-// Returns nil for types that cannot be converted (the caller falls back to untyped nil).
-func constTypeToReflect(t types.Type) reflect.Type {
-	// Named empty structs share struct{}{} with the VM (no phantom field),
-	// so we can emit struct{} directly.
+// isEmptyStruct checks if a type is an empty struct (struct{}).
+// Handles Named types, Aliases, and direct Struct types.
+func isEmptyStruct(t types.Type) bool {
+	// Check if it's a Named type with empty underlying struct
 	if named, ok := t.(*types.Named); ok {
-		if structType, ok := named.Underlying().(*types.Struct); ok && structType.NumFields() == 0 {
-			return reflect.TypeFor[struct{}]()
+		if structType, ok := named.Underlying().(*types.Struct); ok {
+			return structType.NumFields() == 0
 		}
 	}
-	// Handle type aliases - they are identical to the aliased type
+	// Check if it's an Alias with empty underlying struct
 	if alias, ok := t.(*types.Alias); ok {
-		if structType, ok := alias.Underlying().(*types.Struct); ok && structType.NumFields() == 0 {
-			return reflect.TypeFor[struct{}]()
+		if structType, ok := alias.Underlying().(*types.Struct); ok {
+			return structType.NumFields() == 0
 		}
+	}
+	// Check if it's a direct Struct type
+	if structType, ok := t.(*types.Struct); ok {
+		return structType.NumFields() == 0
+	}
+	return false
+}
+
+// convertTypeElement recursively converts an element type, returning nil if conversion fails.
+func convertTypeElement(t types.Type) reflect.Type {
+	rt := constTypeToReflect(t)
+	return rt
+}
+
+func constTypeToReflect(t types.Type) reflect.Type {
+	// Handle empty structs early (Named, Alias, and direct Struct types)
+	if isEmptyStruct(t) {
+		return reflect.TypeFor[struct{}]()
 	}
 
 	switch typ := t.Underlying().(type) {
+	case *types.Basic:
+		return basicKindToReflect[typ.Kind()]
 	case *types.Map:
-		keyRT := constTypeToReflect(typ.Key())
-		elemRT := constTypeToReflect(typ.Elem())
+		keyRT := convertTypeElement(typ.Key())
+		elemRT := convertTypeElement(typ.Elem())
 		if keyRT != nil && elemRT != nil {
 			return reflect.MapOf(keyRT, elemRT)
 		}
 	case *types.Slice:
-		elemRT := constTypeToReflect(typ.Elem())
+		elemRT := convertTypeElement(typ.Elem())
 		if elemRT != nil {
 			return reflect.SliceOf(elemRT)
 		}
 	case *types.Pointer:
-		elemRT := constTypeToReflect(typ.Elem())
+		elemRT := convertTypeElement(typ.Elem())
 		if elemRT != nil {
 			return reflect.PointerTo(elemRT)
 		}
 	case *types.Chan:
-		elemRT := constTypeToReflect(typ.Elem())
+		elemRT := convertTypeElement(typ.Elem())
 		if elemRT != nil {
-			dir := reflect.BothDir
-			switch typ.Dir() {
-			case types.SendOnly:
-				dir = reflect.SendDir
-			case types.RecvOnly:
-				dir = reflect.RecvDir
-			}
-			return reflect.ChanOf(dir, elemRT)
+			return reflect.ChanOf(chanDirection(typ), elemRT)
 		}
-	case *types.Basic:
-		return basicKindToReflect[typ.Kind()]
 	case *types.Interface:
-		// Interface with no methods = any
 		if typ.NumMethods() == 0 {
 			return reflect.TypeFor[any]()
 		}
 	case *types.Signature:
-		// Build reflect.FuncOf for function types (e.g., func() int, func(string) bool)
-		params := make([]reflect.Type, typ.Params().Len())
-		for i := 0; i < typ.Params().Len(); i++ {
-			pt := constTypeToReflect(typ.Params().At(i).Type())
-			if pt == nil {
-				return nil
-			}
-			params[i] = pt
-		}
-		results := make([]reflect.Type, typ.Results().Len())
-		for i := 0; i < typ.Results().Len(); i++ {
-			rt := constTypeToReflect(typ.Results().At(i).Type())
-			if rt == nil {
-				return nil
-			}
-			results[i] = rt
-		}
-		return reflect.FuncOf(params, results, typ.Variadic())
-	case *types.Struct:
-		// Handle empty struct (struct{}) — the common case for map[K]struct{}.
-		// Named empty structs also use struct{}{} in the VM (no phantom field).
-		if typ.NumFields() == 0 {
-			// Return the basic struct{} type for empty structs
-			return reflect.TypeFor[struct{}]()
-		}
+		return buildFuncType(typ)
 	}
 	return nil
 }
+
+// chanDirection returns the reflect.ChanDir for a types.Chan.
+func chanDirection(typ *types.Chan) reflect.ChanDir {
+	switch typ.Dir() {
+	case types.SendOnly:
+		return reflect.SendDir
+	case types.RecvOnly:
+		return reflect.RecvDir
+	default:
+		return reflect.BothDir
+	}
+}
+
+// buildFuncType builds a reflect.Type for a function signature.
+func buildFuncType(sig *types.Signature) reflect.Type {
+	params := make([]reflect.Type, sig.Params().Len())
+	for i := 0; i < sig.Params().Len(); i++ {
+		pt := constTypeToReflect(sig.Params().At(i).Type())
+		if pt == nil {
+			return nil
+		}
+		params[i] = pt
+	}
+	results := make([]reflect.Type, sig.Results().Len())
+	for i := 0; i < sig.Results().Len(); i++ {
+		rt := constTypeToReflect(sig.Results().At(i).Type())
+		if rt == nil {
+			return nil
+		}
+		results[i] = rt
+	}
+	return reflect.FuncOf(params, results, sig.Variadic())
+}
+
 
 // compileField compiles a Field instruction.
 func (c *compiler) compileField(i *ssa.Field) {
@@ -643,7 +658,7 @@ func (c *compiler) compileDefer(i *ssa.Defer) {
 	default:
 		// Other cases: compile the callable, then push args
 		c.compileValue(i.Call.Value)
-		c.compileDeferArgs(i)
+		c.compileDeferCallArgs(i.Call.Args)
 		c.emit(bytecode.OpDeferIndirect, uint16(len(i.Call.Args)))
 	}
 }
@@ -674,19 +689,19 @@ func (c *compiler) compileDeferFunction(i *ssa.Defer, val *ssa.Function) {
 			// Has free variables — create closure, then push args
 			fnIdx := c.funcIndex[val]
 			c.compileAndEmitClosureFromFreeVars(val.FreeVars, fnIdx)
-			c.compileDeferArgs(i)
+			c.compileDeferCallArgs(i.Call.Args)
 			c.emit(bytecode.OpDeferIndirect, uint16(len(i.Call.Args)))
 			return
 		}
 		// No free variables — push args, use OpDefer directly
-		c.compileDeferArgs(i)
+		c.compileDeferCallArgs(i.Call.Args)
 		c.emit(bytecode.OpDefer, uint16(c.funcIndex[val]))
 		return
 	}
 
 	// External method wrapper (not in funcIndex)
 	if val.Signature.Recv() != nil {
-		c.compileDeferArgs(i)
+		c.compileDeferCallArgs(i.Call.Args)
 		methodName := extractMethodName(val.Name())
 		methodInfo := &external.ExternalMethodInfo{MethodName: methodName}
 		if c.lookup != nil {
@@ -704,7 +719,7 @@ func (c *compiler) compileDeferFunction(i *ssa.Defer, val *ssa.Function) {
 
 	// External package function
 	c.compileValue(i.Call.Value)
-	c.compileDeferArgs(i)
+	c.compileDeferCallArgs(i.Call.Args)
 	c.emit(bytecode.OpDeferIndirect, uint16(len(i.Call.Args)))
 }
 
@@ -713,7 +728,7 @@ func (c *compiler) compileDeferMakeClosure(i *ssa.Defer, val *ssa.MakeClosure) {
 	// Already compiled — load from local
 	if idx, ok := c.symbolTable.GetLocal(val); ok {
 		c.emit(bytecode.OpLocal, uint16(idx))
-		c.compileDeferArgs(i)
+		c.compileDeferCallArgs(i.Call.Args)
 		c.emit(bytecode.OpDeferIndirect, uint16(len(i.Call.Args)))
 		return
 	}
@@ -734,15 +749,8 @@ func (c *compiler) compileDeferMakeClosure(i *ssa.Defer, val *ssa.MakeClosure) {
 		c.compileValue(binding)
 	}
 	c.emitClosure(c.funcIndex[val.Fn.(*ssa.Function)], len(val.Bindings))
-	c.compileDeferArgs(i)
+	c.compileDeferCallArgs(i.Call.Args)
 	c.emit(bytecode.OpDeferIndirect, uint16(len(i.Call.Args)))
-}
-
-// compileDeferArgs pushes the arguments for a deferred call.
-func (c *compiler) compileDeferArgs(i *ssa.Defer) {
-	for _, arg := range i.Call.Args {
-		c.compileValue(arg)
-	}
 }
 
 // compileGo compiles a Go instruction.
