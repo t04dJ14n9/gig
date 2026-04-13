@@ -5,8 +5,9 @@ package importer
 import (
 	"fmt"
 	"go/types"
-	"strings"
 	"sync"
+
+	"github.com/t04dJ14n9/gig/model/external"
 )
 
 // Importer implements types.Importer for registered external packages.
@@ -74,17 +75,17 @@ func (i *Importer) buildPackage(extPkg *ExternalPackage) *types.Package {
 		var typesObj types.Object
 
 		switch obj.Kind {
-		case ObjectKindFunction:
+		case external.ObjectKindFunction:
 			if sig, ok := obj.Type.(*types.Signature); ok {
 				typesObj = types.NewFunc(0, pkg, name, sig)
 			}
-		case ObjectKindVariable:
+		case external.ObjectKindVariable:
 			typesObj = types.NewVar(0, pkg, name, obj.Type)
-		case ObjectKindConstant:
+		case external.ObjectKindConstant:
 			// Create a constant with the appropriate value
 			val := convertToConstantValue(obj.Value)
 			typesObj = types.NewConst(0, pkg, name, obj.Type, val)
-		case ObjectKindType:
+		case external.ObjectKindType:
 			// Type names are handled separately
 			if named, ok := obj.Type.(*types.Named); ok {
 				typesObj = named.Obj()
@@ -122,38 +123,3 @@ func (i *Importer) buildPackage(extPkg *ExternalPackage) *types.Package {
 	return pkg
 }
 
-// LookupPackage looks up a package by import path or name.
-// Returns the package or an error if not found.
-func LookupPackage(name string) (*ExternalPackage, error) {
-	// Try by path first
-	if pkg := GetPackageByPath(name); pkg != nil {
-		return pkg, nil
-	}
-
-	// Try by name
-	if pkg := GetPackageByName(name); pkg != nil {
-		return pkg, nil
-	}
-
-	return nil, fmt.Errorf("package %q not found", name)
-}
-
-// AutoImport tries to find and import a package by name or path suffix.
-// This enables automatic import resolution when users reference packages without explicit imports.
-// Returns the package path, the package, and whether it was found.
-func AutoImport(name string) (path string, pkg *ExternalPackage, ok bool) {
-	// Try exact match first
-	if pkg := GetPackageByName(name); pkg != nil {
-		return pkg.Path, pkg, true
-	}
-
-	// Try path suffix match (e.g., "json" matches "encoding/json")
-	for path, pkg := range GetAllPackages() {
-		parts := strings.Split(path, "/")
-		if parts[len(parts)-1] == name {
-			return path, pkg, true
-		}
-	}
-
-	return "", nil, false
-}

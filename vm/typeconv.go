@@ -1,3 +1,4 @@
+// typeconv.go converts go/types.Type to reflect.Type with cycle detection and caching.
 package vm
 
 import (
@@ -5,15 +6,18 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/t04dJ14n9/gig/bytecode"
-	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/bytecode"
 )
+
+// maxTypeRecursionDepth is the hard limit on recursive type conversion depth.
+// Prevents stack overflow on deeply nested but acyclic types (e.g., [][][]...[]int).
+const maxTypeRecursionDepth = 256
 
 // typeToReflect converts a go/types.Type to reflect.Type using the program-level
 // cache to ensure the same types.Type always maps to the same reflect.Type.
 // This prevents reflect.StructOf from returning different reflect.Type objects
 // across multiple VM executions, which would cause "reflect.Set: value not assignable" panics.
-func typeToReflect(t types.Type, prog *bytecode.Program) reflect.Type {
+func typeToReflect(t types.Type, prog *bytecode.CompiledProgram) reflect.Type {
 	if t == nil {
 		return nil
 	}
@@ -23,7 +27,7 @@ func typeToReflect(t types.Type, prog *bytecode.Program) reflect.Type {
 	}
 	// Compute with a local cycle-detection cache
 	localCache := make(map[types.Type]reflect.Type)
-	rt := typeToReflectWithCache(t, localCache, "", prog)
+	rt := typeToReflectWithCache(t, localCache, "", prog, 0)
 	if rt != nil {
 		// Store in program-level cache (uses LoadOrStore for thread safety)
 		rt = prog.CacheReflectType(t, rt)
@@ -38,14 +42,18 @@ func typeToReflect(t types.Type, prog *bytecode.Program) reflect.Type {
 // size and alignment as any Go pointer.
 // The uniqueSuffix parameter is used to create unique reflect.Types for named structs
 // to prevent reflect.StructOf from deduplicating different types with same field layout.
+// The depth parameter prevents stack overflow on deeply nested acyclic types.
 //
 // NOTE: This function does NOT use the program-level cache internally because the same
 // types.Type (e.g., *types.Struct for struct{v int}) may be reached through different
 // named types with different uniqueSuffix values. Caching at this level would cause
 // suffix-insensitive collisions. Program-level caching is done only at the top-level
 // typeToReflect entry point, which caches the final result keyed by the original type.
-func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type, uniqueSuffix string, prog *bytecode.Program) reflect.Type {
+func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type, uniqueSuffix string, prog *bytecode.CompiledProgram, depth int) reflect.Type {
 	if t == nil {
+		return nil
+	}
+	if depth > maxTypeRecursionDepth {
 		return nil
 	}
 
@@ -54,7 +62,7 @@ func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type, uni
 		return cached
 	}
 
-	result := typeToReflectInner(t, cache, uniqueSuffix, prog)
+	result := typeToReflectInner(t, cache, uniqueSuffix, prog, depth)
 	if result != nil {
 		cache[t] = result
 	}
@@ -63,74 +71,40 @@ func typeToReflectWithCache(t types.Type, cache map[types.Type]reflect.Type, uni
 }
 
 // typeToReflectInner does the actual conversion without caching logic.
-func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueSuffix string, prog *bytecode.Program) reflect.Type {
+func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueSuffix string, prog *bytecode.CompiledProgram, depth int) reflect.Type {
 	switch tt := t.(type) {
 	case *types.Basic:
-		switch tt.Kind() {
-		case types.Bool:
-			return reflect.TypeFor[bool]()
-		case types.Int:
-			return reflect.TypeFor[int]()
-		case types.Int8:
-			return reflect.TypeFor[int8]()
-		case types.Int16:
-			return reflect.TypeFor[int16]()
-		case types.Int32:
-			return reflect.TypeFor[int32]()
-		case types.Int64:
-			return reflect.TypeFor[int64]()
-		case types.Uint:
-			return reflect.TypeFor[uint]()
-		case types.Uint8:
-			return reflect.TypeFor[uint8]()
-		case types.Uint16:
-			return reflect.TypeFor[uint16]()
-		case types.Uint32:
-			return reflect.TypeFor[uint32]()
-		case types.Uint64:
-			return reflect.TypeFor[uint64]()
-		case types.Uintptr:
-			return reflect.TypeFor[uintptr]()
-		case types.Float32:
-			return reflect.TypeFor[float32]()
-		case types.Float64:
-			return reflect.TypeFor[float64]()
-		case types.Complex64:
-			return reflect.TypeFor[complex64]()
-		case types.Complex128:
-			return reflect.TypeFor[complex128]()
-		case types.String:
-			return reflect.TypeFor[string]()
-		default:
-			return nil
-		}
+		return bytecode.BasicKindToReflectType[tt.Kind()] // nil for unsupported kinds
 	case *types.Slice:
-		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog)
+		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
 		if elem != nil {
 			return reflect.SliceOf(elem)
 		}
-		return nil
+		// If elem is nil due to a cycle (e.g., []*TreeNode where TreeNode has cycle),
+		// use []interface{} as a placeholder. The VM will convert slice elements
+		// at assignment time when the concrete type is known.
+		return reflect.SliceOf(reflect.TypeFor[interface{}]())
 	case *types.Array:
-		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog)
+		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
 		if elem != nil {
 			return reflect.ArrayOf(int(tt.Len()), elem)
 		}
 		return nil
 	case *types.Map:
-		key := typeToReflectWithCache(tt.Key(), cache, "", prog)
-		val := typeToReflectWithCache(tt.Elem(), cache, "", prog)
+		key := typeToReflectWithCache(tt.Key(), cache, "", prog, depth+1)
+		val := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
 		if key != nil && val != nil {
 			return reflect.MapOf(key, val)
 		}
 		return nil
 	case *types.Chan:
-		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog)
+		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
 		if elem != nil {
 			return reflect.ChanOf(reflect.BothDir, elem)
 		}
 		return nil
 	case *types.Pointer:
-		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog)
+		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
 		if elem != nil {
 			return reflect.PointerTo(elem)
 		}
@@ -145,8 +119,8 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 	case *types.Named:
 		// Check if this is a registered external type (e.g., bytes.Buffer, strings.Builder).
 		// If so, use the real reflect.Type instead of synthesizing a struct type.
-		if prog != nil && prog.Lookup != nil {
-			if rt := prog.Lookup.(importer.PackageRegistry).GetExternalType(tt); rt != nil {
+		if prog != nil && prog.TypeResolver != nil {
+			if rt, ok := prog.TypeResolver.LookupExternalType(tt); ok {
 				cache[tt] = rt
 				return rt
 			}
@@ -162,23 +136,30 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 		// (fields, PkgPath), so two structs like GetterImpl{v int} and AdderStruct{v int}
 		// would otherwise get the same reflect.Type.
 		typeName := tt.Obj().Name()
-		// Build uniqueSuffix with package-qualified name for _gig_id field:
-		// "#PkgName.TypeName" (e.g., "#known_issues.point").
-		// The _gig_id field uses this full suffix for fmt.Sprintf(%T) support.
-		// Regular unexported fields strip the package prefix to keep type identity stable.
+		// Build uniqueSuffix for struct tag uniqueness and type name registry.
+		// Format: "#PkgName.TypeName" (e.g., "#known_issues.point").
 		qualSuffix := "#" + typeName
 		if pkg := tt.Obj().Pkg(); pkg != nil {
 			qualSuffix = "#" + pkg.Name() + "." + typeName
 		}
-		result := typeToReflectWithCache(tt.Underlying(), cache, qualSuffix, prog)
+		result := typeToReflectWithCache(tt.Underlying(), cache, qualSuffix, prog, depth+1)
 		if result != nil {
 			cache[tt] = result
+			// Register the type name in the program-level registry for method dispatch.
+			// This replaces the old _gig_id phantom field approach.
+			if prog != nil && result.Kind() == reflect.Struct {
+				prog.RegisterTypeName(result, typeName)
+			}
 		}
 		return result
+	case *types.Alias:
+		// Type aliases (e.g., type MyInt = int) are identical to the aliased type.
+		// Just use the underlying type.
+		return typeToReflectWithCache(tt.Underlying(), cache, uniqueSuffix, prog, depth+1)
 	case *types.Struct:
 		// Build struct type dynamically using reflect
 		numFields := tt.NumFields()
-		fields := make([]reflect.StructField, 0, numFields+1)
+		fields := make([]reflect.StructField, 0, numFields)
 		hasUnexported := false
 		for i := 0; i < numFields; i++ {
 			f := tt.Field(i)
@@ -188,7 +169,7 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 			if named, ok := f.Type().(*types.Named); ok {
 				fieldSuffix = "#" + named.Obj().Name()
 			}
-			ft := typeToReflectWithCache(f.Type(), cache, fieldSuffix, prog)
+			ft := typeToReflectWithCache(f.Type(), cache, fieldSuffix, prog, depth+1)
 			if ft == nil {
 				// Skip fields that could not be converted (shouldn't normally happen
 				// unless there's a deep cycle on a non-pointer path).
@@ -213,10 +194,8 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 				if sf.Anonymous {
 					sf.Anonymous = false
 				}
-				// For regular unexported fields, use only the bare type suffix
+				// For unexported fields, use the bare type suffix
 				// (e.g., "#TypeName") to maintain type identity stability.
-				// The full qualified suffix ("#PkgName.TypeName") is reserved
-				// for the _gig_id sentinel field only.
 				bareSuffix := uniqueSuffix
 				if idx := strings.LastIndex(bareSuffix, "."); idx > 0 && bareSuffix[0] == '#' {
 					bareSuffix = "#" + bareSuffix[idx+1:]
@@ -237,29 +216,40 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 			}
 			fields = append(fields, sf)
 		}
-		// If the struct has only exported fields and a uniqueSuffix is provided,
-		// we must add a phantom unexported field to force reflect.StructOf to create
-		// a distinct type. Without this, structs like GetterHolder{Getter interface}
-		// and any other struct{SomeInterface interface} would collide because
-		// all interface fields become interface{} after conversion.
-		if !hasUnexported && uniqueSuffix != "" {
-			fields = append(fields, reflect.StructField{
-				Name:    "_gig_id",
-				Type:    reflect.TypeFor[struct{}](),
-				PkgPath: "gig/internal" + uniqueSuffix,
-			})
+		// For structs with only exported fields and a uniqueSuffix, we must make
+		// each field distinguishable via a struct tag so that reflect.StructOf
+		// produces a unique reflect.Type. Without this, structs like
+		// GetterHolder{Getter interface} and any other struct{SomeInterface interface}
+		// would collide because all interface fields become interface{} after conversion.
+		//
+		// For empty named structs (no fields, uniqueSuffix != ""), we share
+		// reflect.TypeOf(struct{}{}) and rely on the ReflectTypeNames registry
+		// for method dispatch.
+		if !hasUnexported && uniqueSuffix != "" && len(fields) > 0 {
+			gigTag := reflect.StructTag(`gig:"` + uniqueSuffix + `"`)
+			for i := range fields {
+				if fields[i].Tag == "" {
+					fields[i].Tag = gigTag
+				} else {
+					fields[i].Tag = fields[i].Tag + " " + gigTag
+				}
+			}
 		}
 		if len(fields) == 0 {
-			return nil
+			// Empty struct (struct{} or named empty struct) — return the real Go type directly.
+			// For named empty structs, the ReflectTypeNames registry handles identification.
+			return reflect.TypeOf(struct{}{})
 		}
-		return reflect.StructOf(fields)
+		result := reflect.StructOf(fields)
+		
+		return result
 	case *types.Signature:
 		// Function type - need to build the function type dynamically
 		// Get parameter types
 		params := tt.Params()
 		paramTypes := make([]reflect.Type, params.Len())
 		for i := 0; i < params.Len(); i++ {
-			pt := typeToReflectWithCache(params.At(i).Type(), cache, "", prog)
+			pt := typeToReflectWithCache(params.At(i).Type(), cache, "", prog, depth+1)
 			if pt == nil {
 				return nil
 			}
@@ -269,7 +259,7 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 		results := tt.Results()
 		resultTypes := make([]reflect.Type, results.Len())
 		for i := 0; i < results.Len(); i++ {
-			rt := typeToReflectWithCache(results.At(i).Type(), cache, "", prog)
+			rt := typeToReflectWithCache(results.At(i).Type(), cache, "", prog, depth+1)
 			if rt == nil {
 				return nil
 			}

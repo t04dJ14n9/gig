@@ -1,6 +1,6 @@
 package peephole
 
-import "github.com/t04dJ14n9/gig/bytecode"
+import "github.com/t04dJ14n9/gig/model/bytecode"
 
 // cmpJumpPattern fuses the 3-instruction sequence (10 bytes → 7 bytes):
 // LOCAL(A) op2(B) cmpOp jumpOp(off)
@@ -32,8 +32,8 @@ func (p cmpJumpPattern) Match(code []byte, i int) (int, []byte, bool) {
 		bytecode.OpCode(code[i+7]) != p.jumpOp {
 		return 0, nil, false
 	}
-	a := ReadU16(code, i+1)
-	b := ReadU16(code, i+4)
-	off := ReadU16(code, i+8)
+	a := bytecode.ReadU16(code, i+1)
+	b := bytecode.ReadU16(code, i+4)
+	off := bytecode.ReadU16(code, i+8)
 	return size, Make3Op(p.fused, a, b, off), true
 }

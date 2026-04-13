@@ -7,59 +7,43 @@ package compiler
 import (
 	"fmt"
 	"go/types"
+	"reflect"
 
 	"golang.org/x/tools/go/ssa"
 
-	"github.com/t04dJ14n9/gig/bytecode"
-	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 // Compiler compiles SSA programs into bytecode.
 type Compiler interface {
-	Compile(mainPkg *ssa.Package) (*bytecode.Program, error)
+	Compile(mainPkg *ssa.Package) (*bytecode.CompiledProgram, error)
 }
 
-// NewCompiler creates a new compiler with the given package registry for resolving external functions.
-func NewCompiler(reg importer.PackageRegistry) Compiler {
+// NewCompiler creates a new compiler with the given package lookup for resolving external functions.
+// The PackageLookup dependency is injected to decouple the compiler from the importer package.
+func NewCompiler(lookup PackageLookup) Compiler {
 	return &compiler{
-		registry:          reg,
+		lookup:            lookup,
 		constants:         make([]any, 0),
 		types:             make([]types.Type, 0),
 		globals:           make(map[string]int),
+		globalZeroValues:  make(map[int]reflect.Value),
 		externalVarValues: make(map[int]any),
 		funcs:             make(map[string]*bytecode.CompiledFunction),
 		funcIndex:         make(map[*ssa.Function]int),
 	}
 }
 
-// funcContext holds per-function compilation state. Created as a local variable
-// in compileFunction() and passed to all per-function compilation methods.
-type funcContext struct {
-	// cf is the bytecode function being compiled.
-	cf *bytecode.CompiledFunction
-
-	// symbolTable tracks SSA values to local slots.
-	symbolTable *SymbolTable
-
-	// jumps tracks jump instructions needing target patching.
-	jumps []jumpInfo
-
-	// phiSlots maps Phi nodes to their allocated local slots.
-	phiSlots map[*ssa.Phi]int
-
-	// c is a back-reference to the compiler for program-level state.
-	c *compiler
-}
-
 // compiler is the concrete implementation of the Compiler interface.
-// It maintains program-level state during compilation.
+// It maintains state during compilation including the current function,
+// symbol table, and jump targets that need patching.
 type compiler struct {
-	// registry resolves external package functions (injected dependency).
-	registry importer.PackageRegistry
+	// lookup resolves external package functions (injected dependency).
+	lookup PackageLookup
 
 	// program is the output program being compiled.
-	program *bytecode.Program
+	program *bytecode.CompiledProgram
 
 	// constants is the constant pool being built.
 	constants []any
@@ -70,6 +54,10 @@ type compiler struct {
 	// globals maps global names to indices.
 	globals map[string]int
 
+	// globalZeroValues maps global index to its zero reflect.Value.
+	// Resolved at compile time for external named struct types (e.g., sync.Mutex).
+	globalZeroValues map[int]reflect.Value
+
 	// externalVarValues stores external variable values indexed by global index.
 	// These are resolved at compile time and used to initialize globals in the VM.
 	externalVarValues map[int]any
@@ -79,59 +67,26 @@ type compiler struct {
 
 	// funcIndex maps SSA functions to call indices.
 	funcIndex map[*ssa.Function]int
-}
 
-// jumpInfo tracks a jump instruction that needs its target patched.
-type jumpInfo struct {
-	offset      int
-	targetBlock *ssa.BasicBlock
-}
+	// currentFunc is the function being compiled.
+	currentFunc *bytecode.CompiledFunction
 
-// SymbolTable tracks SSA values to local slots.
-type SymbolTable struct {
-	locals    map[ssa.Value]int
-	freeVars  map[ssa.Value]int
-	numLocals int
-}
+	// symbolTable tracks SSA values to local slots.
+	symbolTable *SymbolTable
 
-// NewSymbolTable creates a new symbol table for tracking SSA values.
-func NewSymbolTable() *SymbolTable {
-	return &SymbolTable{
-		locals:   make(map[ssa.Value]int),
-		freeVars: make(map[ssa.Value]int),
-	}
-}
+	// jumps tracks jump instructions needing target patching.
+	jumps []jumpInfo
 
-// AllocLocal allocates a new local slot for an SSA value.
-func (s *SymbolTable) AllocLocal(v ssa.Value) int {
-	if idx, ok := s.locals[v]; ok {
-		return idx
-	}
-	idx := s.numLocals
-	s.locals[v] = idx
-	s.numLocals++
-	return idx
-}
-
-// GetLocal returns the local slot index for an SSA value.
-func (s *SymbolTable) GetLocal(v ssa.Value) (int, bool) {
-	idx, ok := s.locals[v]
-	return idx, ok
-}
-
-// NumLocals returns the number of allocated local slots.
-func (s *SymbolTable) NumLocals() int {
-	return s.numLocals
+	// phiSlots maps Phi nodes to their allocated local slots.
+	phiSlots map[*ssa.Phi]int
 }
 
 // Compile is the main entry point that compiles an SSA package to a bytecode Program.
-func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
-	c.program = &bytecode.Program{
+func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.CompiledProgram, error) {
+	c.program = &bytecode.CompiledProgram{
 		Functions: make(map[string]*bytecode.CompiledFunction),
 		Globals:   make(map[string]int),
-		MainPkg:   mainPkg,
 		Types:     make([]types.Type, 0),
-		FuncIndex: make(map[*ssa.Function]int),
 	}
 
 	// Collect all functions (including anonymous/nested and methods)
@@ -211,7 +166,6 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 	// First pass: assign indices to all functions
 	for idx, fn := range allFuncs {
 		c.funcIndex[fn] = idx
-		c.program.FuncIndex[fn] = idx
 	}
 
 	// Second pass: compile each function and build direct-index lookup table
@@ -232,8 +186,18 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 	c.program.Constants = c.constants
 	c.program.Types = c.types
 	c.program.Globals = c.globals
+	c.program.GlobalZeroValues = c.globalZeroValues
 	c.program.ExternalVarValues = c.externalVarValues
-	c.program.Lookup = c.registry
+	c.program.TypeResolver = c.lookup
+
+	// Build method lookup index for O(k) dispatch instead of O(n) linear scan.
+	methodsByName := make(map[string][]*bytecode.CompiledFunction)
+	for _, fn := range c.program.FuncByIndex {
+		if fn != nil && fn.HasReceiver {
+			methodsByName[fn.Name] = append(methodsByName[fn.Name], fn)
+		}
+	}
+	c.program.MethodsByName = methodsByName
 
 	// Pre-bake constants for O(1) OpConst (avoids FromInterface per instruction)
 	c.program.PrebakedConstants = make([]value.Value, len(c.constants))
@@ -259,10 +223,4 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.Program, error) {
 	}
 
 	return c.program, nil
-}
-
-// Compile is a convenience package-level function that compiles an SSA package.
-// It creates a compiler with the given PackageRegistry and invokes compilation.
-func Compile(reg importer.PackageRegistry, mainPkg *ssa.Package) (*bytecode.Program, error) {
-	return NewCompiler(reg).Compile(mainPkg)
 }

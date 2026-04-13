@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/t04dJ14n9/gig/bytecode"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 // ---------------------------------------------------------------------------
@@ -62,55 +62,11 @@ func TestStackAutoGrow(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Frame creation
-// ---------------------------------------------------------------------------
-
-func TestNewFrame(t *testing.T) {
-	fn := &bytecode.CompiledFunction{
-		Name:      "add",
-		NumLocals: 4,
-		NumParams: 2,
-	}
-	args := []value.Value{value.MakeInt(10), value.MakeInt(20)}
-	f := newFrame(fn, 0, args, nil)
-
-	if f.fn != fn {
-		t.Error("frame fn mismatch")
-	}
-	if len(f.locals) != 4 {
-		t.Fatalf("locals len = %d, want 4", len(f.locals))
-	}
-	// First two locals should be the args.
-	if f.locals[0].Int() != 10 || f.locals[1].Int() != 20 {
-		t.Errorf("locals = [%v, %v], want [10, 20]", f.locals[0], f.locals[1])
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Closure
-// ---------------------------------------------------------------------------
-
-func TestClosureStruct(t *testing.T) {
-	fn := &bytecode.CompiledFunction{Name: "closure_fn"}
-	free1 := value.MakeInt(42)
-	cl := &Closure{
-		Fn:       fn,
-		FreeVars: []*value.Value{&free1},
-	}
-	if cl.Fn.Name != "closure_fn" {
-		t.Error("closure fn name")
-	}
-	if cl.FreeVars[0].Int() != 42 {
-		t.Errorf("free var = %d, want 42", cl.FreeVars[0].Int())
-	}
-}
-
-// ---------------------------------------------------------------------------
 // VM creation and simple execution
 // ---------------------------------------------------------------------------
 
 func TestNewVM(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{},
 		Globals:   map[string]int{"x": 0, "y": 1},
 	}
@@ -133,7 +89,7 @@ func TestExecuteHalt(t *testing.T) {
 		NumParams:    0,
 		MaxStack:     1,
 	}
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{"main": fn},
 		Globals:   map[string]int{},
 	}
@@ -162,7 +118,7 @@ func TestExecuteConstAndReturn(t *testing.T) {
 		NumParams:    0,
 		MaxStack:     1,
 	}
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{"compute": fn},
 		Constants: []any{int64(42)},
 		Globals:   map[string]int{},
@@ -180,7 +136,7 @@ func TestExecuteConstAndReturn(t *testing.T) {
 
 // TestExecuteFunctionNotFound verifies error for missing function.
 func TestExecuteFunctionNotFound(t *testing.T) {
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{},
 		Globals:   map[string]int{},
 	}
@@ -205,7 +161,7 @@ func TestExecuteWithCancellation(t *testing.T) {
 		NumParams:    0,
 		MaxStack:     1,
 	}
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{"loop": fn},
 		Globals:   map[string]int{},
 	}
@@ -234,7 +190,7 @@ func TestExecuteWithTimeout(t *testing.T) {
 		NumParams:    0,
 		MaxStack:     1,
 	}
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{"loop": fn},
 		Globals:   map[string]int{},
 	}
@@ -331,7 +287,7 @@ func TestChannelRecvSuccess(t *testing.T) {
 // TestGoroutineTrackerWaitContext verifies that GoroutineTracker.WaitContext respects cancellation.
 func TestGoroutineTrackerWaitContext(t *testing.T) {
 	gt := NewGoroutineTracker()
-	gt.Start(func() {
+	gt.Start(func() { //nolint:errcheck
 		time.Sleep(100 * time.Millisecond)
 	})
 
@@ -355,7 +311,7 @@ func TestGoroutineTrackerStartAndWait(t *testing.T) {
 	gt := NewGoroutineTracker()
 	var counter int64
 	for i := 0; i < 5; i++ {
-		gt.Start(func() {
+		gt.Start(func() { //nolint:errcheck
 			atomic.AddInt64(&counter, 1)
 		})
 	}
@@ -366,15 +322,6 @@ func TestGoroutineTrackerStartAndWait(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Child VM creation
-// ---------------------------------------------------------------------------
-
-func TestNewChildVM(t *testing.T) {
-	// Skip this test - it accesses internal VM fields and methods
-	// that are no longer exposed through the VM interface
-	t.Skip("TestNewChildVM tests internal implementation details that are now encapsulated")
-}
-
 // ---------------------------------------------------------------------------
 // Helpers used by the new tests
 // ---------------------------------------------------------------------------
@@ -388,7 +335,7 @@ func u16(v uint16) (byte, byte) { return byte(v >> 8), byte(v) }
 // buildProg creates a Program + CompiledFunction ready for execution.
 // constants are raw any values added to Constants (not PrebakedConstants),
 // so the VM resolves them via value.FromInterface on first access.
-func buildProg(name string, instr []byte, numLocals int, constants ...any) (*bytecode.Program, string) {
+func buildProg(name string, instr []byte, numLocals int, constants ...any) (*bytecode.CompiledProgram, string) {
 	fn := &bytecode.CompiledFunction{
 		Name:         name,
 		Instructions: instr,
@@ -396,7 +343,7 @@ func buildProg(name string, instr []byte, numLocals int, constants ...any) (*byt
 		NumParams:    0,
 		MaxStack:     8,
 	}
-	prog := &bytecode.Program{
+	prog := &bytecode.CompiledProgram{
 		Functions: map[string]*bytecode.CompiledFunction{name: fn},
 		Constants: constants,
 		Globals:   map[string]int{},

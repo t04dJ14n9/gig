@@ -1,3 +1,4 @@
+// ops_convert.go handles type assertion, conversion, and change-type operations.
 package vm
 
 import (
@@ -5,8 +6,8 @@ import (
 	"go/types"
 	"reflect"
 
-	"github.com/t04dJ14n9/gig/bytecode"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 // executeConvert handles type assertion, conversion, and change-type opcodes.
@@ -21,6 +22,16 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 		// Returns (value, ok) tuple on stack
 		var result value.Value
 		var assertionOk bool
+
+		// Special case: any value can be asserted to interface{}
+		// This handles nested interface assertions like: outer.(interface{})
+		if _, isInterface := targetType.(*types.Interface); isInterface {
+			// Any value can be asserted to interface{}, including nil
+			result = obj
+			assertionOk = true
+			v.pushCommaOk(result, assertionOk)
+			break
+		}
 
 		if obj.Kind() == value.KindInterface {
 			// Get the underlying interface
@@ -89,9 +100,7 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 		}
 
 		// Push result as a tuple [result, ok]
-		// Use a slice to represent the tuple
-		tuple := []value.Value{result, value.MakeBool(assertionOk)}
-		v.push(value.FromInterface(tuple))
+		v.pushCommaOk(result, assertionOk)
 
 	case bytecode.OpConvert:
 		typeIdx := frame.readUint16()
@@ -251,7 +260,7 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 					// For slices: update the source local to share the same backing array.
 					// This ensures that sort.IntSlice(s) and s refer to the same data,
 					// matching Go's semantics where ChangeType on slices shares memory.
-					if srcLocalIdx != 0xFFFF && rv.Kind() == reflect.Slice {
+					if srcLocalIdx != noSourceLocalSentinel && rv.Kind() == reflect.Slice {
 						if int(srcLocalIdx) < len(frame.locals) {
 							// Create a view of the same backing array as the underlying slice type.
 							// e.g., for sort.IntSlice -> create a []int sharing the same backing.

@@ -7,18 +7,18 @@ package runner
 
 import (
 	"context"
-	"sync"
 	"time"
 	"unsafe"
 
-	"github.com/t04dJ14n9/gig/bytecode"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/value"
 	"github.com/t04dJ14n9/gig/vm"
 )
 
 // runnerConfig holds internal options parsed from RunnerOption values.
 type runnerConfig struct {
-	stateful bool
+	stateful      bool
+	maxGoroutines int
 }
 
 // RunnerOption configures Runner construction.
@@ -31,46 +31,58 @@ func WithStatefulGlobals() RunnerOption {
 	}
 }
 
+// WithMaxGoroutines sets the maximum number of concurrent interpreter goroutines.
+// The default is 10,000. Set to 0 to use the default.
+func WithMaxGoroutines(n int) RunnerOption {
+	return func(c *runnerConfig) {
+		c.maxGoroutines = n
+	}
+}
+
 // Runner orchestrates program execution with VM pool management and global state handling.
 type Runner struct {
-	program        *bytecode.Program
+	program        *bytecode.CompiledProgram
 	initialGlobals []value.Value
 	vmPool         *vm.VMPool
 	goroutines     *vm.GoroutineTracker
 
+	// progKey is the key used for RegisterMethodResolver, stored for cleanup.
+	progKey uintptr
+
 	// stateful mode fields
-	stateful      bool
-	sharedGlobals []value.Value
-	runMu         sync.Mutex
+	stateful bool
+	shared   *vm.SharedGlobals // thread-safe shared globals for concurrent stateful execution
 }
 
 // New creates a new Runner for the given compiled bytecode program.
-func New(program *bytecode.Program, initialGlobals []value.Value, opts ...RunnerOption) *Runner {
+func New(program *bytecode.CompiledProgram, initialGlobals []value.Value, opts ...RunnerOption) *Runner {
 	cfg := runnerConfig{}
 	for _, opt := range opts {
 		opt(&cfg)
 	}
 
 	gt := vm.NewGoroutineTracker()
+	if cfg.maxGoroutines > 0 {
+		gt.SetMaxGoroutines(cfg.maxGoroutines)
+	}
 	r := &Runner{
 		program:        program,
 		initialGlobals: initialGlobals,
 		vmPool:         vm.NewVMPool(program, initialGlobals, gt),
 		goroutines:     gt,
 		stateful:       cfg.stateful,
+		progKey:        uintptr(unsafe.Pointer(program)),
 	}
 
 	if cfg.stateful {
-		r.sharedGlobals = make([]value.Value, len(program.Globals))
-		if len(initialGlobals) == len(r.sharedGlobals) {
-			copy(r.sharedGlobals, initialGlobals)
-		}
+		r.shared = vm.NewSharedGlobals(initialGlobals, len(program.Globals))
+		r.shared.InitExternalVars(program.ExternalVarValues)
+		r.shared.InitZeroValues(program.GlobalZeroValues)
 	}
 
 	// Register per-program method resolver for fmt.Stringer support.
 	// Uses program pointer as unique key. Thread-safe via sync.Map.
-	progKey := uintptr(unsafe.Pointer(program))
-	value.RegisterMethodResolver(progKey, func(methodName string, receiver value.Value) (value.Value, bool) {
+	value.RegisterMethodResolver(r.progKey, func(methodName string, receiver value.Value) (value.Value, bool) {
 		return vm.ResolveCompiledMethod(program, methodName, receiver)
 	})
 
@@ -98,13 +110,12 @@ func (r *Runner) RunWithContext(ctx context.Context, funcName string, params ...
 }
 
 // RunWithValues executes a function with pre-converted Value arguments.
+// In stateful mode, multiple concurrent calls are allowed. Each call gets its
+// own VM from the pool but shares the same locked SharedGlobals.
 func (r *Runner) RunWithValues(ctx context.Context, funcName string, args []value.Value) (value.Value, error) {
 	if r.stateful {
-		r.runMu.Lock()
-		defer r.runMu.Unlock()
-
 		v := r.vmPool.Get()
-		v.BindSharedGlobals(&r.sharedGlobals)
+		v.BindSharedGlobals(r.shared)
 		result, err := v.ExecuteWithValues(funcName, ctx, args)
 		v.UnbindSharedGlobals()
 		r.vmPool.Put(v)
@@ -128,7 +139,14 @@ func (r *Runner) WaitContext(ctx context.Context) error {
 }
 
 // InternalProgram exposes the compiled bytecode program for testing/debugging.
-func (r *Runner) InternalProgram() *bytecode.Program { return r.program }
+func (r *Runner) InternalProgram() *bytecode.CompiledProgram { return r.program }
+
+// Close releases resources associated with the Runner.
+// It unregisters the per-program method resolver to prevent memory leaks.
+// Callers should defer Close() after creating a Runner.
+func (r *Runner) Close() {
+	value.UnregisterMethodResolver(r.progKey)
+}
 
 // UnwrapResult converts internal multi-return value.Value slices to []any.
 func UnwrapResult(result value.Value) any {
@@ -148,7 +166,7 @@ const DefaultTimeout = 10 * time.Second
 
 // ExecuteInit runs the program's init() function if present and returns the globals snapshot.
 // The snapshot should be passed to runner.New as initialGlobals.
-func ExecuteInit(program *bytecode.Program) ([]value.Value, error) {
+func ExecuteInit(program *bytecode.CompiledProgram) ([]value.Value, error) {
 	if _, hasInit := program.Functions["init#1"]; hasInit {
 		initVM := vm.New(program)
 		ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)

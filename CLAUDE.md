@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Gig** is a high-performance Go interpreter for embedding Go code in Go applications. It uses SSA-based compilation to a stack-based VM, with zero-reflection optimizations for stdlib calls.
+**Gig** is a high-performance Go interpreter for embedding Go code in Go applications. It uses SSA-based compilation to a stack-based VM, with zero-reflection optimizations for stdlib calls. Single external dependency: `golang.org/x/tools` (for SSA IR).
 
 ## Commands
 
@@ -20,6 +20,9 @@ go test -v -run TestFunctionName ./tests/
 
 # Run benchmarks
 go test -bench=. -benchmem -count=5 -run='^$' ./tests/
+
+# Cross-interpreter benchmarks (vs Yaegi, GopherLua)
+go test -bench=. -benchmem -count=5 -run='^$' ./benchmarks/
 
 # Lint
 golangci-lint run --timeout=5m
@@ -44,43 +47,64 @@ go1.23.1 run ./cmd/gig init -package <name>
 Go Source → go/parser → go/types (type check) → go/ssa (SSA IR) → compiler → bytecode → VM
 ```
 
-1. **Parse**: `go/parser` produces AST
+1. **Parse**: `go/parser` produces AST (`compiler/parser/`)
 2. **Type Check**: Custom `importer/` resolves external packages via a global registry
-3. **SSA Build**: `golang.org/x/tools/go/ssa` produces SSA IR
+3. **SSA Build**: `golang.org/x/tools/go/ssa` produces SSA IR (`compiler/ssa/`)
 4. **Compile** (`compiler/`): SSA instructions → bytecode opcodes with symbol tables
-5. **Optimize**: 4-pass optimization (peephole fusion, slice ops, int specialization, move fusion)
-6. **Execute** (`vm/`): Stack-based VM with frame pooling
+5. **Optimize** (`compiler/optimize/`): 4-pass pipeline — peephole fusion, slice ops, int specialization, move fusion
+6. **Execute** (`vm/`): Stack-based VM with frame pooling, inline caching, context cancellation
 
 ### Key Packages
 
 | Package | Role |
 |---|---|
 | `gig.go` | Public API: `Build()`, `Run()`, `RunWithContext()`, security checks |
-| `bytecode/` | Shared kernel: `Program`, `CompiledFunction`, `OpCode` (~100 opcodes) |
-| `compiler/` | SSA → bytecode translation, 4-pass optimization |
+| `model/bytecode/` | Shared kernel: `Program`, `CompiledFunction`, `OpCode` (~100 opcodes + 17 superinstructions) |
+| `model/value/` | 32-byte tagged-union `Value` struct — zero allocation for primitives |
+| `model/external/` | `ExternalFuncInfo`, `MethodInfo` — metadata for registered external functions |
+| `compiler/` | SSA → bytecode translation (`compile_func.go`, `compile_instr.go`, `compile_value.go`, `compile_ext.go`) |
+| `compiler/optimize/` | 4-pass optimization pipeline |
 | `compiler/peephole/` | Pattern-based superinstruction fusion (17 patterns) |
 | `vm/` | Stack-based VM: fetch-decode-execute loop, frame pooling, goroutine spawning |
-| `value/` | 32-byte tagged-union `Value` struct — zero allocation for primitives |
-| `importer/` | `PackageRegistry` interface, `ExternalPackage`/`ExternalObject` types, global registry |
-| `cmd/gig/gentool/` | Code generation: DirectCall wrappers, registration code |
-| `stdlib/packages/` | ~40 pre-generated stdlib wrappers (1,162 DirectCall wrappers) |
-| `cmd/gig` | CLI: `init`, `gen`, `repl` |
+| `importer/` | `types.Importer` implementation, `reflect.Type` ↔ `types.Type` conversion, global package registry |
+| `runner/` | VM execution orchestration: init() handling, VMPool (lock-free sync.Pool), global state snapshots |
+| `cmd/gig/` | CLI: `init`, `gen`, `repl` subcommands |
+| `cmd/gig/gentool/` | Code generation engine: DirectCall wrappers, registration code |
+| `stdlib/packages/` | 71 pre-generated stdlib wrappers with DirectCall dispatch |
+
+### Public API
+
+```go
+// Build compiles Go source code into a Program
+prog, err := gig.Build(source, opts...)
+
+// Run executes a named function
+result, err := prog.Run("main")
+
+// RunWithContext supports context cancellation/timeout
+result, err := prog.RunWithContext(ctx, "main", args...)
+
+// Build options
+gig.WithRegistry(r)          // Custom package registry
+gig.WithStatefulGlobals()    // Persistent globals across Run() calls
+gig.WithAllowPanic()         // Allow panic() in interpreted code
+```
 
 ### Value System
 
-`value.Value` is a 32-byte tagged union (`kind` + `num` + `obj`). Primitives (bool, int, float, uint, nil) are stored inline with zero heap allocation. Composite types (slice, map, string, struct, interface) go through `obj`.
+`value.Value` is a 32-byte tagged union (`kind` + `num` + `obj`). Primitives (bool, int, float, uint, nil) are stored inline with zero heap allocation. Composite types (slice, map, string, struct, interface) go through `obj`. Key files: `model/value/value.go` (core), `arithmetic.go` (unboxed math), `container.go` (slice/map ops), `convert.go` (type conversion).
 
 ### External Package Integration
 
 External Go packages must be registered before use:
 1. **`register.RegisterPackage()`** — runtime registration with reflect-based dispatch
-2. **DirectCall wrappers** (generated by `gentool/`) — zero-reflection, ~5x faster; generated files go in `stdlib/packages/` or `examples/custom/mydep/packages/`
+2. **DirectCall wrappers** (generated by `cmd/gig/gentool/`) — zero-reflection, ~5x faster; generated files go in `stdlib/packages/` or custom package directories
 
-The `importer/` package maintains a global registry that bridges `go/types` type checking and VM dispatch.
+The `importer/` package maintains a global registry that bridges `go/types` type checking and VM dispatch. Registration flow: `RegisterPackage()` → importer stores reflect metadata → type checker resolves imports → compiler emits `OpCallExternal` → VM uses inline cache for dispatch.
 
 ### Security Model
 
-At compile time, Gig bans imports of `unsafe`, `reflect`, and `panic`. The VM supports context-based cancellation (checked every 1024 instructions).
+At compile time, Gig bans imports of `unsafe`, `reflect`, and `panic` (unless `WithAllowPanic()` is set). The VM supports context-based cancellation (checked every 1024 instructions). Frame depth is capped at 1024.
 
 ### Performance Notes
 
@@ -88,12 +112,25 @@ At compile time, Gig bans imports of `unsafe`, `reflect`, and `panic`. The VM su
 - Prebaked constants in `Program` avoid per-instruction `FromInterface` calls
 - Integer shadow array (`[]int64`) enables unboxed int arithmetic in hot loops
 - Inline caching for external function call dispatch
+- lock-free VMPool via `sync.Pool` (50% throughput improvement in high concurrency)
+- 17 peephole superinstructions fuse common opcode sequences (e.g. `LOCALLOCALADD`, `LOCALCONSTMUL`)
 
 ## Testing
 
-Tests live in `tests/`. Important test files:
-- `tests/benchmark_test.go` — performance benchmarks vs gofun and RuleEngine
-- `tests/robustness_comparison_test.go` — correctness comparisons vs RuleEngine
+Tests live in `tests/` with test data in `tests/testdata/` (44 test case directories). Key test files:
+- `tests/correctness_test.go` — comprehensive feature correctness tests (161KB)
+- `tests/strange_syntax_test.go` — edge cases and obscure Go features
+- `tests/benchmark_test.go` — performance benchmarks
+- `tests/stress_leak_test.go` — memory leak and concurrency stress tests
+- `tests/fuzz_test.go` — fuzzing tests
+- `tests/known_issue_test.go` — known issues and regressions
 - `gig_test.go` — public API tests
 
-Reference interpreters for comparison are in `reference/` (gofun, rule_engine).
+Cross-interpreter benchmarks (vs Yaegi, GopherLua) live in `benchmarks/`.
+
+## Documentation
+
+Detailed internals documentation lives in `docs/` (41 files). Key references:
+- `docs/gig-internals.md` — comprehensive architecture guide (47KB)
+- `docs/cli-guide.md` — code generation workflow
+- `docs/context-cancellation.md` — context/timeout support

@@ -51,11 +51,11 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"github.com/t04dJ14n9/gig/bytecode"
 	"github.com/t04dJ14n9/gig/compiler"
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/value"
 	"github.com/t04dJ14n9/gig/runner"
-	"github.com/t04dJ14n9/gig/value"
 )
 
 // DefaultTimeout is the default execution timeout.
@@ -68,6 +68,7 @@ var ErrTimeout = context.DeadlineExceeded
 type buildConfig struct {
 	registry        importer.PackageRegistry
 	statefulGlobals bool
+	allowPanic      bool
 }
 
 // BuildOption configures the behaviour of Build.
@@ -84,14 +85,24 @@ func WithRegistry(r importer.PackageRegistry) BuildOption {
 
 // WithStatefulGlobals enables persistent package-level globals across Run calls.
 // When enabled, mutations to package-level variables in one Run call are visible
-// to subsequent Run calls on the same Program.  Top-level Run calls are serialized
-// so that shared global state remains deterministic.
+// to subsequent Run calls on the same Program. Multiple concurrent Run calls are
+// supported — global variable access is protected by a sync.RWMutex.
 //
 // By default (when this option is not passed), each Run starts from the
 // post-init() global state snapshot and mutations are discarded after the call.
 func WithStatefulGlobals() BuildOption {
 	return func(c *buildConfig) {
 		c.statefulGlobals = true
+	}
+}
+
+// WithAllowPanic allows the use of panic() in interpreted code.
+// By default, panic() is banned at compile time for sandbox safety.
+// When enabled, panic/recover/defer work as in standard Go, and unrecovered
+// panics are returned as errors rather than crashing the host process.
+func WithAllowPanic() BuildOption {
+	return func(c *buildConfig) {
+		c.allowPanic = true
 	}
 }
 
@@ -103,7 +114,14 @@ type Program struct {
 }
 
 // InternalProgram exposes the compiled bytecode program for testing/debugging.
-func (p *Program) InternalProgram() *bytecode.Program { return p.runner.InternalProgram() }
+func (p *Program) InternalProgram() *bytecode.CompiledProgram { return p.runner.InternalProgram() }
+
+// Close releases resources associated with the Program.
+// It unregisters the per-program method resolver to prevent memory leaks.
+// Callers should defer prog.Close() after calling Build().
+func (p *Program) Close() {
+	p.runner.Close()
+}
 
 // Build compiles Go source code into a Program.
 //
@@ -115,8 +133,8 @@ func (p *Program) InternalProgram() *bytecode.Program { return p.runner.Internal
 // The compilation process:
 //  1. Parse source code into AST
 //  2. Check for banned imports (unsafe, reflect)
-//  3. Type-check with custom importer for external packages
-//  4. Check for banned panic usage
+//  3. Check for banned panic usage (unless WithAllowPanic is set)
+//  4. Type-check with custom importer for external packages
 //  5. Build SSA intermediate representation
 //  6. Compile SSA to bytecode
 //
@@ -139,7 +157,11 @@ func Build(sourceCode string, opts ...BuildOption) (*Program, error) {
 	}
 
 	// Compile: parse → SSA → bytecode (full pipeline owned by compiler package)
-	result, err := compiler.Build(sourceCode, cfg.registry)
+	var compilerOpts []compiler.BuildOption
+	if cfg.allowPanic {
+		compilerOpts = append(compilerOpts, compiler.WithAllowPanic())
+	}
+	result, err := compiler.Build(sourceCode, cfg.registry, compilerOpts...)
 	if err != nil {
 		return nil, err
 	}

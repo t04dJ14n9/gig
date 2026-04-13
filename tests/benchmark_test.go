@@ -808,22 +808,22 @@ func categorize(name string) string {
 // Last measured: AMD EPYC 9754 128-Core Processor, Go 1.23, linux/amd64, -benchtime=1s
 func getHardcodedResults() []benchmarkResult {
 	return []benchmarkResult{
-		{"ArithmeticSum", 57701, 679.3},
+		{"ArithmeticSum", 74436, 336},
 		{"FibRecursive", 151438, 3642},
-		{"FibIterative", 4059, 18.06},
-		{"Factorial", 1548, 10.96},
-		{"SliceAppend", 563924, 8430},
+		{"FibIterative", 4814, 18},
+		{"Factorial", 1812, 25},
+		{"SliceAppend", 543792, 6361},
 		{"SliceSum", 186693, 991.1},
 		{"MapOps", 94522, 8131},
 		{"StringConcat", 36217, 22241},
-		{"ClosureCalls", 317624, 657.3},
-		{"NestedLoops", 68703, 449.3},
-		{"BubbleSort", 211895, 1940},
-		{"GCD", 56207, 912.3},
+		{"ClosureCalls", 319205, 671},
+		{"NestedLoops", 85624, 464},
+		{"BubbleSort", 249602, 2201},
+		{"GCD", 61318, 928},
 		{"Sieve", 203747, 4657},
-		{"HigherOrder", 18181, 102.4},
-		{"ExternalSprintf", 91723, 5446},
-		{"ExternalStrings", 24136, 9065},
+		{"HigherOrder", 23064, 102},
+		{"ExternalSprintf", 102093, 5447},
+		{"ExternalStrings", 27478, 9631},
 		{"CallOverhead", 106235, 657.6},
 	}
 }

@@ -1,3 +1,4 @@
+// emit.go provides bytecode emission helpers: emit, emitJump, patch, addConstant, addType.
 package compiler
 
 import (
@@ -5,46 +6,65 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/model/bytecode"
 )
 
 // emit appends an opcode and its operands to the current function's bytecode.
-func (ctx *funcContext) emit(op bytecode.OpCode, operands ...uint16) {
-	ctx.cf.Instructions = append(ctx.cf.Instructions, byte(op))
+func (c *compiler) emit(op bytecode.OpCode, operands ...uint16) {
+	c.currentFunc.Instructions = append(c.currentFunc.Instructions, byte(op))
 
 	width := bytecode.OperandWidth(op)
 
 	for _, operand := range operands {
 		switch width {
 		case 2:
-			ctx.cf.Instructions = append(ctx.cf.Instructions,
+			c.currentFunc.Instructions = append(c.currentFunc.Instructions,
 				byte(operand>>8), byte(operand))
 		case 1:
-			ctx.cf.Instructions = append(ctx.cf.Instructions, byte(operand))
+			c.currentFunc.Instructions = append(c.currentFunc.Instructions, byte(operand))
 		default:
 			if operand > 0xFF {
-				ctx.cf.Instructions = append(ctx.cf.Instructions,
+				c.currentFunc.Instructions = append(c.currentFunc.Instructions,
 					byte(operand>>8), byte(operand))
 			} else {
-				ctx.cf.Instructions = append(ctx.cf.Instructions, byte(operand))
+				c.currentFunc.Instructions = append(c.currentFunc.Instructions, byte(operand))
 			}
 		}
 	}
 }
 
+// emitCallOp emits a call-family instruction with a uint16 index and a byte arg count.
+// Used for OpCall, OpCallExternal, and OpGoCall which share the [op, idx_hi, idx_lo, numArgs] format.
+func (c *compiler) emitCallOp(op bytecode.OpCode, funcIdx uint16, numArgs int) {
+	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+		byte(op),
+		byte(funcIdx>>8), byte(funcIdx),
+		byte(numArgs))
+}
+
+// emitClosure emits an OpClosure instruction: [OpClosure, fnIdx_hi, fnIdx_lo, numFreeVars].
+// fnIdx is int because funcIndex map values are int.
+func (c *compiler) emitClosure(fnIdx int, numFreeVars int) {
+	idx := uint16(fnIdx)
+	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+		byte(bytecode.OpClosure),
+		byte(idx>>8), byte(idx),
+		byte(numFreeVars))
+}
+
 // emitJump emits an unconditional jump instruction.
-func (ctx *funcContext) emitJump(target *ssa.BasicBlock) {
-	offset := len(ctx.cf.Instructions)
-	ctx.cf.Instructions = append(ctx.cf.Instructions, byte(bytecode.OpJump), 0, 0)
-	ctx.jumps = append(ctx.jumps, jumpInfo{offset: offset, targetBlock: target})
+func (c *compiler) emitJump(target *ssa.BasicBlock) {
+	offset := len(c.currentFunc.Instructions)
+	c.currentFunc.Instructions = append(c.currentFunc.Instructions, byte(bytecode.OpJump), 0, 0)
+	c.jumps = append(c.jumps, jumpInfo{offset: offset, targetBlock: target})
 }
 
 // patchJumps resolves jump targets with actual bytecode offsets.
-func (ctx *funcContext) patchJumps(blockOffsets map[*ssa.BasicBlock]int) {
-	for _, jump := range ctx.jumps {
+func (c *compiler) patchJumps(blockOffsets map[*ssa.BasicBlock]int) {
+	for _, jump := range c.jumps {
 		targetOffset := blockOffsets[jump.targetBlock]
-		ctx.cf.Instructions[jump.offset+1] = byte(targetOffset >> 8)
-		ctx.cf.Instructions[jump.offset+2] = byte(targetOffset)
+		c.currentFunc.Instructions[jump.offset+1] = byte(targetOffset >> 8)
+		c.currentFunc.Instructions[jump.offset+2] = byte(targetOffset)
 	}
 }
 

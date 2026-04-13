@@ -2,11 +2,12 @@
 package packages
 
 import (
-	github_com_spf13_cast "github.com/spf13/cast"
 	time "time"
 
+	github_com_spf13_cast "github.com/spf13/cast"
+
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {

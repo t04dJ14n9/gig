@@ -153,10 +153,17 @@ func FuzzBitwise(f *testing.F) {
 		a uint64
 		b uint64
 	}{
-		{0, 0}, {1, 0}, {0, 1}, {1, 1},
-		{0xff, 0x00}, {0xff, 0xff}, {0xaa, 0x55},
-		{1 << 63, 1 << 63}, {1<<63 - 1, 1},
-		{math.MaxUint64, 1}, {math.MaxUint64, 0},
+		{0, 0},
+		{1, 0},
+		{0, 1},
+		{1, 1},
+		{0xff, 0x00},
+		{0xff, 0xff},
+		{0xaa, 0x55},
+		{1 << 63, 1 << 63},
+		{1<<63 - 1, 1},
+		{math.MaxUint64, 1},
+		{math.MaxUint64, 0},
 	}
 	for _, c := range seeds {
 		f.Add(c.a, c.b)
@@ -306,8 +313,14 @@ func FuzzMapOps(f *testing.F) {
 
 func FuzzChannelOps(f *testing.F) {
 	seeds := []struct{ buf, val int }{
-		{0, 0}, {1, 1}, {10, 0}, {100, 1},
-		{0, -1}, {1, 127}, {0, math.MaxInt}, {0, math.MinInt},
+		{0, 0},
+		{1, 1},
+		{10, 0},
+		{100, 1},
+		{0, -1},
+		{1, 127},
+		{0, math.MaxInt},
+		{0, math.MinInt},
 	}
 	for _, s := range seeds {
 		f.Add(s.buf, s.val)
@@ -473,10 +486,17 @@ func FuzzStructAccess(f *testing.F) {
 
 func FuzzArithmeticEdgeCases(f *testing.F) {
 	seeds := []struct{ a, b int64 }{
-		{1, 1}, {-1, 1}, {1, -1},
-		{math.MaxInt64, 1}, {math.MinInt64, 1}, {math.MaxInt64, -1},
-		{100, 3}, {100, 7}, {-100, 3},
-		{1 << 62, 3}, {1 << 62, 7},
+		{1, 1},
+		{-1, 1},
+		{1, -1},
+		{math.MaxInt64, 1},
+		{math.MinInt64, 1},
+		{math.MaxInt64, -1},
+		{100, 3},
+		{100, 7},
+		{-100, 3},
+		{1 << 62, 3},
+		{1 << 62, 7},
 	}
 	for _, s := range seeds {
 		f.Add(s.a, s.b)
@@ -504,9 +524,12 @@ func FuzzArithmeticEdgeCases(f *testing.F) {
 
 func FuzzFloatSpecialValues(f *testing.F) {
 	seeds := []struct{ a, b float64 }{
-		{0, 1}, {-0.0, 1.0},
-		{math.Inf(1), 1}, {math.Inf(-1), 1},
-		{math.MaxFloat64, 1}, {-math.MaxFloat64, 1},
+		{0, 1},
+		{-0.0, 1.0},
+		{math.Inf(1), 1},
+		{math.Inf(-1), 1},
+		{math.MaxFloat64, 1},
+		{-math.MaxFloat64, 1},
 		{math.SmallestNonzeroFloat64, 1},
 		{math.Pi, math.E},
 	}

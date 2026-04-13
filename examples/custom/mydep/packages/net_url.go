@@ -6,7 +6,7 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
@@ -147,12 +147,12 @@ func direct_method_net_url_Error_Unwrap(args []value.Value) value.Value {
 }
 
 func direct_method_net_url_EscapeError_Error(args []value.Value) value.Value {
-	recv := args[0].Interface().(net_url.EscapeError)
+	recv := net_url.EscapeError(args[0].String())
 	return value.MakeString(string(recv.Error()))
 }
 
 func direct_method_net_url_InvalidHostError_Error(args []value.Value) value.Value {
-	recv := args[0].Interface().(net_url.InvalidHostError)
+	recv := net_url.InvalidHostError(args[0].String())
 	return value.MakeString(string(recv.Error()))
 }
 
@@ -235,7 +235,11 @@ func direct_method_net_url_URL_UnmarshalBinary(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(recv.UnmarshalBinary(a0))
 }

@@ -1,823 +1,1331 @@
 # Gig Internals
 
-Gig is an interpreter of the Go language, written in Go. It was designed as an embeddable, sandboxed execution engine — a way to run user-provided Go code safely inside a host application, with context-based cancellation and without exposing `unsafe`, `reflect`, or `panic` to the interpreted program.
+A technical deep-dive into the Gig Go interpreter for engineers who need to understand
+how the system works, extend it, or debug production issues.
 
-Unlike most Go interpreters that walk an abstract syntax tree at runtime, Gig compiles Go source code through SSA intermediate representation down to a compact bytecode, which is then executed by a stack-based virtual machine. This design — borrowing from both traditional compilers and bytecode VMs like the JVM or Lua's — gives Gig a distinctive performance profile and a clear separation between compilation and execution.
+---
 
-This document is here to look under the hood. In the following, we get an overview, explore the internals and discuss the design. Our aim is to provide the essential insights, clarify the architecture and the code organization. But first, the overview.
+## Why Gig? The Rule Engine Problem
 
-## Overview of Architecture
+Every business has logic that changes faster than deployment cycles allow. Pricing
+rules, eligibility checks, fraud scoring, promotion matching — these shift weekly
+or even daily. The standard solutions each have a deal-breaking tradeoff:
 
-Let's see what happens inside Gig when one executes the following lines:
+| Approach | Problem |
+|---|---|
+| Hardcoded Go | Requires recompile + redeploy for every rule change |
+| Expression languages (CEL, Rego) | Limited power: no loops, no stdlib, new syntax to learn |
+| Lua/JS embedding | Different language: Go developers must context-switch, can't reuse Go libraries |
+| gRPC microservices | Operational overhead: deploy, version, monitor a separate service per rule |
 
-```go
-prog, _ := gig.Build(`
-    package main
-    import "fmt"
-    func Hello(name string) string {
-        return fmt.Sprintf("Hello, %s!", name)
-    }
-`)
-result, _ := prog.Run("Hello", "world")
-```
+**What we actually want**: write rules in Go (zero learning cost), call any Go stdlib
+or third-party library (full power), but load and execute them dynamically without
+recompiling the host application.
 
-The following figure displays the main stages:
+### Gig's Approach
 
-```
-Source Code ──► Parser ──► Type Checker ──► SSA Builder ──► Compiler ──► VM
-               go/parser   go/types        go/ssa          bytecode     execute
-```
-
-**The parser** (provided by `go/parser`) transforms Go source into an abstract syntax tree.
-
-**The type checker** (provided by `go/types`) resolves all types, constants, and identifiers. It uses a custom `types.Importer` that resolves imports against Gig's registered external packages rather than the filesystem.
-
-**The SSA builder** (provided by `golang.org/x/tools/go/ssa`) transforms the type-checked AST into Static Single Assignment form — a graph of basic blocks containing typed instructions where every value is assigned exactly once.
-
-**The compiler** (implemented in `compiler/`) translates SSA instructions into a flat bytecode stream, performs phi elimination, patches jump targets, and runs four optimization passes.
-
-**The virtual machine** (implemented in `vm/`) executes the bytecode in a fetch-decode-execute loop, managing a value stack, call frames, and external function dispatch.
-
-The interpreter is designed as a proper compiler, except that the code is generated into memory instead of object files, targeting the Go runtime itself rather than a hardware architecture. We won't spend time on the parser, type checker, or SSA builder — all provided by the standard library and its extensions — and instead examine what Gig builds on top of them.
-
-## The Value System
-
-Before we dive into compilation and execution, we must understand the most fundamental data structure in Gig: the `Value`. Every local variable, stack slot, constant, function argument, and return value in the interpreter is a `Value`.
-
-```go
-// value/value.go
-type Value struct {
-    kind Kind    // 1 byte: type tag
-    size Size    // 1 byte: original Go bit-width (lives in padding, zero extra memory)
-    num  int64   // 8 bytes: bool, int, uint bits, float64 bits
-    obj  any     // 16 bytes: string, reflect.Value, *Closure, []int64, etc.
-}
-```
-
-The total size is **32 bytes** on 64-bit systems. This is a tagged-union design, inspired by how Lua and other dynamic languages represent values, but adapted for Go's type system.
-
-The `size` field records the original Go type's bit-width (8, 16, 32, 64, or a special marker for platform-dependent `int`/`uint`). It occupies one byte of the 7-byte padding gap between `kind` and `num` — zero extra memory cost. The field is only inspected on the cold path (`Interface()`) when converting back to a Go `any` value; the hot path (arithmetic, comparison) only dispatches on `kind`, so there is no performance impact.
-
-The key insight is the **two-tier split** between primitive and composite types:
-
-**Primitive types** (bool, int, uint, float, nil) are stored entirely in `kind` + `num`, with `obj` remaining nil. Creating an integer value is:
-
-```go
-func MakeInt(i int64) Value { return Value{kind: KindInt, num: i} }
-```
-
-No heap allocation. No reflection. No GC pressure. Two 64-bit words on the stack.
-
-**Composite types** (slices, maps, structs, channels, interfaces) fall through to `obj`, which holds either a `reflect.Value` or a native Go object. For example, integer slices get special treatment:
-
-```go
-func MakeIntSlice(s []int64) Value { return Value{kind: KindSlice, obj: s} }
-```
-
-The `[]int64` is stored directly — not wrapped in `reflect.Value` — which means the VM can index it, set elements, and take addresses without any reflection overhead.
-
-This design stands in contrast to interpreters like Yaegi, which represent all values as `reflect.Value`. While `reflect.Value` provides universal type handling, it allocates on the heap for primitives and requires dynamic dispatch for every operation. Gig's tagged-union avoids this: an integer addition is literally `result.num = a.num + b.num` — three memory accesses, no allocations, no function calls.
-
-## Compilation
-
-### From SSA to Bytecode
-
-The compilation pipeline is implemented across several files in `compiler/`. The entry point is `Compile()` in `compiler.go`, which takes an SSA program and produces a `bytecode.Program`.
-
-The first pass assigns an index to every function, including anonymous functions and closures. Functions are stored both in a map (by name, for `Run("funcName")` dispatch) and in a flat array (`FuncByIndex`, for O(1) call dispatch at runtime):
-
-```go
-// compiler.go
-for idx, fn := range allFuncs {
-    c.funcIndex[fn] = idx
-}
-```
-
-The second pass compiles each function. Per-function compilation in `compile_func.go` begins by building a symbol table — mapping each SSA value to a local variable slot:
-
-```go
-// compile_func.go — slot allocation
-slot := 0
-for _, param := range fn.Params {
-    c.symbols[param] = slot
-    slot++
-}
-for _, block := range fn.Blocks {
-    for _, instr := range block.Instrs {
-        if phi, ok := instr.(*ssa.Phi); ok {
-            c.phiSlots[phi] = slot
-            slot++
-        }
-    }
-}
-```
-
-Parameters occupy the first slots, then phi nodes, then all other SSA values. This flat numbering scheme means every `OpLocal` and `OpSetLocal` instruction addresses locals by a simple 16-bit index.
-
-### Basic Block Traversal
-
-Basic blocks are visited in **reverse postorder** — a standard compiler ordering that guarantees every block's dominators are visited before the block itself. For each block, the compiler:
-
-1. Emits `OpSetLocal` instructions for phi nodes (phi elimination)
-2. Compiles each SSA instruction into one or more bytecode instructions
-3. Emits jumps to successor blocks
-
-Phi elimination deserves a word. In SSA form, phi nodes at block entries merge values from different predecessors. Since our bytecode has no phi concept, we lower them to explicit moves: before jumping to a target block, we emit `OpSetLocal` for each phi node using the edge value from the current predecessor:
-
-```go
-// compile_func.go — phi elimination
-func (c *compiler) emitPhiMoves(predBlock, targetBlock *ssa.BasicBlock) {
-    for _, instr := range targetBlock.Instrs {
-        phi, ok := instr.(*ssa.Phi)
-        if !ok { break }
-        sourceValue := phi.Edges[predIndex]
-        c.compileValue(sourceValue)          // push source onto stack
-        c.emit(bytecode.OpSetLocal, slot)    // pop into phi's local slot
-    }
-}
-```
-
-### The Instruction Set
-
-Gig's bytecode is a variable-length encoding: 1 byte opcode followed by 0–6 bytes of operands in big-endian format. The instruction set has about 100 opcodes, organized into categories:
-
-- **Stack**: `CONST`, `LOCAL`, `SETLOCAL`, `GLOBAL`, `FREE`, `POP`, `DUP`
-- **Arithmetic**: `ADD`, `SUB`, `MUL`, `DIV`, `MOD`, `NEG`
-- **Comparison**: `EQUAL`, `LESS`, `GREATER`, `LESSEQ`, `GREATEREQ`
-- **Control flow**: `JUMP`, `JUMPTRUE`, `JUMPFALSE`, `CALL`, `RETURN`
-- **Containers**: `MAKESLICE`, `MAKEMAP`, `INDEX`, `SETINDEX`, `FIELD`, `FIELDADDR`
-- **Pointers**: `ADDR`, `DEREF`, `SETDEREF`, `INDEXADDR`
-- **External**: `CALLEXTERNAL`, `CALLINDIRECT`
-- **Concurrency**: `GOCALL`, `SEND`, `RECV`, `SELECT`, `CLOSE`
-- **Superinstructions**: ~30 fused opcodes (discussed in Optimization)
-
-A compiled function is:
-
-```go
-// bytecode/bytecode.go
-type CompiledFunction struct {
-    Name         string
-    Instructions []byte     // flat bytecode
-    NumLocals    int        // params + phis + temporaries
-    NumParams    int
-    NumFreeVars  int        // closure captures
-    HasIntLocals bool       // needs intLocals shadow array
-}
-```
-
-Instructions are a plain `[]byte`. There is no instruction struct, no pointer chasing — just a flat byte stream that the VM reads sequentially. This is crucial for CPU cache locality.
-
-### Constants
-
-Constants are stored in three parallel arrays in the `Program`:
-
-```go
-type Program struct {
-    Constants         []any          // raw: int64, string, ExternalFuncInfo, ...
-    PrebakedConstants []value.Value  // pre-converted at compile time
-    IntConstants      []int64        // for int-specialized opcodes
-}
-```
-
-The `PrebakedConstants` array is the key optimization. Instead of converting constants from `any` to `Value` at every `OpConst` execution (which involves a type switch and potential allocation), we do it once at compile time. At runtime, `OpConst` is a single array lookup:
-
-```go
-stack[sp] = prebaked[idx]
-sp++
-```
-
-## The Virtual Machine
-
-### Structure
-
-The VM is a stack machine with a separate call frame stack:
-
-```go
-// vm/vm.go
-type VM struct {
-    program      *bytecode.Program
-    stack        []value.Value     // operand stack (initial 1024)
-    sp           int               // stack pointer
-    frames       []*Frame          // call frame stack (initial 64)
-    fp           int               // frame pointer
-    globals      []value.Value
-    ctx          context.Context
-    extCallCache sync.Map          // inline cache for external calls
-    fpool        framePool         // frame recycling
-}
-```
-
-Each call frame stores the execution state for a function invocation:
-
-```go
-// vm/frame.go
-type Frame struct {
-    fn        *bytecode.CompiledFunction
-    ip        int                // instruction pointer into fn.Instructions
-    basePtr   int                // stack base for this frame
-    locals    []value.Value      // local variables
-    intLocals []int64            // integer-specialized shadow array
-    freeVars  []*value.Value     // closure captures (shared pointers)
-    defers    []DeferInfo
-}
-```
-
-### The Dispatch Loop
-
-The core of the VM is a single `run()` function in `vm/run.go`. Its structure follows a pattern found in most high-performance bytecode interpreters — a tight loop with a `switch` statement:
-
-```go
-// vm/run.go (simplified)
-func (vm *VM) run() (value.Value, error) {
-    // Hoist frame state into locals for register allocation
-    stack := vm.stack
-    sp := vm.sp
-    prebaked := vm.program.PrebakedConstants
-    intConsts := vm.program.IntConstants
-    var frame *Frame
-    var ins []byte
-    var locals []value.Value
-    var intLocals []int64
-
-    for vm.fp > 0 {
-        op := bytecode.OpCode(ins[frame.ip])
-        frame.ip++
-
-        switch op {
-        case bytecode.OpLocal:
-            idx := uint16(ins[frame.ip])<<8 | uint16(ins[frame.ip+1])
-            frame.ip += 2
-            stack[sp] = locals[idx]
-            sp++
-            continue
-
-        case bytecode.OpConst:
-            idx := uint16(ins[frame.ip])<<8 | uint16(ins[frame.ip+1])
-            frame.ip += 2
-            stack[sp] = prebaked[idx]
-            sp++
-            continue
-
-        case bytecode.OpAdd:
-            sp--
-            b := stack[sp]
-            sp--
-            a := stack[sp]
-            if a.IsInt() {
-                stack[sp] = value.MakeInt(a.RawInt() + b.RawInt())
-            } else {
-                stack[sp] = value.Add(a, b) // generic path
-            }
-            sp++
-            continue
-
-        // ... 60+ hot-path opcodes inlined here ...
-
-        default:
-            // Cold path: sync state, call executeOp()
-            vm.sp = sp
-            vm.executeOp(op) // handles ~40 less common opcodes
-            sp = vm.sp
-        }
-    }
-}
-```
-
-There are several important details here:
-
-**Register hoisting**: The frame's `locals`, `intLocals`, `ins` (instruction stream), and the VM's `stack`, `sp` are copied into local variables at the top of `run()`. The Go compiler can then place these in machine registers, avoiding repeated pointer dereferencing through `vm.stack[vm.sp]` on every instruction. When a call or return changes the active frame, these locals are re-synced.
-
-**Hot/cold split**: The `switch` directly handles ~60 frequently-executed opcodes. The remaining ~40 (type conversions, channel operations, select, defer, panic recovery) go through `executeOp()` in a separate function. This keeps the hot loop's machine code smaller, improving instruction cache behavior.
-
-**Integer fast-paths**: Arithmetic opcodes like `OpAdd` check `a.IsInt()` first. Since `IsInt()` is just `v.kind == KindInt` (a single byte comparison), and integer operations are `v.num + v.num` (no allocation), the common case of integer arithmetic is a handful of machine instructions.
-
-### Context Checking
-
-To support cancellation and timeouts, the VM checks the context periodically:
-
-```go
-instructionCount++
-if instructionCount & 0x3FF == 0 {   // every 1024 instructions
-    select {
-    case <-vm.ctx.Done():
-        return value.MakeNil(), vm.ctx.Err()
-    default:
-    }
-}
-```
-
-The bitwise AND trick avoids an expensive modulo operation. The check happens every 1024 instructions — frequent enough for responsive cancellation (sub-millisecond on most workloads), infrequent enough to be negligible in profiling.
-
-### Frame Pooling
-
-Function calls are the hot path in recursive programs. Without optimization, each call to `fib(n-1)` would allocate a new `Frame` struct with a fresh `[]value.Value` locals slice — exactly what made early Gig slow on Fibonacci (728,000 allocations for Fib25).
-
-The solution is a frame pool:
-
-```go
-// vm/frame.go
-type framePool struct {
-    frames []*Frame
-}
-
-func (p *framePool) get(fn *bytecode.CompiledFunction, basePtr int, freeVars []*value.Value) *Frame {
-    if len(p.frames) > 0 {
-        f := p.frames[len(p.frames)-1]
-        p.frames = p.frames[:len(p.frames)-1]
-        // Reuse if locals capacity is sufficient
-        if cap(f.locals) >= fn.NumLocals {
-            f.locals = f.locals[:fn.NumLocals]
-            for i := range f.locals {
-                f.locals[i] = value.Value{} // zero
-            }
-            // ... set fn, ip, basePtr, freeVars
-            return f
-        }
-    }
-    // Allocate new
-    return &Frame{...}
-}
-```
-
-When a function returns, its frame goes back to the pool. The locals slice is reused if it's large enough, just zeroed. This brought Fib25 allocations from 728,000 down to 7 — only the initial VM, stack, and frame allocations remain.
-
-One subtlety: frames where a local's address has been taken (`OpAddr` on a local variable) are **not** returned to the pool. A closure might hold a `*value.Value` pointing into that frame's locals slice, and reusing it would corrupt the closure's captured state.
-
-### Call Dispatch
-
-Gig handles three kinds of calls:
-
-**Compiled function calls** (`OpCall`): The function index is embedded in the instruction. The VM looks up `program.FuncByIndex[idx]` (O(1) array access), pushes a new frame, copies arguments from the stack into the frame's locals, and continues execution.
-
-**Closure calls** (`OpCallIndirect`): The top of the stack holds a `*Closure` struct containing the function index and an array of `*value.Value` pointers (the captured free variables). The VM unwraps the closure, pushes a frame with the free vars attached, and proceeds as above.
-
-**External function calls** (`OpCallExternal`): This is where it gets interesting — and where a large part of the optimization work was focused.
-
-## External Package Integration
-
-A Go interpreter that can only run pure algorithms isn't very useful. The real value comes from calling the Go standard library — `fmt.Sprintf`, `strings.Contains`, `json.Marshal`, `http.Get`. But these are compiled Go functions; the interpreter can't just call them directly. There's a type boundary to cross.
-
-### Registration
-
-External packages are registered at init time via generated code:
-
-```go
-// stdlib/packages/strings.go (generated)
-func init() {
-    pkg := importer.RegisterPackage("strings", "strings")
-    pkg.AddFunction("Contains", strings.Contains, "", directcall_Contains)
-    pkg.AddFunction("HasPrefix", strings.HasPrefix, "", directcall_HasPrefix)
-    pkg.AddType("Builder", reflect.TypeOf(strings.Builder{}), "")
-    pkg.AddMethodDirectCall("Builder", "WriteString", directcall_method_Builder_WriteString)
-    // ... 40+ functions, types, methods
-}
-```
-
-Each registered package provides:
-
-- **Functions**: the function value, its `go/types` signature (resolved from `reflect.Type`), and optionally a DirectCall wrapper
-- **Types**: the `reflect.Type`, converted to `types.Named` with all exported methods added
-- **Variables and constants**: registered similarly
-
-The importer implements `types.Importer`, so when the Go type checker encounters `import "strings"`, it gets a `types.Package` with all the correct type signatures, as if it were reading from compiled `.a` files. This means type checking is exact — if the interpreted code misuses a standard library function, it gets a proper compile error, not a runtime panic.
-
-### The Reflection Problem
-
-The naive approach to calling external functions is straightforward:
-
-```go
-// 1. Convert []value.Value → []reflect.Value
-reflectArgs := make([]reflect.Value, len(args))
-for i, arg := range args {
-    reflectArgs[i] = reflect.ValueOf(arg.Interface())
-}
-// 2. Call via reflection
-results := reflect.ValueOf(fn).Call(reflectArgs)
-// 3. Convert []reflect.Value → []value.Value
-```
-
-This works, but is devastatingly slow. Step 1 allocates a `[]reflect.Value` slice and boxes every argument. Step 2 goes through `reflect.Value.Call`, which performs safety checks, type validation, and ultimately calls `runtime.call` through an indirect function pointer. Step 3 unboxes results.
-
-For `strings.Contains("hello", "ell")` — a function that takes 30 nanoseconds natively — the reflection overhead adds about 500 nanoseconds and 5 heap allocations.
-
-### DirectCall: Eliminating Reflection
-
-The solution is code generation. For each function with compatible parameter types, Gig generates a **typed wrapper** at build time:
-
-```go
-// stdlib/packages/strings.go (generated)
-func directcall_Contains(args []value.Value) value.Value {
-    a0 := args[0].String()         // extract string directly from Value
-    a1 := args[1].String()
-    r0 := strings.Contains(a0, a1) // native Go function call
-    return value.FromBool(r0)      // wrap result directly
-}
-```
-
-No `reflect.Value`. No `Call()`. No allocation. The argument extraction uses `Value.String()`, `Value.Int()`, etc., which are just field accesses on the tagged union. The result wrapping uses `value.FromBool()`, which is `Value{kind: KindBool, num: ...}`. The actual function call compiles to a direct `CALL` instruction in machine code — the Go compiler can even inline `strings.Contains` into the wrapper.
-
-This extends to **methods** as well:
-
-```go
-func directcall_method_Builder_WriteString(args []value.Value) value.Value {
-    recv := args[0].Interface().(*strings.Builder)  // type assertion
-    a1 := args[1].String()
-    r0, r1 := recv.WriteString(a1)
-    // ... wrap results
-}
-```
-
-The receiver is extracted via a type assertion on `Value.Interface()` — still zero-reflection on the call itself.
-
-### Coverage and Type Support
-
-The code generator (`gentool/directcall.go`) handles a wide range of parameter types:
-
-| Type                               | Extraction                                   |
-| ---------------------------------- | -------------------------------------------- |
-| `string`, `int`, `bool`, `float64` | `.String()`, `.Int()`, `.Bool()`, `.Float()` |
-| `[]byte`                           | `.Bytes()`                                   |
-| `io.Reader`, `error`               | `.Interface().(io.Reader)`                   |
-| `*bytes.Buffer`                    | `.Interface().(*bytes.Buffer)`               |
-| `*int32`, `*int64`                 | `.Interface().(*int32)`                      |
-| `map[string]bool`                  | `.Interface().(map[string]bool)`             |
-| `any` / `interface{}`              | `.Interface()`                               |
-
-Functions with `unsafe.Pointer` parameters or certain complex variadic signatures are left on the reflection path — about 8% of stdlib functions.
-
-In total: **1,162 wrappers** (619 functions + 543 methods) across 20 standard library packages, covering 92% of the standard library surface.
-
-### Fmt Package Sanitization
-
-The `fmt` package requires special handling because Gig's internal `Value` structs would otherwise print as verbose Go struct literals. The solution is **embedded sanitization helpers** in the generated `fmt.go`:
-
-```go
-// Generated into fmt.go by gentool
-func sanitizeArgForFmt(arg any) any {
-    if isGigStruct(arg) {
-        return gigStructFormatter{val: arg}
-    }
-    return arg
-}
-
-func sprintfWithTypeAwareness(format string, args ...any) string {
-    // Wraps args through sanitizeArgForFmt before calling fmt.Sprintf
-}
-```
-
-The generated DirectCall wrappers for `fmt.Sprintf`, `fmt.Printf`, etc. use `sprintfWithTypeAwareness` instead of the raw functions. This ensures that:
-
-- Gig `Value` structs print as their wrapped values (e.g., `42` instead of `value.Value{kind: 1, num: 42, ...}`)
-- Maps and slices print in standard Go syntax
-- No reflection is used in the hot path
-
-The sanitization code is **fully generated** by `gentool` via `fmtSanitizeHelperCode()`, eliminating the need for a separate hand-maintained support file.
-
-### Inline Caching
-
-Even with DirectCall, the VM still needs to resolve which function to call. The constant pool stores `ExternalFuncInfo` and `ExternalMethodInfo` structs, but looking them up on every call would be wasteful. So the VM maintains an **inline cache** — a `sync.Map` keyed by constant pool index:
-
-```go
-// vm/call.go
-type extCallCacheEntry struct {
-    funcInfo   *bytecode.ExternalFuncInfo
-    directCall func([]value.Value) value.Value
-    reflectFn  reflect.Value
-}
-
-func (vm *VM) callExternal(constIdx int, numArgs int) {
-    entry, cached := vm.extCallCache.Load(constIdx)
-    if !cached {
-        // Resolve once, cache forever
-        entry = &extCallCacheEntry{...}
-        vm.extCallCache.Store(constIdx, entry)
-    }
-    if entry.directCall != nil {
-        result := entry.directCall(args)  // fast path
-    } else {
-        vm.callExternalReflect(entry, args)  // fallback
-    }
-}
-```
-
-After the first call, subsequent calls to the same external function hit the cache — one `sync.Map` lookup (essentially a pointer read in the uncontended case) and a direct function call.
-
-## Optimization Passes
-
-After initial compilation, four optimization passes transform the bytecode:
-
-### Pass 1: Peephole Superinstructions
-
-The optimizer scans for common multi-instruction sequences and replaces them with single **superinstructions**. The idea comes from the Forth tradition and has been used in interpreters from CPython to Lua.
-
-Example: the Go statement `sum += a` compiles to 4 instructions totaling 11 bytes:
+Gig is a **full Go interpreter** that compiles Go source code to bytecode and executes
+it on a stack-based virtual machine. It is not a subset or a DSL — it handles the
+complete Go language including goroutines, closures, defer/panic/recover, interfaces,
+methods, and type assertions.
 
 ```
-LOCAL(sum)  LOCAL(a)  ADD  SETLOCAL(sum)
+┌─────────────┐     ┌──────────┐     ┌────────────┐     ┌──────────┐     ┌──────────┐
+│  Go Source   │────▶│  Parser  │────▶│ Type Check │────▶│ SSA Build│────▶│ Compiler │
+│  (string)    │     │ go/parser│     │ go/types   │     │ go/ssa   │     │ SSA→BC   │
+└─────────────┘     └──────────┘     └────────────┘     └──────────┘     └─────┬────┘
+                                                                               │
+                    ┌──────────┐     ┌────────────┐     ┌──────────┐           │
+                    │  Result  │◀────│    VM       │◀────│ Bytecode │◀──────────┘
+                    │  (any)   │     │ stack-based │     │ Program  │
+                    └──────────┘     └────────────┘     └──────────┘
 ```
 
-The peephole pass fuses this into a single 7-byte superinstruction:
-
-```
-OpLocalLocalAddSetLocal(sum, a, sum)
-```
-
-This eliminates 3 dispatch cycles, 2 stack pushes, and 2 stack pops. The operands are encoded directly in the instruction — no stack traffic at all.
-
-The optimizer recognizes **17 patterns**, including:
-
-| Pattern                                   | Fused Opcode                           |
-| ----------------------------------------- | -------------------------------------- |
-| `LOCAL(A) LOCAL(B) ADD SETLOCAL(C)`       | `OpLocalLocalAddSetLocal(A,B,C)`       |
-| `LOCAL(A) CONST(B) ADD SETLOCAL(C)`       | `OpLocalConstAddSetLocal(A,B,C)`       |
-| `LOCAL(A) CONST(B) LESS JUMPTRUE(off)`    | `OpLessLocalConstJumpTrue(A,B,off)`    |
-| `LOCAL(A) CONST(B) LESSEQ JUMPFALSE(off)` | `OpLessEqLocalConstJumpFalse(A,B,off)` |
-| `ADD SETLOCAL(A)`                         | `OpAddSetLocal(A)`                     |
-
-The rewriting must be offset-aware: when instructions are shortened, all jump targets must be remapped. The optimizer builds an offset map after rewriting and adjusts every jump instruction.
-
-### Pass 2: Slice Operation Fusion
-
-Integer slice access patterns are recognized and fused. The Go statement `v = arr[j]`, when both are `int` typed, compiles to a 7-instruction sequence (17 bytes) involving `LOCAL`, `INDEXADDR`, `SETLOCAL`, `DEREF`. The optimizer fuses this into:
-
-```
-OpIntSliceGet(arr, j, v)    // 7 bytes, direct []int64 indexed access
-```
-
-Similarly for writes: `arr[j] = v` becomes `OpIntSliceSet(arr, j, v)`.
-
-### Pass 3: Integer Specialization
-
-This is the most aggressive optimization. It introduces a **shadow array** of native `int64` values alongside the regular `[]value.Value` locals:
-
-```go
-// vm/frame.go
-type Frame struct {
-    locals    []value.Value   // 32 bytes per slot
-    intLocals []int64         // 8 bytes per slot (shadow)
-}
-```
-
-The optimizer performs two passes over the bytecode:
-
-**Pass 1 (analysis)**: Identify which local indices participate exclusively in integer operations — locals that are sources or destinations of `OpLocalLocalAddSetLocal`, `OpLessLocalConstJumpTrue`, etc.
-
-**Pass 2 (upgrade)**: Replace eligible superinstructions with `OpInt*` variants:
-
-```
-OpLocalConstAddSetLocal(A, B, C)  →  OpIntLocalConstAddSetLocal(A, B, C)
-```
-
-The `OpInt*` variant operates directly on `intLocals`:
-
-```go
-// vm/run.go
-case bytecode.OpIntLocalConstAddSetLocal:
-    r := intLocals[idxA] + intConsts[idxB]   // raw int64 add
-    intLocals[idxC] = r                       // 8-byte write
-    locals[idxC] = value.MakeInt(r)           // sync to Value locals
-```
-
-The inner loop of `ArithmeticSum` — `sum += i; i++; i < n` — compiles to just 3 dispatches per iteration, all operating on 8-byte `int64` slots instead of 32-byte `Value` slots. This is 4x better cache utilization.
-
-A critical invariant is the **dual write**: every `OpInt*` instruction writes to both `intLocals[idx]` (for fast int operations) and `locals[idx]` (for non-specialized code that might read the same local). This maintains correctness without requiring dataflow analysis to determine when the Value copy is needed.
-
-### Pass 4: Move Fusion
-
-The final pass eliminates phi-move overhead for integer locals:
-
-```
-OpIntLocal(A)  OpIntSetLocal(B)  →  OpIntMoveLocal(A, B)
-```
-
-This replaces a push-pop pair with a direct register-to-register copy.
-
-### Cumulative Effect
-
-The four passes work together. Consider a simple loop:
-
-```go
-for i := 0; i < n; i++ {
-    sum += arr[i]
-}
-```
-
-**After Pass 1**: `LOCAL(i) CONST(1) ADD SETLOCAL(i)` → `OpLocalConstAddSetLocal(i, 1, i)`
-
-**After Pass 2**: `LOCAL(arr) LOCAL(i) INDEXADDR... DEREF... SETLOCAL(v)` → `OpIntSliceGet(arr, i, v)`
-
-**After Pass 3**: `OpLocalConstAddSetLocal(i, 1, i)` → `OpIntLocalConstAddSetLocal(i, 1, i)` (native int64)
-
-**After Pass 4**: Phi moves at loop entry → `OpIntMoveLocal`
-
-The result: the inner loop is 3–4 fused instructions operating on 8-byte integers with direct slice access. No stack traffic, no 32-byte value copies, no type checks in the hot path.
-
-## Goroutines and Concurrency
-
-When the interpreted code spawns a goroutine with `go func()`, the VM creates a child VM sharing the same globals:
-
-```go
-// vm/goroutine.go
-func (vm *VM) newChildVM() *VM {
-    child := &VM{
-        program:    vm.program,
-        globalsPtr: &vm.globals,  // shared for cross-goroutine communication
-        ctx:        vm.ctx,
-    }
-    child.initStack()
-    return child
-}
-```
-
-The child gets its own stack and frame stack but shares the program, globals, and context. Channels work through Go's native channel operations on `reflect.Value` — the interpreter doesn't reimplement channel semantics.
-
-`select` statements are handled by building a `reflect.SelectCase` slice and calling `reflect.Select()`, which delegates to the Go runtime's select implementation. This is one area where reflection cannot be avoided, but it occurs infrequently enough to not be a bottleneck.
-
-## Security Model
-
-Gig enforces a security sandbox at the earliest possible stage — before compilation:
-
-```go
-// gig.go
-func checkBannedImports(file *ast.File) error {
-    for _, imp := range file.Imports {
-        path := strings.Trim(imp.Path.Value, `"`)
-        if path == "unsafe" || path == "reflect" {
-            return fmt.Errorf("import %q is not allowed", path)
-        }
-    }
-    return nil
-}
-```
-
-By banning `unsafe` and `reflect` at the AST level, interpreted code cannot:
-
-- Read or write arbitrary memory
-- Circumvent type safety
-- Access unexported fields
-- Forge interface values
-
-The `panic` built-in is also restricted — interpreted code cannot crash the host process. `defer` and `recover` work within the interpreter's frame stack, contained by the VM.
-
-Context cancellation ensures the host can always terminate a runaway script:
-
-```go
-result, err := prog.RunWithContext(ctx, "ProcessData", input)
-if err == context.DeadlineExceeded {
-    log.Warn("script timed out")
-}
-```
-
-## Design Choices: Gig vs Yaegi
-
-It's instructive to compare Gig's design with Yaegi's, as they solve the same problem with fundamentally different approaches.
-
-**AST-walking vs Bytecode VM**: Yaegi walks the AST at runtime, generating closures on the fly for each node. Gig compiles through SSA to bytecode. The tradeoff: Yaegi has lower compilation overhead (no SSA construction, no optimization passes), but Gig has lower execution overhead (linear bytecode, superinstructions, integer specialization).
-
-**`reflect.Value` vs Tagged-union**: Yaegi represents every value as a `reflect.Value`. Gig uses a 32-byte tagged-union that avoids allocation for primitives. The result: Fibonacci(25) in Yaegi performs 2.1 million allocations; in Gig, 7.
-
-**Control-flow representation**: Yaegi annotates the AST with `tnext`/`fnext` pointers, forming a control-flow graph embedded in the tree. Gig uses flat bytecode with explicit jump offsets, enabling sequential prefetch and superinstruction fusion — optimizations that are impractical on a tree structure.
-
-**External call strategy**: Both interpreters must call through reflection for external packages. Yaegi generates closure wrappers around `reflect.Value` operations. Gig generates typed Go functions at build time (DirectCall) that avoid reflection entirely for 92% of standard library calls.
-
-The benchmarks tell the story: Gig is 1.1–5.2x faster than Yaegi across all workloads, with dramatically fewer allocations. The gap is largest on recursion (5.2x on Fib25 — frame pooling dominates), external calls (2.6–2.8x — DirectCall eliminates reflection), and closures (2.7x — shared pointer captures vs Yaegi's scope chain).
-
-## Conclusion
-
-We have described the architecture of a Go interpreter that takes a different path from AST-walking: SSA-based compilation to bytecode, executed by a stack-based VM with aggressive specialization. The key design decisions — tagged-union values, superinstruction fusion, integer-specialized locals, and generated DirectCall wrappers — each address a specific performance bottleneck while maintaining full Go language compatibility.
-
-The codebase is organized into clean layers: `bytecode/` as the shared kernel, `compiler/` and `vm/` as independent consumers, `value/` as the universal data representation, and `importer/` + `gentool/` bridging the gap to the host Go runtime. The whole thing compiles to a single binary with no external dependencies.
-
-Some areas remain for future work:
-
-- Register-based VM (eliminating stack traffic entirely)
-- JIT compilation for hot functions
-- Escape analysis for smarter frame pooling
-- More aggressive constant folding at compile time
-
-From: youngjin, 28 Feb 2026
-
-## Appendix: Go Source → SSA → Bytecode Example
-
-To make the compilation pipeline concrete, let's trace a single Go function through all three stages.
-
-### Go Source
+### Basic Usage
 
 ```go
 package main
 
-func SumAndCheck(a, b int) (int, bool) {
-    sum := a + b
-    ok := sum > 10
-    return sum, ok
+import (
+    "fmt"
+    "github.com/t04dJ14n9/gig"
+)
+
+func main() {
+    // Compile Go source code to bytecode
+    prog, err := gig.Build(`
+        import "strings"
+
+        func ProcessName(name string) string {
+            return strings.ToUpper(strings.TrimSpace(name))
+        }
+    `)
+    if err != nil {
+        panic(err)
+    }
+    defer prog.Close()
+
+    // Execute the compiled function
+    result, err := prog.Run("ProcessName", "  hello world  ")
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(result) // Output: HELLO WORLD
 }
 ```
 
-This function adds two integers, checks if the result exceeds 10, and returns both values.
+The `Build` call takes ~1-5ms (parse + type-check + SSA + compile). Each `Run` call
+takes microseconds — the bytecode is already compiled and the VM is pooled.
 
-### SSA (Static Single Assignment)
+---
 
-The `go/ssa` library transforms the source into SSA form — a control-flow graph of basic blocks where every value is assigned exactly once. Phi nodes at block entry points merge values from different predecessors.
+## Architecture Overview
 
-```
-func SumAndCheck(a int, b int) (int, bool):
-  Entry Block:
-    t0 = a + b                    # binop
-    t1 = t0 > 10                  # comparison (produces bool)
-    jump IfTrue
-
-  IfTrue Block:
-    t2 = phi [t0 ← Entry]         # phi: merges t0 from Entry
-    t3 = phi [t1 ← Entry]         # phi: merges t1 from Entry
-    return t2, t3
-```
-
-Key SSA properties to notice:
-- **Each value is assigned exactly once** (`t0`, `t1`, `t2`, `t3`). No variable is ever reassigned.
-- **Phi nodes** (`phi`) appear at the top of the `IfTrue` block to merge values from different control-flow predecessors. Even though there's only one predecessor here, SSA still generates phis as part of its lowering.
-- **Types are explicit** — every operation carries full type information from `go/types`.
-
-### Symbol Table Construction
-
-Before emitting bytecode, the compiler builds a symbol table that maps each SSA value to a local variable slot:
-
-| Slot | SSA Value | Source |
-|------|-----------|--------|
-| 0 | `a` | parameter |
-| 1 | `b` | parameter |
-| 2 | `t0` | `a + b` |
-| 3 | `t1` | `t0 > 10` |
-| 4 | `t2` | phi node |
-| 5 | `t3` | phi node |
-
-Parameters get the first slots, then phi nodes, then temporaries.
-
-### Bytecode
-
-After phi elimination and jump patching, the compiler produces this bytecode (before optimization):
+### Package Structure
 
 ```
-Entry Block:
-  OpLocal   0x00 0x01      # push local[1] (b)          ← slot for b
-  OpLocal   0x00 0x00      # push local[0] (a)          ← slot for a
-  OpAdd                    # a + b
-  OpSetLocal 0x00 0x02     # local[2] = result           ← t0 = a + b
-
-  OpConst   0x00 0x03      # push constants[3] = 10
-  OpLocal   0x00 0x02      # push local[2] (t0)
-  OpGreater                # t0 > 10
-  OpSetLocal 0x00 0x03     # local[3] = result           ← t1 = t0 > 10
-
-  # Phi elimination: copy phi inputs before the jump
-  OpLocal   0x00 0x02      # push t0
-  OpSetLocal 0x00 0x04     # local[4] = t0              ← t2 = phi(t0)
-  OpLocal   0x00 0x03      # push t1
-  OpSetLocal 0x00 0x05     # local[5] = t1              ← t3 = phi(t1)
-
-  OpJump    0x00 0x1E      # jump to IfTrue block
-
-IfTrue Block (offset 0x1E):
-  OpLocal   0x00 0x05      # push t3 (bool)
-  OpLocal   0x00 0x04      # push t2 (int)
-  OpPack    0x01           # pack 2 values into tuple
-  OpReturnVal              # return the tuple
+gig/
+├── gig.go                    # Public API: Build(), Program.Run()
+├── compiler/
+│   ├── build.go              # Full pipeline: source → parse → SSA → bytecode
+│   ├── compiler.go           # SSA → bytecode translation
+│   ├── compile_func.go       # Per-function compilation
+│   ├── compile_instr.go      # Per-instruction compilation
+│   ├── symbol.go             # Symbol table (SSA value → local slot)
+│   ├── parser/               # go/parser + security validation
+│   ├── ssa/                  # go/ssa builder wrapper
+│   ├── peephole/             # Pattern-based superinstruction fusion
+│   └── optimize/             # 4-pass bytecode optimization pipeline
+├── vm/
+│   ├── vm.go                 # VM struct, Execute() entry point
+│   ├── run.go                # Main fetch-decode-execute loop (hot path)
+│   ├── frame.go              # Call frame + frame pool
+│   ├── stack.go              # Operand stack with bounded growth
+│   ├── call.go               # External function calls (DirectCall + reflect)
+│   ├── closure.go            # Closure type + ClosureExecutor
+│   ├── goroutine.go          # GoroutineTracker, child VM construction
+│   ├── ops_dispatch.go       # Opcode routing to category handlers
+│   ├── ops_arithmetic.go     # Arithmetic, bitwise, comparison ops
+│   ├── ops_memory.go         # Stack, locals, globals, fields, addresses
+│   ├── ops_container.go      # Slice, map, chan operations
+│   ├── ops_control.go        # Control flow, defer, panic/recover
+│   ├── ops_convert.go        # Type assertions, conversions
+│   └── ops_call.go           # Function/closure calls, goroutines
+├── model/
+│   ├── value/                # 32-byte tagged-union Value type
+│   ├── bytecode/             # CompiledProgram, CompiledFunction, OpCode
+│   └── external/             # ExternalFuncInfo, ExternalMethodInfo
+├── importer/                 # Package registration, type resolution
+├── runner/                   # VM pool, init execution, stateful globals
+└── stdlib/packages/          # ~69 pre-generated stdlib wrappers
 ```
 
-**Instruction format**: Each instruction is 1 byte opcode + 0-2 bytes operands (big-endian). For example, `OpLocal 0x00 0x02` is 3 bytes total.
+### Build Pipeline in Detail
 
-**Key observations**:
-- The stack is used for expression evaluation: push operands, execute operator, result is on stack.
-- Phi nodes are eliminated by inserting explicit copies (`OpLocal` + `OpSetLocal`) before each jump to a target block that has phis.
-- The jump offset (`0x1E`) is patched after compilation when the target block's start address is known.
-- Multiple return values are packed with `OpPack` into a single `[]value.Value` tuple.
+```go
+// gig.go: Build()
+func Build(sourceCode string, opts ...BuildOption) (*Program, error) {
+    // 1. compiler.Build: source → parse → SSA → bytecode
+    result, err := compiler.Build(sourceCode, cfg.registry, compilerOpts...)
 
-### After Optimization
+    // 2. Execute init() and snapshot globals
+    initialGlobals, err := runner.ExecuteInit(result.Program)
 
-After 4 optimization passes, the bytecode is significantly simplified:
+    // 3. Create runner (owns VM pool)
+    r := runner.New(result.Program, initialGlobals, runnerOpts...)
 
-```
-  OpIntLocal  0x01          # push intLocal[1] (b)       ← 8-byte direct access
-  OpIntLocal  0x00          # push intLocal[0] (a)       ← no value.Value boxing
-  OpIntAddLocalSetLocal 0x00 0x02  # intLocal[2] = intLocal[0] + intLocal[1]
-
-  OpIntLocal  0x02          # push intLocal[2]
-  OpIntConst  0x00 0x03     # push intConstants[3] = 10
-  OpIntGreaterLocalSetLocal 0x03  # intLocal[3] = intLocal[2] > 10
-
-  OpIntMoveLocal 0x02 0x04  # intLocal[4] = intLocal[2]  ← move fusion
-  OpIntMoveLocal 0x03 0x05  # intLocal[5] = intLocal[3]
-
-  OpJump     0x00 0x10
-
-  OpBoolLocal 0x05          # push t3 as bool
-  OpIntLocal  0x04          # push t2
-  OpPack     0x01
-  OpReturnVal
+    return &Program{runner: r, ssaPkg: result.SSAPkg}, nil
+}
 ```
 
-**What changed**:
-- `OpLocal`/`OpSetLocal`/`OpAdd` → fused into single `OpIntAddLocalSetLocal` (peephole + int specialization)
-- `OpConst` + comparison → fused into `OpIntGreaterLocalSetLocal`
-- Phi copies → fused into `OpIntMoveLocal` (move fusion)
-- All integer operations use `intLocal` shadow array (8 bytes/slot instead of 32 bytes) — **4x less memory**, no `value.Value` boxing/unboxing
+The `compiler.Build` function orchestrates three phases:
 
+```go
+// compiler/build.go
+func Build(source string, reg importer.PackageRegistry, opts ...BuildOption) (*BuildResult, error) {
+    // Phase 1: Parse + type-check + validate
+    parseResult, err := parser.Parse(source, reg, parseOpts...)
+
+    // Phase 2: Build SSA
+    ssaResult, err := ssabuilder.Build(parseResult.FSet, parseResult.Pkg, ...)
+
+    // Phase 3: Compile SSA → bytecode
+    lookup := importer.NewPackageLookup(reg)
+    compiled, err := NewCompiler(lookup).Compile(ssaResult.Pkg)
+
+    return &BuildResult{Program: compiled, SSAPkg: ssaResult.Pkg}, nil
+}
+```
+
+---
+
+## The Value System
+
+### The Problem
+
+An interpreter needs a universal type to represent any Go value at runtime: `int`,
+`string`, `[]byte`, `*http.Request`, closures, etc. The naive approach is `interface{}`,
+but in an interpreter's operand stack, intermediate values constantly flow through
+push/pop — escape analysis can't optimize this, so most arithmetic results heap-allocate.
+For numeric-heavy rule engines, this means massive GC pressure.
+
+### The Solution: 32-Byte Tagged Union
+
+```
+┌──────────┬──────────┬───────────┬────────────────────────────────────┐
+│ kind (1B)│ size (1B)│ pad (6B)  │          num (8B)                  │
+├──────────┴──────────┴───────────┼────────────────────────────────────┤
+│                                 │          obj (16B)                  │
+│         (interface{})           │    string / reflect.Value / etc.    │
+└─────────────────────────────────┴────────────────────────────────────┘
+                            Total: 32 bytes
+```
+
+```go
+// model/value/value.go
+type Value struct {
+    kind Kind    // 1 byte: type tag (KindInt, KindString, KindFloat, ...)
+    size Size    // 1 byte: original Go bit-width (8, 16, 32, 64)
+    num  int64   // 8 bytes: stores bool (0/1), int, uint bits, float64 bits
+    obj  any     // 16 bytes: string, complex128, reflect.Value, or nil
+}
+```
+
+**The key insight**: for primitive types (`bool`, `int`, `uint`, `float64`, `nil`),
+everything lives in `kind` + `num`. The `obj` field is `nil`. **Zero heap allocation,
+zero GC pressure.**
+
+### Kind Types
+
+```go
+const (
+    KindInvalid Kind = iota  // 0 — zero value of Value (uninitialized globals)
+    KindNil                  // 1 — explicit nil
+    KindBool                 // 2 — stored in num: 0=false, 1=true
+    KindInt                  // 3 — stored in num as int64
+    KindUint                 // 4 — stored in num as uint64 bits
+    KindFloat                // 5 — stored in num as float64 bits (math.Float64bits)
+    KindString               // 6 — stored in obj as Go string
+    KindComplex              // 7 — stored in obj as complex128
+    KindPointer              // 8
+    KindSlice                // 9
+    KindArray                // 10
+    KindMap                  // 11
+    KindChan                 // 12
+    KindFunc                 // 13
+    KindStruct               // 14
+    KindInterface            // 15
+    KindReflect              // 16 — fallback: reflect.Value in obj
+    KindBytes                // 17 — native []byte (avoids reflect overhead)
+)
+```
+
+### Constructors
+
+```go
+// Primitives: zero allocation
+value.MakeInt(42)         // kind=KindInt, num=42, obj=nil
+value.MakeFloat(3.14)     // kind=KindFloat, num=float64bits(3.14), obj=nil
+value.MakeBool(true)      // kind=KindBool, num=1, obj=nil
+value.MakeNil()           // kind=KindNil, num=0, obj=nil
+
+// Strings: obj holds the Go string
+value.MakeString("hello") // kind=KindString, num=0, obj="hello"
+
+// Composites: obj holds reflect.Value or native Go type
+value.MakeBytes([]byte{1,2,3})  // kind=KindBytes, obj=[]byte{1,2,3}
+value.MakeIntSlice([]int64{...}) // kind=KindSlice, obj=[]int64{...}
+value.FromInterface(anyValue)    // auto-detect: fast-path type switch
+```
+
+### Size Tag: Preserving Original Types
+
+Go has `int8`, `int16`, `int32`, `int64`, `int` — all stored as `int64` internally.
+The `size` field remembers which one it was, so `Interface()` returns the correct type:
+
+```go
+value.MakeInt8(42).Interface()  // returns int8(42), not int64(42)
+value.MakeInt32(42).Interface() // returns int32(42)
+value.MakeInt(42).Interface()   // returns int(42)
+```
+
+This matters when passing values to external Go functions via reflection — if you
+call `strings.Repeat(s, n)` and `n` is `int64` instead of `int`, `reflect.Call` panics.
+
+### Why Not `interface{}`?
+
+Consider a Fibonacci benchmark computing Fib(25) = 75,025:
+
+| Value representation | Allocations | Reason |
+|---|---|---|
+| `interface{}` for all values | ~2.1M | Intermediate values escape to heap in interpreter stack |
+| `value.Value` tagged union | ~7 | Only the initial frame + stack allocation |
+
+The 32-byte `Value` fits in two cache lines and never escapes to the heap for
+primitive operations.
+
+---
+
+## Compilation: From Go Source to Bytecode
+
+### A Concrete Example
+
+Let's trace this function through the entire compilation pipeline:
+
+```go
+func ProcessOrder(price float64, quantity int, coupon string) (float64, bool) {
+    total := price * float64(quantity)
+    if coupon == "HALF" {
+        total *= 0.5
+    }
+    valid := total > 0 && total < 10000
+    return total, valid
+}
+```
+
+### Phase 1: Parsing and Type Checking
+
+The parser does three things:
+
+1. **`go/parser.ParseFile`** produces an AST
+2. **Security validation**: checks for banned imports (`unsafe`, `reflect`) and banned
+   `panic()` usage (configurable via `WithAllowPanic()`)
+3. **Auto-import**: if the source references `strings.Contains(...)` but doesn't
+   have `import "strings"`, the parser adds it automatically (since registered
+   packages are known)
+4. **`go/types.Config.Check`**: type-checks with a custom `types.Importer` that
+   resolves packages against the registry
+
+### Phase 2: SSA Construction
+
+`golang.org/x/tools/go/ssa` converts the typed AST into Static Single Assignment form.
+For our example, the SSA looks approximately like this:
+
+```
+func ProcessOrder(price float64, quantity int, coupon string) (float64, bool):
+  entry:                                              ; block 0
+    t0 = Convert quantity int → float64               ; float64(quantity)
+    t1 = Mul price t0                                 ; price * float64(quantity)
+    t2 = BinOp coupon == "HALF"                       ; coupon == "HALF"
+    If t2 → if.then, if.done
+
+  if.then:                                            ; block 1
+    t3 = Mul t1 0.5:float64                           ; total *= 0.5
+    Jump → if.done
+
+  if.done:                                            ; block 2
+    t4 = Phi [entry: t1, if.then: t3]                 ; total (merge)
+    t5 = BinOp t4 > 0:float64                         ; total > 0
+    If t5 → and.rhs, and.done(false)
+
+  and.rhs:                                            ; block 3
+    t6 = BinOp t4 < 10000:float64                     ; total < 10000
+    Jump → and.done
+
+  and.done:                                           ; block 4
+    t7 = Phi [if.done: false, and.rhs: t6]            ; valid (short-circuit &&)
+    t8 = MakeResult t4 t7                             ; (total, valid)
+    Return t8
+```
+
+**Key SSA concepts**:
+- Every value is assigned exactly once (SSA property)
+- **Phi nodes** merge values from different control paths (e.g., `t4` picks `t1` or `t3`)
+- Short-circuit `&&` becomes explicit control flow with a Phi
+
+### Phase 3: Bytecode Generation
+
+The compiler translates SSA instructions to stack-based bytecode. Here's the
+compilation process:
+
+#### Symbol Table Construction
+
+First, the compiler allocates local slots:
+
+```
+Slot 0: price     (parameter)
+Slot 1: quantity  (parameter)
+Slot 2: coupon    (parameter)
+Slot 3: t0        (float64(quantity))
+Slot 4: t1        (price * float64(quantity))
+Slot 5: t4        (phi: total after merge)
+Slot 6: t3        (total * 0.5)
+Slot 7: t5        (total > 0)
+Slot 8: t6        (total < 10000)
+Slot 9: t7        (phi: valid)
+```
+
+Parameters get the first slots. Phi nodes get dedicated slots (the compiler emits
+explicit `SetLocal` moves to resolve phis). Temporaries get the remaining slots.
+
+#### Generated Bytecode
+
+```
+; entry block
+0000: LOCAL    0         ; push price
+0003: LOCAL    1         ; push quantity
+0006: CONVERT  [float64] ; convert int → float64, result on stack
+0009: SETLOCAL 3         ; store t0 = float64(quantity)
+000C: LOCAL    0         ; push price
+000F: LOCAL    3         ; push t0
+0012: MUL                ; price * float64(quantity)
+0013: SETLOCAL 4         ; store t1
+0016: SETLOCAL 5         ; phi pre-copy: total = t1 (entry path)
+0019: LOCAL    2         ; push coupon
+001C: CONST    0         ; push "HALF" from constant pool
+001F: EQUAL              ; coupon == "HALF"
+0020: JUMPFALSE 002E     ; skip to if.done if false
+
+; if.then block
+0023: LOCAL    4         ; push t1
+0026: CONST    1         ; push 0.5
+0029: MUL                ; t1 * 0.5
+002A: SETLOCAL 6         ; store t3
+002D: SETLOCAL 5         ; phi pre-copy: total = t3 (if.then path)
+
+; if.done block (total is in slot 5 via phi resolution)
+002E: LOCAL    5         ; push total
+0031: CONST    2         ; push 0.0
+0034: GREATER            ; total > 0
+0035: JUMPFALSE 0042     ; short-circuit: if false, skip to and.done
+
+; and.rhs block
+0038: LOCAL    5         ; push total
+003B: CONST    3         ; push 10000.0
+003E: LESS               ; total < 10000
+003F: SETLOCAL 9         ; store valid
+0040: JUMP     0045      ; jump to return
+
+; and.done (false path)
+0042: FALSE              ; push false
+0043: SETLOCAL 9         ; valid = false
+
+; return
+0045: LOCAL    5         ; push total
+0048: LOCAL    9         ; push valid
+004B: PACK     2         ; pack into multi-return tuple
+004D: RETURNVAL          ; return
+```
+
+#### Phi Elimination
+
+SSA Phi nodes don't map to hardware instructions. The compiler eliminates them by:
+1. Allocating a dedicated local slot for each Phi (slot 5 for `total`, slot 9 for `valid`)
+2. At the end of each predecessor block, emitting `SETLOCAL` to write the correct
+   value into the Phi slot
+
+This is why you see `SETLOCAL 5` in both the entry block and the if.then block —
+each writes its version of `total` into the shared phi slot before control reaches
+the merge point.
+
+### Phase 4: Optimization
+
+After initial bytecode generation, four optimization passes run:
+
+```go
+// compiler/optimize/optimize.go
+func Optimize(code []byte, localIsInt, constIsInt, localIsIntSlice []bool) ([]byte, bool) {
+    code = Peephole(code)                                    // Pass 1: superinstruction fusion
+    code = FuseSliceOps(code, localIsInt, localIsIntSlice)   // Pass 2: slice op fusion
+    code, hasInt := IntSpecialize(code, localIsInt, constIsInt) // Pass 3: int specialization
+    code = FuseIntMoves(code)                                // Pass 4: move fusion
+    return code, hasInt
+}
+```
+
+#### Pass 1: Peephole — Superinstruction Fusion
+
+Peephole patterns detect common multi-instruction sequences and replace them with
+a single fused opcode. For example:
+
+```
+Before (3 instructions, 3 dispatch cycles):
+    LOCAL    0        ; push a
+    LOCAL    1        ; push b
+    ADD               ; a + b
+
+After (1 instruction, 1 dispatch cycle):
+    ADDLOCALLOCAL 0 1  ; push locals[0] + locals[1]
+```
+
+The peephole optimizer has 17+ pattern rules covering:
+
+| Pattern | Fused Opcode | Saves |
+|---|---|---|
+| `LOCAL a` + `LOCAL b` + `ADD` | `OpAddLocalLocal a b` | 2 dispatches |
+| `LOCAL a` + `CONST c` + `ADD` | `OpAddLocalConst a c` | 2 dispatches |
+| `ADD` + `SETLOCAL x` | `OpAddSetLocal x` | 1 dispatch |
+| `LOCAL a` + `LOCAL b` + `ADD` + `SETLOCAL c` | `OpLocalLocalAddSetLocal a b c` | 3 dispatches |
+| `LOCAL a` + `LOCAL b` + `LESS` + `JUMPTRUE off` | `OpLessLocalLocalJumpTrue a b off` | 3 dispatches |
+
+Each pattern is registered in the global pattern registry:
+
+```go
+// compiler/peephole/pattern.go
+type Pattern interface {
+    Match(code []byte, i int) (consumed int, newBytes []byte, ok bool)
+}
+```
+
+#### Pass 2: Slice Operation Fusion
+
+Detects the common pattern of `LOCAL(slice)` + `LOCAL(index)` + `INDEXADDR` +
+`SETLOCAL(ptr)` + `LOCAL(ptr)` + `DEREF` + `SETLOCAL(val)` and fuses it into
+a single `OpIntSliceGet slice index val` when all types are `int`.
+
+#### Pass 3: Integer Specialization
+
+When the compiler can prove all locals in a superinstruction are `int`-typed, it
+upgrades the generic superinstruction to an `OpInt*` variant:
+
+```
+OpLocalConstAddSetLocal → OpIntLocalConstAddSetLocal
+OpLessLocalLocalJumpFalse → OpIntLessLocalLocalJumpFalse
+```
+
+The `OpInt*` variants operate on a shadow `intLocals []int64` array — pure 8-byte
+int64 arithmetic instead of 32-byte Value operations:
+
+```go
+// vm/run.go — OpIntLocalConstAddSetLocal handler
+case bytecode.OpIntLocalConstAddSetLocal:
+    idxA := readU16()
+    idxB := readU16()
+    idxC := readU16()
+    r := intLocals[idxA] + intConsts[idxB]   // raw int64 add — no kind check
+    intLocals[idxC] = r                       // write to int shadow array
+    locals[idxC] = value.MakeInt(r)           // keep Value array in sync
+    continue
+```
+
+This gives 4x better cache utilization: `int64` is 8 bytes vs `Value`'s 32 bytes,
+so 4x more operands fit in the same cache line.
+
+#### Pass 4: Move Fusion
+
+Replaces `OpIntLocal(src)` + `OpIntSetLocal(dst)` with `OpIntMoveLocal(src, dst)`,
+eliminating the stack round-trip.
+
+---
+
+## The Virtual Machine
+
+### VM Structure
+
+```go
+// vm/vm.go
+type vm struct {
+    program        *bytecode.CompiledProgram  // compiled bytecode
+    stack          []value.Value              // operand stack
+    sp             int                        // stack pointer
+    frames         []*Frame                   // call frame stack
+    fp             int                        // frame pointer
+    globals        []value.Value              // package-level variables
+    globalsPtr     *[]value.Value             // shared globals (goroutines)
+    ctx            context.Context            // cancellation/timeout
+    panicking      bool                       // panic in progress?
+    panicVal       value.Value                // current panic value
+    panicStack     []panicState               // saved panics (nested)
+    deferDepth     int                        // defer nesting level
+    extCallCache   *externalCallCache         // inline cache for ext calls
+    initialGlobals []value.Value              // post-init globals snapshot
+    goroutines     *GoroutineTracker          // goroutine limiter
+    fpool          framePool                  // frame recycler
+}
+```
+
+### Key Constants
+
+```go
+const (
+    initialStackSize     = 1024     // starting operand stack slots
+    maxStackSize         = 1 << 20  // 1M slots = 32 MB per VM
+    initialFrameDepth    = 64       // starting call frame slots
+    maxFrameDepth        = 1024     // max call depth (8 KB)
+    contextCheckInterval = 1024     // check ctx.Done() every N instructions
+    defaultMaxGoroutines = 10000    // goroutine limit per program
+)
+```
+
+### Stack Management
+
+The operand stack is a `[]value.Value` slice that doubles in size when full:
+
+```go
+// vm/stack.go
+func (v *vm) push(val value.Value) {
+    if v.sp >= len(v.stack) {
+        if len(v.stack) >= maxStackSize {
+            panic("gig: operand stack overflow")
+        }
+        newCap := len(v.stack) * 2
+        if newCap > maxStackSize {
+            newCap = maxStackSize
+        }
+        newStack := make([]value.Value, newCap)
+        copy(newStack, v.stack)
+        v.stack = newStack
+    }
+    v.stack[v.sp] = val
+    v.sp++
+}
+
+func (v *vm) pop() value.Value {
+    v.sp--
+    return v.stack[v.sp]
+}
+```
+
+Note: the panic from stack overflow is caught by the safety net (a `defer/recover`
+wrapping `vm.run()`), so it becomes an error return — never crashing the host process.
+
+### Frame Management and Pooling
+
+Each function call creates a `Frame`:
+
+```go
+// vm/frame.go
+type Frame struct {
+    fn        *bytecode.CompiledFunction  // which function
+    ip        int                         // instruction pointer
+    basePtr   int                         // operand stack base for this call
+    locals    []value.Value               // local variable array
+    intLocals []int64                     // int-specialized shadow array
+    freeVars  []*value.Value              // closure captures (pointers!)
+    defers    []DeferInfo                 // deferred calls (LIFO)
+    addrTaken bool                        // true if OpAddr pointed into locals
+}
+```
+
+#### Frame Pooling
+
+Without pooling, every function call allocates a `Frame` + `[]value.Value` on the
+heap. For recursive functions like Fibonacci, this means millions of allocations.
+
+The `framePool` is a simple LIFO stack that recycles frames:
+
+```go
+// vm/frame.go
+func (p *framePool) get(fn *bytecode.CompiledFunction, basePtr int, freeVars []*value.Value) *Frame {
+    n := len(p.frames)
+    if n > 0 {
+        f = p.frames[n-1]
+        p.frames = p.frames[:n-1]
+        // Reuse the locals slice if it has enough capacity
+        if cap(f.locals) >= fn.NumLocals {
+            f.locals = f.locals[:fn.NumLocals]
+            for i := range f.locals {
+                f.locals[i] = value.Value{}  // zero out for correctness
+            }
+        } else {
+            f.locals = make([]value.Value, fn.NumLocals)
+        }
+        // ... reset all other fields ...
+    } else {
+        f = &Frame{locals: make([]value.Value, fn.NumLocals)}
+    }
+    return f
+}
+
+func (p *framePool) put(f *Frame) {
+    if f.addrTaken {
+        return  // closures may hold live references — don't recycle
+    }
+    f.fn = nil
+    f.freeVars = nil
+    p.frames = append(p.frames, f)
+}
+```
+
+**The `addrTaken` guard**: when `OpAddr` creates a pointer into a frame's locals,
+closures or deferred functions may hold references to those slots. Recycling the
+frame would corrupt those pointers. So `addrTaken` frames are left for the GC.
+
+**Result**: Fib(25) drops from ~728K allocations to **7 allocations**. The frame
+pool absorbs all recursion overhead.
+
+### The Dispatch Loop
+
+The dispatch loop in `vm/run.go` is the performance-critical hot path. It uses
+several techniques to maximize throughput:
+
+#### Register Hoisting
+
+```go
+func (v *vm) run() (value.Value, error) {
+    // Hoist hot fields into local variables for register allocation.
+    // The Go compiler keeps these in CPU registers across iterations.
+    stack := v.stack
+    sp := v.sp
+    prebaked := v.program.PrebakedConstants
+
+    var frame *Frame
+    var ins []byte
+    var locals []value.Value
+    var intLocals []int64
+    intConsts := v.program.IntConstants
+
+    loadFrame := func() {
+        frame = v.frames[v.fp-1]
+        ins = frame.fn.Instructions
+        locals = frame.locals
+        intLocals = frame.intLocals
+    }
+
+    readU16 := func() uint16 {
+        v := uint16(ins[frame.ip])<<8 | uint16(ins[frame.ip+1])
+        frame.ip += 2
+        return v
+    }
+    // ...
+```
+
+By copying `v.stack`, `v.sp`, `frame.locals`, etc. into local variables, the Go
+compiler can keep them in CPU registers. Without this, every instruction would
+dereference `v.stack[v.sp]` through two pointer indirections.
+
+#### Hot/Cold Split
+
+The main `switch` in `run()` inlines **~60 hot opcodes** directly. Less frequent
+opcodes fall through to `executeOp()`:
+
+```go
+    for v.fp > 0 {
+        op := bytecode.OpCode(ins[frame.ip])
+        frame.ip++
+
+        switch op {
+        case bytecode.OpLocal:       // INLINED — hot
+            idx := readU16()
+            stack[sp] = locals[idx]
+            sp++
+            continue
+
+        case bytecode.OpAdd:         // INLINED — hot
+            sp--
+            b := stack[sp]
+            sp--
+            a := stack[sp]
+            if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+                stack[sp] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
+            } else {
+                stack[sp] = a.Add(b)
+            }
+            sp++
+            continue
+
+        // ... ~58 more hot opcodes ...
+
+        default:
+            // Cold path: sync sp, call executeOp
+            v.sp = sp
+            if err := v.executeOp(op, frame); err != nil {
+                return value.MakeNil(), err
+            }
+            sp = v.sp
+            stack = v.stack
+        }
+    }
+```
+
+#### Integer Fast Paths
+
+Every arithmetic and comparison operation checks if both operands are `KindInt`
+first. When they are (the common case in rule engines), it does raw `int64` math
+with zero overhead:
+
+```go
+case bytecode.OpLess:
+    sp--
+    b := stack[sp]
+    sp--
+    a := stack[sp]
+    if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+        stack[sp] = value.MakeBool(a.RawInt() < b.RawInt())  // fast path
+    } else {
+        stack[sp] = value.MakeBool(a.Cmp(b) < 0)             // generic path
+    }
+    sp++
+    continue
+```
+
+#### Context Checking
+
+The VM checks for cancellation every 1024 instructions using a bitmask:
+
+```go
+    instructionCount++
+    if instructionCount & 0x3FF == 0 {  // contextCheckMask = 1023
+        select {
+        case <-v.ctx.Done():
+            return value.MakeNil(), v.ctx.Err()
+        default:
+        }
+    }
+```
+
+The bitmask avoids a modulo operation, and `select` with `default` is a non-blocking
+channel check.
+
+### Execution Walkthrough
+
+Let's trace the execution of `ProcessOrder(100.0, 3, "HALF")` step by step.
+Only showing the key operations (omitting some SetLocals for brevity):
+
+```
+Frame: ProcessOrder
+  locals[0] = Float(100.0)    ; price
+  locals[1] = Int(3)          ; quantity
+  locals[2] = String("HALF")  ; coupon
+
+Step  IP     Instruction          Stack (top→)              locals[5]
+───── ────── ──────────────────── ──────────────────────── ─────────
+  1   0000   LOCAL 0              [Float(100.0)]
+  2   0003   LOCAL 1              [Float(100.0), Int(3)]
+  3   0006   CONVERT float64      [Float(100.0), Float(3.0)]
+  4   0009   SETLOCAL 3           [Float(100.0)]              ; t0=3.0
+  5   000C   LOCAL 0              [Float(100.0)]
+  6   000F   LOCAL 3              [Float(100.0), Float(3.0)]
+  7   0012   MUL                  [Float(300.0)]
+  8   0013   SETLOCAL 4           []                          ; t1=300.0
+  9   0016   SETLOCAL 5           []                          300.0
+ 10   0019   LOCAL 2              [String("HALF")]
+ 11   001C   CONST 0              [String("HALF"), String("HALF")]
+ 12   001F   EQUAL                [Bool(true)]
+ 13   0020   JUMPFALSE 002E       []                          ; taken? NO → fall through
+ 14   0023   LOCAL 4              [Float(300.0)]
+ 15   0026   CONST 1              [Float(300.0), Float(0.5)]
+ 16   0029   MUL                  [Float(150.0)]
+ 17   002A   SETLOCAL 6           []                          ; t3=150.0
+ 18   002D   SETLOCAL 5           []                          150.0
+ 19   002E   LOCAL 5              [Float(150.0)]              ; total=150.0
+ 20   0031   CONST 2              [Float(150.0), Float(0.0)]
+ 21   0034   GREATER              [Bool(true)]
+ 22   0035   JUMPFALSE 0042       []                          ; not taken
+ 23   0038   LOCAL 5              [Float(150.0)]
+ 24   003B   CONST 3              [Float(150.0), Float(10000.0)]
+ 25   003E   LESS                 [Bool(true)]
+ 26   003F   SETLOCAL 9           []                          ; valid=true
+ 27   0045   LOCAL 5              [Float(150.0)]
+ 28   0048   LOCAL 9              [Float(150.0), Bool(true)]
+ 29   004B   PACK 2               [Tuple(150.0, true)]
+ 30   004D   RETURNVAL                                        ; → (150.0, true)
+```
+
+Result: `(150.0, true)` — the order is valid, total = $150 after 50% coupon.
+
+---
+
+### Panic, Defer, and Recover
+
+Gig implements Go's panic/defer/recover semantics faithfully, including nested
+panics (a panic inside a deferred function).
+
+#### Data Structures
+
+```go
+// vm/frame.go
+type DeferInfo struct {
+    fn      *bytecode.CompiledFunction  // function to call
+    args    []value.Value               // captured arguments
+    closure *Closure                    // closure (for indirect defers)
+}
+
+// vm/vm.go — panic state
+type panicState struct {
+    panicking bool
+    panicVal  value.Value
+}
+
+type vm struct {
+    // ...
+    panicking  bool              // panic in progress
+    panicVal   value.Value       // current panic value
+    panicStack []panicState      // saved panics (for nested panics)
+    deferDepth int               // nesting level of defer execution
+}
+```
+
+#### How It Works
+
+1. **`OpDefer`**: captures the function + arguments into `frame.defers`
+2. **`OpRunDefers`**: normal return path — executes defers in LIFO order, each in a child VM
+3. **`OpPanic`**: sets `v.panicking = true` and `v.panicVal`
+4. **Panic handler** (top of dispatch loop): when `v.panicking` is true:
+   - Iterates `frame.defers` in LIFO order
+   - Before each deferred call, pushes current panic state onto `panicStack`
+   - Executes the defer via recursive `v.run()`
+   - After the defer, checks if `recover()` cleared the saved state
+   - If recovered: continues with remaining defers in normal mode
+   - If not recovered: propagates panic to caller frame
+5. **`OpRecover`**: pops the top of `panicStack`, clears `panicking`, returns the value
+
+#### Concrete Example
+
+```go
+func SafeDivide(a, b int) (result int, err error) {
+    defer func() {
+        if r := recover(); r != nil {
+            err = fmt.Errorf("caught: %v", r)
+        }
+    }()
+    return a / b, nil
+}
+```
+
+Execution of `SafeDivide(10, 0)`:
+
+```
+1. Frame created for SafeDivide
+   locals[0] = Int(10), locals[1] = Int(0)
+
+2. OpDefer: captures anonymous closure into frame.defers
+   defers = [{fn: anon$1, args: [], closure: {FreeVars: [&result, &err]}}]
+
+3. OpDiv: Int(10) / Int(0)
+   → Go-level panic: "runtime error: integer divide by zero"
+   → Safety net catches it: v.panicking = true, v.panicVal = String("integer divide by zero")
+
+4. Panic handler activates (top of dispatch loop):
+   - Saves panic state: panicStack = [{panicking:true, val:"integer divide by zero"}]
+   - Clears v.panicking
+   - Calls anon$1 via recursive v.run()
+
+5. Inside anon$1:
+   - OpRecover: pops panicStack, finds panicking=true
+     → Clears saved state (panicking=false)
+     → Returns String("integer divide by zero")
+   - fmt.Errorf wraps it → writes to &err via free variable
+   - anon$1 returns
+
+6. Back in panic handler:
+   - Checks saved state: panicking is false → recovered!
+   - Reads named return values from ResultAllocSlots
+   - Returns (0, error("caught: integer divide by zero"))
+```
+
+The `ResultAllocSlots` mechanism is crucial: in Go, `defer` can modify named return
+values. The compiler records which local slots correspond to named returns, and the
+recovery path dereferences them to get the final values.
+
+#### Safety Net
+
+All of this is wrapped in a Go-level `defer/recover`:
+
+```go
+// vm/vm.go
+func (v *vm) Execute(funcName string, ctx context.Context, args ...value.Value) (result value.Value, err error) {
+    // Safety net: catch Go-level panics from VM execution
+    defer func() {
+        if r := recover(); r != nil {
+            result = value.MakeNil()
+            err = fmt.Errorf("runtime panic: %v", r)
+        }
+    }()
+    result, err = v.run()
+    return result, err
+}
+```
+
+This ensures that even if the interpreted code triggers a host-level panic (nil map
+write, slice out of bounds, type assertion failure), the host process never crashes.
+The panic is caught and returned as an error.
+
+---
+
+### Goroutine Support
+
+```go
+// In interpreted code:
+go processItem(item)
+```
+
+The VM handles `go` statements via `OpGoCall`:
+
+```go
+// vm/goroutine.go
+func (v *vm) newChildVM() *vm {
+    child := &vm{
+        program:      v.program,
+        stack:        make([]value.Value, initialStackSize),  // fresh stack
+        frames:       make([]*Frame, initialFrameDepth),
+        globalsPtr:   v.globalsPtr,       // shared globals via pointer!
+        ctx:          v.ctx,              // shared context
+        extCallCache: v.extCallCache,     // shared cache
+        goroutines:   v.goroutines,       // shared tracker
+    }
+    if child.globalsPtr == nil {
+        child.globalsPtr = &v.globals     // parent's globals become shared
+    }
+    return child
+}
+```
+
+**Key design decisions**:
+- Each goroutine gets a **fresh stack** (no contention)
+- Globals are **shared via pointer** (correct Go semantics)
+- The external call cache is **shared** (thread-safe via RWMutex)
+- Context is **shared** (cancellation propagates to all goroutines)
+
+The `GoroutineTracker` prevents runaway goroutine creation:
+
+```go
+func (t *GoroutineTracker) Start(fn func()) error {
+    max := atomic.LoadInt64(&t.maxGoroutines)
+    if max > 0 && atomic.LoadInt64(&t.active) >= max {
+        return fmt.Errorf("gig: goroutine limit (%d) exceeded", max)
+    }
+    atomic.AddInt64(&t.active, 1)
+    go func() {
+        defer atomic.AddInt64(&t.active, -1)
+        fn()
+    }()
+    return nil
+}
+```
+
+---
+
+## External Package Integration
+
+### How Registration Works
+
+External Go packages must be registered before compilation. Registration happens at
+`init()` time via code-generated files in `stdlib/packages/`:
+
+```go
+// stdlib/packages/strings.go (generated by `gig gen`)
+func init() {
+    pkg := importer.RegisterPackage("strings", "strings")
+
+    // Functions
+    pkg.AddFunction("Contains", strings.Contains, "", direct_strings_Contains)
+    pkg.AddFunction("HasPrefix", strings.HasPrefix, "", direct_strings_HasPrefix)
+    // ... 60+ more functions
+
+    // Types
+    pkg.AddType("Builder", reflect.TypeOf(strings.Builder{}), "")
+    pkg.AddType("Reader", reflect.TypeOf(strings.Reader{}), "")
+
+    // Method DirectCalls
+    pkg.AddMethodDirectCall("Builder", "WriteString", direct_method_strings_Builder_WriteString)
+}
+```
+
+Each registered package provides:
+- **Function values** for `reflect.Call` (slow path)
+- **DirectCall wrappers** for zero-reflection calls (fast path)
+- **Type information** for type checking and runtime type assertions
+- **Method DirectCalls** for zero-reflection method dispatch
+
+### DirectCall: Zero-Reflection Function Calls
+
+The biggest performance win in Gig comes from **DirectCall wrappers** — code-generated
+typed wrappers that bypass `reflect.Call` entirely.
+
+#### The Problem with reflect.Call
+
+```go
+// Slow path: reflect.Call
+fn := reflect.ValueOf(strings.Contains)
+args := []reflect.Value{
+    reflect.ValueOf("hello world"),
+    reflect.ValueOf("world"),
+}
+result := fn.Call(args)  // ~400ns: reflection overhead, allocations
+```
+
+#### DirectCall: The Solution
+
+```go
+// Generated by gig gen — zero reflection
+func direct_strings_Contains(args []value.Value) value.Value {
+    a0 := args[0].String()   // direct field access, no reflect
+    a1 := args[1].String()
+    return value.MakeBool(strings.Contains(a0, a1))  // direct Go call
+}
+```
+
+This wrapper:
+1. Extracts typed arguments directly from `value.Value` (via `String()`, `Int()`, etc.)
+2. Calls the real Go function directly (no `reflect.ValueOf`, no `reflect.Call`)
+3. Wraps the result in a `value.Value` (via `MakeBool`, `MakeInt`, etc.)
+
+**Result**: ~5x faster than `reflect.Call` for typical stdlib functions.
+
+#### Dispatch Flow
+
+```
+OpCallExternal(funcIdx, numArgs)
+        │
+        ▼
+┌─ Check inline cache ─┐
+│  cache[funcIdx] hit?  │
+│    YES → use entry    │
+│    NO  → resolve once │
+└───────┬───────────────┘
+        │
+        ▼
+┌─ DirectCall available? ─┐
+│  YES → call wrapper     │──▶ result = direct_strings_Contains(args)
+│  NO  → reflect.Call     │──▶ result = fn.Call(reflectArgs)
+└─────────────────────────┘
+```
+
+The inline cache (`externalCallCache`) ensures that function resolution happens
+exactly once per function per program lifetime. After the first call, subsequent
+calls are a simple pointer dereference + function call.
+
+```go
+// vm/call.go — callExternal fast path
+func (v *vm) callExternal(funcIdx, numArgs int) error {
+    // Pop arguments
+    args := make([]value.Value, numArgs)
+    for i := numArgs - 1; i >= 0; i-- {
+        args[i] = v.pop()
+    }
+
+    // Inline cache lookup (RLock for read path)
+    v.extCallCache.mu.RLock()
+    cacheEntry := v.extCallCache.cache[funcIdx]
+    v.extCallCache.mu.RUnlock()
+
+    if cacheEntry == nil {
+        // First call: resolve and cache (write lock)
+        v.extCallCache.mu.Lock()
+        cacheEntry = v.resolveExternalFunc(funcIdx)
+        v.extCallCache.cache[funcIdx] = cacheEntry
+        v.extCallCache.mu.Unlock()
+    }
+
+    // Fast path: DirectCall
+    if cacheEntry.directCall != nil {
+        result := cacheEntry.directCall(args)
+        v.push(result)
+        return nil
+    }
+
+    // Slow path: reflect.Call
+    return v.callExternalReflect(cacheEntry, args)
+}
+```
+
+### Closure Conversion for External Calls
+
+When interpreted code passes a closure to a Go stdlib function (e.g., `sort.Slice`
+with a comparison function), Gig must convert the closure to a real Go function:
+
+```go
+// Interpreted code:
+sort.Slice(items, func(i, j int) bool {
+    return items[i].Price < items[j].Price
+})
+```
+
+The `sort.Slice` function expects a `func(int, int) bool` — it can't accept a
+`*vm.Closure`. Gig uses `reflect.MakeFunc` to create a real Go function that, when
+called, creates a temporary VM and executes the closure's bytecode:
+
+```go
+// vm/closure.go — Closure implements value.ClosureExecutor
+func (c *Closure) Execute(args []reflect.Value, outTypes []reflect.Type) []reflect.Value {
+    // Create a temporary VM to execute the closure
+    closureVM := &vm{
+        program: c.Program,
+        stack:   make([]value.Value, 256),
+        // ...
+    }
+    valArgs := make([]value.Value, len(args))
+    for i, arg := range args {
+        valArgs[i] = value.MakeFromReflect(arg)
+    }
+    closureVM.callFunction(c.Fn, valArgs, c.FreeVars)
+    result, _ := closureVM.run()
+    return []reflect.Value{result.ToReflectValue(outTypes[0])}
+}
+```
+
+---
+
+## Init and Execution Flow
+
+### Full Lifecycle
+
+```
+Build(source)
+    │
+    ├── compiler.Build(source, registry)
+    │       ├── parser.Parse(source)           → typed AST
+    │       ├── ssabuilder.Build(AST)          → SSA IR
+    │       └── compiler.Compile(SSA)          → CompiledProgram
+    │
+    ├── runner.ExecuteInit(program)
+    │       ├── Check for "init#1" function
+    │       ├── Create temp VM, run "init"
+    │       └── Snapshot globals → initialGlobals
+    │
+    └── runner.New(program, initialGlobals)
+            ├── Create VMPool
+            ├── Create GoroutineTracker
+            └── Register method resolver (for fmt.Stringer)
+
+Program.Run("FuncName", args...)
+    │
+    ├── Convert args to []value.Value
+    │
+    ├── vmPool.Get() → vm
+    │       ├── If pool empty: newVM() with fresh globals from snapshot
+    │       └── If pool has idle: return recycled vm
+    │
+    ├── vm.Execute("FuncName", ctx, args)
+    │       ├── Lookup function in program.Functions
+    │       ├── Create frame, copy args to locals
+    │       ├── defer { recover → error } (safety net)
+    │       └── vm.run() → main dispatch loop
+    │
+    ├── vmPool.Put(vm)
+    │       └── vm.Reset() → clear stack, restore globals from snapshot
+    │
+    └── UnwrapResult(result) → any
+```
+
+### Stateless vs Stateful Modes
+
+**Stateless (default)**: each `Run()` starts from the post-`init()` globals snapshot.
+Mutations to globals are discarded after the call. This is safe for concurrent calls.
+
+```go
+prog, _ := gig.Build(`
+    var counter int
+    func Increment() int {
+        counter++
+        return counter
+    }
+`)
+prog.Run("Increment") // returns 1
+prog.Run("Increment") // returns 1 (globals reset!)
+```
+
+**Stateful** (`WithStatefulGlobals()`): globals persist across calls. Calls are
+serialized with a mutex.
+
+```go
+prog, _ := gig.Build(`
+    var counter int
+    func Increment() int {
+        counter++
+        return counter
+    }
+`, gig.WithStatefulGlobals())
+prog.Run("Increment") // returns 1
+prog.Run("Increment") // returns 2 (globals persist!)
+```
+
+```go
+// runner/runner.go — stateful execution
+func (r *Runner) RunWithValues(ctx context.Context, funcName string, args []value.Value) (value.Value, error) {
+    if r.stateful {
+        r.runMu.Lock()
+        defer r.runMu.Unlock()
+        v := r.vmPool.Get()
+        v.BindSharedGlobals(&r.sharedGlobals)
+        result, err := v.ExecuteWithValues(funcName, ctx, args)
+        v.UnbindSharedGlobals()
+        r.vmPool.Put(v)
+        return result, err
+    }
+    // Stateless: no lock needed
+    v := r.vmPool.Get()
+    result, err := v.ExecuteWithValues(funcName, ctx, args)
+    r.vmPool.Put(v)
+    return result, err
+}
+```
+
+---
+
+## Security Model
+
+Gig is designed for **sandboxed execution** of untrusted code:
+
+### Compile-Time Checks
+
+| Check | Purpose |
+|---|---|
+| Ban `import "unsafe"` | Prevents memory corruption |
+| Ban `import "reflect"` | Prevents type system bypass |
+| Ban `panic()` (default) | Prevents DoS via unrecovered panics. Enable with `WithAllowPanic()` |
+| Auto-import only registered packages | Code can't import arbitrary packages |
+
+### Runtime Checks
+
+| Check | Purpose |
+|---|---|
+| Context cancellation every 1024 instructions | Prevents infinite loops |
+| Stack overflow detection (1M slots max) | Prevents memory exhaustion |
+| Call stack depth limit (1024 frames) | Prevents stack overflow |
+| Goroutine limit (10K default) | Prevents goroutine bomb |
+| Safety net `defer/recover` | Host-level panics → error returns |
+
+### Sandbox Registry
+
+For maximum isolation, use a sandbox registry that starts empty:
+
+```go
+reg := gig.NewSandboxRegistry()
+// Only expose what you want:
+// reg.RegisterPackage("strings", "strings")
+// (or register nothing — pure computation only)
+
+prog, _ := gig.Build(untrustedCode, gig.WithRegistry(reg))
+```
+
+---
+
+## Performance
+
+### Key Optimizations Summary
+
+| Optimization | Technique | Impact |
+|---|---|---|
+| Frame pooling | LIFO frame recycler | Fib(25): 728K → 7 allocations |
+| Value tagged union | 32-byte inline primitives | Zero GC for int/float/bool |
+| DirectCall wrappers | Code-gen typed wrappers | ~5x faster than reflect.Call |
+| Prebaked constants | `[]value.Value` built once at compile | Eliminates per-instruction `FromInterface` |
+| Integer specialization | `intLocals []int64` shadow array | 4x cache utilization (8B vs 32B) |
+| Superinstructions | Fused opcodes (17 patterns) | 3-4x fewer dispatch cycles in hot loops |
+| Register hoisting | Stack/sp/locals in Go locals | Better CPU register allocation |
+| Inline caching | Per-program function resolution cache | O(1) external call dispatch |
+| Slice fusion | `OpIntSliceGet/Set` | 5 instructions → 1 for `[]int` access |
+| Move fusion | `OpIntMoveLocal` | Eliminates stack round-trip for copies |
+
+### How the Optimizations Stack
+
+For a typical integer-heavy loop like bubble sort:
+
+```
+Baseline (naive bytecode):
+    LOCAL 0          ; 1 dispatch + stack write
+    LOCAL 1          ; 1 dispatch + stack write
+    LESS             ; 1 dispatch + 2 stack reads + kind check + compare + stack write
+    JUMPFALSE off    ; 1 dispatch + stack read + branch
+    ─────────────────
+    Total: 4 dispatches, 6 stack ops, 1 kind check
+
+After peephole fusion:
+    LessLocalLocalJumpFalse 0 1 off   ; 1 dispatch, 2 local reads, compare, branch
+    ─────────────────
+    Total: 1 dispatch, 0 stack ops, 1 kind check
+
+After int specialization:
+    IntLessLocalLocalJumpFalse 0 1 off ; 1 dispatch, 2 intLocal reads, compare, branch
+    ─────────────────
+    Total: 1 dispatch, 0 stack ops, 0 kind checks, 8B operands
+```
+
+That's a **4x reduction in dispatch cycles** and the operands are now in an 8-byte
+array instead of 32-byte Values.
+
+---
+
+From: youngjin, March 2026

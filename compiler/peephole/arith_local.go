@@ -1,6 +1,6 @@
 package peephole
 
-import "github.com/t04dJ14n9/gig/bytecode"
+import "github.com/t04dJ14n9/gig/model/bytecode"
 
 // arithLocalPattern fuses the 2-instruction sequence (7 bytes → 5 bytes):
 // LOCAL(A) op2(B) arithOp
@@ -29,7 +29,7 @@ func (p arithLocalPattern) Match(code []byte, i int) (int, []byte, bool) {
 		bytecode.OpCode(code[i+6]) != p.arith {
 		return 0, nil, false
 	}
-	a := ReadU16(code, i+1)
-	b := ReadU16(code, i+4)
+	a := bytecode.ReadU16(code, i+1)
+	b := bytecode.ReadU16(code, i+4)
 	return size, Make2Op(p.fused, a, b), true
 }

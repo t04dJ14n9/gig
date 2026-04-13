@@ -1,6 +1,6 @@
 package peephole
 
-import "github.com/t04dJ14n9/gig/bytecode"
+import "github.com/t04dJ14n9/gig/model/bytecode"
 
 // arithSetPattern fuses arithOp SETLOCAL(A) (4 bytes → 3 bytes).
 type arithSetPattern struct {
@@ -23,6 +23,6 @@ func (p arithSetPattern) Match(code []byte, i int) (int, []byte, bool) {
 	if bytecode.OpCode(code[i+1]) != bytecode.OpSetLocal {
 		return 0, nil, false
 	}
-	a := ReadU16(code, i+2)
+	a := bytecode.ReadU16(code, i+2)
 	return size, Make1Op(p.fused, a), true
 }

@@ -1,3 +1,4 @@
+// build.go implements the full compilation pipeline: source → parse → SSA → bytecode.
 package compiler
 
 import (
@@ -5,16 +6,31 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"github.com/t04dJ14n9/gig/bytecode"
 	"github.com/t04dJ14n9/gig/compiler/parser"
 	ssabuilder "github.com/t04dJ14n9/gig/compiler/ssa"
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/bytecode"
 )
 
 // BuildResult holds the output of the full compilation pipeline.
 type BuildResult struct {
-	Program *bytecode.Program
+	Program *bytecode.CompiledProgram
 	SSAPkg  *ssa.Package
+}
+
+// buildConfig holds internal configuration parsed from BuildOption values.
+type buildConfig struct {
+	allowPanic bool
+}
+
+// BuildOption configures the behaviour of Build.
+type BuildOption func(*buildConfig)
+
+// WithAllowPanic allows the use of panic() in compiled code.
+func WithAllowPanic() BuildOption {
+	return func(c *buildConfig) {
+		c.allowPanic = true
+	}
 }
 
 // Build compiles Go source code into bytecode through the full pipeline:
@@ -24,10 +40,19 @@ type BuildResult struct {
 //  3. Compile SSA to bytecode (codegen)
 //
 // PackageRegistry is the compiler's primary dependency — it provides package
-// resolution for both the type checker and the codegen phase.
-func Build(source string, reg importer.PackageRegistry) (*BuildResult, error) {
+// resolution for both the type checker and the codegen phase (via PackageLookup).
+func Build(source string, reg importer.PackageRegistry, opts ...BuildOption) (*BuildResult, error) {
+	cfg := buildConfig{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	// 1. Parse + type-check + validate
-	parseResult, err := parser.Parse(source, reg)
+	var parseOpts []parser.ParseOption
+	if cfg.allowPanic {
+		parseOpts = append(parseOpts, parser.WithAllowPanic())
+	}
+	parseResult, err := parser.Parse(source, reg, parseOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +63,8 @@ func Build(source string, reg importer.PackageRegistry) (*BuildResult, error) {
 		return nil, err
 	}
 
-	// 3. Compile SSA to bytecode
+	// 3. Compile SSA to bytecode — the registry satisfies compiler.PackageLookup
+	// because resolving external functions/methods is a compiler responsibility.
 	compiled, err := NewCompiler(reg).Compile(ssaResult.Pkg)
 	if err != nil {
 		return nil, fmt.Errorf("compile error: %w", err)

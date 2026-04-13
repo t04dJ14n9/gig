@@ -8,7 +8,7 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
@@ -78,7 +78,11 @@ func direct_encoding_json_Compact(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(encoding_json.Compact(a0, a1))
 }
@@ -89,7 +93,11 @@ func direct_encoding_json_HTMLEscape(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	encoding_json.HTMLEscape(a0, a1)
 	return value.MakeNil()
@@ -101,7 +109,11 @@ func direct_encoding_json_Indent(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a2 := args[2].String()
 	a3 := args[3].String()
@@ -137,7 +149,11 @@ func direct_encoding_json_Unmarshal(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].Interface()
 	return value.FromInterface(encoding_json.Unmarshal(a0, a1))
@@ -148,7 +164,11 @@ func direct_encoding_json_Valid(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBool(encoding_json.Valid(a0))
 }
@@ -172,7 +192,7 @@ func direct_method_encoding_json_Decoder_DisallowUnknownFields(args []value.Valu
 
 func direct_method_encoding_json_Decoder_InputOffset(args []value.Value) value.Value {
 	recv := args[0].Interface().(*encoding_json.Decoder)
-	return value.MakeInt(int64(recv.InputOffset()))
+	return value.MakeInt64(recv.InputOffset())
 }
 
 func direct_method_encoding_json_Decoder_More(args []value.Value) value.Value {
@@ -193,7 +213,7 @@ func direct_method_encoding_json_Decoder_UseNumber(args []value.Value) value.Val
 }
 
 func direct_method_encoding_json_Delim_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(encoding_json.Delim)
+	recv := encoding_json.Delim(int32(args[0].Int()))
 	return value.MakeString(string(recv.String()))
 }
 
@@ -239,19 +259,19 @@ func direct_method_encoding_json_MarshalerError_Unwrap(args []value.Value) value
 }
 
 func direct_method_encoding_json_Number_Float64(args []value.Value) value.Value {
-	recv := args[0].Interface().(encoding_json.Number)
+	recv := encoding_json.Number(args[0].String())
 	r0, r1 := recv.Float64()
 	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.FromInterface(r1)})
 }
 
 func direct_method_encoding_json_Number_Int64(args []value.Value) value.Value {
-	recv := args[0].Interface().(encoding_json.Number)
+	recv := encoding_json.Number(args[0].String())
 	r0, r1 := recv.Int64()
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_encoding_json_Number_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(encoding_json.Number)
+	recv := encoding_json.Number(args[0].String())
 	return value.MakeString(string(recv.String()))
 }
 
@@ -267,7 +287,11 @@ func direct_method_encoding_json_RawMessage_UnmarshalJSON(args []value.Value) va
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(recv.UnmarshalJSON(a0))
 }

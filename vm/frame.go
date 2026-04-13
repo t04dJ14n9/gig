@@ -1,9 +1,11 @@
-// Package vm provides the bytecode virtual machine.
+// frame.go defines Frame (call stack entry) and DeferInfo (deferred call metadata).
 package vm
 
 import (
-	"github.com/t04dJ14n9/gig/bytecode"
-	"github.com/t04dJ14n9/gig/value"
+	"reflect"
+
+	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 // Frame represents a call frame on the VM's call stack.
@@ -50,16 +52,24 @@ type DeferInfo struct {
 	// args are the arguments to pass.
 	args []value.Value
 
-	// external is the external function to call (if not nil).
-	external any
-
 	// closure is the closure to call (for OpDeferIndirect).
 	closure *Closure
+
+	// externalFunc is an external function or method value to call via reflection.
+	// This is used for defer statements that capture external type methods, e.g.:
+	//   encoder := base64.NewEncoder(...)
+	//   defer encoder.Close()  // externalFunc will hold the Close method value
+	externalFunc reflect.Value
+	
+	// externalInfo holds external function/method metadata (for OpDeferExternal).
+	// This is used for interface method invocations in defer.
+	externalInfo interface{}
 }
 
-// newFrame creates a new call frame for a function.
+// newFrame creates a new call frame for a function with a zero base pointer.
+// Used for goroutine and defer frames that start with a fresh operand stack.
 // It initializes the local variable array and copies arguments into the first slots.
-func newFrame(fn *bytecode.CompiledFunction, basePtr int, args []value.Value, freeVars []*value.Value) *Frame {
+func newFrame(fn *bytecode.CompiledFunction, args []value.Value, freeVars []*value.Value) *Frame {
 	locals := make([]value.Value, fn.NumLocals)
 
 	// Copy arguments to local slots
@@ -72,7 +82,7 @@ func newFrame(fn *bytecode.CompiledFunction, basePtr int, args []value.Value, fr
 	f := &Frame{
 		fn:       fn,
 		ip:       0,
-		basePtr:  basePtr,
+		basePtr:  0,
 		locals:   locals,
 		freeVars: freeVars,
 		defers:   nil,

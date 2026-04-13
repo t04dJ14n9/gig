@@ -13,7 +13,7 @@ import (
 	time "time"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
@@ -298,7 +298,11 @@ func direct_net_http_DetectContentType(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeString(string(net_http.DetectContentType(a0)))
 }
@@ -565,7 +569,7 @@ func direct_net_http_StripPrefix(args []value.Value) value.Value {
 
 func direct_net_http_TimeoutHandler(args []value.Value) value.Value {
 	a0 := args[0].Interface().(net_http.Handler)
-	a1 := args[1].Interface().(time.Duration)
+	a1 := time.Duration(args[1].Int())
 	a2 := args[2].String()
 	return value.FromInterface(net_http.TimeoutHandler(a0, a1, a2))
 }
@@ -615,7 +619,7 @@ func direct_method_net_http_Client_PostForm(args []value.Value) value.Value {
 }
 
 func direct_method_net_http_ConnState_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(net_http.ConnState)
+	recv := net_http.ConnState(int(args[0].Int()))
 	return value.MakeString(string(recv.String()))
 }
 
@@ -630,7 +634,7 @@ func direct_method_net_http_Cookie_Valid(args []value.Value) value.Value {
 }
 
 func direct_method_net_http_Dir_Open(args []value.Value) value.Value {
-	recv := args[0].Interface().(net_http.Dir)
+	recv := net_http.Dir(args[0].String())
 	a0 := args[1].String()
 	r0, r1 := recv.Open(a0)
 	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})

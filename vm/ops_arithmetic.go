@@ -1,42 +1,26 @@
+// ops_arithmetic.go implements arithmetic, bitwise, and complex number operations.
+// Note: OpAdd, OpSub, OpMul, OpEqual, OpNotEqual, OpLess, OpLessEq, OpGreater,
+// OpGreaterEq, and OpNot are inlined in run.go's hot path and never reach this handler.
 package vm
 
 import (
-	"github.com/t04dJ14n9/gig/bytecode"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
-// executeArithmetic handles arithmetic, bitwise, comparison, and logical opcodes.
-func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolint:cyclop
+// toShiftAmount extracts a uint shift amount from a Value of any numeric kind.
+// Used by OpLsh and OpRsh to ensure shift amounts are consistently handled.
+func toShiftAmount(shiftVal value.Value) uint {
+	if shiftVal.Kind() == value.KindUint {
+		return uint(shiftVal.Uint())
+	}
+	return uint(shiftVal.Int())
+}
+
+// executeArithmetic handles non-hot-path arithmetic, bitwise, and complex opcodes.
+// Hot-path ops (Add, Sub, Mul, comparisons, Not) are inlined in run.go.
+func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolint:cyclop,unparam // frame: uniform dispatch signature
 	switch op {
-	// Arithmetic
-	case bytecode.OpAdd:
-		b := v.pop()
-		a := v.pop()
-		// Fast path for int+int (most common case in loops)
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize()))
-		} else {
-			v.push(a.Add(b))
-		}
-
-	case bytecode.OpSub:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize()))
-		} else {
-			v.push(a.Sub(b))
-		}
-
-	case bytecode.OpMul:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize()))
-		} else {
-			v.push(a.Mul(b))
-		}
-
 	case bytecode.OpDiv:
 		b := v.pop()
 		a := v.pop()
@@ -50,6 +34,19 @@ func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolin
 	case bytecode.OpNeg:
 		a := v.pop()
 		v.push(a.Neg())
+
+	case bytecode.OpReal:
+		c := v.pop()
+		v.push(value.MakeFloat(real(c.Complex())))
+
+	case bytecode.OpImag:
+		c := v.pop()
+		v.push(value.MakeFloat(imag(c.Complex())))
+
+	case bytecode.OpComplex:
+		im := v.pop().Float()
+		re := v.pop().Float()
+		v.push(value.MakeComplex(re, im))
 
 	// Bitwise
 	case bytecode.OpAnd:
@@ -74,85 +71,15 @@ func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolin
 
 	case bytecode.OpLsh:
 		shiftVal := v.pop()
-		var n uint
-		if shiftVal.Kind() == value.KindUint {
-			n = uint(shiftVal.Uint())
-		} else {
-			n = uint(shiftVal.Int())
-		}
+		n := toShiftAmount(shiftVal)
 		a := v.pop()
 		v.push(a.Lsh(n))
 
 	case bytecode.OpRsh:
 		shiftVal := v.pop()
-		var n uint
-		if shiftVal.Kind() == value.KindUint {
-			n = uint(shiftVal.Uint())
-		} else {
-			n = uint(shiftVal.Int())
-		}
+		n := toShiftAmount(shiftVal)
 		a := v.pop()
 		v.push(a.Rsh(n))
-
-	// Comparison
-	case bytecode.OpEqual:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeBool(a.RawInt() == b.RawInt()))
-		} else {
-			v.push(value.MakeBool(a.Equal(b)))
-		}
-
-	case bytecode.OpNotEqual:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeBool(a.RawInt() != b.RawInt()))
-		} else {
-			v.push(value.MakeBool(!a.Equal(b)))
-		}
-
-	case bytecode.OpLess:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeBool(a.RawInt() < b.RawInt()))
-		} else {
-			v.push(value.MakeBool(a.Cmp(b) < 0))
-		}
-
-	case bytecode.OpLessEq:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeBool(a.RawInt() <= b.RawInt()))
-		} else {
-			v.push(value.MakeBool(a.Cmp(b) <= 0))
-		}
-
-	case bytecode.OpGreater:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeBool(a.RawInt() > b.RawInt()))
-		} else {
-			v.push(value.MakeBool(a.Cmp(b) > 0))
-		}
-
-	case bytecode.OpGreaterEq:
-		b := v.pop()
-		a := v.pop()
-		if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-			v.push(value.MakeBool(a.RawInt() >= b.RawInt()))
-		} else {
-			v.push(value.MakeBool(a.Cmp(b) >= 0))
-		}
-
-	// Logical
-	case bytecode.OpNot:
-		a := v.pop()
-		v.push(value.MakeBool(!a.Bool()))
 	}
 
 	return nil

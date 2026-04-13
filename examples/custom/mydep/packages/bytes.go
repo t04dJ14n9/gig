@@ -8,7 +8,7 @@ import (
 	unicode "unicode"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
@@ -124,7 +124,11 @@ func direct_bytes_Clone(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(bytes.Clone(a0)))
 }
@@ -134,13 +138,21 @@ func direct_bytes_Compare(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeInt(int64(bytes.Compare(a0, a1)))
 }
@@ -150,13 +162,21 @@ func direct_bytes_Contains(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBool(bytes.Contains(a0, a1))
 }
@@ -166,7 +186,11 @@ func direct_bytes_ContainsAny(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].String()
 	return value.MakeBool(bytes.ContainsAny(a0, a1))
@@ -177,7 +201,11 @@ func direct_bytes_ContainsFunc(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].Interface().(func(rune) bool)
 	return value.MakeBool(bytes.ContainsFunc(a0, a1))
@@ -188,7 +216,11 @@ func direct_bytes_ContainsRune(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := int32(args[1].Int())
 	return value.MakeBool(bytes.ContainsRune(a0, a1))
@@ -199,13 +231,21 @@ func direct_bytes_Count(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeInt(int64(bytes.Count(a0, a1)))
 }
@@ -215,13 +255,21 @@ func direct_bytes_Cut(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1, r2 := bytes.Cut(a0, a1)
 	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.MakeBytes([]byte(r1)), value.MakeBool(r2)})
@@ -232,13 +280,21 @@ func direct_bytes_CutPrefix(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := bytes.CutPrefix(a0, a1)
 	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.MakeBool(r1)})
@@ -249,13 +305,21 @@ func direct_bytes_CutSuffix(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := bytes.CutSuffix(a0, a1)
 	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.MakeBool(r1)})
@@ -266,13 +330,21 @@ func direct_bytes_Equal(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBool(bytes.Equal(a0, a1))
 }
@@ -282,13 +354,21 @@ func direct_bytes_EqualFold(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBool(bytes.EqualFold(a0, a1))
 }
@@ -298,7 +378,11 @@ func direct_bytes_Fields(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(bytes.Fields(a0))
 }
@@ -308,7 +392,11 @@ func direct_bytes_FieldsFunc(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].Interface().(func(rune) bool)
 	return value.FromInterface(bytes.FieldsFunc(a0, a1))
@@ -319,13 +407,21 @@ func direct_bytes_HasPrefix(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBool(bytes.HasPrefix(a0, a1))
 }
@@ -335,13 +431,21 @@ func direct_bytes_HasSuffix(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBool(bytes.HasSuffix(a0, a1))
 }
@@ -351,13 +455,21 @@ func direct_bytes_Index(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeInt(int64(bytes.Index(a0, a1)))
 }
@@ -367,7 +479,11 @@ func direct_bytes_IndexAny(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].String()
 	return value.MakeInt(int64(bytes.IndexAny(a0, a1)))
@@ -378,7 +494,11 @@ func direct_bytes_IndexByte(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := byte(args[1].Uint())
 	return value.MakeInt(int64(bytes.IndexByte(a0, a1)))
@@ -389,7 +509,11 @@ func direct_bytes_IndexFunc(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].Interface().(func(rune) bool)
 	return value.MakeInt(int64(bytes.IndexFunc(a0, a1)))
@@ -400,7 +524,11 @@ func direct_bytes_IndexRune(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := int32(args[1].Int())
 	return value.MakeInt(int64(bytes.IndexRune(a0, a1)))
@@ -411,13 +539,21 @@ func direct_bytes_LastIndex(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeInt(int64(bytes.LastIndex(a0, a1)))
 }
@@ -427,7 +563,11 @@ func direct_bytes_LastIndexAny(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].String()
 	return value.MakeInt(int64(bytes.LastIndexAny(a0, a1)))
@@ -438,7 +578,11 @@ func direct_bytes_LastIndexByte(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := byte(args[1].Uint())
 	return value.MakeInt(int64(bytes.LastIndexByte(a0, a1)))
@@ -449,7 +593,11 @@ func direct_bytes_LastIndexFunc(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].Interface().(func(rune) bool)
 	return value.MakeInt(int64(bytes.LastIndexFunc(a0, a1)))
@@ -461,7 +609,11 @@ func direct_bytes_Map(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(bytes.Map(a0, a1)))
 }
@@ -471,7 +623,11 @@ func direct_bytes_NewBuffer(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(bytes.NewBuffer(a0))
 }
@@ -486,7 +642,11 @@ func direct_bytes_NewReader(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(bytes.NewReader(a0))
 }
@@ -496,7 +656,11 @@ func direct_bytes_Repeat(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := int(args[1].Int())
 	return value.MakeBytes([]byte(bytes.Repeat(a0, a1)))
@@ -507,19 +671,31 @@ func direct_bytes_Replace(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a2 := func() []byte {
 		if b, ok := (args[2]).Bytes(); ok {
 			return b
 		}
-		return (args[2]).Interface().([]byte)
+		v := (args[2]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a3 := int(args[3].Int())
 	return value.MakeBytes([]byte(bytes.Replace(a0, a1, a2, a3)))
@@ -530,19 +706,31 @@ func direct_bytes_ReplaceAll(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a2 := func() []byte {
 		if b, ok := (args[2]).Bytes(); ok {
 			return b
 		}
-		return (args[2]).Interface().([]byte)
+		v := (args[2]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(bytes.ReplaceAll(a0, a1, a2)))
 }
@@ -552,7 +740,11 @@ func direct_bytes_Runes(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(bytes.Runes(a0))
 }
@@ -562,13 +754,21 @@ func direct_bytes_Split(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(bytes.Split(a0, a1))
 }
@@ -578,13 +778,21 @@ func direct_bytes_SplitAfter(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(bytes.SplitAfter(a0, a1))
 }
@@ -594,13 +802,21 @@ func direct_bytes_SplitAfterN(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a2 := int(args[2].Int())
 	return value.FromInterface(bytes.SplitAfterN(a0, a1, a2))
@@ -611,13 +827,21 @@ func direct_bytes_SplitN(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a2 := int(args[2].Int())
 	return value.FromInterface(bytes.SplitN(a0, a1, a2))
@@ -628,7 +852,11 @@ func direct_bytes_Title(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(bytes.Title(a0)))
 }
@@ -638,7 +866,11 @@ func direct_bytes_ToLower(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(bytes.ToLower(a0)))
 }
@@ -649,7 +881,11 @@ func direct_bytes_ToLowerSpecial(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(bytes.ToLowerSpecial(a0, a1)))
 }
@@ -659,7 +895,11 @@ func direct_bytes_ToTitle(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(bytes.ToTitle(a0)))
 }
@@ -670,7 +910,11 @@ func direct_bytes_ToTitleSpecial(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(bytes.ToTitleSpecial(a0, a1)))
 }
@@ -680,7 +924,11 @@ func direct_bytes_ToUpper(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(bytes.ToUpper(a0)))
 }
@@ -691,7 +939,11 @@ func direct_bytes_ToUpperSpecial(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(bytes.ToUpperSpecial(a0, a1)))
 }
@@ -701,13 +953,21 @@ func direct_bytes_ToValidUTF8(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(bytes.ToValidUTF8(a0, a1)))
 }
@@ -717,7 +977,11 @@ func direct_bytes_Trim(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].String()
 	return value.MakeBytes([]byte(bytes.Trim(a0, a1)))
@@ -728,7 +992,11 @@ func direct_bytes_TrimFunc(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].Interface().(func(rune) bool)
 	return value.MakeBytes([]byte(bytes.TrimFunc(a0, a1)))
@@ -739,7 +1007,11 @@ func direct_bytes_TrimLeft(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].String()
 	return value.MakeBytes([]byte(bytes.TrimLeft(a0, a1)))
@@ -750,7 +1022,11 @@ func direct_bytes_TrimLeftFunc(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].Interface().(func(rune) bool)
 	return value.MakeBytes([]byte(bytes.TrimLeftFunc(a0, a1)))
@@ -761,13 +1037,21 @@ func direct_bytes_TrimPrefix(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(bytes.TrimPrefix(a0, a1)))
 }
@@ -777,7 +1061,11 @@ func direct_bytes_TrimRight(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].String()
 	return value.MakeBytes([]byte(bytes.TrimRight(a0, a1)))
@@ -788,7 +1076,11 @@ func direct_bytes_TrimRightFunc(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].Interface().(func(rune) bool)
 	return value.MakeBytes([]byte(bytes.TrimRightFunc(a0, a1)))
@@ -799,7 +1091,11 @@ func direct_bytes_TrimSpace(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(bytes.TrimSpace(a0)))
 }
@@ -809,13 +1105,21 @@ func direct_bytes_TrimSuffix(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(bytes.TrimSuffix(a0, a1)))
 }
@@ -864,7 +1168,11 @@ func direct_method_bytes_Buffer_Read(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := recv.Read(a0)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
@@ -887,7 +1195,7 @@ func direct_method_bytes_Buffer_ReadFrom(args []value.Value) value.Value {
 	recv := args[0].Interface().(*bytes.Buffer)
 	a0 := args[1].Interface().(io.Reader)
 	r0, r1 := recv.ReadFrom(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_bytes_Buffer_ReadRune(args []value.Value) value.Value {
@@ -937,7 +1245,11 @@ func direct_method_bytes_Buffer_Write(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := recv.Write(a0)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
@@ -967,7 +1279,7 @@ func direct_method_bytes_Buffer_WriteTo(args []value.Value) value.Value {
 	recv := args[0].Interface().(*bytes.Buffer)
 	a0 := args[1].Interface().(io.Writer)
 	r0, r1 := recv.WriteTo(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_bytes_Reader_Len(args []value.Value) value.Value {
@@ -981,7 +1293,11 @@ func direct_method_bytes_Reader_Read(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := recv.Read(a0)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
@@ -993,7 +1309,11 @@ func direct_method_bytes_Reader_ReadAt(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[2].Int()
 	r0, r1 := recv.ReadAt(a0, a1)
@@ -1018,7 +1338,11 @@ func direct_method_bytes_Reader_Reset(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	recv.Reset(a0)
 	return value.MakeNil()
@@ -1029,12 +1353,12 @@ func direct_method_bytes_Reader_Seek(args []value.Value) value.Value {
 	a0 := args[1].Int()
 	a1 := int(args[2].Int())
 	r0, r1 := recv.Seek(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_bytes_Reader_Size(args []value.Value) value.Value {
 	recv := args[0].Interface().(*bytes.Reader)
-	return value.MakeInt(int64(recv.Size()))
+	return value.MakeInt64(recv.Size())
 }
 
 func direct_method_bytes_Reader_UnreadByte(args []value.Value) value.Value {
@@ -1051,5 +1375,5 @@ func direct_method_bytes_Reader_WriteTo(args []value.Value) value.Value {
 	recv := args[0].Interface().(*bytes.Reader)
 	a0 := args[1].Interface().(io.Writer)
 	r0, r1 := recv.WriteTo(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }

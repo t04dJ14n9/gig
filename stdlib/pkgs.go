@@ -47,11 +47,9 @@ import (
 	_ "encoding/base64"
 	_ "encoding/binary"
 	_ "encoding/csv"
-	_ "encoding/gob"
 	_ "encoding/hex"
 	_ "encoding/json"
 	_ "encoding/pem"
-	_ "encoding/xml"
 
 	// --- Error handling ---
 	_ "errors"

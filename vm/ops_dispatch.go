@@ -1,38 +1,36 @@
+// ops_dispatch.go routes opcodes: executeOp dispatches to category-specific handlers.
 package vm
 
 import (
 	"go/types"
 	"reflect"
 
-	"github.com/t04dJ14n9/gig/bytecode"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 // executeOp executes a single bytecode instruction.
 // It routes to category-specific handlers for each opcode group.
+// Note: hot-path opcodes (arithmetic, comparisons, stack ops, jumps, returns,
+// calls) are inlined in run.go and never reach this dispatcher.
 func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error {
 	switch op {
-	// Arithmetic & comparisons
-	case bytecode.OpAdd, bytecode.OpSub, bytecode.OpMul, bytecode.OpDiv, bytecode.OpMod,
-		bytecode.OpNeg, bytecode.OpAnd, bytecode.OpOr, bytecode.OpXor, bytecode.OpAndNot,
-		bytecode.OpLsh, bytecode.OpRsh,
-		bytecode.OpEqual, bytecode.OpNotEqual, bytecode.OpLess, bytecode.OpLessEq,
-		bytecode.OpGreater, bytecode.OpGreaterEq, bytecode.OpNot:
+	// Non-hot-path arithmetic & bitwise
+	case bytecode.OpDiv, bytecode.OpMod,
+		bytecode.OpNeg, bytecode.OpReal, bytecode.OpImag, bytecode.OpComplex,
+		bytecode.OpAnd, bytecode.OpOr, bytecode.OpXor, bytecode.OpAndNot,
+		bytecode.OpLsh, bytecode.OpRsh:
 		return v.executeArithmetic(op, frame)
 
-	// Memory & stack
-	case bytecode.OpNop, bytecode.OpPop, bytecode.OpDup,
-		bytecode.OpConst, bytecode.OpNil, bytecode.OpTrue, bytecode.OpFalse,
-		bytecode.OpLocal, bytecode.OpSetLocal, bytecode.OpGlobal, bytecode.OpSetGlobal,
+	// Memory: globals, free vars, fields, addresses, new
+	case bytecode.OpGlobal, bytecode.OpSetGlobal,
 		bytecode.OpFree, bytecode.OpSetFree,
 		bytecode.OpField, bytecode.OpSetField, bytecode.OpAddr, bytecode.OpFieldAddr, bytecode.OpIndexAddr,
-		bytecode.OpDeref, bytecode.OpSetDeref,
-		bytecode.OpNew, bytecode.OpMake:
+		bytecode.OpDeref, bytecode.OpSetDeref, bytecode.OpNew, bytecode.OpMake:
 		return v.executeMemory(op, frame)
 
-	// Calls & closures
-	case bytecode.OpCall, bytecode.OpCallExternal, bytecode.OpCallIndirect,
-		bytecode.OpClosure, bytecode.OpGoCall, bytecode.OpGoCallIndirect,
+	// Closures & goroutines
+	case bytecode.OpClosure, bytecode.OpGoCall, bytecode.OpGoCallIndirect,
 		bytecode.OpPack, bytecode.OpUnpack:
 		return v.executeCall(op, frame)
 
@@ -48,7 +46,7 @@ func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error {
 	case bytecode.OpAssert, bytecode.OpConvert, bytecode.OpChangeType:
 		return v.executeConvert(op, frame)
 
-	// Control flow, channels, defer, panic, print, halt
+	// Channels, defer, panic, print, halt
 	default:
 		return v.executeControl(op, frame)
 	}
@@ -189,31 +187,15 @@ func kindMatchesType(k value.Kind, t types.Type) bool {
 func sameReflectKindFamily(a, b reflect.Type) bool {
 	ak, bk := a.Kind(), b.Kind()
 	switch {
-	case isSignedInt(ak) && isSignedInt(bk):
+	case (ak >= reflect.Int && ak <= reflect.Int64) && (bk >= reflect.Int && bk <= reflect.Int64):
 		return true
-	case isUnsignedInt(ak) && isUnsignedInt(bk):
+	case (ak >= reflect.Uint && ak <= reflect.Uintptr) && (bk >= reflect.Uint && bk <= reflect.Uintptr):
 		return true
-	case isFloat(ak) && isFloat(bk):
+	case (ak == reflect.Float32 || ak == reflect.Float64) && (bk == reflect.Float32 || bk == reflect.Float64):
 		return true
-	case isComplex(ak) && isComplex(bk):
+	case (ak == reflect.Complex64 || ak == reflect.Complex128) && (bk == reflect.Complex64 || bk == reflect.Complex128):
 		return true
 	default:
 		return false
 	}
-}
-
-func isSignedInt(k reflect.Kind) bool {
-	return k >= reflect.Int && k <= reflect.Int64
-}
-
-func isUnsignedInt(k reflect.Kind) bool {
-	return k >= reflect.Uint && k <= reflect.Uintptr
-}
-
-func isFloat(k reflect.Kind) bool {
-	return k == reflect.Float32 || k == reflect.Float64
-}
-
-func isComplex(k reflect.Kind) bool {
-	return k == reflect.Complex64 || k == reflect.Complex128
 }

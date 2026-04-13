@@ -86,6 +86,7 @@ gig init -package mydep
 ```
 
 这将创建：
+
 ```
 mydep/
 └── pkgs.go    # 编辑此文件以添加/移除包
@@ -118,6 +119,7 @@ gig gen ./mydep
 ```
 
 这将生成：
+
 ```
 mydep/
 ├── pkgs.go
@@ -174,10 +176,10 @@ result, err := prog.RunWithContext(ctx context.Context, funcName string, args ..
 ### 注册包（高级）
 
 ```go
-import "github.com/t04dJ14n9/gig/register"
+import "github.com/t04dJ14n9/gig/importer"
 
 // 手动注册包（通常通过生成的代码完成）
-pkg := register.RegisterPackage("mypkg", "mypkg")
+pkg := importer.RegisterPackage("mypkg", "mypkg")
 pkg.AddFunction("MyFunc", MyFunc, "", directCall_MyFunc)
 pkg.AddConstant("MyConst", MyConst, "")
 pkg.AddVariable("MyVar", &MyVar, "")
@@ -225,6 +227,7 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 - ✅ 函数和递归
 - ✅ 多返回值
 - ✅ 闭包
+- ✅ Defer、Panic 和 Recover
 - ✅ 字符串操作
 - ✅ 切片和数组
 - ✅ 映射（Map）
@@ -238,81 +241,125 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 
 在同一台机器上使用相同算法，对比 **Gig**、**Yaegi**（Go 解释器）、**GopherLua**（Lua 解释器）和 **原生 Go** 的真实基准测试。
 
-> **测试环境**：AMD EPYC 9754 128 核, 32 线程, Linux amd64, Go 1.23.1  
-> 使用 `-count=5` 配合 `benchstat` 统计分析。源码：[`benchmarks/bench_test.go`](benchmarks/bench_test.go)
+> **测试环境**：AMD EPYC 9754 128 核, 32 线程, Linux amd64, Go 1.23.1
+> 使用 `-count=3` 运行。源码：[`benchmarks/bench_test.go`](benchmarks/bench_test.go), [`benchmarks/stress_test.go`](benchmarks/stress_test.go)
 
 ### 核心工作负载 (Gig vs Yaegi vs GopherLua vs 原生 Go)
 
-| 工作负载 | 原生 Go | Gig | Yaegi | GopherLua | Gig vs Yaegi |
-|---|---:|---:|---:|---:|---:|
-| **Fibonacci(25)** 递归 | 449 μs | **20.1 ms** | 109 ms | 6.8 ms | **Gig 快 5.4 倍** |
-| **ArithmeticSum(1K)** 循环 | 333 ns | **35.4 μs** | 40.9 μs | 18 μs | **Gig 快 1.2 倍** |
-| **BubbleSort(100)** 嵌套循环 | 6.2 μs | **927 μs** | 1.23 ms | 278 μs | **Gig 快 1.3 倍** |
-| **Sieve(1000)** 质数筛 | 1.88 μs | **192 μs** | 205 μs | 172 μs | **Gig 快 1.1 倍** |
-| **ClosureCalls(1K)** 闭包调用 | 661 ns | **320 μs** | 1 ms | 156 μs | **Gig 快 3.1 倍** |
+| 工作负载                      | 原生 Go |         Gig |      Yaegi |  GopherLua |      Gig vs Yaegi |
+| ----------------------------- | ------: | ----------: | ---------: | ---------: | ----------------: |
+| **Fibonacci(25)** 递归        |  449 μs | **23.9 ms** |   101.7 ms |   24.3 ms | **Gig 快 4.3 倍** |
+| **ArithmeticSum(1K)** 循环    |  663 ns | **74.0 μs** |    40.4 μs |    37.4 μs |    Yaegi 快 1.8 倍 |
+| **BubbleSort(100)** 嵌套循环  |  6.3 μs | **966.4 μs** | 1,242.4 μs |   775.9 μs | **Gig 快 1.3 倍** |
+| **Sieve(1000)** 质数筛        |  1.8 μs | **273.7 μs** |   202.3 μs |   203.7 μs |    Yaegi 快 1.4 倍 |
+| **ClosureCalls(1K)** 闭包调用 |  339 ns | **336.1 μs** |   935.2 μs |   118.6 μs | **Gig 快 2.8 倍** |
 
 ### 外部函数调用 (Gig vs Yaegi vs 原生 Go)
 
 从解释代码调用 Go 标准库函数 —— 最常见的实际使用场景：
 
-| 工作负载 | 原生 Go | Gig | Yaegi | Gig vs Yaegi |
-|---|---:|---:|---:|---:|
-| **DirectCall** (strings/strconv) | 27.9 μs | **553 μs** | 1,551 μs | **Gig 快 2.8 倍** |
-| **Reflect** (fmt/encoding) | 24.1 μs | **356 μs** | 1,001 μs | **Gig 快 2.8 倍** |
-| **Method** (Builder/Buffer/Regexp) | 18.4 μs | **450 μs** | 1,214 μs | **Gig 快 2.7 倍** |
-| **Mixed** (函数 + 方法) | 11.5 μs | **321 μs** | 846 μs | **Gig 快 2.6 倍** |
+| 工作负载                           | 原生 Go |        Gig |      Yaegi |      Gig vs Yaegi |
+| ---------------------------------- | ------: | ---------: | ---------: | ----------------: |
+| **DirectCall** (strings/strconv)   | 26.8 μs | **532.8 μs** | 1,472.5 μs | **Gig 快 2.8 倍** |
+| **Reflect** (fmt/encoding)         | 22.4 μs | **356.2 μs** |   966.6 μs | **Gig 快 2.7 倍** |
+| **Method** (Builder/Buffer/Regexp) | 17.2 μs | **432.0 μs** | 1,165.1 μs | **Gig 快 2.7 倍** |
+| **Mixed** (函数 + 方法)            | 11.1 μs | **304.6 μs** |   824.6 μs | **Gig 快 2.7 倍** |
 
 ### 内存效率
 
-| 工作负载 | Gig 分配次数/op | Yaegi 分配次数/op | Gig 优势 |
-|---|---:|---:|---:|
-| Fibonacci(25) | **7** | 2,138,703 | 少 305,529 倍 |
-| BubbleSort(100) | **9** | 5,085 | 少 565 倍 |
-| Sieve(1000) | **7** | 43 | 少 6 倍 |
-| ExtCallMethod | **6,906** | 13,916 | 少 2.0 倍 |
-| ExtCallMixed | **4,258** | 9,125 | 少 2.1 倍 |
+| 工作负载        | Gig 分配次数/op | Yaegi 分配次数/op |      Gig 优势 |
+| --------------- | --------------: | ----------------: | ------------: |
+| Fibonacci(25)   |           **7** |         2,138,705 | 少 305,529 倍 |
+| BubbleSort(100) |           **9** |             5,085 |     少 565 倍 |
+| Sieve(1000)     |           **7** |                43 |       少 6 倍 |
+| ExtCallMethod   |       **6,906** |            13,916 |     少 2.0 倍 |
+| ExtCallMixed    |       **4,258** |             9,125 |     少 2.1 倍 |
+
+### 并发压力测试
+
+使用真实规则引擎工作负载（字符串处理 + 数学运算 + 条件逻辑 + stdlib 调用），3 轮取中位数，每轮持续 3 秒：
+
+**Gig（32 核 AMD EPYC 9754，优化后 VMPool）：**
+
+| 并发度     | 吞吐量              | 平均延迟    | 错误数 | 堆分配     | GC 次数 |
+| ---------: | ------------------: | ----------: | -----: | ---------: | ------: |
+|          1 |     **443K ops/s** |      2.3 μs |      0 |  ~1,159 MB |     169 |
+|         10 |   **2,181K ops/s** |      4.6 μs |      0 |  ~5,625 MB |     719 |
+|        100 |   **3,239K ops/s** |     30.9 μs |      0 |  ~8,360 MB |     433 |
+|        500 |   **3,907K ops/s** |    128.0 μs |      0 | ~10,147 MB |     287 |
+|      1,000 |   **4,172K ops/s** |    239.7 μs |      0 | ~10,868 MB |     236 |
+|      2,000 |   **4,418K ops/s** |    452.7 μs |      0 | ~11,435 MB |     140 |
+|      5,000 |   **4,757K ops/s** |  1,051.2 μs |      0 | ~12,492 MB |      79 |
+|     10,000 |   **4,778K ops/s** |  2,092.9 μs |      0 | ~12,672 MB |      54 |
+
+**Native Go 基线（相同工作负载）：**
+
+| 并发度     | 吞吐量           | 平均延迟    | 堆分配     | GC 次数 |
+| ---------: | ---------------: | ----------: | ---------: | ------: |
+|          1 |    6,377K ops/s |      0.2 μs |    ~900 MB |      89 |
+|        100 |   31,381K ops/s |      3.2 μs |  ~4,320 MB |     243 |
+|      1,000 |   31,679K ops/s |     31.6 μs |  ~4,353 MB |     217 |
+|     10,000 |   29,776K ops/s |    335.8 μs |  ~4,375 MB |     152 |
+
+**吞吐量比值（Native / Gig）：** 单核 14.4x → 10K 并发 6.2x
+
+**关键发现**：
+- **零错误**：10,000 个并发 goroutine，3 轮测试，0 错误
+- **并发扩展性良好**：吞吐量从 1G 的 443K 增长到 10000G 的 4,778K（10.8 倍提升）
+- **与 Native 差距收窄**：随并发增加，差距从 14.4x 降至 6.2x
+- **GC 友好**：高并发时 GC 次数随并发增加反而降低（内存分配压力分散）
 
 ### 分析
 
-**Gig 在全部 9 项基准测试中均优于 Yaegi**，优势从 1.1 倍到 5.4 倍：
+**Gig 在 3/5 项核心基准测试中优于 Yaegi**：
 
-- **递归快 5.4 倍**（Fib25）—— O(1) 函数查找、帧池化，仅 7 次分配 vs 210 万次
-- **外部调用快 2.6–2.8 倍** —— 1,162 个生成的 DirectCall 包装器消除了 92% 标准库函数和方法的 `reflect.Value.Call()`
-- **紧凑循环快 1.1–1.3 倍**（ArithSum、BubbleSort、Sieve）—— 整数特化 `int64` 局部变量和融合超级指令
-- **闭包快 3.1 倍** —— 高效的闭包表示，通过共享 `*value.Value` 捕获变量
+- **递归快 4.2 倍**（Fib25）—— O(1) 函数查找、帧池化，仅 7 次分配 vs 210 万次
+- **外部调用快 2.7–2.8 倍** —— 1,162 个生成的 DirectCall 包装器消除了 92% 标准库函数和方法的 `reflect.Value.Call()`
+- **闭包快 2.7 倍** —— 高效的闭包表示，通过共享 `*value.Value` 捕获变量
+- **排序快 1.3 倍**（BubbleSort）—— 优化的切片操作和循环
+- **紧凑循环**（ArithSum、Sieve）—— Yaegi 快 1.3-1.8 倍；Gig 的字节码解释开销在极短循环中更明显
 
-**GopherLua vs Gig**：GopherLua 在核心工作负载上快 2-4 倍，因为 Lua 是更简单的动态类型语言，针对这些模式进行了优化。但是：
+**GopherLua vs Gig**：GopherLua 在纯数值循环上接近 Gig，但是：
 
 - **GopherLua 需要手动注册函数** —— 每个 Go 函数都需要单独包装和注册；无法直接导入包
 - **没有 Goroutine/Channel** —— Lua 有协程，但不是 Go 的 CSP 并发模型
 - **没有结构体/接口/方法** —— Lua 使用表（table），不是 Go 的类型系统
 - **不同的语法** —— 团队需要学习 Lua；Gig 使用熟悉的 Go 语法
 
-关键优化：SSA 到字节码编译、32 字节 tagged-union 值、超级指令融合（17 种模式）、`intLocals []int64` 特化、`[]int64` 切片融合、DirectCall 代码生成、帧池化和内联缓存。
+关键优化：SSA 到字节码编译、32 字节 tagged-union 值、超级指令融合（17 种模式）、`intLocals []int64` 特化、`[]int64` 切片融合、DirectCall 代码生成、帧池化和内联缓存、**lock-free VMPool（sync.Pool，吞吐量提升 50%）**。
 
 **为什么选择 Gig：**
 
-| | Gig | Yaegi | GopherLua | Expr |
-|---|---|---|---|---|
-| **语言** | Go | Go | Lua | 表达式 DSL |
-| **完整 Go 语法** | ✅ | ✅ | ❌ | ❌ |
-| **Goroutine/Channel** | ✅ | ✅ | ❌ | ❌ |
-| **安全沙箱** | ✅（禁止 unsafe/reflect/panic） | ❌ | ❌ | ✅ |
-| **结构体/接口/方法** | ✅ | ✅ | ❌ | 有限 |
-| **40+ 标准库包** | ✅ | ✅ | 需手动注册 | N/A |
-| **自定义 Go 包导入** | ✅（代码生成） | ✅（符号表） | 需手动包装 | N/A |
-| **Context 取消** | ✅ | ❌ | ❌ | ❌ |
-| **可嵌入** | ✅ | ✅ | ✅ | ✅ |
+|                       | Gig                             | Yaegi        | GopherLua  | Expr       |
+| --------------------- | ------------------------------- | ------------ | ---------- | ---------- |
+| **语言**              | Go                              | Go           | Lua        | 表达式 DSL |
+| **完整 Go 语法**      | ✅                              | ✅           | ❌         | ❌         |
+| **Goroutine/Channel** | ✅                              | ✅           | ❌         | ❌         |
+| **Defer/Panic/Recover** | ✅                            | ✅           | ❌         | ❌         |
+| **安全沙箱**          | ✅（禁止 unsafe/reflect/panic） | ❌           | ❌         | ✅         |
+| **结构体/接口/方法**  | ✅                              | ✅           | ❌         | 有限       |
+| **40+ 标准库包**      | ✅                              | ✅           | 需手动注册 | N/A        |
+| **自定义 Go 包导入**  | ✅（代码生成）                  | ✅（符号表） | 需手动包装 | N/A        |
+| **Context 取消**      | ✅                              | ❌           | ❌         | ❌         |
+| **并发压力测试**      | ✅（10KG, 115万/秒, 0 错误）  | 未测试       | 未测试     | 未测试     |
+| **可嵌入**            | ✅                              | ✅           | ✅         | ✅         |
 
 **复现这些基准测试：**
+
 ```bash
 cd benchmarks
-go test -bench=. -benchmem -count=5 -timeout=30m -run='^$'
+# 单线程基准测试
+go test -bench='^Benchmark(Gig|Yaegi|Lua|Native|Expr)' -benchmem -count=3 -timeout=30m -run='^$'
+# 并发压力测试
+go test -bench='BenchmarkStress' -benchmem -count=3 -timeout=10m -run='^$'
+# 持续吞吐量测试
+go test -run='TestStress_Gig_Sustained5s' -v -timeout=5m
 ```
 
 ## 安全性
 
 Gig 通过禁止某些导入来强制安全性：
+
 - `unsafe` - 内存安全
 - `reflect` - 类型安全
 - `panic` 使用 - 受控执行
@@ -328,30 +375,30 @@ flowchart TB
     subgraph Input["📥 输入"]
         SRC["Go 源代码"]
     end
-    
+
     subgraph Frontend["🔍 前端"]
         PARSER["go/parser<br/>AST 生成"]
         TYPECHECK["go/types<br/>类型检查"]
         SSA["golang.org/x/tools/go/ssa<br/>SSA IR 生成"]
     end
-    
+
     subgraph Compiler["⚙️ 编译器"]
-        COMP["SSA → 字节码<br/>~70 操作码"]
+        COMP["SSA → 字节码<br/>~100 操作码"]
         CONST["常量池"]
         TYPES["类型池"]
         FUNCS["函数注册表"]
     end
-    
+
     subgraph Runtime["🚀 运行时"]
         VM["基于栈的虚拟机"]
         VALUE["Tagged-Union<br/>值系统"]
         EXT["外部包<br/>注册表"]
     end
-    
+
     subgraph Output["📤 输出"]
         RESULT["结果<br/>(interface{})"]
     end
-    
+
     SRC --> PARSER
     PARSER --> TYPECHECK
     TYPECHECK --> SSA
@@ -376,19 +423,19 @@ flowchart LR
         UC["gig.Build(source)"]
         UR["prog.Run(func, args...)"]
     end
-    
+
     subgraph "gig.go [入口点]"
         BUILD["Build()"]
         SECURITY["安全检查<br/>(unsafe, reflect, panic)"]
         RUN["Run() / RunWithContext()"]
     end
-    
+
     subgraph "前端流水线"
         PARSE["解析器<br/>go/parser"]
         TC["类型检查器<br/>go/types"]
         SSABUILD["SSA 构建器<br/>golang.org/x/tools/go/ssa"]
     end
-    
+
     subgraph "compiler/ [编译器]"
         COMPILER["编译器"]
         SYMTAP["符号表"]
@@ -400,37 +447,37 @@ flowchart LR
             CTYPES["Types[]"]
         end
     end
-    
+
     subgraph "vm/ [虚拟机]"
         VM["VM"]
         STACK["栈<br/>(Value[])"]
         FRAMES["调用帧"]
-        OPS["操作码处理器<br/>(~70 ops)"]
+        OPS["操作码处理器<br/>(~100 ops)"]
     end
-    
+
     subgraph "value/ [值系统]"
         VAL["Value (tagged-union)"]
         PRIM["基本类型<br/>(int, float, string, bool)"]
         REF["反射回退<br/>(复杂类型)"]
     end
-    
+
     subgraph "importer/ [包系统]"
         IMP["导入器<br/>(types.Importer)"]
         REG["包注册表"]
         EXTTYPE["ExternalPackage"]
     end
-    
+
     subgraph "register/ [公开 API]"
         REGAPI["AddPackage()"]
         REGFUNC["NewFunction()"]
         REGVAR["NewVar()"]
         REGCONST["NewConst()"]
     end
-    
+
     subgraph "packages/ [标准库]"
         STDLIB["40+ 包<br/>(fmt, strings, math, ...)"]
     end
-    
+
     UC --> BUILD
     BUILD --> SECURITY
     SECURITY --> PARSE
@@ -443,7 +490,7 @@ flowchart LR
     PROG --> CFUNC
     PROG --> CCONST
     PROG --> CTYPES
-    
+
     UR --> RUN
     RUN --> VM
     VM --> STACK
@@ -452,16 +499,16 @@ flowchart LR
     OPS --> VAL
     VAL --> PRIM
     VAL --> REF
-    
+
     TC --> IMP
     IMP --> REG
     REG --> EXTTYPE
-    
+
     REGAPI --> REG
     REGFUNC --> EXTTYPE
     REGVAR --> EXTTYPE
     REGCONST --> EXTTYPE
-    
+
     STDLIB --> REG
 ```
 
@@ -476,7 +523,7 @@ sequenceDiagram
     participant VM as 虚拟机
     participant Value as 值系统
     participant Ext as 外部包
-    
+
     User->>Gig: Build(source)
     Gig->>Frontend: Parse(source)
     Frontend-->>Gig: AST
@@ -489,7 +536,7 @@ sequenceDiagram
     Gig->>Comp: Compile(SSA)
     Comp-->>Gig: Program{Functions, Constants, Types}
     Gig-->>User: *Program
-    
+
     User->>Gig: Run(funcName, args)
     Gig->>Value: FromInterface(args)
     Value-->>Gig: []Value
@@ -511,40 +558,40 @@ flowchart TB
     subgraph Input
         SRC["Go 源码"]
     end
-    
+
     subgraph "阶段 1: 解析"
         P1["词法/语法分析器<br/>go/parser"]
         AST["抽象语法树"]
     end
-    
+
     subgraph "阶段 2: 类型检查"
         P2["类型检查器<br/>go/types"]
         TCINFO["types.Info<br/>(Types, Defs, Uses, Scopes)"]
         PKG["types.Package"]
     end
-    
+
     subgraph "阶段 3: SSA 生成"
         P3["SSA 构建器<br/>golang.org/x/tools/go/ssa"]
         SSAFN["ssa.Function"]
         SSABLK["ssa.BasicBlock"]
         SSAINST["ssa.Instruction"]
     end
-    
+
     subgraph "阶段 4: 字节码编译"
         P4["编译器"]
         SYM["符号表<br/>(Value → Local Slot)"]
         PHI["Phi 消除"]
         JMP["跳转修补"]
     end
-    
+
     subgraph Output
         PROG["Program"]
         FN["CompiledFunction"]
-        CODE["字节码<br/>(~70 opcodes)"]
+        CODE["字节码<br/>(~100 opcodes)"]
         CONSTPOOL["常量池"]
         TYPEPOOL["类型池"]
     end
-    
+
     SRC --> P1 --> AST
     AST --> P2 --> TCINFO --> PKG
     PKG --> P3 --> SSAFN --> SSABLK --> SSAINST
@@ -568,7 +615,7 @@ flowchart TB
             FP["帧指针"]
             GLOBALS["全局变量"]
         end
-        
+
         subgraph Frame["调用帧"]
             FN["函数"]
             IP["指令指针"]
@@ -576,7 +623,7 @@ flowchart TB
             FREE["自由变量[]"]
             DEFER["延迟调用"]
         end
-        
+
         subgraph Execution["执行循环"]
             FETCH["取操作码"]
             DECODE["解码操作数"]
@@ -584,7 +631,7 @@ flowchart TB
             CHECK["上下文检查<br/>(每 1024 条指令)"]
         end
     end
-    
+
     subgraph Opcodes["操作码类别"]
         STACK_OP["栈操作<br/>(Push, Pop, Dup)"]
         ARITH["算术<br/>(Add, Sub, Mul, Div)"]
@@ -594,7 +641,7 @@ flowchart TB
         FUNC["函数<br/>(Closure, CallExternal)"]
         BUILTIN["内置<br/>(Len, Append, Make)"]
     end
-    
+
     STACK --> FETCH --> DECODE --> EXEC --> CHECK --> FETCH
     EXEC --> STACK_OP
     EXEC --> ARITH
@@ -603,7 +650,7 @@ flowchart TB
     EXEC --> CONTAINER
     EXEC --> FUNC
     EXEC --> BUILTIN
-    
+
     FRAMES --> Frame
     Frame --> LOCALS --> STACK
 ```
@@ -619,12 +666,12 @@ flowchart LR
         STR["str (string)"]
         OBJ["obj (any)"]
     end
-    
+
     subgraph Kinds["值类型"]
         PRIM["基本类型<br/>(零分配)"]
         COMP["复合类型<br/>(反射回退)"]
     end
-    
+
     subgraph Primitives["基本类型快速路径"]
         BOOL["KindBool<br/>num: 0|1"]
         INT["KindInt<br/>num: int64"]
@@ -633,7 +680,7 @@ flowchart LR
         STRV["KindString<br/>str: string"]
         CPLX["KindComplex<br/>num+num2: 实部+虚部"]
     end
-    
+
     subgraph Composite["复合类型慢速路径"]
         SLICE["KindSlice/Array<br/>obj: reflect.Value"]
         MAP["KindMap<br/>obj: reflect.Value"]
@@ -642,7 +689,7 @@ flowchart LR
         IFACE["KindInterface<br/>obj: interface{}"]
         REFLECT["KindReflect<br/>obj: reflect.Value"]
     end
-    
+
     KIND --> Kinds
     Kinds --> PRIM
     Kinds --> COMP
@@ -660,14 +707,14 @@ flowchart TB
         GEN["gig gen"]
         GENERATED["packages/*.go<br/>(生成的)"]
     end
-    
+
     subgraph Runtime["运行时集成"]
         REG["包注册表"]
         IMPORT["导入器<br/>(types.Importer)"]
         TYPECONV["类型转换器<br/>(reflect.Type → types.Type)"]
         METHOD["方法内省<br/>(addMethodsToNamed)"]
     end
-    
+
     subgraph Execution["VM 执行"]
         CALL["OpCallExternal"]
         CACHE["内联缓存"]
@@ -675,11 +722,11 @@ flowchart TB
         REFLECT["reflect.Call<br/>(慢速路径)"]
         METHODCALL["方法分发<br/>(MethodByName)"]
     end
-    
+
     CLI --> PKGS --> GEN --> GENERATED
     GENERATED --> REG
     REG --> IMPORT --> TYPECONV --> METHOD
-    
+
     IMPORT --> CALL
     CALL --> CACHE
     CACHE --> DIRECT
@@ -691,16 +738,18 @@ flowchart TB
 
 ### 组件概览
 
-| 组件 | 包 | 用途 |
-|------|-----|------|
-| **入口点** | `gig.go` | 公开 API：`Build()`、`Run()`、`RunWithContext()` |
-| **编译器** | `compiler/` | SSA 到字节码编译（~70 操作码） |
-| **虚拟机** | `vm/` | 基于栈的字节码执行 |
-| **值系统** | `value/` | Tagged-union 值，基本类型零分配 |
-| **导入器** | `importer/` | 外部包类型解析 |
-| **注册器** | `register/` | 包注册公开 API |
-| **标准库包** | `packages/` | 40+ 预注册标准库包 |
-| **CLI** | `cmd/gig` | 代码生成工具 |
+| 组件         | 包                | 用途                                             |
+| ------------ | ----------------- | ------------------------------------------------ |
+| **入口点**   | `gig.go`          | 公开 API：`Build()`、`Run()`、`RunWithContext()` |
+| **编译器**   | `compiler/`       | SSA 到字节码编译（~100 操作码）                  |
+| **虚拟机**   | `vm/`             | 基于栈的字节码执行                               |
+| **值系统**   | `model/value/`    | Tagged-union 值，基本类型零分配                  |
+| **字节码**   | `model/bytecode/` | CompiledProgram、OpCode 定义                     |
+| **外部类型** | `model/external/` | ExternalFuncInfo、ExternalObject 等共享类型       |
+| **导入器**   | `importer/`       | 外部包注册、类型解析                             |
+| **运行器**   | `runner/`         | VM 池、init 执行、有状态/无状态模式              |
+| **标准库包** | `stdlib/packages/`| 40+ 预注册标准库包                               |
+| **CLI**      | `cmd/gig`         | 代码生成工具                                     |
 
 ### 关键设计决策
 
@@ -715,6 +764,37 @@ flowchart TB
 5. **默认安全**：在解释代码中禁止 `unsafe`、`reflect` 和 `panic`，实现受控执行。
 
 ## 更新日志
+
+### v0.4.0 - VMPool Performance Optimization
+
+**优化**：VMPool 从 mutex 实现改为 lock-free `sync.Pool`，显著提升并发性能。
+
+- **吞吐量提升 50%**：从 1.15M ops/s → 1.72M ops/s（并发 20 goroutines）
+- **内存减少 99.7%**：从 3 GB → 9 MB（高并发场景）
+- **无锁竞争**：`sync.Pool` 使用 per-P 本地缓存，完全消除 mutex 竞争
+- **无内存泄漏**：长时间压力测试（10 分钟）验证，堆增长 < 5 MB
+- **基准测试验证**：
+  - VMPool 并发：146.6 ns/op
+  - VMPool 串行：1428 ns/op
+  - 10 并发 goroutines：355.4 μs/op
+
+**技术细节**：
+- 移除 `sync.Mutex` + `[]*vm` 实现
+- 采用 `sync.Pool` 的 lock-free 设计
+- GC 友好：未使用的 VM 自动回收
+- 特别适合高并发场景（20+ goroutines）
+
+### v0.3.0 - Fmt Sanitization Integration
+
+**改进**：`fmt` 包的参数清理逻辑现已完全集成到生成的代码中。
+
+此前，`fmt.Sprintf` 等函数在打印 Gig 结构体时会输出冗长的内部表示。此问题通过在生成的 `fmt.go` 中嵌入参数清理辅助函数（`sanitizeArgForFmt`、`sprintfWithTypeAwareness` 等）解决：
+
+- **`gentool/directcall.go`**：新增 `fmtSanitizeHelperCode()` 函数，返回参数清理辅助代码的 Go 源码字符串
+- **`gentool/generator.go`**：在生成 `fmt` 包时，将辅助代码嵌入到生成的文件中
+- **删除 `fmt_sanitize.go`**：不再需要单独维护的支持文件，所有代码均由 `gig gen` 生成
+
+现在 `fmt.go` 是一个完全生成的、自包含的文件，包含 DirectCall 包装器和参数清理辅助函数。
 
 ### v0.2.0 - 外部类型方法支持
 

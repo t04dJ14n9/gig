@@ -498,10 +498,11 @@ linters:
       - path: tests/.*\.go$
         linters:
           - gci
-      # Exclude gci for stdlib
+      # Exclude gci and goimports for stdlib (intentional comment groupings)
       - path: stdlib/.*\.go$
         linters:
           - gci
+          - goimports
       # Exclude gocritic for specific checks
       - linters:
           - gocritic
@@ -535,8 +536,8 @@ linters:
       - path: (.+)\.go$
         linters:
           - reassign
-      # Exclude unparam
-      - path: (.+)\.go$
+      # Exclude unparam for generated stdlib packages
+      - path: packages/.*\.go
         linters:
           - unparam
 

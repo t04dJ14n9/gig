@@ -5,7 +5,7 @@ import (
 	unicode_utf8 "unicode/utf8"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {

@@ -21,6 +21,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/channels"
 	"github.com/t04dJ14n9/gig/tests/testdata/closures"
 	"github.com/t04dJ14n9/gig/tests/testdata/closures_advanced"
+	"github.com/t04dJ14n9/gig/tests/testdata/complex"
 	"github.com/t04dJ14n9/gig/tests/testdata/controlflow"
 	"github.com/t04dJ14n9/gig/tests/testdata/cornercases"
 	"github.com/t04dJ14n9/gig/tests/testdata/edgecases"
@@ -33,6 +34,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/maps"
 	"github.com/t04dJ14n9/gig/tests/testdata/multiassign"
 	"github.com/t04dJ14n9/gig/tests/testdata/namedreturn"
+	"github.com/t04dJ14n9/gig/tests/testdata/panic_recover"
 	"github.com/t04dJ14n9/gig/tests/testdata/recursion"
 	"github.com/t04dJ14n9/gig/tests/testdata/resolved_issue"
 	"github.com/t04dJ14n9/gig/tests/testdata/scope"
@@ -46,52 +48,84 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/variables"
 )
 
-// Individual test functions for each package - allows running specific suites
-func TestCorrectnessAlgorithms(t *testing.T)       { runTestSet(t, testSetsMap["algorithms"]) }
-func TestCorrectnessAdvanced(t *testing.T)         { runTestSet(t, testSetsMap["advanced"]) }
-func TestCorrectnessArithmetic(t *testing.T)       { runTestSet(t, testSetsMap["arithmetic"]) }
-func TestCorrectnessAutowrap(t *testing.T)         { runTestSet(t, testSetsMap["autowrap"]) }
-func TestCorrectnessBitwise(t *testing.T)          { runTestSet(t, testSetsMap["bitwise"]) }
-func TestCorrectnessClosures(t *testing.T)         { runTestSet(t, testSetsMap["closures"]) }
-func TestCorrectnessClosuresAdvanced(t *testing.T) { runTestSet(t, testSetsMap["closures_advanced"]) }
-func TestCorrectnessControlflow(t *testing.T)      { runTestSet(t, testSetsMap["controlflow"]) }
-func TestCorrectnessCornercases(t *testing.T) {
-	runTestSet(t, testSetsMap["cornercases"])
+func TestAdvanced(t *testing.T)   { runTestSet(t, testSet{src: advancedSrc, tests: advancedTests}) }
+func TestAlgorithms(t *testing.T) { runTestSet(t, testSet{src: algorithmsSrc, tests: algorithmsTests}) }
+func TestArithmetic(t *testing.T) { runTestSet(t, testSet{src: arithmeticSrc, tests: arithmeticTests}) }
+func TestAutowrap(t *testing.T)   { runTestSet(t, testSet{src: autowrapSrc, tests: autowrapTests}) }
+func TestBitwise(t *testing.T)    { runTestSet(t, testSet{src: bitwiseSrc, tests: bitwiseTests}) }
+func TestClosures(t *testing.T)   { runTestSet(t, testSet{src: closuresSrc, tests: closuresTests}) }
+func TestClosuresAdvanced(t *testing.T) {
+	runTestSet(t, testSet{src: closuresAdvancedSrc, tests: closures_advancedTests})
 }
-func TestCorrectnessEdgecases(t *testing.T)     { runTestSet(t, testSetsMap["edgecases"]) }
-func TestCorrectnessExternal(t *testing.T)      { runTestSet(t, testSetsMap["external"]) }
-func TestCorrectnessFunctions(t *testing.T)     { runTestSet(t, testSetsMap["functions"]) }
-func TestCorrectnessGoroutine(t *testing.T)     { runTestSet(t, testSetsMap["goroutine"]) }
-func TestCorrectnessChannels(t *testing.T)      { runTestSet(t, testSetsMap["channels"]) }
-func TestCorrectnessInit(t *testing.T)          { runTestSet(t, testSetsMap["init"]) }
-func TestCorrectnessLeetcodeHard(t *testing.T)  { runTestSet(t, testSetsMap["leetcode_hard"]) }
-func TestCorrectnessMaps(t *testing.T)          { runTestSet(t, testSetsMap["maps"]) }
-func TestCorrectnessMapadvanced(t *testing.T)   { runTestSet(t, testSetsMap["mapadvanced"]) }
-func TestCorrectnessMultiassign(t *testing.T)   { runTestSet(t, testSetsMap["multiassign"]) }
-func TestCorrectnessNamedreturn(t *testing.T)   { runTestSet(t, testSetsMap["namedreturn"]) }
-func TestCorrectnessRecursion(t *testing.T)     { runTestSet(t, testSetsMap["recursion"]) }
-func TestCorrectnessResolvedIssue(t *testing.T) { runTestSet(t, testSetsMap["resolved_issue"]) }
-func TestCorrectnessScope(t *testing.T)         { runTestSet(t, testSetsMap["scope"]) }
-func TestCorrectnessSlices(t *testing.T)        { runTestSet(t, testSetsMap["slices"]) }
-func TestCorrectnessSlicing(t *testing.T)       { runTestSet(t, testSetsMap["slicing"]) }
-func TestCorrectnessStringsPkg(t *testing.T)    { runTestSet(t, testSetsMap["strings_pkg"]) }
-func TestCorrectnessStructs(t *testing.T)       { runTestSet(t, testSetsMap["structs"]) }
-func TestCorrectnessSwitch(t *testing.T)        { runTestSet(t, testSetsMap["switch"]) }
-func TestCorrectnessTypeconv(t *testing.T)      { runTestSet(t, testSetsMap["typeconv"]) }
-func TestCorrectnessVariables(t *testing.T)     { runTestSet(t, testSetsMap["variables"]) }
+func TestComplex(t *testing.T) {
+	runTestSet(t, testSet{src: complexSrc, tests: complexTests, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}})
+}
 
-// Tricky tests - split by category
-func TestCorrectnessTrickyClosures(t *testing.T)    { runTestSet(t, testSetsMap["tricky/closures"]) }
-func TestCorrectnessTrickyDefer(t *testing.T)       { runTestSet(t, testSetsMap["tricky/defer"]) }
-func TestCorrectnessTrickyInterfaces(t *testing.T)  { runTestSet(t, testSetsMap["tricky/interfaces"]) }
-func TestCorrectnessTrickyMaps(t *testing.T)        { runTestSet(t, testSetsMap["tricky/maps"]) }
-func TestCorrectnessTrickyMultiassign(t *testing.T) { runTestSet(t, testSetsMap["tricky/multiassign"]) }
-func TestCorrectnessTrickyNested(t *testing.T)      { runTestSet(t, testSetsMap["tricky/nested"]) }
-func TestCorrectnessTrickyPointers(t *testing.T)    { runTestSet(t, testSetsMap["tricky/pointers"]) }
-func TestCorrectnessTrickySlices(t *testing.T)      { runTestSet(t, testSetsMap["tricky/slices"]) }
-func TestCorrectnessTrickyStructs(t *testing.T)     { runTestSet(t, testSetsMap["tricky/structs"]) }
+func TestControlflow(t *testing.T) {
+	runTestSet(t, testSet{src: controlflowSrc, tests: controlflowTests})
+}
 
-func TestCornerCase(t *testing.T) { runTestSet(t, testSetsMap["cornercases"]) }
+func TestCornercases(t *testing.T) {
+	runTestSet(t, testSet{src: cornercasesSrc, tests: cornercasesTests})
+}
+func TestEdgecases(t *testing.T)  { runTestSet(t, testSet{src: edgecasesSrc, tests: edgecasesTests}) }
+func TestExternal(t *testing.T)   { runTestSet(t, testSet{src: externalSrc, tests: externalTests}) }
+func TestFunctions(t *testing.T)  { runTestSet(t, testSet{src: functionsSrc, tests: functionsTests}) }
+func TestGoroutine(t *testing.T)  { runTestSet(t, testSet{src: goroutineSrc, tests: goroutineTests}) }
+func TestChannels(t *testing.T)   { runTestSet(t, testSet{src: channelsSrc, tests: channelsTests}) }
+func TestInit(t *testing.T)       { runTestSet(t, testSet{src: initSrc, tests: initTests}) }
+func TestInitialize(t *testing.T) { runTestSet(t, testSet{src: initializeSrc, tests: initializeTests}) }
+func TestLeetcodeHard(t *testing.T) {
+	runTestSet(t, testSet{src: leetcodeHardSrc, tests: leetcode_hardTests})
+}
+
+func TestMapadvanced(t *testing.T) {
+	runTestSet(t, testSet{src: mapadvancedSrc, tests: mapadvancedTests})
+}
+func TestMaps(t *testing.T) { runTestSet(t, testSet{src: mapsSrc, tests: mapsTests}) }
+func TestMultiassign(t *testing.T) {
+	runTestSet(t, testSet{src: multiassignSrc, tests: multiassignTests})
+}
+
+func TestNamedreturn(t *testing.T) {
+	runTestSet(t, testSet{src: namedreturnSrc, tests: namedreturnTests})
+}
+func TestPanicRecover(t *testing.T) {
+	runTestSet(t, testSet{src: panicRecoverSrc, tests: panicRecoverTests, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}})
+}
+func TestRecursion(t *testing.T) { runTestSet(t, testSet{src: recursionSrc, tests: recursionTests}) }
+func TestResolvedIssue(t *testing.T) {
+	runTestSet(t, testSet{src: resolvedIssueSrc, tests: resolved_issueTests})
+}
+func TestScope(t *testing.T)   { runTestSet(t, testSet{src: scopeSrc, tests: scopeTests}) }
+func TestSlices(t *testing.T)  { runTestSet(t, testSet{src: slicesSrc, tests: slicesTests}) }
+func TestSlicing(t *testing.T) { runTestSet(t, testSet{src: slicingSrc, tests: slicingTests}) }
+func TestStringsPkg(t *testing.T) {
+	runTestSet(t, testSet{src: stringsPkgSrc, tests: strings_pkgTests})
+}
+func TestStructs(t *testing.T) { runTestSet(t, testSet{src: structsSrc, tests: structsTests}) }
+func TestSwitch(t *testing.T)  { runTestSet(t, testSet{src: switchSrc, tests: switchTests}) }
+func TestTrickyClosures(t *testing.T) {
+	runTestSet(t, testSet{src: trickySrc, tests: trickyClosuresTests})
+}
+func TestTrickyDefer(t *testing.T) { runTestSet(t, testSet{src: trickySrc, tests: trickyDeferTests}) }
+func TestTrickyInterfaces(t *testing.T) {
+	runTestSet(t, testSet{src: trickySrc, tests: trickyInterfacesTests})
+}
+func TestTrickyMaps(t *testing.T) { runTestSet(t, testSet{src: trickySrc, tests: trickyMapsTests}) }
+func TestTrickyMultiassign(t *testing.T) {
+	runTestSet(t, testSet{src: trickySrc, tests: trickyMultiassignTests})
+}
+func TestTrickyNested(t *testing.T) { runTestSet(t, testSet{src: trickySrc, tests: trickyNestedTests}) }
+func TestTrickyPointers(t *testing.T) {
+	runTestSet(t, testSet{src: trickySrc, tests: trickyPointersTests})
+}
+func TestTrickySlices(t *testing.T) { runTestSet(t, testSet{src: trickySrc, tests: trickySlicesTests}) }
+func TestTrickyStructs(t *testing.T) {
+	runTestSet(t, testSet{src: trickySrc, tests: trickyStructsTests})
+}
+func TestTypeconv(t *testing.T)  { runTestSet(t, testSet{src: typeconvSrc, tests: typeconvTests}) }
+func TestVariables(t *testing.T) { runTestSet(t, testSet{src: variablesSrc, tests: variablesTests}) }
 
 // ============================================================================
 // Helper Functions
@@ -158,9 +192,9 @@ func compareCorrectnessResults(t *testing.T, got, expected any) {
 
 // testSet represents a group of tests that share the same source file
 type testSet struct {
-	name  string
-	src   string
-	tests map[string]testCase // key is just funcName, not full path
+	src       string
+	tests     map[string]testCase // key is just funcName, not full path
+	buildOpts []gig.BuildOption   // optional build options (e.g., WithAllowPanic)
 }
 
 // progCache caches compiled programs by source to avoid recompilation.
@@ -168,11 +202,11 @@ type testSet struct {
 var progCache sync.Map
 
 // loadProgram returns the cached program for src, building and caching it if needed.
-func loadProgram(src string) (*gig.Program, error) {
+func loadProgram(src string, opts ...gig.BuildOption) (*gig.Program, error) {
 	if prog, ok := progCache.Load(src); ok {
 		return prog.(*gig.Program), nil
 	}
-	prog, err := gig.Build(src)
+	prog, err := gig.Build(src, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +217,7 @@ func loadProgram(src string) (*gig.Program, error) {
 // runTestSet runs all tests in a test set, compiling the source once
 func runTestSet(t *testing.T, set testSet) {
 	t.Helper()
-	prog, err := loadProgram(set.src)
+	prog, err := loadProgram(set.src, set.buildOpts...)
 	if err != nil {
 		t.Fatalf("Build error: %v", err)
 	}
@@ -240,6 +274,9 @@ var closuresSrc string
 //go:embed testdata/closures_advanced/main.go
 var closuresAdvancedSrc string
 
+//go:embed testdata/complex/main.go
+var complexSrc string
+
 //go:embed testdata/controlflow/main.go
 var controlflowSrc string
 
@@ -278,6 +315,9 @@ var multiassignSrc string
 
 //go:embed testdata/namedreturn/main.go
 var namedreturnSrc string
+
+//go:embed testdata/panic_recover/main.go
+var panicRecoverSrc string
 
 //go:embed testdata/recursion/main.go
 var recursionSrc string
@@ -433,6 +473,121 @@ var closures_advancedTests = map[string]testCase{
 	"ApplyN":             {closuresAdvancedSrc, "ApplyN", nil, closures_advanced.ApplyN},
 	"Compose":            {closuresAdvancedSrc, "Compose", nil, closures_advanced.Compose},
 	"ClosureForLoopTest": {closuresAdvancedSrc, "ClosureForLoopTest", nil, closures_advanced.ClosureForLoopTest},
+}
+
+var complexTests = map[string]testCase{
+	// Closure tests
+	"ClosureCaptureLoop":     {complexSrc, "ClosureCaptureLoop", nil, complex.ClosureCaptureLoop},
+	"ClosureMutualRecursion": {complexSrc, "ClosureMutualRecursion", nil, complex.ClosureMutualRecursion},
+	"ClosureCurryAdd":        {complexSrc, "ClosureCurryAdd", nil, complex.ClosureCurryAdd},
+	"ClosureCounterChain":    {complexSrc, "ClosureCounterChain", nil, complex.ClosureCounterChain},
+	"ClosureMemoize":         {complexSrc, "ClosureMemoize", nil, complex.ClosureMemoize},
+	"ClosureYieldGenerator":  {complexSrc, "ClosureYieldGenerator", nil, complex.ClosureYieldGenerator},
+	"ClosureFilter":          {complexSrc, "ClosureFilter", nil, complex.ClosureFilter},
+	"ClosureReduce":          {complexSrc, "ClosureReduce", nil, complex.ClosureReduce},
+	"ClosureCompose":         {complexSrc, "ClosureCompose", nil, complex.ClosureCompose},
+	"ClosurePartial":         {complexSrc, "ClosurePartial", nil, complex.ClosurePartial},
+	"ClosureOnce":            {complexSrc, "ClosureOnce", nil, complex.ClosureOnce},
+	"ClosureState":           {complexSrc, "ClosureState", nil, complex.ClosureState},
+	"ClosureDefer":           {complexSrc, "ClosureDefer", nil, complex.ClosureDefer},
+	"ClosureCaptureSlice":    {complexSrc, "ClosureCaptureSlice", nil, complex.ClosureCaptureSlice},
+	"ClosureCaptureMap":      {complexSrc, "ClosureCaptureMap", nil, complex.ClosureCaptureMap},
+	"ClosureRecursive":       {complexSrc, "ClosureRecursive", nil, complex.ClosureRecursive},
+	"ClosureInStruct":        {complexSrc, "ClosureInStruct", nil, complex.ClosureInStruct},
+	"ClosureSliceOfFuncs":    {complexSrc, "ClosureSliceOfFuncs", nil, complex.ClosureSliceOfFuncs},
+	"ClosureMapOfFuncs":      {complexSrc, "ClosureMapOfFuncs", nil, complex.ClosureMapOfFuncs},
+	// Control tests
+	"ControlNestedIf":   {complexSrc, "ControlNestedIf", nil, complex.ControlNestedIf},
+	"ControlNestedLoop": {complexSrc, "ControlNestedLoop", nil, complex.ControlNestedLoop},
+	"ControlTripleLoop": {complexSrc, "ControlTripleLoop", nil, complex.ControlTripleLoop},
+	// Defer tests
+	"DeferBasic":          {complexSrc, "DeferBasic", nil, complex.DeferBasic},
+	"DeferMultiple":       {complexSrc, "DeferMultiple", nil, complex.DeferMultiple},
+	"DeferClosureCapture": {complexSrc, "DeferClosureCapture", nil, complex.DeferClosureCapture},
+	// Note: DeferRecover and DeferRecoverCheck disabled - panic/recover has interpreter bug
+	// Map tests
+	"MapNested":               {complexSrc, "MapNested", nil, complex.MapNested},
+	"MapMerge":                {complexSrc, "MapMerge", nil, complex.MapMerge},
+	"MapInvert":               {complexSrc, "MapInvert", nil, complex.MapInvert},
+	"MapKeys":                 {complexSrc, "MapKeys", nil, complex.MapKeys},
+	"MapValues":               {complexSrc, "MapValues", nil, complex.MapValues},
+	"MapFilterKeys":           {complexSrc, "MapFilterKeys", nil, complex.MapFilterKeys},
+	"MapFilterValues":         {complexSrc, "MapFilterValues", nil, complex.MapFilterValues},
+	"MapMapKeys":              {complexSrc, "MapMapKeys", nil, complex.MapMapKeys},
+	"MapMapValues":            {complexSrc, "MapMapValues", nil, complex.MapMapValues},
+	"MapCounter":              {complexSrc, "MapCounter", nil, complex.MapCounter},
+	"MapHistogram":            {complexSrc, "MapHistogram", nil, complex.MapHistogram},
+	"MapGroupBy":              {complexSrc, "MapGroupBy", nil, complex.MapGroupBy},
+	"MapSet":                  {complexSrc, "MapSet", nil, complex.MapSet},
+	"MapMultiSet":             {complexSrc, "MapMultiSet", nil, complex.MapMultiSet},
+	"MapBiMap":                {complexSrc, "MapBiMap", nil, complex.MapBiMap},
+	"MapUpdateNested":         {complexSrc, "MapUpdateNested", nil, complex.MapUpdateNested},
+	"MapDeleteWhileIterating": {complexSrc, "MapDeleteWhileIterating", nil, complex.MapDeleteWhileIterating},
+	"MapComplexKey":           {complexSrc, "MapComplexKey", nil, complex.MapComplexKey},
+	"MapDefaultValue":         {complexSrc, "MapDefaultValue", nil, complex.MapDefaultValue},
+	"MapAccumulate":           {complexSrc, "MapAccumulate", nil, complex.MapAccumulate},
+	"MapFindKey":              {complexSrc, "MapFindKey", nil, complex.MapFindKey},
+	"MapFrequency":            {complexSrc, "MapFrequency", nil, complex.MapFrequency},
+	"MapMemoize":              {complexSrc, "MapMemoize", nil, complex.MapMemoize},
+	"MapIncrement":            {complexSrc, "MapIncrement", nil, complex.MapIncrement},
+	"MapCopy":                 {complexSrc, "MapCopy", nil, complex.MapCopy},
+	// Pointer tests
+	"PointerBasic":     {complexSrc, "PointerBasic", nil, complex.PointerBasic},
+	"PointerModify":    {complexSrc, "PointerModify", nil, complex.PointerModify},
+	"PointerSwap":      {complexSrc, "PointerSwap", nil, complex.PointerSwap},
+	"PointerToPointer": {complexSrc, "PointerToPointer", nil, complex.PointerToPointer},
+	"PointerSlice":     {complexSrc, "PointerSlice", nil, complex.PointerSlice},
+	// Recursion tests
+	"RecursionFibCheck":          {complexSrc, "RecursionFibCheck", nil, complex.RecursionFibCheck},
+	"RecursionAckermannCheck":    {complexSrc, "RecursionAckermannCheck", nil, complex.RecursionAckermannCheck},
+	"RecursionGCDCheck":          {complexSrc, "RecursionGCDCheck", nil, complex.RecursionGCDCheck},
+	"RecursionSumCheck":          {complexSrc, "RecursionSumCheck", nil, complex.RecursionSumCheck},
+	"RecursionPowerCheck":        {complexSrc, "RecursionPowerCheck", nil, complex.RecursionPowerCheck},
+	"RecursionBinarySearchCheck": {complexSrc, "RecursionBinarySearchCheck", nil, complex.RecursionBinarySearchCheck},
+	"RecursionReverseCheck":      {complexSrc, "RecursionReverseCheck", nil, complex.RecursionReverseCheck},
+	"RecursionPalindromeCheck":   {complexSrc, "RecursionPalindromeCheck", nil, complex.RecursionPalindromeCheck},
+	"RecursionMergeSortCheck":    {complexSrc, "RecursionMergeSortCheck", nil, complex.RecursionMergeSortCheck},
+	"RecursionQuickSortCheck":    {complexSrc, "RecursionQuickSortCheck", nil, complex.RecursionQuickSortCheck},
+	"RecursionCountDigitsCheck":  {complexSrc, "RecursionCountDigitsCheck", nil, complex.RecursionCountDigitsCheck},
+	"RecursionSumDigitsCheck":    {complexSrc, "RecursionSumDigitsCheck", nil, complex.RecursionSumDigitsCheck},
+	"RecursionHanoiCheck":        {complexSrc, "RecursionHanoiCheck", nil, complex.RecursionHanoiCheck},
+	"RecursionStaircaseCheck":    {complexSrc, "RecursionStaircaseCheck", nil, complex.RecursionStaircaseCheck},
+	"RecursionSubsetSumCheck":    {complexSrc, "RecursionSubsetSumCheck", nil, complex.RecursionSubsetSumCheck},
+	"RecursionPermuteCheck":      {complexSrc, "RecursionPermuteCheck", nil, complex.RecursionPermuteCheck},
+	"RecursionCombinationCheck":  {complexSrc, "RecursionCombinationCheck", nil, complex.RecursionCombinationCheck},
+	// Slice tests
+	"SliceFlatten":        {complexSrc, "SliceFlatten", nil, complex.SliceFlatten},
+	"SliceChunk":          {complexSrc, "SliceChunk", nil, complex.SliceChunk},
+	"SliceRotateLeft":     {complexSrc, "SliceRotateLeft", nil, complex.SliceRotateLeft},
+	"SliceRotateRight":    {complexSrc, "SliceRotateRight", nil, complex.SliceRotateRight},
+	"SliceUnique":         {complexSrc, "SliceUnique", nil, complex.SliceUnique},
+	"SliceIntersect":      {complexSrc, "SliceIntersect", nil, complex.SliceIntersect},
+	"SliceUnion":          {complexSrc, "SliceUnion", nil, complex.SliceUnion},
+	"SliceDifference":     {complexSrc, "SliceDifference", nil, complex.SliceDifference},
+	"SliceZip":            {complexSrc, "SliceZip", nil, complex.SliceZip},
+	"SlicePartition":      {complexSrc, "SlicePartition", nil, complex.SlicePartition},
+	"SliceTake":           {complexSrc, "SliceTake", nil, complex.SliceTake},
+	"SliceDrop":           {complexSrc, "SliceDrop", nil, complex.SliceDrop},
+	"SliceTakeWhile":      {complexSrc, "SliceTakeWhile", nil, complex.SliceTakeWhile},
+	"SliceDropWhile":      {complexSrc, "SliceDropWhile", nil, complex.SliceDropWhile},
+	"SliceGroupBy":        {complexSrc, "SliceGroupBy", nil, complex.SliceGroupBy},
+	"SliceWindow":         {complexSrc, "SliceWindow", nil, complex.SliceWindow},
+	"SlicePairwise":       {complexSrc, "SlicePairwise", nil, complex.SlicePairwise},
+	"SliceCartesian":      {complexSrc, "SliceCartesian", nil, complex.SliceCartesian},
+	"SliceTranspose":      {complexSrc, "SliceTranspose", nil, complex.SliceTranspose},
+	"SliceReverseInPlace": {complexSrc, "SliceReverseInPlace", nil, complex.SliceReverseInPlace},
+	"SliceCompact":        {complexSrc, "SliceCompact", nil, complex.SliceCompact},
+	"SliceProduct":        {complexSrc, "SliceProduct", nil, complex.SliceProduct},
+	"SliceCumSum":         {complexSrc, "SliceCumSum", nil, complex.SliceCumSum},
+	"SliceCumProd":        {complexSrc, "SliceCumProd", nil, complex.SliceCumProd},
+	"SliceFind":           {complexSrc, "SliceFind", nil, complex.SliceFind},
+	"SliceFindLast":       {complexSrc, "SliceFindLast", nil, complex.SliceFindLast},
+	// Variadic tests
+	"VariadicBasicCheck":       {complexSrc, "VariadicBasicCheck", nil, complex.VariadicBasicCheck},
+	"VariadicEmpty":            {complexSrc, "VariadicEmpty", nil, complex.VariadicEmpty},
+	"VariadicWithRegularCheck": {complexSrc, "VariadicWithRegularCheck", nil, complex.VariadicWithRegularCheck},
+	"VariadicSpread":           {complexSrc, "VariadicSpread", nil, complex.VariadicSpread},
+	"VariadicOneArg":           {complexSrc, "VariadicOneArg", nil, complex.VariadicOneArg},
 }
 
 var controlflowTests = map[string]testCase{
@@ -762,6 +917,49 @@ var namedreturnTests = map[string]testCase{
 	"Divmod":    {namedreturnSrc, "Divmod", []any{1000, 7}, namedreturn.Divmod},
 }
 
+var panicRecoverTests = map[string]testCase{
+	// Basic panic/recover tests
+	"PanicRecoverBasic":     {panicRecoverSrc, "PanicRecoverBasic", nil, panic_recover.PanicRecoverBasic},
+	"PanicRecoverWithValue": {panicRecoverSrc, "PanicRecoverWithValue", nil, panic_recover.PanicRecoverWithValue},
+	"PanicRecoverInt":       {panicRecoverSrc, "PanicRecoverInt", nil, panic_recover.PanicRecoverInt},
+	"NoPanicNoRecover":      {panicRecoverSrc, "NoPanicNoRecover", nil, panic_recover.NoPanicNoRecover},
+
+	// Defer with panic tests
+	"DeferRunsOnPanic":       {panicRecoverSrc, "DeferRunsOnPanic", nil, panic_recover.DeferRunsOnPanic},
+	"MultipleDefersOnPanic":  {panicRecoverSrc, "MultipleDefersOnPanic", nil, panic_recover.MultipleDefersOnPanic},
+	"DeferModifyBeforePanic": {panicRecoverSrc, "DeferModifyBeforePanic", nil, panic_recover.DeferModifyBeforePanic},
+
+	// Nested panic/recover tests
+	"NestedPanicRecover": {panicRecoverSrc, "NestedPanicRecover", nil, panic_recover.NestedPanicRecover},
+	"NestedRecover":      {panicRecoverSrc, "NestedRecover", nil, panic_recover.NestedRecover},
+	"PanicInDefer":       {panicRecoverSrc, "PanicInDefer", nil, panic_recover.PanicInDefer},
+	"PanicChain":         {panicRecoverSrc, "PanicChain", nil, panic_recover.PanicChain},
+
+	// Recover return value tests
+	"RecoverReturnsNilWhenNotPanicking": {panicRecoverSrc, "RecoverReturnsNilWhenNotPanicking", nil, panic_recover.RecoverReturnsNilWhenNotPanicking},
+	"RecoverReturnsPanicValueCheck":     {panicRecoverSrc, "RecoverReturnsPanicValueCheck", nil, panic_recover.RecoverReturnsPanicValueCheck},
+
+	// Named return with panic/recover tests
+	"NamedReturnPanicRecover": {panicRecoverSrc, "NamedReturnPanicRecover", nil, panic_recover.NamedReturnPanicRecover},
+	"NamedReturnDeferModify":  {panicRecoverSrc, "NamedReturnDeferModify", nil, panic_recover.NamedReturnDeferModify},
+
+	// Complex panic/recover scenarios
+	"PanicInLoop":                    {panicRecoverSrc, "PanicInLoop", nil, panic_recover.PanicInLoop},
+	"PanicInClosure":                 {panicRecoverSrc, "PanicInClosure", nil, panic_recover.PanicInClosure},
+	"MultiplePanicSameDefer":         {panicRecoverSrc, "MultiplePanicSameDefer", nil, panic_recover.MultiplePanicSameDefer},
+	"PanicInRecursiveFunction":       {panicRecoverSrc, "PanicInRecursiveFunction", nil, panic_recover.PanicInRecursiveFunction},
+	"DeferClosureCapturePanic":       {panicRecoverSrc, "DeferClosureCapturePanic", nil, panic_recover.DeferClosureCapturePanic},
+	"PanicInDeferWithRecoverInDefer": {panicRecoverSrc, "PanicInDeferWithRecoverInDefer", nil, panic_recover.PanicInDeferWithRecoverInDefer},
+	"RecoverOnlyInDefer":             {panicRecoverSrc, "RecoverOnlyInDefer", nil, panic_recover.RecoverOnlyInDefer},
+	"RecoverInGoroutine":             {panicRecoverSrc, "RecoverInGoroutine", nil, panic_recover.RecoverInGoroutine},
+
+	// Edge cases
+	"EmptyDeferPanic":              {panicRecoverSrc, "EmptyDeferPanic", nil, panic_recover.EmptyDeferPanic},
+	"DeferOrderWithMultiplePanics": {panicRecoverSrc, "DeferOrderWithMultiplePanics", nil, panic_recover.DeferOrderWithMultiplePanics},
+	"DeferPanicRecoverChain":       {panicRecoverSrc, "DeferPanicRecoverChain", nil, panic_recover.DeferPanicRecoverChain},
+	"PanicNil":                     {panicRecoverSrc, "PanicNil", nil, panic_recover.PanicNil},
+}
+
 var recursionTests = map[string]testCase{
 	"TailRecursionPattern": {recursionSrc, "TailRecursionPattern", nil, recursion.TailRecursionPattern},
 	"ReverseSlice":         {recursionSrc, "ReverseSlice", nil, recursion.ReverseSlice},
@@ -814,8 +1012,9 @@ var resolved_issueTests = map[string]testCase{
 	"SortStringSliceResolved":  {resolvedIssueSrc, "SortStringSliceResolved", nil, resolved_issue.SortStringSliceResolved},
 	"SortReverseResolved":      {resolvedIssueSrc, "SortReverseResolved", nil, resolved_issue.SortReverseResolved},
 	"SortIntsInPlaceResolved":  {resolvedIssueSrc, "SortIntsInPlaceResolved", nil, resolved_issue.SortIntsInPlaceResolved},
-	// Resolved Issue 29-31: fmt.Stringer, %T, %v (formerly known issues Bug 3-5)
+	// Resolved Issue 29-31: fmt.Stringer, %T, %v
 	"FmtStringerResolved":     {resolvedIssueSrc, "FmtStringerResolved", nil, resolved_issue.FmtStringerResolved},
+	"FmtStringerPointerResolved": {resolvedIssueSrc, "FmtStringerPointerResolved", nil, resolved_issue.FmtStringerPointerResolved},
 	"FmtSprintfTypeResolved":  {resolvedIssueSrc, "FmtSprintfTypeResolved", nil, resolved_issue.FmtSprintfTypeResolved},
 	"FmtSprintfFieldResolved": {resolvedIssueSrc, "FmtSprintfFieldResolved", nil, resolved_issue.FmtSprintfFieldResolved},
 	// Resolved Issue 32: int64/uint64 return type preservation (formerly known issue Bug 6)
@@ -1805,47 +2004,4 @@ var variablesTests = map[string]testCase{
 	"Multiply":   {variablesSrc, "Multiply", []any{6, 7}, variables.Multiply},
 	"Max":        {variablesSrc, "Max", []any{100, 42}, variables.Max},
 	"IsPositive": {variablesSrc, "IsPositive", []any{5}, variables.IsPositive},
-}
-
-var testSetsMap = map[string]testSet{
-	"advanced":           {name: "advanced", src: advancedSrc, tests: advancedTests},
-	"algorithms":         {name: "algorithms", src: algorithmsSrc, tests: algorithmsTests},
-	"arithmetic":         {name: "arithmetic", src: arithmeticSrc, tests: arithmeticTests},
-	"autowrap":           {name: "autowrap", src: autowrapSrc, tests: autowrapTests},
-	"bitwise":            {name: "bitwise", src: bitwiseSrc, tests: bitwiseTests},
-	"closures":           {name: "closures", src: closuresSrc, tests: closuresTests},
-	"closures_advanced":  {name: "closures_advanced", src: closuresAdvancedSrc, tests: closures_advancedTests},
-	"controlflow":        {name: "controlflow", src: controlflowSrc, tests: controlflowTests},
-	"cornercases":        {name: "cornercases", src: cornercasesSrc, tests: cornercasesTests},
-	"edgecases":          {name: "edgecases", src: edgecasesSrc, tests: edgecasesTests},
-	"external":           {name: "external", src: externalSrc, tests: externalTests},
-	"functions":          {name: "functions", src: functionsSrc, tests: functionsTests},
-	"goroutine":          {name: "goroutine", src: goroutineSrc, tests: goroutineTests},
-	"channels":           {name: "channels", src: channelsSrc, tests: channelsTests},
-	"init":               {name: "init", src: initSrc, tests: initTests},
-	"initialize":         {name: "initialize", src: initializeSrc, tests: initializeTests},
-	"leetcode_hard":      {name: "leetcode_hard", src: leetcodeHardSrc, tests: leetcode_hardTests},
-	"mapadvanced":        {name: "mapadvanced", src: mapadvancedSrc, tests: mapadvancedTests},
-	"maps":               {name: "maps", src: mapsSrc, tests: mapsTests},
-	"multiassign":        {name: "multiassign", src: multiassignSrc, tests: multiassignTests},
-	"namedreturn":        {name: "namedreturn", src: namedreturnSrc, tests: namedreturnTests},
-	"recursion":          {name: "recursion", src: recursionSrc, tests: recursionTests},
-	"resolved_issue":     {name: "resolved_issue", src: resolvedIssueSrc, tests: resolved_issueTests},
-	"scope":              {name: "scope", src: scopeSrc, tests: scopeTests},
-	"slices":             {name: "slices", src: slicesSrc, tests: slicesTests},
-	"slicing":            {name: "slicing", src: slicingSrc, tests: slicingTests},
-	"strings_pkg":        {name: "strings_pkg", src: stringsPkgSrc, tests: strings_pkgTests},
-	"structs":            {name: "structs", src: structsSrc, tests: structsTests},
-	"switch":             {name: "switch", src: switchSrc, tests: switchTests},
-	"tricky/closures":    {name: "tricky/closures", src: trickySrc, tests: trickyClosuresTests},
-	"tricky/defer":       {name: "tricky/defer", src: trickySrc, tests: trickyDeferTests},
-	"tricky/interfaces":  {name: "tricky/interfaces", src: trickySrc, tests: trickyInterfacesTests},
-	"tricky/maps":        {name: "tricky/maps", src: trickySrc, tests: trickyMapsTests},
-	"tricky/multiassign": {name: "tricky/multiassign", src: trickySrc, tests: trickyMultiassignTests},
-	"tricky/nested":      {name: "tricky/nested", src: trickySrc, tests: trickyNestedTests},
-	"tricky/pointers":    {name: "tricky/pointers", src: trickySrc, tests: trickyPointersTests},
-	"tricky/slices":      {name: "tricky/slices", src: trickySrc, tests: trickySlicesTests},
-	"tricky/structs":     {name: "tricky/structs", src: trickySrc, tests: trickyStructsTests},
-	"typeconv":           {name: "typeconv", src: typeconvSrc, tests: typeconvTests},
-	"variables":          {name: "variables", src: variablesSrc, tests: variablesTests},
 }

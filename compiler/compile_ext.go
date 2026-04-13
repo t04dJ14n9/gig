@@ -1,3 +1,4 @@
+// compile_ext.go resolves external package functions, methods, and variables.
 package compiler
 
 import (
@@ -6,58 +7,64 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/external"
 )
 
+// extractMethodName strips SSA receiver qualification from a method name.
+// SSA names look like "(*Type).Method" or "pkgpath.Method"; this extracts just "Method".
+func extractMethodName(ssaName string) string {
+	name := ssaName
+	if idx := strings.LastIndex(name, "."); idx >= 0 {
+		name = name[idx+1:]
+	}
+	if idx := strings.LastIndex(name, ")"); idx >= 0 {
+		rest := name[idx+1:]
+		if len(rest) > 0 && rest[0] == '.' {
+			name = rest[1:]
+		}
+	}
+	return name
+}
+
 // compileExternalStaticCall compiles a call to an external package function.
-func (ctx *funcContext) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resultIdx int) {
+// It uses the injected PackageLookup to resolve the function, avoiding direct importer dependency.
+func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resultIdx int) {
 	for _, arg := range i.Call.Args {
-		ctx.compileValue(arg)
+		c.compileValue(arg)
 	}
 
 	sig := fn.Signature
 	if sig.Recv() != nil {
-		methodName := fn.Name()
-		if idx := strings.LastIndex(methodName, "."); idx >= 0 {
-			methodName = methodName[idx+1:]
-		}
-		if idx := strings.LastIndex(methodName, ")"); idx >= 0 {
-			rest := methodName[idx+1:]
-			if len(rest) > 0 && rest[0] == '.' {
-				methodName = rest[1:]
-			}
-		}
+		methodName := extractMethodName(fn.Name())
 
-		methodInfo := &bytecode.ExternalMethodInfo{
+		methodInfo := &external.ExternalMethodInfo{
 			MethodName: methodName,
 		}
 
 		// Try to resolve method DirectCall at compile time
-		if ctx.c.registry != nil {
+		if c.lookup != nil {
 			typeName := extractReceiverTypeName(sig.Recv().Type())
 			if typeName != "" {
-				if dc, ok := ctx.c.registry.LookupMethodDirectCall(typeName, methodName); ok {
+				if dc, ok := c.lookup.LookupMethodDirectCall(typeName, methodName); ok {
 					methodInfo.DirectCall = dc
 				}
 			}
 		}
 
-		funcIdx := ctx.c.addConstant(methodInfo)
+		funcIdx := c.addConstant(methodInfo)
 		numArgs := len(i.Call.Args)
-		ctx.cf.Instructions = append(ctx.cf.Instructions,
-			byte(bytecode.OpCallExternal),
-			byte(funcIdx>>8), byte(funcIdx),
-			byte(numArgs))
-		ctx.emit(bytecode.OpSetLocal, uint16(resultIdx))
+		c.emitCallOp(bytecode.OpCallExternal, funcIdx, numArgs)
+		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 		return
 	}
 
-	// Resolve external function
-	var extFuncInfo *bytecode.ExternalFuncInfo
-	if fn.Pkg != nil && ctx.c.registry != nil {
+	// Use injected PackageLookup instead of direct importer access
+	var extFuncInfo *external.ExternalFuncInfo
+	if fn.Pkg != nil && c.lookup != nil {
 		pkgPath := fn.Pkg.Pkg.Path()
-		if fnVal, directCall, ok := ctx.c.registry.LookupExternalFunc(pkgPath, fn.Name()); ok {
-			extFuncInfo = &bytecode.ExternalFuncInfo{
+		if fnVal, directCall, ok := c.lookup.LookupExternalFunc(pkgPath, fn.Name()); ok {
+			extFuncInfo = &external.ExternalFuncInfo{
 				Func:       fnVal,
 				DirectCall: directCall,
 			}
@@ -65,34 +72,31 @@ func (ctx *funcContext) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function,
 	}
 
 	if extFuncInfo == nil {
-		extFuncInfo = &bytecode.ExternalFuncInfo{
+		extFuncInfo = &external.ExternalFuncInfo{
 			Func:       fn,
 			DirectCall: nil,
 		}
 	}
 
-	funcIdx := ctx.c.addConstant(extFuncInfo)
+	funcIdx := c.addConstant(extFuncInfo)
 	numArgs := len(i.Call.Args)
-	ctx.cf.Instructions = append(ctx.cf.Instructions,
-		byte(bytecode.OpCallExternal),
-		byte(funcIdx>>8), byte(funcIdx),
-		byte(numArgs))
-	ctx.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	c.emitCallOp(bytecode.OpCallExternal, funcIdx, numArgs)
+	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
 
 // compileIndirectCall compiles an indirect call (closure or function value).
-func (ctx *funcContext) compileIndirectCall(i *ssa.Call) {
-	resultIdx := ctx.symbolTable.AllocLocal(i)
+func (c *compiler) compileIndirectCall(i *ssa.Call) {
+	resultIdx := c.symbolTable.AllocLocal(i)
 
-	ctx.compileValue(i.Call.Value)
+	c.compileValue(i.Call.Value)
 
 	for _, arg := range i.Call.Args {
-		ctx.compileValue(arg)
+		c.compileValue(arg)
 	}
 
 	numArgs := len(i.Call.Args)
-	ctx.emit(bytecode.OpCallIndirect, uint16(numArgs))
-	ctx.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	c.emit(bytecode.OpCallIndirect, uint16(numArgs))
+	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
 
 // extractReceiverTypeName extracts the package-path-qualified type name from a receiver type.
@@ -129,23 +133,36 @@ func extractNamedType(t types.Type) *types.Named {
 	}
 }
 
+// extractReceiverShortName extracts the unqualified type name from a receiver type.
+// For pointer receivers like *Reader, it unwraps the pointer.
+// Returns just the type name (e.g., "Reader"), without package path.
+func extractReceiverShortName(recvType types.Type) string {
+	if ptr, ok := recvType.(*types.Pointer); ok {
+		recvType = ptr.Elem()
+	}
+	if named, ok := recvType.(*types.Named); ok {
+		return named.Obj().Name()
+	}
+	return ""
+}
+
 // compileReturn compiles a Return instruction.
-func (ctx *funcContext) compileReturn(i *ssa.Return) {
+func (c *compiler) compileReturn(i *ssa.Return) {
 	if len(i.Results) == 0 {
-		ctx.emit(bytecode.OpReturn)
+		c.emit(bytecode.OpReturn)
 		return
 	}
 
 	if len(i.Results) == 1 {
-		ctx.compileValue(i.Results[0])
-		ctx.emit(bytecode.OpReturnVal)
+		c.compileValue(i.Results[0])
+		c.emit(bytecode.OpReturnVal)
 		return
 	}
 
 	for _, result := range i.Results {
-		ctx.compileValue(result)
+		c.compileValue(result)
 	}
 
-	ctx.emit(bytecode.OpPack, uint16(len(i.Results)))
-	ctx.emit(bytecode.OpReturnVal)
+	c.emit(bytecode.OpPack, uint16(len(i.Results)))
+	c.emit(bytecode.OpReturnVal)
 }

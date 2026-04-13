@@ -7,7 +7,7 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
@@ -65,7 +65,7 @@ func direct_encoding_base64_NewEncoding(args []value.Value) value.Value {
 }
 
 func direct_method_encoding_base64_CorruptInputError_Error(args []value.Value) value.Value {
-	recv := args[0].Interface().(encoding_base64.CorruptInputError)
+	recv := encoding_base64.CorruptInputError(args[0].Int())
 	return value.MakeString(string(recv.Error()))
 }
 
@@ -86,13 +86,21 @@ func direct_method_encoding_base64_Encoding_AppendDecode(args []value.Value) val
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[2]).Bytes(); ok {
 			return b
 		}
-		return (args[2]).Interface().([]byte)
+		v := (args[2]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := recv.AppendDecode(a0, a1)
 	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
@@ -104,13 +112,21 @@ func direct_method_encoding_base64_Encoding_AppendEncode(args []value.Value) val
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[2]).Bytes(); ok {
 			return b
 		}
-		return (args[2]).Interface().([]byte)
+		v := (args[2]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBytes([]byte(recv.AppendEncode(a0, a1)))
 }
@@ -121,13 +137,21 @@ func direct_method_encoding_base64_Encoding_Decode(args []value.Value) value.Val
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[2]).Bytes(); ok {
 			return b
 		}
-		return (args[2]).Interface().([]byte)
+		v := (args[2]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := recv.Decode(a0, a1)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
@@ -152,13 +176,21 @@ func direct_method_encoding_base64_Encoding_Encode(args []value.Value) value.Val
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := func() []byte {
 		if b, ok := (args[2]).Bytes(); ok {
 			return b
 		}
-		return (args[2]).Interface().([]byte)
+		v := (args[2]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	recv.Encode(a0, a1)
 	return value.MakeNil()
@@ -170,7 +202,11 @@ func direct_method_encoding_base64_Encoding_EncodeToString(args []value.Value) v
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeString(string(recv.EncodeToString(a0)))
 }

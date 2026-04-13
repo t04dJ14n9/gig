@@ -1,72 +1,16 @@
+// ops_call.go handles function/closure calls, goroutine spawning, and tuple pack/unpack.
 package vm
 
 import (
-	"reflect"
-
-	"github.com/t04dJ14n9/gig/bytecode"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
-// executeCall handles function call, closure creation, goroutine spawning,
-// and pack/unpack opcodes.
+// executeCall handles closure creation, goroutine spawning, and pack/unpack opcodes.
+// Note: OpCall, OpCallExternal, OpCallIndirect are inlined in run.go's hot path
+// and never reach this handler.
 func (v *vm) executeCall(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen
 	switch op {
-	case bytecode.OpCall:
-		funcIdx := frame.readUint16()
-		numArgs := frame.readByte()
-		v.callCompiledFunction(int(funcIdx), int(numArgs))
-
-	case bytecode.OpCallExternal:
-		funcIdx := frame.readUint16()
-		numArgs := frame.readByte()
-		if err := v.callExternal(int(funcIdx), int(numArgs)); err != nil {
-			return err
-		}
-
-	case bytecode.OpCallIndirect:
-		numArgs := frame.readByte()
-		// Pop arguments using stack-allocated buffer
-		var argsBuf [8]value.Value
-		var args []value.Value
-		if int(numArgs) <= len(argsBuf) {
-			args = argsBuf[:numArgs]
-		} else {
-			args = make([]value.Value, numArgs)
-		}
-		for i := int(numArgs) - 1; i >= 0; i-- {
-			args[i] = v.pop()
-		}
-		// Pop the callee
-		callee := v.pop()
-		switch fn := callee.RawObj().(type) {
-		case *Closure:
-			// Call closure: create new frame with free vars
-			v.callFunction(fn.Fn, args, fn.FreeVars)
-		case *bytecode.CompiledFunction:
-			// Call compiled function
-			v.callFunction(fn, args, nil)
-		default:
-			// Check if callee is a reflect-based function (e.g., from a typed container)
-			if rv, ok := callee.ReflectValue(); ok && rv.Kind() == reflect.Func {
-				in := make([]reflect.Value, numArgs)
-				fnType := rv.Type()
-				for i := 0; i < int(numArgs); i++ {
-					if i < fnType.NumIn() {
-						in[i] = args[i].ToReflectValue(fnType.In(i))
-					}
-				}
-				out := rv.Call(in)
-				if len(out) == 0 {
-					v.push(value.MakeNil())
-				} else {
-					v.push(value.MakeFromReflect(out[0]))
-				}
-			} else {
-				// Not a known callable — push nil
-				v.push(value.MakeNil())
-			}
-		}
-
 	case bytecode.OpClosure:
 		funcIdx := frame.readUint16()
 		numFree := frame.readByte()
@@ -79,6 +23,14 @@ func (v *vm) executeCall(op bytecode.OpCode, frame *Frame) error { //nolint:gocy
 			closure := getClosure(fn, int(numFree))
 			closure.Program = v.program
 			closure.InitialGlobals = v.initialGlobals
+			// Propagate runtime context so that closures converted to Go
+			// functions (via reflect.MakeFunc for sync.Once.Do etc.) can
+			// access shared globals, spawn goroutines, and use the same
+			// external call cache as the parent VM.
+			closure.Shared = v.shared
+			closure.Goroutines = v.goroutines
+			closure.ExtCallCache = v.extCallCache
+			closure.Ctx = v.ctx
 			// Get free variables (popped in reverse order)
 			for i := int(numFree) - 1; i >= 0; i-- {
 				v := v.pop()
@@ -127,15 +79,17 @@ func (v *vm) executeCall(op bytecode.OpCode, frame *Frame) error { //nolint:gocy
 			capturedArgs := args
 
 			// Track the goroutine
-			v.goroutines.Start(func() {
+			if err := v.goroutines.Start(func() {
 				// Create initial frame for the child goroutine
-				childFrame := newFrame(capturedFn, 0, capturedArgs, nil)
+				childFrame := newFrame(capturedFn, capturedArgs, nil)
 				childVM.frames[0] = childFrame
 				childVM.fp = 1
 
 				// Run the child VM (ignore return value - goroutine result is discarded)
 				_, _ = childVM.run()
-			})
+			}); err != nil {
+				return err
+			}
 		}
 
 	case bytecode.OpGoCallIndirect:
@@ -162,15 +116,17 @@ func (v *vm) executeCall(op bytecode.OpCode, frame *Frame) error { //nolint:gocy
 			capturedArgs := args
 
 			// Track the goroutine
-			v.goroutines.Start(func() {
+			if err := v.goroutines.Start(func() {
 				// Create initial frame for the child goroutine with free vars
-				childFrame := newFrame(capturedClosure.Fn, 0, capturedArgs, capturedClosure.FreeVars)
+				childFrame := newFrame(capturedClosure.Fn, capturedArgs, capturedClosure.FreeVars)
 				childVM.frames[0] = childFrame
 				childVM.fp = 1
 
 				// Run the child VM (ignore return value - goroutine result is discarded)
 				_, _ = childVM.run()
-			})
+			}); err != nil {
+				return err
+			}
 		}
 
 	case bytecode.OpPack:

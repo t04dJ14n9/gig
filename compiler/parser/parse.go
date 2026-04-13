@@ -24,12 +24,33 @@ type ParseResult struct {
 	Pkg  *types.Package
 }
 
+// parseConfig holds internal configuration parsed from ParseOption values.
+type parseConfig struct {
+	allowPanic bool
+}
+
+// ParseOption configures the behaviour of Parse.
+type ParseOption func(*parseConfig)
+
+// WithAllowPanic allows the use of panic() in source code.
+// By default, panic() calls are rejected at parse time for sandbox safety.
+func WithAllowPanic() ParseOption {
+	return func(c *parseConfig) {
+		c.allowPanic = true
+	}
+}
+
 // Parse parses Go source code, performs type checking, and validates it.
 // It handles auto-import of registered packages and checks for banned constructs.
 //
 // The src parameter is the source code string.
 // The reg parameter provides package registry for import resolution.
-func Parse(src string, reg importer.PackageRegistry) (*ParseResult, error) {
+func Parse(src string, reg importer.PackageRegistry, opts ...ParseOption) (*ParseResult, error) {
+	cfg := parseConfig{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	// Auto-wrap with "package main" if no package declaration
 	src = strings.TrimSpace(src)
 	if !strings.HasPrefix(src, "package ") {
@@ -42,6 +63,18 @@ func Parse(src string, reg importer.PackageRegistry) (*ParseResult, error) {
 	file, err := parser.ParseFile(fset, "main.go", src, parser.AllErrors|parser.ParseComments)
 	if err != nil {
 		return nil, fmt.Errorf("parse error: %w", err)
+	}
+
+	// Check for banned imports (unsafe, reflect)
+	if err := checkBannedImports(fset, file); err != nil {
+		return nil, err
+	}
+
+	// Check for banned panic usage (unless explicitly allowed)
+	if !cfg.allowPanic {
+		if err := checkBannedPanic(fset, file); err != nil {
+			return nil, err
+		}
 	}
 
 	// Auto-import registered packages if needed
@@ -67,11 +100,6 @@ func Parse(src string, reg importer.PackageRegistry) (*ParseResult, error) {
 	pkg, err := typeConfig.Check("main", fset, []*ast.File{file}, info)
 	if err != nil {
 		return nil, fmt.Errorf("type check error: %w", err)
-	}
-
-	// Check for panic usage (banned)
-	if err := checkPanicUsage(file, info); err != nil {
-		return nil, err
 	}
 
 	return &ParseResult{
@@ -129,28 +157,45 @@ func autoImport(file *ast.File, reg importer.PackageRegistry) {
 	}
 }
 
-// checkPanicUsage checks for panic usage in the code.
-func checkPanicUsage(file *ast.File, info *types.Info) error {
-	found := false
+// checkBannedImports walks the AST and returns an error if any banned import is found.
+// The Gig security model bans "unsafe" and "reflect" imports.
+func checkBannedImports(fset *token.FileSet, file *ast.File) error {
+	banned := map[string]bool{
+		"unsafe":  true,
+		"reflect": true,
+	}
+	for _, imp := range file.Imports {
+		path := strings.Trim(imp.Path.Value, `"`)
+		if banned[path] {
+			pos := fset.Position(imp.Pos())
+			return fmt.Errorf("compile error: import of %q is banned by the Gig security model (at %s)", path, pos)
+		}
+	}
+	return nil
+}
 
+// checkBannedPanic walks the AST and returns an error if any panic() call is found.
+// This is a compile-time safety check for sandboxed execution.
+// Both panic("msg") and panic(expr) forms are detected.
+func checkBannedPanic(fset *token.FileSet, file *ast.File) error {
+	var panicPos token.Pos
 	ast.Inspect(file, func(n ast.Node) bool {
-		if call, ok := n.(*ast.CallExpr); ok {
-			if ident, ok := call.Fun.(*ast.Ident); ok {
-				if ident.Name == "panic" {
-					if obj := info.Uses[ident]; obj != nil {
-						if _, isBuiltin := obj.(*types.Builtin); isBuiltin {
-							found = true
-							return false
-						}
-					}
-				}
-			}
+		if panicPos.IsValid() {
+			return false // already found one, stop
+		}
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		if ident, ok := call.Fun.(*ast.Ident); ok && ident.Name == "panic" {
+			panicPos = ident.Pos()
+			return false
 		}
 		return true
 	})
-
-	if found {
-		return fmt.Errorf("use of \"panic\" is not allowed")
+	if panicPos.IsValid() {
+		pos := fset.Position(panicPos)
+		return fmt.Errorf("compile error: panic() is not allowed in sandboxed code (at %s); use gig.WithAllowPanic() to enable", pos)
 	}
 	return nil
 }

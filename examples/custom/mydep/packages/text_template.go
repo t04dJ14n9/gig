@@ -9,7 +9,7 @@ import (
 	text_template_parse "text/template/parse"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
@@ -63,7 +63,11 @@ func direct_text_template_HTMLEscape(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	text_template.HTMLEscape(a0, a1)
 	return value.MakeNil()
@@ -94,7 +98,11 @@ func direct_text_template_JSEscape(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	text_template.JSEscape(a0, a1)
 	return value.MakeNil()

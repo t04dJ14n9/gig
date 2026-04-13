@@ -15,7 +15,7 @@
 //	import (
 //	    "fmt"
 //	    "github.com/t04dJ14n9/gig/importer"
-//	    "github.com/t04dJ14n9/gig/value"
+//	    "github.com/t04dJ14n9/gig/model/value"
 //	)
 //
 //	func init() {
@@ -231,19 +231,6 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	if needReflect {
 		b.WriteString("\t\"reflect\"\n")
 	}
-	// Add extra imports for packages that need fmt sanitization helpers
-	sanitizeImports := map[string]string{}
-	if fmtSanitizePackages[path] {
-		sanitizeImports = fmtSanitizeExtraImports()
-	}
-
-	// Merge sanitize imports into cross-package imports
-	for impPath, impAlias := range sanitizeImports {
-		if _, exists := crossPkgImports[impPath]; !exists {
-			crossPkgImports[impPath] = impAlias
-		}
-	}
-
 	// Add cross-package imports needed by DirectCall wrappers
 	for impPath, impAlias := range crossPkgImports {
 		// Skip reflect if already imported above
@@ -263,7 +250,7 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	b.WriteString("\n")
 	b.WriteString("\t\"github.com/t04dJ14n9/gig/importer\"\n")
 	if hasDirectCalls {
-		b.WriteString("\t\"github.com/t04dJ14n9/gig/value\"\n")
+		b.WriteString("\t\"github.com/t04dJ14n9/gig/model/value\"\n")
 	}
 	b.WriteString(")\n\n")
 
@@ -338,12 +325,6 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	// Method DirectCall wrapper functions
 	for _, mdc := range allMethodDCs {
 		b.WriteString(mdc.Code)
-		b.WriteString("\n")
-	}
-
-	// Emit fmt sanitization helper code for packages that need it
-	if fmtSanitizePackages[path] {
-		b.WriteString(fmtSanitizeHelperCode())
 		b.WriteString("\n")
 	}
 

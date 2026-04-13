@@ -1,3 +1,4 @@
+// compile_instr.go compiles SSA instructions: calls, binops, unops, field access.
 package compiler
 
 import (
@@ -6,78 +7,79 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
-	"github.com/t04dJ14n9/gig/bytecode"
+	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/external"
 )
 
 // compileInstruction compiles a single SSA instruction to bytecode.
-func (ctx *funcContext) compileInstruction(instr ssa.Instruction) {
+func (c *compiler) compileInstruction(instr ssa.Instruction) {
 	switch i := instr.(type) {
 	case *ssa.Alloc:
-		ctx.compileAlloc(i)
+		c.compileAlloc(i)
 	case *ssa.BinOp:
-		ctx.compileBinOp(i)
+		c.compileBinOp(i)
 	case *ssa.UnOp:
-		ctx.compileUnOp(i)
+		c.compileUnOp(i)
 	case *ssa.Call:
-		ctx.compileCall(i)
+		c.compileCall(i)
 	case *ssa.ChangeInterface:
-		ctx.compileChangeInterface(i)
+		c.compileChangeInterface(i)
 	case *ssa.ChangeType:
-		ctx.compileChangeType(i)
+		c.compileChangeType(i)
 	case *ssa.Convert:
-		ctx.compileConvert(i)
+		c.compileConvert(i)
 	case *ssa.Extract:
-		ctx.compileExtract(i)
+		c.compileExtract(i)
 	case *ssa.Field:
-		ctx.compileField(i)
+		c.compileField(i)
 	case *ssa.FieldAddr:
-		ctx.compileFieldAddr(i)
+		c.compileFieldAddr(i)
 	case *ssa.Index:
-		ctx.compileIndex(i)
+		c.compileIndex(i)
 	case *ssa.IndexAddr:
-		ctx.compileIndexAddr(i)
+		c.compileIndexAddr(i)
 	case *ssa.Lookup:
-		ctx.compileLookup(i)
+		c.compileLookup(i)
 	case *ssa.MakeInterface:
-		ctx.compileMakeInterface(i)
+		c.compileMakeInterface(i)
 	case *ssa.MakeClosure:
-		ctx.compileMakeClosure(i)
+		c.compileMakeClosure(i)
 	case *ssa.MakeChan:
-		ctx.compileMakeChan(i)
+		c.compileMakeChan(i)
 	case *ssa.MakeMap:
-		ctx.compileMakeMap(i)
+		c.compileMakeMap(i)
 	case *ssa.MakeSlice:
-		ctx.compileMakeSlice(i)
+		c.compileMakeSlice(i)
 	case *ssa.Next:
-		ctx.compileNext(i)
+		c.compileNext(i)
 	case *ssa.Phi:
 		// Phi nodes are handled by inserting moves in predecessors
 	case *ssa.Range:
-		ctx.compileRange(i)
+		c.compileRange(i)
 	case *ssa.Select:
-		ctx.compileSelect(i)
+		c.compileSelect(i)
 	case *ssa.Slice:
-		ctx.compileSlice(i)
+		c.compileSlice(i)
 	case *ssa.TypeAssert:
-		ctx.compileTypeAssert(i)
+		c.compileTypeAssert(i)
 	case *ssa.DebugRef:
 		// Skip debug info
 	case *ssa.Defer:
-		ctx.compileDefer(i)
+		c.compileDefer(i)
 	case *ssa.Go:
-		ctx.compileGo(i)
+		c.compileGo(i)
 	case *ssa.MapUpdate:
-		ctx.compileMapUpdate(i)
+		c.compileMapUpdate(i)
 	case *ssa.Panic:
 		// Handled in block terminator
 	case *ssa.Return:
-		ctx.compileReturn(i)
+		c.compileReturn(i)
 	case *ssa.RunDefers:
-		ctx.emit(bytecode.OpRunDefers)
+		c.emit(bytecode.OpRunDefers)
 	case *ssa.Send:
-		ctx.compileSend(i)
+		c.compileSend(i)
 	case *ssa.Store:
-		ctx.compileStore(i)
+		c.compileStore(i)
 	case *ssa.Jump:
 		// Handled in block terminator
 	case *ssa.If:
@@ -86,76 +88,51 @@ func (ctx *funcContext) compileInstruction(instr ssa.Instruction) {
 }
 
 // compileAlloc compiles an Alloc instruction (variable allocation).
-func (ctx *funcContext) compileAlloc(i *ssa.Alloc) {
-	addrIdx := ctx.symbolTable.AllocLocal(i)
+func (c *compiler) compileAlloc(i *ssa.Alloc) {
+	addrIdx := c.symbolTable.AllocLocal(i)
 	elemType := i.Type().(*types.Pointer).Elem()
-	typeIdx := ctx.c.addType(elemType)
-	ctx.emit(bytecode.OpNew, uint16(typeIdx))
-	ctx.emit(bytecode.OpSetLocal, uint16(addrIdx))
+	typeIdx := c.addType(elemType)
+	c.emit(bytecode.OpNew, uint16(typeIdx))
+	c.emit(bytecode.OpSetLocal, uint16(addrIdx))
+}
+
+// binOpMap maps Go token operators to bytecode opcodes.
+var binOpMap = map[token.Token]bytecode.OpCode{
+	token.ADD:     bytecode.OpAdd,
+	token.SUB:     bytecode.OpSub,
+	token.MUL:     bytecode.OpMul,
+	token.QUO:     bytecode.OpDiv,
+	token.REM:     bytecode.OpMod,
+	token.AND:     bytecode.OpAnd,
+	token.OR:      bytecode.OpOr,
+	token.XOR:     bytecode.OpXor,
+	token.AND_NOT: bytecode.OpAndNot,
+	token.SHL:     bytecode.OpLsh,
+	token.SHR:     bytecode.OpRsh,
+	token.EQL:     bytecode.OpEqual,
+	token.NEQ:     bytecode.OpNotEqual,
+	token.LSS:     bytecode.OpLess,
+	token.LEQ:     bytecode.OpLessEq,
+	token.GTR:     bytecode.OpGreater,
+	token.GEQ:     bytecode.OpGreaterEq,
+	token.LAND:    bytecode.OpAnd,
+	token.LOR:     bytecode.OpOr,
 }
 
 // compileBinOp compiles a binary operation.
-func (ctx *funcContext) compileBinOp(i *ssa.BinOp) {
-	ctx.compileValue(i.X)
-	ctx.compileValue(i.Y)
-
-	var op bytecode.OpCode
-	switch i.Op { //nolint:exhaustive
-	case token.ADD:
-		op = bytecode.OpAdd
-	case token.SUB:
-		op = bytecode.OpSub
-	case token.MUL:
-		op = bytecode.OpMul
-	case token.QUO:
-		op = bytecode.OpDiv
-	case token.REM:
-		op = bytecode.OpMod
-	case token.AND:
-		op = bytecode.OpAnd
-	case token.OR:
-		op = bytecode.OpOr
-	case token.XOR:
-		op = bytecode.OpXor
-	case token.AND_NOT:
-		op = bytecode.OpAndNot
-	case token.SHL:
-		op = bytecode.OpLsh
-	case token.SHR:
-		op = bytecode.OpRsh
-	case token.EQL:
-		op = bytecode.OpEqual
-	case token.NEQ:
-		op = bytecode.OpNotEqual
-	case token.LSS:
-		op = bytecode.OpLess
-	case token.LEQ:
-		op = bytecode.OpLessEq
-	case token.GTR:
-		op = bytecode.OpGreater
-	case token.GEQ:
-		op = bytecode.OpGreaterEq
-	case token.LAND:
-		op = bytecode.OpAnd
-	case token.LOR:
-		op = bytecode.OpOr
-	}
-
-	ctx.emit(op)
-
-	resultIdx := ctx.symbolTable.AllocLocal(i)
-	ctx.emit(bytecode.OpSetLocal, uint16(resultIdx))
+func (c *compiler) compileBinOp(i *ssa.BinOp) {
+	c.compileBinaryOpWithSetLocal(i.X, i.Y, i, binOpMap[i.Op])
 }
 
 // compileUnOp compiles a UnOp instruction.
-func (ctx *funcContext) compileUnOp(i *ssa.UnOp) {
-	ctx.compileValue(i.X)
+func (c *compiler) compileUnOp(i *ssa.UnOp) {
+	c.compileValue(i.X)
 
 	var op bytecode.OpCode
 	switch i.Op { //nolint:exhaustive
 	case token.ADD:
-		resultIdx := ctx.symbolTable.AllocLocal(i)
-		ctx.emit(bytecode.OpSetLocal, uint16(resultIdx))
+		resultIdx := c.symbolTable.AllocLocal(i)
+		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 		return
 	case token.SUB:
 		op = bytecode.OpNeg
@@ -167,10 +144,10 @@ func (ctx *funcContext) compileUnOp(i *ssa.UnOp) {
 		// We must NOT emit OpXor directly here; that would pop 2 values
 		// when only 1 (the operand) is on the stack, causing a panic.
 		allOnes := allOnesConstant(i.X.Type())
-		ctx.emit(bytecode.OpConst, uint16(ctx.c.addConstant(allOnes)))
-		ctx.emit(bytecode.OpXor)
-		resultIdx := ctx.symbolTable.AllocLocal(i)
-		ctx.emit(bytecode.OpSetLocal, uint16(resultIdx))
+		c.emit(bytecode.OpConst, uint16(c.addConstant(allOnes)))
+		c.emit(bytecode.OpXor)
+		resultIdx := c.symbolTable.AllocLocal(i)
+		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 		return
 	case token.ARROW:
 		if i.CommaOk {
@@ -182,10 +159,10 @@ func (ctx *funcContext) compileUnOp(i *ssa.UnOp) {
 		op = bytecode.OpDeref
 	}
 
-	ctx.emit(op)
+	c.emit(op)
 
-	resultIdx := ctx.symbolTable.AllocLocal(i)
-	ctx.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	resultIdx := c.symbolTable.AllocLocal(i)
+	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
 
 // allOnesConstant returns the "all ones" value for a given numeric type,
@@ -224,20 +201,20 @@ func allOnesConstant(t types.Type) any {
 }
 
 // compileCall compiles a function call instruction.
-func (ctx *funcContext) compileCall(i *ssa.Call) {
-	resultIdx := ctx.symbolTable.AllocLocal(i)
+func (c *compiler) compileCall(i *ssa.Call) {
+	resultIdx := c.symbolTable.AllocLocal(i)
 
 	// Handle interface method invocation (e.g., iface.Method())
 	// SSA represents this with IsInvoke() == true, where Call.Value is the interface value
 	// and Call.Method is the method being invoked.
 	if i.Call.IsInvoke() {
 		// Push the receiver (interface value) as the first argument
-		ctx.compileValue(i.Call.Value)
+		c.compileValue(i.Call.Value)
 		// Push remaining arguments
 		for _, arg := range i.Call.Args {
-			ctx.compileValue(arg)
+			c.compileValue(arg)
 		}
-		methodInfo := &bytecode.ExternalMethodInfo{
+		methodInfo := &external.ExternalMethodInfo{
 			MethodName: i.Call.Method.Name(),
 		}
 		// For invoke calls, try to extract the concrete receiver type from the
@@ -255,144 +232,167 @@ func (ctx *funcContext) compileCall(i *ssa.Call) {
 				methodInfo.ReceiverTypeName = named.Obj().Name()
 			}
 		}
-		funcIdx := ctx.c.addConstant(methodInfo)
+		funcIdx := c.addConstant(methodInfo)
 		numArgs := len(i.Call.Args) + 1 // +1 for receiver
-		ctx.cf.Instructions = append(ctx.cf.Instructions,
-			byte(bytecode.OpCallExternal),
-			byte(funcIdx>>8), byte(funcIdx),
-			byte(numArgs))
-		ctx.emit(bytecode.OpSetLocal, uint16(resultIdx))
+		c.emitCallOp(bytecode.OpCallExternal, funcIdx, numArgs)
+		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 		return
 	}
 
 	if builtin, ok := i.Call.Value.(*ssa.Builtin); ok {
-		ctx.compileBuiltinCall(builtin, i.Call.Args, resultIdx)
+		c.compileBuiltinCall(builtin, i.Call.Args, resultIdx)
 		return
 	}
 
 	if fn, ok := i.Call.Value.(*ssa.Function); ok {
-		if _, known := ctx.c.funcIndex[fn]; known {
+		if _, known := c.funcIndex[fn]; known {
 			for _, arg := range i.Call.Args {
-				ctx.compileValue(arg)
+				c.compileValue(arg)
 			}
 
-			funcIdx := ctx.c.funcIndex[fn]
+			funcIdx := c.funcIndex[fn]
 			numArgs := len(i.Call.Args)
-			ctx.cf.Instructions = append(ctx.cf.Instructions,
-				byte(bytecode.OpCall),
-				byte(funcIdx>>8), byte(funcIdx),
-				byte(numArgs))
-			ctx.emit(bytecode.OpSetLocal, uint16(resultIdx))
+			c.emitCallOp(bytecode.OpCall, uint16(funcIdx), numArgs)
+			c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 			return
 		}
 
-		ctx.compileExternalStaticCall(i, fn, resultIdx)
+		c.compileExternalStaticCall(i, fn, resultIdx)
 		return
 	}
 
-	ctx.compileIndirectCall(i)
+	c.compileIndirectCall(i)
+}
+
+// builtinOps maps simple builtin names to their single-opcode implementations.
+// Builtins not in this map have custom compilation logic in compileBuiltinCall.
+var builtinOps = map[string]bytecode.OpCode{
+	"len":     bytecode.OpLen,
+	"cap":     bytecode.OpCap,
+	"copy":    bytecode.OpCopy,
+	"panic":   bytecode.OpPanic,
+	"recover": bytecode.OpRecover,
+	"close":   bytecode.OpClose,
 }
 
 // compileBuiltinCall compiles a call to a builtin function.
-func (ctx *funcContext) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, resultIdx int) {
+func (c *compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, resultIdx int) {
 	name := builtin.Name()
 
+	// Fast path: single-opcode builtins with 1 arg that push a value
+	if op, ok := builtinOps[name]; ok {
+		switch name {
+		case "len", "cap":
+			c.compileValue(args[0])
+			c.emit(op)
+		case "copy":
+			c.compileValue(args[0])
+			c.compileValue(args[1])
+			c.emit(op)
+		case "panic":
+			c.compileValue(args[0])
+			c.emit(op)
+			return
+		case "recover":
+			// recover() takes no arguments
+			c.emit(op)
+		case "close":
+			c.compileValue(args[0])
+			c.emit(op)
+			return
+		}
+		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+		return
+	}
+
 	switch name {
-	case "len":
-		ctx.compileValue(args[0])
-		ctx.emit(bytecode.OpLen)
-	case "cap":
-		ctx.compileValue(args[0])
-		ctx.emit(bytecode.OpCap)
 	case "append":
 		for i, arg := range args {
-			ctx.compileValue(arg)
+			c.compileValue(arg)
 			if i > 0 {
-				ctx.emit(bytecode.OpAppend)
+				c.emit(bytecode.OpAppend)
 			}
 		}
-	case "copy":
-		ctx.compileValue(args[0])
-		ctx.compileValue(args[1])
-		ctx.emit(bytecode.OpCopy)
 	case "delete":
-		ctx.compileValue(args[0])
-		ctx.compileValue(args[1])
-		ctx.emit(bytecode.OpDelete)
-		return
-	case "panic":
-		ctx.compileValue(args[0])
-		ctx.emit(bytecode.OpPanic)
+		c.compileValue(args[0])
+		c.compileValue(args[1])
+		c.emit(bytecode.OpDelete)
 		return
 	case "print":
 		for _, arg := range args {
-			ctx.compileValue(arg)
+			c.compileValue(arg)
 		}
-		ctx.emit(bytecode.OpPrint, uint16(len(args)))
+		c.emit(bytecode.OpPrint, uint16(len(args)))
 		return
 	case "println":
 		for _, arg := range args {
-			ctx.compileValue(arg)
+			c.compileValue(arg)
 		}
-		ctx.emit(bytecode.OpPrintln, uint16(len(args)))
+		c.emit(bytecode.OpPrintln, uint16(len(args)))
 		return
 	case "new":
-		typeIdx := ctx.c.addType(args[0].Type())
-		ctx.emit(bytecode.OpNew, uint16(typeIdx))
+		typeIdx := c.addType(args[0].Type())
+		c.emit(bytecode.OpNew, uint16(typeIdx))
 	case "make":
-		ctx.compileMakeBuiltin(args)
-	case "close":
-		ctx.compileValue(args[0])
-		ctx.emit(bytecode.OpClose)
-		return
+		c.compileMakeBuiltin(args)
 	case "ssa:wrapnilchk":
-		// ssa:wrapnilchk checks that its argument is non-nil.
-		// In our VM, we simply pass through the value (the nil check
-		// is an optimization/safety check that we skip).
-		ctx.compileValue(args[0])
+		c.compileValue(args[0])
+	case "real":
+		// real(complex) -> float
+		c.compileValue(args[0])
+		c.emit(bytecode.OpReal)
+	case "imag":
+		// imag(complex) -> float
+		c.compileValue(args[0])
+		c.emit(bytecode.OpImag)
+	case "complex":
+		// complex(real, imag) -> complex
+		c.compileValue(args[0]) // real part
+		c.compileValue(args[1]) // imag part
+		c.emit(bytecode.OpComplex)
 	default:
-		ctx.emit(bytecode.OpNil)
+		c.emit(bytecode.OpNil)
 	}
 
-	ctx.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
 
 // compileMakeBuiltin compiles the make builtin.
-func (ctx *funcContext) compileMakeBuiltin(args []ssa.Value) {
+func (c *compiler) compileMakeBuiltin(args []ssa.Value) {
 	t := args[0].Type()
-	typeIdx := ctx.c.addType(t)
-	typeIdxConst := ctx.c.addConstant(int64(typeIdx))
-	zeroIdx := ctx.c.addConstant(int64(0))
+	typeIdx := c.addType(t)
+	typeIdxConst := c.addConstant(int64(typeIdx))
+	zeroIdx := c.addConstant(int64(0))
 
 	switch t.(type) {
 	case *types.Slice:
-		ctx.emit(bytecode.OpConst, typeIdxConst)
+		c.emit(bytecode.OpConst, typeIdxConst)
 		if len(args) >= 2 {
-			ctx.compileValue(args[1])
+			c.compileValue(args[1])
 		} else {
-			ctx.emit(bytecode.OpConst, zeroIdx)
+			c.emit(bytecode.OpConst, zeroIdx)
 		}
 		if len(args) >= 3 {
-			ctx.compileValue(args[2])
+			c.compileValue(args[2])
 		} else {
-			ctx.emit(bytecode.OpConst, zeroIdx)
+			c.emit(bytecode.OpConst, zeroIdx)
 		}
-		ctx.emit(bytecode.OpMakeSlice)
+		c.emit(bytecode.OpMakeSlice)
 	case *types.Map:
-		ctx.emit(bytecode.OpConst, typeIdxConst)
+		c.emit(bytecode.OpConst, typeIdxConst)
 		if len(args) > 1 {
-			ctx.compileValue(args[1])
+			c.compileValue(args[1])
 		} else {
-			ctx.emit(bytecode.OpConst, zeroIdx)
+			c.emit(bytecode.OpConst, zeroIdx)
 		}
-		ctx.emit(bytecode.OpMakeMap)
+		c.emit(bytecode.OpMakeMap)
 	case *types.Chan:
-		ctx.emit(bytecode.OpConst, typeIdxConst)
+		c.emit(bytecode.OpConst, typeIdxConst)
 		if len(args) > 1 {
-			ctx.compileValue(args[1])
+			c.compileValue(args[1])
 		} else {
-			ctx.emit(bytecode.OpConst, zeroIdx)
+			c.emit(bytecode.OpConst, zeroIdx)
 		}
-		ctx.emit(bytecode.OpMakeChan)
+		c.emit(bytecode.OpMakeChan)
 	}
 }

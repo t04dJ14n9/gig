@@ -7,7 +7,7 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
@@ -70,7 +70,7 @@ func direct_method_encoding_csv_Reader_FieldPos(args []value.Value) value.Value 
 
 func direct_method_encoding_csv_Reader_InputOffset(args []value.Value) value.Value {
 	recv := args[0].Interface().(*encoding_csv.Reader)
-	return value.MakeInt(int64(recv.InputOffset()))
+	return value.MakeInt64(recv.InputOffset())
 }
 
 func direct_method_encoding_csv_Reader_Read(args []value.Value) value.Value {

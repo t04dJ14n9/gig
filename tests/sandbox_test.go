@@ -41,7 +41,6 @@ package main
 
 func Hello() string { return "hello" }
 `, gig.WithRegistry(sandbox))
-
 	if err != nil {
 		t.Errorf("expected simple program to compile in sandbox: %v", err)
 	}

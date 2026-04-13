@@ -9,7 +9,7 @@ import (
 	time "time"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/value"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
@@ -516,7 +516,11 @@ func direct_os_WriteFile(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a2 := os.FileMode(uint32(args[2].Uint()))
 	return value.FromInterface(os.WriteFile(a0, a1, a2))
@@ -561,7 +565,11 @@ func direct_method_os_File_Read(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := recv.Read(a0)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
@@ -573,7 +581,11 @@ func direct_method_os_File_ReadAt(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[2].Int()
 	r0, r1 := recv.ReadAt(a0, a1)
@@ -591,7 +603,7 @@ func direct_method_os_File_ReadFrom(args []value.Value) value.Value {
 	recv := args[0].Interface().(*os.File)
 	a0 := args[1].Interface().(io.Reader)
 	r0, r1 := recv.ReadFrom(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_os_File_Readdir(args []value.Value) value.Value {
@@ -613,7 +625,7 @@ func direct_method_os_File_Seek(args []value.Value) value.Value {
 	a0 := args[1].Int()
 	a1 := int(args[2].Int())
 	r0, r1 := recv.Seek(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_os_File_SetDeadline(args []value.Value) value.Value {
@@ -663,7 +675,11 @@ func direct_method_os_File_Write(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	r0, r1 := recv.Write(a0)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
@@ -675,7 +691,11 @@ func direct_method_os_File_WriteAt(args []value.Value) value.Value {
 		if b, ok := (args[1]).Bytes(); ok {
 			return b
 		}
-		return (args[1]).Interface().([]byte)
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[2].Int()
 	r0, r1 := recv.WriteAt(a0, a1)
@@ -693,7 +713,7 @@ func direct_method_os_File_WriteTo(args []value.Value) value.Value {
 	recv := args[0].Interface().(*os.File)
 	a0 := args[1].Interface().(io.Writer)
 	r0, r1 := recv.WriteTo(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_method_os_LinkError_Error(args []value.Value) value.Value {
@@ -765,12 +785,12 @@ func direct_method_os_ProcessState_SysUsage(args []value.Value) value.Value {
 
 func direct_method_os_ProcessState_SystemTime(args []value.Value) value.Value {
 	recv := args[0].Interface().(*os.ProcessState)
-	return value.MakeInt(int64(int64(recv.SystemTime())))
+	return value.MakeInt64(int64(recv.SystemTime()))
 }
 
 func direct_method_os_ProcessState_UserTime(args []value.Value) value.Value {
 	recv := args[0].Interface().(*os.ProcessState)
-	return value.MakeInt(int64(int64(recv.UserTime())))
+	return value.MakeInt64(int64(recv.UserTime()))
 }
 
 func direct_method_os_SyscallError_Error(args []value.Value) value.Value {
