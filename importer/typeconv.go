@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+
+	"git.woa.com/youngjin/gig/model/bytecode"
 )
 
 // typeOf is a function that converts reflect.Type to types.Type.
@@ -21,61 +23,6 @@ func init() {
 
 // typeCache caches converted types to prevent infinite recursion for self-referential types.
 var typeCache sync.Map // map[reflect.Type]types.Type
-
-// reflectToBasicKind maps reflect.Kind to types.BasicKind for basic type detection.
-// Used by convertReflectType (named type alias check) and convertReflectTypeForUnderlying.
-var reflectToBasicKind = map[reflect.Kind]types.BasicKind{
-	reflect.Bool:          types.Bool,
-	reflect.Int:           types.Int,
-	reflect.Int8:          types.Int8,
-	reflect.Int16:         types.Int16,
-	reflect.Int32:         types.Int32,
-	reflect.Int64:         types.Int64,
-	reflect.Uint:          types.Uint,
-	reflect.Uint8:         types.Uint8,
-	reflect.Uint16:        types.Uint16,
-	reflect.Uint32:        types.Uint32,
-	reflect.Uint64:        types.Uint64,
-	reflect.Uintptr:       types.Uintptr,
-	reflect.Float32:       types.Float32,
-	reflect.Float64:       types.Float64,
-	reflect.Complex64:     types.Complex64,
-	reflect.Complex128:    types.Complex128,
-	reflect.String:        types.String,
-	reflect.UnsafePointer: types.UnsafePointer,
-}
-
-// basicTypeFromReflectKind returns the types.Typ for a reflect.Kind, or nil if not a basic kind.
-func basicTypeFromReflectKind(k reflect.Kind) *types.Basic {
-	if bk, ok := reflectToBasicKind[k]; ok {
-		return types.Typ[bk]
-	}
-	return nil
-}
-
-// typePkgCache caches *types.Package objects by package path to ensure
-// that the same package path always maps to the same *types.Package instance.
-var typePkgCache sync.Map // map[string]*types.Package
-
-// getOrCreateTypesPackage returns a cached *types.Package for the given
-// package path, creating one if it doesn't exist yet. The package name is
-// derived from the last path segment (e.g., "encoding/json" → "json").
-func getOrCreateTypesPackage(pkgPath string) *types.Package {
-	if pkgPath == "" {
-		return nil
-	}
-	if cached, ok := typePkgCache.Load(pkgPath); ok {
-		return cached.(*types.Package)
-	}
-	// Derive package name from path (last segment)
-	name := pkgPath
-	if idx := strings.LastIndex(pkgPath, "/"); idx >= 0 {
-		name = pkgPath[idx+1:]
-	}
-	pkg := types.NewPackage(pkgPath, name)
-	actual, _ := typePkgCache.LoadOrStore(pkgPath, pkg)
-	return actual.(*types.Package)
-}
 
 // convertToConstantValue converts a Go value to a constant.Value for use in types.Const.
 // Handles basic types (bool, int, uint, float, complex, string) and falls back
@@ -170,7 +117,7 @@ func convertReflectType(rt reflect.Type) types.Type {
 		// For basic kinds, types.Typ[kind] gives the canonical type with the kind's name.
 		// If the reflect type's name matches the canonical kind name, it's a basic type alias.
 		isBasicAlias := false
-		if bt := basicTypeFromReflectKind(rt.Kind()); bt != nil && bt.Name() == rt.Name() {
+		if bt := bytecode.BasicTypeFromReflectKind(rt.Kind()); bt != nil && bt.Name() == rt.Name() {
 			isBasicAlias = true
 		}
 		// If it's a basic type alias, don't treat as named type - fall through to basic handling
@@ -202,7 +149,7 @@ func convertReflectType(rt reflect.Type) types.Type {
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
 		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
 		reflect.String, reflect.UnsafePointer:
-		return basicTypeFromReflectKind(rt.Kind())
+		return bytecode.BasicTypeFromReflectKind(rt.Kind())
 
 	case reflect.Array:
 		elem := convertReflectType(rt.Elem())
@@ -278,7 +225,7 @@ func convertReflectType(rt reflect.Type) types.Type {
 // It returns the actual underlying type (e.g., struct, pointer, slice).
 func convertReflectTypeForUnderlying(rt reflect.Type) types.Type {
 	// For basic named types, return the corresponding basic type
-	if bt := basicTypeFromReflectKind(rt.Kind()); bt != nil {
+	if bt := bytecode.BasicTypeFromReflectKind(rt.Kind()); bt != nil {
 		return bt
 	}
 
@@ -317,6 +264,30 @@ func convertReflectTypeForUnderlying(rt reflect.Type) types.Type {
 	default:
 		return types.Typ[types.Invalid]
 	}
+}
+
+// typePkgCache caches *types.Package objects by package path to ensure
+// that the same package path always maps to the same *types.Package instance.
+var typePkgCache sync.Map // map[string]*types.Package
+
+// getOrCreateTypesPackage returns a cached *types.Package for the given
+// package path, creating one if it doesn't exist yet. The package name is
+// derived from the last path segment (e.g., "encoding/json" → "json").
+func getOrCreateTypesPackage(pkgPath string) *types.Package {
+	if pkgPath == "" {
+		return nil
+	}
+	if cached, ok := typePkgCache.Load(pkgPath); ok {
+		return cached.(*types.Package)
+	}
+	// Derive package name from path (last segment)
+	name := pkgPath
+	if idx := strings.LastIndex(pkgPath, "/"); idx >= 0 {
+		name = pkgPath[idx+1:]
+	}
+	pkg := types.NewPackage(pkgPath, name)
+	actual, _ := typePkgCache.LoadOrStore(pkgPath, pkg)
+	return actual.(*types.Package)
 }
 
 // convertFuncType converts a reflect.Func type to a types.Signature.
