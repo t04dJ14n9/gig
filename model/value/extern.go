@@ -169,14 +169,14 @@ func FmtWrap(v Value) any {
 // Returns a function that can be called later, and a boolean indicating if found.
 func resolveStringer(v Value) (func() string, bool) {
 	// Try to call String() method via the global resolver registry
-	result, found := CallMethod(nil, "String", v)
+	result, found := callMethod(nil, "String", v)
 	if !found {
 		// If not found, try with pointer to the value (for pointer receiver methods)
 		if rv, ok := v.ReflectValue(); ok && rv.Kind() == reflect.Struct {
 			ptrRV := reflect.New(rv.Type())
 			ptrRV.Elem().Set(rv)
 			ptrValue := MakeFromReflect(ptrRV)
-			result, found = CallMethod(nil, "String", ptrValue)
+			result, found = callMethod(nil, "String", ptrValue)
 		}
 	}
 

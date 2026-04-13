@@ -30,10 +30,10 @@ func UnregisterMethodResolver(key uintptr) {
 	methodResolverRegistry.Delete(key)
 }
 
-// CallMethod attempts to call a compiled method on the receiver using the given resolver.
+// callMethod attempts to call a compiled method on the receiver using the given resolver.
 // If resolver is nil, it falls back to searching all registered per-program resolvers.
 // Returns (result, true) if the method was found and called, or (zero, false) otherwise.
-func CallMethod(resolver MethodResolverFunc, methodName string, receiver Value) (Value, bool) {
+func callMethod(resolver MethodResolverFunc, methodName string, receiver Value) (Value, bool) {
 	if resolver != nil {
 		return resolver(methodName, receiver)
 	}

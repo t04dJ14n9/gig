@@ -56,15 +56,6 @@ var ReflectKindToBasicKind = map[reflect.Kind]types.BasicKind{
 	reflect.UnsafePointer: types.UnsafePointer,
 }
 
-// BasicKindFromReflectKind returns the types.BasicKind for a reflect.Kind,
-// or types.Invalid if the kind is not a basic type.
-func BasicKindFromReflectKind(k reflect.Kind) types.BasicKind {
-	if bk, ok := ReflectKindToBasicKind[k]; ok {
-		return bk
-	}
-	return types.Invalid
-}
-
 // BasicTypeFromReflectKind returns the types.Typ (canonical type) for a reflect.Kind,
 // or nil if the kind is not a basic type.
 func BasicTypeFromReflectKind(k reflect.Kind) *types.Basic {
