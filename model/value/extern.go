@@ -134,16 +134,6 @@ func isGigStruct(v any) string {
 	return gigTag
 }
 
-// ExternWrap is a pass-through that returns the raw interface{} value.
-// For most external Go code (json, container, sync, etc.),
-// the raw struct is what they need — struct tags and reflection work natively.
-//
-// Use FmtWrap instead when passing values to fmt.* functions that check
-// for fmt.Stringer/fmt.Formatter interfaces.
-func ExternWrap(v Value) any {
-	return v.Interface()
-}
-
 // FmtWrap prepares a value.Value for passing to fmt.* functions.
 // If the value is an interpreter-synthesized struct with compiled methods
 // (e.g., String()), returns a wrapper that implements fmt.Stringer and

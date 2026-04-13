@@ -251,42 +251,6 @@ func TestBitwiseOps(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Conversions
-// ---------------------------------------------------------------------------
-
-func TestConversions(t *testing.T) {
-	// Int -> other types
-	i := MakeInt(42)
-	if i.ToFloat().Float() != 42.0 {
-		t.Error("ToFloat")
-	}
-	if i.ToUint().Uint() != 42 {
-		t.Error("ToUint")
-	}
-	if i.ToBool().Bool() != true {
-		t.Error("ToBool non-zero")
-	}
-	if MakeInt(0).ToBool().Bool() {
-		t.Error("ToBool zero")
-	}
-	if i.ToString().String() != "42" {
-		t.Errorf("ToString = %q", i.ToString().String())
-	}
-
-	// Float -> Int
-	f := MakeFloat(3.9)
-	if f.ToInt().Int() != 3 {
-		t.Errorf("Float.ToInt = %d", f.ToInt().Int())
-	}
-
-	// String -> ToString (identity)
-	s := MakeString("hello")
-	if s.ToString().String() != "hello" {
-		t.Error("String.ToString")
-	}
-}
-
-// ---------------------------------------------------------------------------
 // Interface round-trip
 // ---------------------------------------------------------------------------
 

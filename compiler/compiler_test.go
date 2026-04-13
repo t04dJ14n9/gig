@@ -530,16 +530,6 @@ func TestCompilerInterfaceContract(t *testing.T) {
 	_, _ = c.Compile(nil)
 }
 
-func TestPackageLevelCompile(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Log("Compile(nil, nil) returned without panic")
-		}
-	}()
-
-	_, _ = Compile(&mockLookup{}, nil)
-}
-
 // ---------------------------------------------------------------------------
 // Mock PackageLookup
 // ---------------------------------------------------------------------------

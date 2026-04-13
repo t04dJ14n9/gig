@@ -63,10 +63,9 @@ func Build(source string, reg importer.PackageRegistry, opts ...BuildOption) (*B
 		return nil, err
 	}
 
-	// 3. Compile SSA to bytecode — PackageLookup is derived from PackageRegistry
+	// 3. Compile SSA to bytecode — the registry satisfies compiler.PackageLookup
 	// because resolving external functions/methods is a compiler responsibility.
-	lookup := importer.NewPackageLookup(reg)
-	compiled, err := NewCompiler(lookup).Compile(ssaResult.Pkg)
+	compiled, err := NewCompiler(reg).Compile(ssaResult.Pkg)
 	if err != nil {
 		return nil, fmt.Errorf("compile error: %w", err)
 	}

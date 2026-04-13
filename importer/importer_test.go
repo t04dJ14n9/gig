@@ -172,7 +172,7 @@ func TestAddTypeNil(t *testing.T) {
 
 // TestSetGetExternalType verifies the types.Type <-> reflect.Type mapping.
 func TestSetGetExternalType(t *testing.T) {
-	// Use a basic types.Type as key.
+	reg := globalRegistry
 	pkg := RegisterPackage("test/exttype", "exttype")
 	pkg.AddFunction("Sprintf", fmt.Sprintf, "", nil)
 	obj := pkg.Objects["Sprintf"]
@@ -181,18 +181,18 @@ func TestSetGetExternalType(t *testing.T) {
 	}
 
 	rt := reflect.TypeOf(fmt.Sprintf)
-	SetExternalType(obj.Type, rt)
+	reg.SetExternalType(obj.Type, rt)
 
-	got := GetExternalType(obj.Type)
-	if got != rt {
-		t.Errorf("GetExternalType returned %v, want %v", got, rt)
+	got, ok := reg.LookupExternalType(obj.Type)
+	if !ok || got != rt {
+		t.Errorf("LookupExternalType returned %v, want %v", got, rt)
 	}
 }
 
 // TestGetExternalTypeNotFound verifies nil is returned for unmapped types.
 func TestGetExternalTypeNotFound(t *testing.T) {
-	// Unregistered type should return nil.
-	if got := GetExternalType(nil); got != nil {
+	got, ok := globalRegistry.LookupExternalType(nil)
+	if ok || got != nil {
 		t.Errorf("expected nil, got %v", got)
 	}
 }
@@ -257,7 +257,7 @@ func TestImportUnregistered(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// LookupPackage (package-level function)
+// LookupPackage (Registry method)
 // ---------------------------------------------------------------------------
 
 // TestLookupPackage verifies lookup by path and name.
@@ -266,14 +266,16 @@ func TestLookupPackage(t *testing.T) {
 	name := "lookuppkg"
 	RegisterPackage(path, name)
 
+	reg := GlobalRegistry()
+
 	// Lookup by path.
-	pkg, err := LookupPackage(path)
+	pkg, err := reg.LookupPackage(path)
 	if err != nil || pkg == nil {
 		t.Fatalf("LookupPackage(%q) failed: %v", path, err)
 	}
 
 	// Lookup by name.
-	pkg2, err := LookupPackage(name)
+	pkg2, err := reg.LookupPackage(name)
 	if err != nil || pkg2 == nil {
 		t.Fatalf("LookupPackage(%q) failed: %v", name, err)
 	}
@@ -281,14 +283,14 @@ func TestLookupPackage(t *testing.T) {
 
 // TestLookupPackageNotFound verifies error for missing package.
 func TestLookupPackageNotFound(t *testing.T) {
-	_, err := LookupPackage("nonexistent_pkg_xyz")
+	_, err := GlobalRegistry().LookupPackage("nonexistent_pkg_xyz")
 	if err == nil {
 		t.Error("expected error for nonexistent package")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// AutoImport (package-level function)
+// AutoImport (Registry method)
 // ---------------------------------------------------------------------------
 
 // TestAutoImport verifies automatic import resolution by name.
@@ -297,7 +299,7 @@ func TestAutoImport(t *testing.T) {
 	name := "autoimp"
 	RegisterPackage(path, name)
 
-	gotPath, pkg, ok := AutoImport(name)
+	gotPath, pkg, ok := GlobalRegistry().AutoImport(name)
 	if !ok {
 		t.Fatal("AutoImport should succeed for registered package")
 	}
@@ -311,7 +313,7 @@ func TestAutoImport(t *testing.T) {
 
 // TestAutoImportNotFound verifies false for missing package.
 func TestAutoImportNotFound(t *testing.T) {
-	_, _, ok := AutoImport("no_such_auto_import_xyz")
+	_, _, ok := GlobalRegistry().AutoImport("no_such_auto_import_xyz")
 	if ok {
 		t.Error("AutoImport should return false for unregistered package")
 	}

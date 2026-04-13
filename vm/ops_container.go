@@ -400,130 +400,7 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 	case bytecode.OpAppend:
 		elem := v.pop()
 		slice := v.pop()
-		// Native int slice fast path
-		if s, ok := slice.IntSlice(); ok {
-			if es, ok2 := elem.IntSlice(); ok2 {
-				v.push(value.MakeIntSlice(append(s, es...)))
-			} else if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice {
-				// elem is a reflect-based integer slice (e.g. []int from a [][]int range).
-				// Convert each element to int64 and spread-append.
-				for i := 0; i < elemRV.Len(); i++ {
-					s = append(s, elemRV.Index(i).Int())
-				}
-				v.push(value.MakeIntSlice(s))
-			} else {
-				v.push(value.MakeIntSlice(append(s, elem.RawInt())))
-			}
-			break
-		}
-		// Handle KindSlice that contains native []int64 but needs to work with reflect
-		// This happens when a []int was optimized to []int64 but is now stored in a [][]int
-		if slice.Kind() == value.KindSlice {
-			if intSlice, ok := slice.IntSlice(); ok {
-				// This is a []int64 that needs to be converted to []int for reflect operations
-				// Convert to []int for proper reflect handling
-				intReflectSlice := reflect.MakeSlice(reflect.TypeOf([]int{}), len(intSlice), cap(intSlice))
-				for i, v := range intSlice {
-					intReflectSlice.Index(i).SetInt(v)
-				}
-				// Now handle the append with the converted slice
-				if elem.Kind() == value.KindInt {
-					newSlice := reflect.Append(intReflectSlice, reflect.ValueOf(int(elem.RawInt())))
-					v.push(value.MakeFromReflect(newSlice))
-				} else if elem.Kind() == value.KindSlice {
-					if elemIntSlice, ok2 := elem.IntSlice(); ok2 {
-						// Element is also []int64, convert to []int
-						elemReflectSlice := reflect.MakeSlice(reflect.TypeOf([]int{}), len(elemIntSlice), cap(elemIntSlice))
-						for i, v := range elemIntSlice {
-							elemReflectSlice.Index(i).SetInt(v)
-						}
-						newSlice := reflect.AppendSlice(intReflectSlice, elemReflectSlice)
-						v.push(value.MakeFromReflect(newSlice))
-					} else {
-						// Element is a different slice type
-						newSlice := reflect.Append(intReflectSlice, elem.ToReflectValue(reflect.TypeOf(int(0))))
-						v.push(value.MakeFromReflect(newSlice))
-					}
-				} else {
-					newSlice := reflect.Append(intReflectSlice, elem.ToReflectValue(reflect.TypeOf(int(0))))
-					v.push(value.MakeFromReflect(newSlice))
-				}
-				break
-			}
-		}
-		// Append element to slice
-		if rv, ok := slice.ReflectValue(); ok {
-			sliceElemType := rv.Type().Elem()
-			// Handle []value.Value slices (used for function slices)
-			if sliceElemType == reflect.TypeOf(value.Value{}) {
-				// Append value.Value element(s) to []value.Value
-				if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice && elemRV.Type().Elem() == sliceElemType {
-					newSlice := reflect.AppendSlice(rv, elemRV)
-					v.push(value.MakeFromReflect(newSlice))
-				} else {
-					newSlice := reflect.Append(rv, reflect.ValueOf(elem))
-					v.push(value.MakeFromReflect(newSlice))
-				}
-			} else {
-				// Check if elem is a native []int64 that needs spread-append
-				if elem.Kind() == value.KindSlice {
-					if elemIntSlice, ok2 := elem.IntSlice(); ok2 {
-						// Element is []int64, spread append each element
-						for _, v := range elemIntSlice {
-							rv = reflect.Append(rv, reflect.ValueOf(int(v)))
-						}
-						v.push(value.MakeFromReflect(rv))
-						break
-					}
-				}
-				// Check if SSA packed variadic args into a slice (e.g., append(s, elems...))
-				if elemRV, ok2 := elem.ReflectValue(); ok2 && elemRV.Kind() == reflect.Slice {
-					// The element is a slice of the same element type — spread it
-					newSlice := reflect.AppendSlice(rv, elemRV)
-					v.push(value.MakeFromReflect(newSlice))
-				} else {
-					newSlice := reflect.Append(rv, elem.ToReflectValue(sliceElemType))
-					v.push(value.MakeFromReflect(newSlice))
-				}
-			}
-		} else if slice.IsNil() || slice.Kind() == value.KindInvalid {
-			// Nil slice: create a new slice and append the element.
-			// Fast path: elem is a native []int64 (spread-append to create new []int64).
-			if es, ok2 := elem.IntSlice(); ok2 {
-				v.push(value.MakeIntSlice(append([]int64(nil), es...)))
-				break
-			}
-			elemRV, ok2 := elem.ReflectValue()
-			if ok2 && elemRV.Kind() == reflect.Slice {
-				if elemRV.Type().Elem() == reflect.TypeOf(value.Value{}) {
-					// Create new []value.Value from the element slice
-					newSlice := make([]value.Value, 0)
-					newRV := reflect.ValueOf(newSlice)
-					result := reflect.AppendSlice(newRV, elemRV)
-					v.push(value.MakeFromReflect(result))
-				} else {
-					// Create new slice of the element's type and spread-append
-					sliceType := reflect.SliceOf(elemRV.Type().Elem())
-					newSlice := reflect.MakeSlice(sliceType, 0, 0)
-					result := reflect.AppendSlice(newSlice, elemRV)
-					v.push(value.MakeFromReflect(result))
-				}
-			} else {
-				// Single-element append to a nil slice: infer element type from the value.
-				elemIface := elem.Interface()
-				if elemIface != nil {
-					elemRV2 := reflect.ValueOf(elemIface)
-					sliceType := reflect.SliceOf(elemRV2.Type())
-					newSlice := reflect.MakeSlice(sliceType, 0, 0)
-					result := reflect.Append(newSlice, elemRV2)
-					v.push(value.MakeFromReflect(result))
-				} else {
-					v.push(slice)
-				}
-			}
-		} else {
-			v.push(slice)
-		}
+		v.push(appendValue(slice, elem))
 
 	case bytecode.OpCopy:
 		src := v.pop()
@@ -584,4 +461,127 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 	}
 
 	return nil
+}
+
+// intSliceToReflect converts a native []int64 to a reflect []int slice.
+func intSliceToReflect(s []int64) reflect.Value {
+	rs := reflect.MakeSlice(reflect.TypeOf([]int{}), len(s), cap(s))
+	for i, v := range s {
+		rs.Index(i).SetInt(v)
+	}
+	return rs
+}
+
+// appendValue implements the append builtin for the VM.
+// It handles native int slices, reflect slices, and nil slices.
+func appendValue(slice, elem value.Value) value.Value {
+	// Fast path: native []int64 slice
+	if s, ok := slice.IntSlice(); ok {
+		return appendToIntSlice(s, elem)
+	}
+
+	// Native []int64 that needs reflect conversion (e.g., stored in [][]int)
+	if slice.Kind() == value.KindSlice {
+		if intSlice, ok := slice.IntSlice(); ok {
+			return appendIntSliceViaReflect(intSlice, elem)
+		}
+	}
+
+	// Reflect-based slice
+	if rv, ok := slice.ReflectValue(); ok {
+		return appendToReflectSlice(rv, elem)
+	}
+
+	// Nil slice: create a new slice
+	if slice.IsNil() || slice.Kind() == value.KindInvalid {
+		return appendToNilSlice(elem)
+	}
+
+	return slice
+}
+
+// appendToIntSlice appends to a native []int64.
+func appendToIntSlice(s []int64, elem value.Value) value.Value {
+	if es, ok := elem.IntSlice(); ok {
+		return value.MakeIntSlice(append(s, es...))
+	}
+	if elemRV, ok := elem.ReflectValue(); ok && elemRV.Kind() == reflect.Slice {
+		// elem is a reflect-based integer slice (e.g. []int from a [][]int range)
+		for i := 0; i < elemRV.Len(); i++ {
+			s = append(s, elemRV.Index(i).Int())
+		}
+		return value.MakeIntSlice(s)
+	}
+	return value.MakeIntSlice(append(s, elem.RawInt()))
+}
+
+// appendIntSliceViaReflect converts []int64 to reflect []int and appends.
+func appendIntSliceViaReflect(intSlice []int64, elem value.Value) value.Value {
+	rv := intSliceToReflect(intSlice)
+	if elem.Kind() == value.KindInt {
+		return value.MakeFromReflect(reflect.Append(rv, reflect.ValueOf(int(elem.RawInt()))))
+	}
+	if elem.Kind() == value.KindSlice {
+		if elemIntSlice, ok := elem.IntSlice(); ok {
+			return value.MakeFromReflect(reflect.AppendSlice(rv, intSliceToReflect(elemIntSlice)))
+		}
+	}
+	return value.MakeFromReflect(reflect.Append(rv, elem.ToReflectValue(reflect.TypeOf(int(0)))))
+}
+
+var valueValueType = reflect.TypeOf(value.Value{})
+
+// appendToReflectSlice appends to a reflect.Value slice.
+func appendToReflectSlice(rv reflect.Value, elem value.Value) value.Value {
+	sliceElemType := rv.Type().Elem()
+
+	// []value.Value slices (function slices)
+	if sliceElemType == valueValueType {
+		if elemRV, ok := elem.ReflectValue(); ok && elemRV.Kind() == reflect.Slice && elemRV.Type().Elem() == sliceElemType {
+			return value.MakeFromReflect(reflect.AppendSlice(rv, elemRV))
+		}
+		return value.MakeFromReflect(reflect.Append(rv, reflect.ValueOf(elem)))
+	}
+
+	// Check if elem is native []int64 needing spread-append
+	if elem.Kind() == value.KindSlice {
+		if elemIntSlice, ok := elem.IntSlice(); ok {
+			for _, v := range elemIntSlice {
+				rv = reflect.Append(rv, reflect.ValueOf(int(v)))
+			}
+			return value.MakeFromReflect(rv)
+		}
+	}
+
+	// SSA-packed variadic slice spread
+	if elemRV, ok := elem.ReflectValue(); ok && elemRV.Kind() == reflect.Slice {
+		return value.MakeFromReflect(reflect.AppendSlice(rv, elemRV))
+	}
+
+	return value.MakeFromReflect(reflect.Append(rv, elem.ToReflectValue(sliceElemType)))
+}
+
+// appendToNilSlice creates a new slice from a nil/zero slice and appends.
+func appendToNilSlice(elem value.Value) value.Value {
+	// Native []int64 spread
+	if es, ok := elem.IntSlice(); ok {
+		return value.MakeIntSlice(append([]int64(nil), es...))
+	}
+
+	elemRV, ok := elem.ReflectValue()
+	if ok && elemRV.Kind() == reflect.Slice {
+		sliceType := reflect.SliceOf(elemRV.Type().Elem())
+		newSlice := reflect.MakeSlice(sliceType, 0, 0)
+		return value.MakeFromReflect(reflect.AppendSlice(newSlice, elemRV))
+	}
+
+	// Single-element append: infer type from value
+	elemIface := elem.Interface()
+	if elemIface != nil {
+		elemRV2 := reflect.ValueOf(elemIface)
+		sliceType := reflect.SliceOf(elemRV2.Type())
+		newSlice := reflect.MakeSlice(sliceType, 0, 0)
+		return value.MakeFromReflect(reflect.Append(newSlice, elemRV2))
+	}
+	return value.MakeNil()
 }

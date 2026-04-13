@@ -64,7 +64,6 @@ import (
 	"fmt"
 	"math"
 	"reflect"
-	"unsafe"
 )
 
 // Kind represents the type of a Value.
@@ -288,14 +287,6 @@ func MakeComplex(real, imag float64) Value {
 	return Value{
 		kind: KindComplex,
 		obj:  complex(real, imag),
-	}
-}
-
-// MakePointer creates a pointer value.
-func MakePointer(ptr unsafe.Pointer, elemType reflect.Type) Value {
-	return Value{
-		kind: KindPointer,
-		obj:  reflect.NewAt(elemType, ptr).Elem(),
 	}
 }
 
