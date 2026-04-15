@@ -37,16 +37,31 @@ func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolin
 
 	case bytecode.OpReal:
 		c := v.pop()
-		v.push(value.MakeFloat(real(c.Complex())))
+		if c.RawSize() == value.Size32 {
+			v.push(value.MakeFloat32(float32(real(c.Complex()))))
+		} else {
+			v.push(value.MakeFloat(real(c.Complex())))
+		}
 
 	case bytecode.OpImag:
 		c := v.pop()
-		v.push(value.MakeFloat(imag(c.Complex())))
+		if c.RawSize() == value.Size32 {
+			v.push(value.MakeFloat32(float32(imag(c.Complex()))))
+		} else {
+			v.push(value.MakeFloat(imag(c.Complex())))
+		}
 
 	case bytecode.OpComplex:
-		im := v.pop().Float()
-		re := v.pop().Float()
-		v.push(value.MakeComplex(re, im))
+		imVal := v.pop()
+		reVal := v.pop()
+		re := reVal.Float()
+		im := imVal.Float()
+		// If either operand is float32-sized, create complex64
+		if reVal.RawSize() == value.Size32 || imVal.RawSize() == value.Size32 {
+			v.push(value.MakeComplex64(float32(re), float32(im)))
+		} else {
+			v.push(value.MakeComplex(re, im))
+		}
 
 	// Bitwise
 	case bytecode.OpAnd:

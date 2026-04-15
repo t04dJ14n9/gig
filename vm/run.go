@@ -136,7 +136,11 @@ func (v *vm) runDefersDuringPanic(frame *Frame) bool {
 			_, _ = childVM.run()
 
 			// If the child VM panicked, re-enter panic mode.
-			if childVM.panicking {
+			if childVM.lastPanicVal.IsValid() {
+				v.panicking = true
+				v.panicVal = childVM.lastPanicVal
+				recovered = false
+			} else if childVM.panicking {
 				v.panicking = true
 				v.panicVal = childVM.panicVal
 				recovered = false
@@ -261,6 +265,10 @@ func (v *vm) run() (value.Value, error) {
 
 			// If this is the last frame, return the panic as an error
 			if v.fp == 1 {
+				// Preserve the original typed panic value before clearing,
+				// so callers (e.g. OpRunDefers) can recover it instead of
+				// parsing the error string (which loses type information).
+				v.lastPanicVal = v.panicVal
 				err := fmt.Errorf("panic: %v", v.panicVal.Interface())
 				v.panicking = false
 				v.panicVal = value.MakeNil()
@@ -1251,28 +1259,49 @@ func (v *vm) run() (value.Value, error) {
 				sp = v.sp
 				stack = v.stack
 				loadFrame()
-			} else if rv, ok := callee.ReflectValue(); ok && rv.Kind() == reflect.Func {
-				// Reflect-based function (e.g., closure wrapped via reflect.MakeFunc
-				// and retrieved from a typed container like map[int]func() int)
-				in := make([]reflect.Value, numArgs)
-				fnType := rv.Type()
-				for i := 0; i < numArgs; i++ {
-					if i < fnType.NumIn() {
-						in[i] = args[i].ToReflectValue(fnType.In(i))
-					}
-				}
-				out := rv.Call(in)
-				if len(out) == 0 {
-					stack[sp] = value.MakeNil()
-				} else {
-					stack[sp] = value.MakeFromReflect(out[0])
-				}
-				sp++
-			} else {
-				stack[sp] = value.MakeNil()
-				sp++
+		} else if rv, ok := callee.ReflectValue(); ok && rv.Kind() == reflect.Func {
+			// Nil function call: trigger VM panic so guest recover() can catch it
+			if rv.IsNil() {
+				v.sp = sp
+				v.panicking = true
+				v.panicVal = value.FromInterface("invalid memory address or nil pointer dereference")
+				continue
 			}
-			continue
+			// Reflect-based function call with panic safety:
+			// catch Go-level panics from external code and convert to VM panics
+			// so guest recover() can catch them.
+			in := make([]reflect.Value, numArgs)
+			fnType := rv.Type()
+			for i := 0; i < numArgs; i++ {
+				if i < fnType.NumIn() {
+					in[i] = args[i].ToReflectValue(fnType.In(i))
+				}
+			}
+			var out []reflect.Value
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						v.sp = sp
+						v.panicking = true
+						v.panicVal = value.FromInterface(r)
+					}
+				}()
+				out = rv.Call(in)
+			}()
+			if v.panicking {
+				continue
+			}
+			if len(out) == 0 {
+				stack[sp] = value.MakeNil()
+			} else {
+				stack[sp] = value.MakeFromReflect(out[0])
+			}
+			sp++
+		} else {
+			stack[sp] = value.MakeNil()
+			sp++
+		}
+		continue
 
 		default:
 			// Fall through to executeOp for all other opcodes
