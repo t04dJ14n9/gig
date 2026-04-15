@@ -486,11 +486,36 @@ func intSliceToReflect(s []int64) reflect.Value {
 }
 
 // appendValue implements the append builtin for the VM.
-// It handles native int slices, reflect slices, and nil slices.
+// It handles native int slices, byte slices, reflect slices, and nil slices.
 func appendValue(slice, elem value.Value) value.Value {
 	// Fast path: native []int64 slice
 	if s, ok := slice.IntSlice(); ok {
 		return appendToIntSlice(s, elem)
+	}
+
+	// Byte slice ([]byte / KindBytes)
+	if slice.Kind() == value.KindBytes {
+		if b, ok := slice.Bytes(); ok {
+			if elem.Kind() == value.KindUint || elem.Kind() == value.KindInt {
+				return value.MakeBytes(append(b, byte(elem.Uint())))
+			}
+			// If elem is a byte slice (spread append)
+			if elem.Kind() == value.KindBytes {
+				if eb, ok := elem.Bytes(); ok {
+					return value.MakeBytes(append(b, eb...))
+				}
+			}
+			// Fallback: convert via interface
+			if v := elem.Interface(); v != nil {
+				if bv, ok := v.(byte); ok {
+					return value.MakeBytes(append(b, bv))
+				}
+				if bv, ok := v.(uint8); ok {
+					return value.MakeBytes(append(b, bv))
+				}
+			}
+		}
+		return slice
 	}
 
 	// Native []int64 that needs reflect conversion (e.g., stored in [][]int)

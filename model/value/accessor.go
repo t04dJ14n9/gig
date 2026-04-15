@@ -147,7 +147,11 @@ func (v Value) Interface() any {
 	case KindString:
 		return v.obj.(string)
 	case KindComplex:
-		return v.obj.(complex128)
+		c := v.obj.(complex128)
+		if v.size == Size32 {
+			return complex64(c)
+		}
+		return c
 	case KindFunc:
 		return v.obj
 	case KindBytes:

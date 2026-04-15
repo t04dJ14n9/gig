@@ -94,3 +94,24 @@ func SliceSumRange(s []int, from, to int) int {
 
 // SliceFirstElement returns s[idx]
 func SliceFirstElement(s []int, idx int) int { return s[idx] }
+
+// ThreeIndexSlice tests 3-index slice expression s[low:high:max]
+func ThreeIndexSlice() int {
+	s := []int{1, 2, 3, 4, 5}
+	sub := s[1:3:3]
+	return len(sub)*10 + cap(sub)
+}
+
+// ThreeIndexSliceFull tests 3-index slice with full bounds
+func ThreeIndexSliceFull() int {
+	s := []int{1, 2, 3, 4, 5}
+	sub := s[1:4:5] // len=3, cap=4
+	return len(sub)*10 + cap(sub)
+}
+
+// ThreeIndexSliceCapControl tests that 3-index slice limits capacity
+func ThreeIndexSliceCapControl() int {
+	s := make([]int, 5, 10)
+	sub := s[1:3:4]
+	return cap(sub)
+}

@@ -399,3 +399,28 @@ func ChannelBufferedsize() int {
 	}
 	return sum
 }
+
+// SendOnClosedChannelRecover tests sending on closed channel triggers recoverable panic
+func SendOnClosedChannelRecover() int {
+	var result int
+	defer func() {
+		if r := recover(); r != nil {
+			result = 99
+		}
+	}()
+	ch := make(chan int, 1)
+	close(ch)
+	ch <- 42 // will panic: send on closed channel
+	return result
+}
+
+// ReceiveFromClosedChannelEmpty tests receiving from closed empty channel returns zero
+func ReceiveFromClosedChannelEmpty() int {
+	ch := make(chan int)
+	close(ch)
+	v, ok := <-ch
+	if !ok && v == 0 {
+		return 1
+	}
+	return 0
+}

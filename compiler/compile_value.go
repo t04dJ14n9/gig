@@ -530,9 +530,26 @@ func (c *compiler) compileTypeAssert(i *ssa.TypeAssert) {
 	c.emit(bytecode.OpAssert, uint16(typeIdx))
 
 	if !i.CommaOk {
-		// Non-comma-ok assertion: extract just the value from the [result, ok] tuple.
-		// SSA's `typeassert t.(T)` (without comma-ok) returns a single value and
-		// panics on failure. OpAssert always produces a tuple, so we extract #0.
+		// Non-comma-ok assertion: SSA's `typeassert t.(T)` (without comma-ok)
+		// panics on failure by branching to the recover block. We must check
+		// the ok value and emit OpPanic if the assertion fails.
+		// Stack has: [result, ok] tuple
+		// Duplicate the tuple, extract ok (index 1), check if false → panic.
+		c.emit(bytecode.OpDup)                             // [tuple, tuple]
+		c.emit(bytecode.OpConst, uint16(c.addConstant(1))) // [tuple, tuple, 1]
+		c.emit(bytecode.OpIndex)                           // [tuple, ok]
+		// Emit OpJumpTrue with placeholder offset (3 bytes: opcode + u16 offset)
+		jumpTrueOffset := len(c.currentFunc.Instructions)
+		c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+			byte(bytecode.OpJumpTrue), 0, 0)
+		// ok was false — panic with a type assertion error
+		c.emit(bytecode.OpConst, uint16(c.addConstant("interface conversion: type assertion failed")))
+		c.emit(bytecode.OpPanic)
+		// Patch the JumpTrue to land here (ok case)
+		skipOffset := len(c.currentFunc.Instructions)
+		c.currentFunc.Instructions[jumpTrueOffset+1] = byte(skipOffset >> 8)
+		c.currentFunc.Instructions[jumpTrueOffset+2] = byte(skipOffset)
+		// Stack still has: [tuple] — extract the value
 		c.emit(bytecode.OpConst, uint16(c.addConstant(0)))
 		c.emit(bytecode.OpIndex)
 	}

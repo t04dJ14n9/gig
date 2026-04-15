@@ -39,7 +39,7 @@ func (v Value) Add(other Value) Value {
 	case KindComplex:
 		a := v.obj.(complex128)
 		b := other.obj.(complex128)
-		return MakeComplex(real(a)+real(b), imag(a)+imag(b))
+		return MakeComplexSized(real(a)+real(b), imag(a)+imag(b), v.size)
 	default:
 		panic(fmt.Sprintf("cannot add %v", v.kind))
 	}
@@ -57,7 +57,7 @@ func (v Value) Sub(other Value) Value {
 	case KindComplex:
 		a := v.obj.(complex128)
 		b := other.obj.(complex128)
-		return MakeComplex(real(a)-real(b), imag(a)-imag(b))
+		return MakeComplexSized(real(a)-real(b), imag(a)-imag(b), v.size)
 	default:
 		panic(fmt.Sprintf("cannot sub %v", v.kind))
 	}
@@ -75,7 +75,7 @@ func (v Value) Mul(other Value) Value {
 	case KindComplex:
 		a := v.obj.(complex128)
 		b := other.obj.(complex128)
-		return MakeComplex(real(a)*real(b)-imag(a)*imag(b), real(a)*imag(b)+real(b)*imag(a))
+		return MakeComplexSized(real(a)*real(b)-imag(a)*imag(b), real(a)*imag(b)+real(b)*imag(a), v.size)
 	default:
 		panic(fmt.Sprintf("cannot mul %v", v.kind))
 	}
@@ -94,7 +94,7 @@ func (v Value) Div(other Value) Value {
 		a := v.obj.(complex128)
 		b := other.obj.(complex128)
 		denom := real(b)*real(b) + imag(b)*imag(b)
-		return MakeComplex((real(a)*real(b)+imag(a)*imag(b))/denom, (imag(a)*real(b)-real(a)*imag(b))/denom)
+		return MakeComplexSized((real(a)*real(b)+imag(a)*imag(b))/denom, (imag(a)*real(b)-real(a)*imag(b))/denom, v.size)
 	default:
 		panic(fmt.Sprintf("cannot div %v", v.kind))
 	}
@@ -123,7 +123,7 @@ func (v Value) Neg() Value {
 		return makeFloatSized(-v.Float(), v.size)
 	case KindComplex:
 		c := v.obj.(complex128)
-		return MakeComplex(-real(c), -imag(c))
+		return MakeComplexSized(-real(c), -imag(c), v.size)
 	default:
 		panic(fmt.Sprintf("cannot neg %v", v.kind))
 	}

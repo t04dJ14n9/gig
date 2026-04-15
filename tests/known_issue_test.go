@@ -85,47 +85,12 @@ func TestKnownIssues_Tricky(t *testing.T) {
 		// Issue 6  → Resolved Issue 32 (int64/uint64 narrowing)
 		// Issue 7  → Resolved Issue 33 (bytes.Buffer.Cap)
 		// Issue 8  → Resolved Issue 34 (json.Encoder method dispatch collision)
-
-		// Strange Syntax Bugs (found 2026-03-28)
-		"Bug_ConvertNilToInterface": {
-			funcName: "StrangeSyntax_Bug1_ConvertNilToInterface",
-			native:   func() any { var s []int; return s },
-			issue:    "Nil slice to interface loses type information",
-			panics:   false,
-		},
-		"Bug_NilMapAccess": {
-			funcName: "StrangeSyntax_Bug2_NilMapAccess",
-			native:   func() any { var m map[string]int; return m["key"] },
-			issue:    "Nil map access returns nil instead of zero value",
-			panics:   false,
-		},
-		"Bug_NilMapDelete": {
-			funcName: "StrangeSyntax_Bug3_NilMapDelete",
-			native:   func() any { var m map[string]int; delete(m, "key"); return 0 },
-			issue:    "Delete on nil map causes panic instead of no-op",
-			panics:   true,
-		},
-		"Bug_BlankExpression": {
-			funcName: "StrangeSyntax_Bug4_BlankExpression",
-			native:   func() any { _ = 42; var s []any; return s },
-			issue:    "Blank identifier expression loses type in interface return",
-			panics:   false,
-		},
-		"Bug_ChannelClosedSend": {
-			funcName: "StrangeSyntax_Bug5_ChannelClosedSend",
-			native: func() any {
-				// After panic+recovery, function returns zero value of int = 0
-				return 0
-			},
-			issue:  "Send on closed channel panic handling — returns zero value of int after recovery",
-			panics: false,
-		},
-		"Bug_ClosureReturnNil": {
-			funcName: "StrangeSyntax_Bug6_ClosureReturnNil",
-			native:   func() any { var f func() int; return f },
-			issue:    "Nil function return loses type information",
-			panics:   false,
-		},
+		// StrangeSyntax Bug 1 → Resolved Issue 36 (nil slice to interface)
+		// StrangeSyntax Bug 2 → Resolved Issue 37 (nil map access zero value)
+		// StrangeSyntax Bug 3 → Resolved Issue 38 (nil map delete no-op)
+		// StrangeSyntax Bug 4 → Resolved Issue 39 (blank expr interface return)
+		// StrangeSyntax Bug 5 → Resolved Issue 40 (closed channel send recoverable)
+		// StrangeSyntax Bug 6 → Resolved Issue 41 (nil func return type info)
 	}
 
 	if len(issues) == 0 {

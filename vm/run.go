@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"git.woa.com/youngjin/gig/model/bytecode"
+	"git.woa.com/youngjin/gig/model/external"
 	"git.woa.com/youngjin/gig/model/value"
 )
 
@@ -47,6 +48,37 @@ func (v *vm) runDefersDuringPanic(frame *Frame) bool {
 
 	for i := len(frame.defers) - 1; i >= 0; i-- {
 		d := frame.defers[i]
+
+		// Handle external method defers (OpDeferExternal, e.g. defer mu.Unlock())
+		// These must run during panic recovery, just like in Go.
+		if d.externalInfo != nil {
+			if methodInfo, ok := d.externalInfo.(*external.ExternalMethodInfo); ok {
+				_ = v.callExternalMethod(methodInfo, d.args)
+				if methodInfo.DirectCall == nil {
+					_ = v.pop()
+				}
+			}
+			continue
+		}
+
+		// Handle external function value defers (OpDeferIndirect with external func)
+		// e.g. defer fn() where fn is an external function variable
+		if d.externalFunc.IsValid() {
+			argVals := make([]reflect.Value, len(d.args))
+			for j, arg := range d.args {
+				funcType := d.externalFunc.Type()
+				if j < funcType.NumIn() {
+					argType := funcType.In(j)
+					argVals[j] = arg.ToReflectValue(argType)
+				} else {
+					argVals[j] = reflect.ValueOf(arg.Interface())
+				}
+			}
+			d.externalFunc.Call(argVals)
+			continue
+		}
+
+		// Skip nil function entries (shouldn't happen, but defensive)
 		if d.fn == nil {
 			continue
 		}
@@ -227,12 +259,23 @@ func (v *vm) run() (value.Value, error) {
 				continue
 			}
 
-			// If this is the last frame, return the panic
+			// If this is the last frame, return the panic as an error
 			if v.fp == 1 {
 				err := fmt.Errorf("panic: %v", v.panicVal.Interface())
 				v.panicking = false
 				v.panicVal = value.MakeNil()
 				return value.MakeNil(), err
+			}
+
+			// If running inside a deferred function (deferDepth > 0) and panic wasn't recovered,
+			// return immediately to let the outer runDefersDuringPanic handle it.
+			// This prevents re-running defers on the same frame after a nested panic.
+			// Must pop the defer's frame before returning.
+			if v.deferDepth > 0 {
+				v.fp--
+				v.fpool.put(frame)
+				// Don't clear v.panicking - let the caller's runDefersDuringPanic see it
+				return value.MakeNil(), nil
 			}
 
 			// Propagate panic to caller
@@ -530,7 +573,14 @@ func (v *vm) run() (value.Value, error) {
 			container := stack[sp]
 			// Fast path: native []int64 slice (covers make([]int, N) in interpreted code)
 			if s, ok := container.IntSlice(); ok {
-				stack[sp] = value.MakeIntPtr(&s[index.RawInt()])
+				idx := index.RawInt()
+				if idx < 0 || idx >= int64(len(s)) {
+					// Bounds check failed — convert to VM panic so guest recover() can catch it.
+					v.panicking = true
+					v.panicVal = value.FromInterface(fmt.Sprintf("runtime error: index out of range [%d] with length %d", idx, len(s)))
+					continue
+				}
+				stack[sp] = value.MakeIntPtr(&s[idx])
 				sp++
 				continue
 			}
@@ -540,6 +590,9 @@ func (v *vm) run() (value.Value, error) {
 			v.push(index)
 			if err := v.executeOp(op, frame); err != nil {
 				return value.MakeNil(), err
+			}
+			if v.panicking {
+				continue
 			}
 			sp = v.sp
 			stack = v.stack
@@ -562,6 +615,9 @@ func (v *vm) run() (value.Value, error) {
 			v.push(ptr)
 			if err := v.executeOp(op, frame); err != nil {
 				return value.MakeNil(), err
+			}
+			if v.panicking {
+				continue
 			}
 			sp = v.sp
 			stack = v.stack
@@ -588,6 +644,9 @@ func (v *vm) run() (value.Value, error) {
 			v.push(obj)
 			if err := v.executeOp(op, frame); err != nil {
 				return value.MakeNil(), err
+			}
+			if v.panicking {
+				continue
 			}
 			sp = v.sp
 			stack = v.stack
@@ -1044,7 +1103,13 @@ func (v *vm) run() (value.Value, error) {
 			jIdx := readU16()
 			vIdx := readU16()
 			if s, ok := locals[sIdx].IntSlice(); ok {
-				r := s[intLocals[jIdx]]
+				idx := intLocals[jIdx]
+				if idx < 0 || idx >= int64(len(s)) {
+					v.panicking = true
+					v.panicVal = value.FromInterface(fmt.Sprintf("runtime error: index out of range [%d] with length %d", idx, len(s)))
+					continue
+				}
+				r := s[idx]
 				intLocals[vIdx] = r
 				locals[vIdx] = value.MakeInt(r)
 			} else {
@@ -1055,8 +1120,14 @@ func (v *vm) run() (value.Value, error) {
 				if err := v.executeOp(bytecode.OpIndexAddr, frame); err != nil {
 					return value.MakeNil(), err
 				}
+				if v.panicking {
+					continue
+				}
 				if err := v.executeOp(bytecode.OpDeref, frame); err != nil {
 					return value.MakeNil(), err
+				}
+				if v.panicking {
+					continue
 				}
 				ret := v.pop()
 				intLocals[vIdx] = ret.RawInt()
@@ -1071,7 +1142,13 @@ func (v *vm) run() (value.Value, error) {
 			jIdx := readU16()
 			valIdx := readU16()
 			if s, ok := locals[sIdx].IntSlice(); ok {
-				s[intLocals[jIdx]] = intLocals[valIdx]
+				idx := intLocals[jIdx]
+				if idx < 0 || idx >= int64(len(s)) {
+					v.panicking = true
+					v.panicVal = value.FromInterface(fmt.Sprintf("runtime error: index out of range [%d] with length %d", idx, len(s)))
+					continue
+				}
+				s[idx] = intLocals[valIdx]
 			} else {
 				// Fallback: execute as IndexAddr + SetDeref manually
 				v.sp = sp
@@ -1080,9 +1157,15 @@ func (v *vm) run() (value.Value, error) {
 				if err := v.executeOp(bytecode.OpIndexAddr, frame); err != nil {
 					return value.MakeNil(), err
 				}
+				if v.panicking {
+					continue
+				}
 				v.push(value.MakeInt(intLocals[valIdx]))
 				if err := v.executeOp(bytecode.OpSetDeref, frame); err != nil {
 					return value.MakeNil(), err
+				}
+				if v.panicking {
+					continue
 				}
 				sp = v.sp
 				stack = v.stack
@@ -1094,7 +1177,13 @@ func (v *vm) run() (value.Value, error) {
 			jIdx := readU16()
 			cIdx := readU16()
 			if s, ok := locals[sIdx].IntSlice(); ok {
-				s[intLocals[jIdx]] = intConsts[cIdx]
+				idx := intLocals[jIdx]
+				if idx < 0 || idx >= int64(len(s)) {
+					v.panicking = true
+					v.panicVal = value.FromInterface(fmt.Sprintf("runtime error: index out of range [%d] with length %d", idx, len(s)))
+					continue
+				}
+				s[idx] = intConsts[cIdx]
 			} else {
 				// Fallback: execute as IndexAddr + SetDeref manually
 				v.sp = sp
@@ -1103,9 +1192,15 @@ func (v *vm) run() (value.Value, error) {
 				if err := v.executeOp(bytecode.OpIndexAddr, frame); err != nil {
 					return value.MakeNil(), err
 				}
+				if v.panicking {
+					continue
+				}
 				v.push(prebaked[cIdx])
 				if err := v.executeOp(bytecode.OpSetDeref, frame); err != nil {
 					return value.MakeNil(), err
+				}
+				if v.panicking {
+					continue
 				}
 				sp = v.sp
 				stack = v.stack
@@ -1188,6 +1283,14 @@ func (v *vm) run() (value.Value, error) {
 		v.sp = sp
 		if err := v.executeOp(op, frame); err != nil {
 			return value.MakeNil(), err
+		}
+		if v.panicking {
+			sp = v.sp
+			stack = v.stack
+			if v.fp > 0 {
+				loadFrame()
+			}
+			continue
 		}
 		sp = v.sp
 		stack = v.stack

@@ -706,6 +706,16 @@ var cornercasesTests = map[string]testCase{
 	"Struct_ZeroValueFields":      {cornercasesSrc, "Struct_ZeroValueFields", nil, cornercases.Struct_ZeroValueFields},
 	"Struct_PointerReceiver":      {cornercasesSrc, "Struct_PointerReceiver", nil, cornercases.Struct_PointerReceiver},
 	"Struct_NestedStruct":         {cornercasesSrc, "Struct_NestedStruct", nil, cornercases.Struct_NestedStruct},
+
+	// Additional corner case tests
+	"Slice_ThreeIndexSlice":        {cornercasesSrc, "Slice_ThreeIndexSlice", nil, cornercases.Slice_ThreeIndexSlice},
+	"Slice_ThreeIndexSliceCapIsolation": {cornercasesSrc, "Slice_ThreeIndexSliceCapIsolation", nil, cornercases.Slice_ThreeIndexSliceCapIsolation},
+	"Slice_AppendToNilString":      {cornercasesSrc, "Slice_AppendToNilString", nil, cornercases.Slice_AppendToNilString},
+	"Slice_AppendToNilFloat":       {cornercasesSrc, "Slice_AppendToNilFloat", nil, cornercases.Slice_AppendToNilFloat},
+	"Map_NilMapReadOk":             {cornercasesSrc, "Map_NilMapReadOk", nil, cornercases.Map_NilMapReadOk},
+	"Map_DeleteNilMap":             {cornercasesSrc, "Map_DeleteNilMap", nil, cornercases.Map_DeleteNilMap},
+	"ComplexTypeAssertion":         {cornercasesSrc, "ComplexTypeAssertion", nil, cornercases.ComplexTypeAssertion},
+	"CrossKindTypeAssertion":       {cornercasesSrc, "CrossKindTypeAssertion", nil, cornercases.CrossKindTypeAssertion},
 }
 
 var edgecasesTests = map[string]testCase{
@@ -832,6 +842,10 @@ var channelsTests = map[string]testCase{
 	"ChannelTwoWay":           {channelsSrc, "ChannelTwoWay", nil, channels.ChannelTwoWay},
 	"ChannelFanIn":            {channelsSrc, "ChannelFanIn", nil, channels.ChannelFanIn},
 	"ChannelBufferedsize":     {channelsSrc, "ChannelBufferedsize", nil, channels.ChannelBufferedsize},
+
+	// Additional channel corner case tests
+	"SendOnClosedChannelRecover":      {channelsSrc, "SendOnClosedChannelRecover", nil, channels.SendOnClosedChannelRecover},
+	"ReceiveFromClosedChannelEmpty":   {channelsSrc, "ReceiveFromClosedChannelEmpty", nil, channels.ReceiveFromClosedChannelEmpty},
 }
 
 var initTests = map[string]testCase{
@@ -958,6 +972,15 @@ var panicRecoverTests = map[string]testCase{
 	"DeferOrderWithMultiplePanics": {panicRecoverSrc, "DeferOrderWithMultiplePanics", nil, panic_recover.DeferOrderWithMultiplePanics},
 	"DeferPanicRecoverChain":       {panicRecoverSrc, "DeferPanicRecoverChain", nil, panic_recover.DeferPanicRecoverChain},
 	"PanicNil":                     {panicRecoverSrc, "PanicNil", nil, panic_recover.PanicNil},
+
+	// Missing corner case tests
+	"DeferExternalMethod":                 {panicRecoverSrc, "DeferExternalMethod", nil, panic_recover.DeferExternalMethod},
+	"MultipleNamedReturnPanicRecoverCombined": {panicRecoverSrc, "MultipleNamedReturnPanicRecoverCombined", nil, panic_recover.MultipleNamedReturnPanicRecoverCombined},
+	"DeferIndirectFunction":               {panicRecoverSrc, "DeferIndirectFunction", nil, panic_recover.DeferIndirectFunction},
+	"SendOnClosedChannelRecover":          {panicRecoverSrc, "SendOnClosedChannelRecover", nil, panic_recover.SendOnClosedChannelRecover},
+	// Previously known issues (now fixed)
+	"DoublePanicReplacesValue":            {panicRecoverSrc, "DoublePanicReplacesValue", nil, panic_recover.DoublePanicReplacesValue},
+	"PostRecoveryDeferRepanic":            {panicRecoverSrc, "PostRecoveryDeferRepanic", nil, panic_recover.PostRecoveryDeferRepanic},
 }
 
 var recursionTests = map[string]testCase{
@@ -1024,6 +1047,18 @@ var resolved_issueTests = map[string]testCase{
 	"BytesBufferCapResolved": {resolvedIssueSrc, "BytesBufferCapResolved", nil, resolved_issue.BytesBufferCapResolved},
 	// Resolved Issue 34: json.Encoder method dispatch collision (formerly known issue Bug 8)
 	"JsonEncodeResolved": {resolvedIssueSrc, "JsonEncodeResolved", nil, resolved_issue.JsonEncodeResolved},
+	// Resolved Issue 36: nil slice to interface preserves type info (formerly StrangeSyntax Bug 1)
+	"NilSliceToInterfaceResolved": {resolvedIssueSrc, "NilSliceToInterfaceResolved", nil, resolved_issue.NilSliceToInterfaceResolved},
+	// Resolved Issue 37: nil map access returns zero value (formerly StrangeSyntax Bug 2)
+	"NilMapAccessResolved": {resolvedIssueSrc, "NilMapAccessResolved", nil, resolved_issue.NilMapAccessResolved},
+	// Resolved Issue 38: delete on nil map is no-op (formerly StrangeSyntax Bug 3)
+	"NilMapDeleteResolved": {resolvedIssueSrc, "NilMapDeleteResolved", nil, resolved_issue.NilMapDeleteResolved},
+	// Resolved Issue 39: blank expr preserves type in interface return (formerly StrangeSyntax Bug 4)
+	"BlankExprInterfaceReturnResolved": {resolvedIssueSrc, "BlankExprInterfaceReturnResolved", nil, resolved_issue.BlankExprInterfaceReturnResolved},
+	// Resolved Issue 40: send on closed channel panic is recoverable (formerly StrangeSyntax Bug 5)
+	"ChannelClosedSendRecovered": {resolvedIssueSrc, "ChannelClosedSendRecovered", nil, resolved_issue.ChannelClosedSendRecovered},
+	// Resolved Issue 41: nil function return preserves type info (formerly StrangeSyntax Bug 6)
+	"NilFuncReturnResolved": {resolvedIssueSrc, "NilFuncReturnResolved", nil, resolved_issue.NilFuncReturnResolved},
 }
 
 var scopeTests = map[string]testCase{
@@ -1062,6 +1097,10 @@ var slicingTests = map[string]testCase{
 	"SliceLen":          {slicingSrc, "SliceLen", []any{[]int{10, 20, 30, 40, 50, 60, 70}, 2, 5}, slicing.SliceLen},
 	"SliceSumRange":     {slicingSrc, "SliceSumRange", []any{[]int{10, 20, 30, 40, 50}, 1, 4}, slicing.SliceSumRange},
 	"SliceFirstElement": {slicingSrc, "SliceFirstElement", []any{[]int{100, 200, 300}, 0}, slicing.SliceFirstElement},
+	// 3-index slice tests
+	"ThreeIndexSlice":        {slicingSrc, "ThreeIndexSlice", nil, slicing.ThreeIndexSlice},
+	"ThreeIndexSliceFull":    {slicingSrc, "ThreeIndexSliceFull", nil, slicing.ThreeIndexSliceFull},
+	"ThreeIndexSliceCapControl": {slicingSrc, "ThreeIndexSliceCapControl", nil, slicing.ThreeIndexSliceCapControl},
 }
 
 var strings_pkgTests = map[string]testCase{
@@ -1990,6 +2029,8 @@ var typeconvTests = map[string]testCase{
 	"IntToString":     {typeconvSrc, "IntToString", []any{12345}, typeconv.IntToString},
 	"StringToInt":     {typeconvSrc, "StringToInt", []any{"54321"}, typeconv.StringToInt},
 	"IntToFloatToInt": {typeconvSrc, "IntToFloatToInt", []any{42}, typeconv.IntToFloatToInt},
+	// Named type conversion tests
+	"NamedSliceAlias":    {typeconvSrc, "NamedSliceAlias", nil, typeconv.NamedSliceAlias},
 }
 
 var variablesTests = map[string]testCase{

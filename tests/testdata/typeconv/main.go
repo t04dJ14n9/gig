@@ -1,6 +1,9 @@
 package typeconv
 
-import "strconv"
+import (
+	"sort"
+	"strconv"
+)
 
 // IntToFloat64 tests int to float64 conversion
 func IntToFloat64() int {
@@ -47,3 +50,17 @@ func StringToInt(s string) (int, error) { return strconv.Atoi(s) }
 
 // IntToFloatToInt converts int to float64 and back
 func IntToFloatToInt(x int) int { return int(float64(x)) }
+
+// ============================================================================
+// Named Type Conversion Tests (OpChangeType)
+// ============================================================================
+
+// NamedSliceAlias tests sort.IntSlice type alias shares backing array
+func NamedSliceAlias() int {
+	s := sort.IntSlice{3, 1, 2}
+	// Convert to regular []int - should share backing array
+	var regular []int = s
+	regular[0] = 100
+	// s should also see the change since they share backing array
+	return s[0]
+}
