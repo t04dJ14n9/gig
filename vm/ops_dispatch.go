@@ -77,6 +77,18 @@ func toInt64(v value.Value) int64 {
 		return int64(v.Uint())
 	case value.KindFloat:
 		return int64(v.Float())
+	case value.KindReflect:
+		if rv, ok := v.ReflectValue(); ok {
+			switch rv.Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				return rv.Int()
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+				return int64(rv.Uint())
+			case reflect.Float32, reflect.Float64:
+				return int64(rv.Float())
+			}
+		}
+		return v.Int()
 	default:
 		return v.Int()
 	}
@@ -91,6 +103,18 @@ func toUint64(v value.Value) uint64 {
 		return v.Uint()
 	case value.KindFloat:
 		return uint64(v.Float())
+	case value.KindReflect:
+		if rv, ok := v.ReflectValue(); ok {
+			switch rv.Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				return uint64(rv.Int())
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+				return rv.Uint()
+			case reflect.Float32, reflect.Float64:
+				return uint64(rv.Float())
+			}
+		}
+		return v.Uint()
 	default:
 		return v.Uint()
 	}
@@ -104,6 +128,18 @@ func toFloat64(v value.Value) float64 {
 	case value.KindUint:
 		return float64(v.Uint())
 	case value.KindFloat:
+		return v.Float()
+	case value.KindReflect:
+		if rv, ok := v.ReflectValue(); ok {
+			switch rv.Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				return float64(rv.Int())
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+				return float64(rv.Uint())
+			case reflect.Float32, reflect.Float64:
+				return rv.Float()
+			}
+		}
 		return v.Float()
 	default:
 		return v.Float()

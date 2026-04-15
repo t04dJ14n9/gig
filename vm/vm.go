@@ -122,6 +122,12 @@ type vm struct {
 	// is recovered, the outer panic is restored from the stack.
 	panicStack []panicState
 
+	// lastPanicVal preserves the original panic value after run() returns an error.
+	// When run() reaches the top frame with an active panic, it formats the panic
+	// into an error string (losing type info) and clears panicVal. lastPanicVal
+	// keeps the original typed value so callers (e.g. OpRunDefers) can recover it.
+	lastPanicVal value.Value
+
 	// deferDepth tracks the nesting level of deferred function execution.
 	// 0 = normal execution, 1+ = inside deferred function(s).
 	// Replaces the boolean runningDefer flag to support nested defer panics.

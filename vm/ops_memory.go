@@ -139,6 +139,30 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 			break
 		}
 
+		// Native []byte: convert to reflect.Value so the reflect path can handle it
+		// KindBytes stores []byte as obj (not reflect.Value), so ReflectValue() fails.
+		if container.Kind() == value.KindBytes {
+			if b, ok := container.Bytes(); ok {
+				rv := reflect.ValueOf(b)
+				if idx >= 0 && idx < len(b) {
+					elem := rv.Index(idx)
+					if elem.CanAddr() {
+						v.push(value.MakeFromReflect(elem.Addr()))
+					} else {
+						// Non-addressable: create a settable copy pointer
+						elemPtr := reflect.New(elem.Type())
+						elemPtr.Elem().Set(elem)
+						v.push(value.MakeFromReflect(elemPtr))
+					}
+				} else {
+					v.push(value.MakeNil())
+				}
+			} else {
+				v.push(value.MakeNil())
+			}
+			break
+		}
+
 		if rv, ok := container.ReflectValue(); ok {
 			// Dereference pointer if needed
 			if rv.Kind() == reflect.Ptr {

@@ -123,6 +123,13 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 		case value.KindString:
 			idx := int(key.Int())
 			v.push(container.Index(idx))
+		case value.KindBytes:
+			// Native []byte indexing — return uint8 as KindUint
+			if b, ok := container.Bytes(); ok {
+				v.push(value.MakeUint8(b[int(key.RawInt())]))
+			} else {
+				v.push(value.MakeNil())
+			}
 		case value.KindReflect:
 			// Handle reflect.Value containing a slice, array, or map
 			rv := v.mustReflectValue(container)

@@ -305,15 +305,22 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 			// detect panics via the error return.
 			if runErr != nil {
 				v.panicking = true
-				// Extract the original panic value. childVM.run() formats
-				// it as "panic: <value>", so we parse it back.
-				// Note: this loses the original type (e.g., int 42 → string "42"),
-				// but recover() in Go typically receives the formatted string anyway.
-				panicMsg := runErr.Error()
-				if len(panicMsg) > 7 && panicMsg[:7] == "panic: " {
-					v.panicVal = value.FromInterface(panicMsg[7:])
+				// Use the preserved original panic value from the child VM.
+				// The child VM's run() formats the error as "panic: <value>"
+				// (losing type info), but also saves the original typed value
+				// in lastPanicVal before clearing.
+				if childVM.lastPanicVal.IsValid() {
+					v.panicVal = childVM.lastPanicVal
+				} else if childVM.panicVal.IsValid() && childVM.panicVal.Kind() != value.KindNil {
+					v.panicVal = childVM.panicVal
 				} else {
-					v.panicVal = value.FromInterface(panicMsg)
+					// Fallback: parse from error message (loses type information)
+					panicMsg := runErr.Error()
+					if len(panicMsg) > 7 && panicMsg[:7] == "panic: " {
+						v.panicVal = value.FromInterface(panicMsg[7:])
+					} else {
+						v.panicVal = value.FromInterface(panicMsg)
+					}
 				}
 				v.runDefersDuringPanic(frame)
 				break
@@ -324,18 +331,35 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 		// Recover from panic. recover() only works when called from a deferred function
 		// during panic unwinding. The panic state is stored on panicStack when defers
 		// are being executed, or in v.panicking for direct panic context.
+		var panicVal value.Value
+		recovered := false
 		if v.panicking {
 			// Direct panic context (shouldn't normally happen inside deferred functions
 			// since we save to panicStack, but handle it for safety)
-			v.push(v.panicVal)
+			panicVal = v.panicVal
 			v.panicking = false
 			v.panicVal = value.MakeNil()
+			recovered = true
 		} else if len(v.panicStack) > 0 && v.panicStack[len(v.panicStack)-1].panicking {
 			// Inside a deferred function: the panic state was saved on the stack.
 			// Consume it — mark as recovered.
-			v.push(v.panicStack[len(v.panicStack)-1].panicVal)
+			panicVal = v.panicStack[len(v.panicStack)-1].panicVal
 			v.panicStack[len(v.panicStack)-1].panicking = false
 			v.panicStack[len(v.panicStack)-1].panicVal = value.MakeNil()
+			recovered = true
+		}
+		if recovered {
+			// Wrap the panic value as a reflect.Value containing an interface{}
+			// so that subsequent type assertions (r.(int), r.(string), etc.) work correctly.
+			iface := panicVal.Interface()
+			if iface != nil {
+				// Create a reflect.Value of type interface{} that wraps the concrete value.
+				var i any = iface
+				rv := reflect.ValueOf(&i).Elem() // type is interface{}, value is int(42)
+				v.push(value.MakeFromReflect(rv))
+			} else {
+				v.push(value.MakeNil())
+			}
 		} else {
 			v.push(value.MakeNil())
 		}
@@ -343,7 +367,13 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 	case bytecode.OpPanic:
 		msg := v.pop()
 		v.panicking = true
-		v.panicVal = msg
+		// Go 1.21+ wraps panic(nil) in a PanicNilError so recover() returns non-nil.
+		// Match this behavior by wrapping nil in an error-like value.
+		if msg.IsNil() {
+			v.panicVal = value.FromInterface("panic called with nil argument")
+		} else {
+			v.panicVal = msg
+		}
 
 	case bytecode.OpPrint:
 		n := frame.readByte()
