@@ -91,7 +91,7 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 			// For primitive kinds (KindInt, KindString, KindBool, KindFloat, etc.),
 			// check whether the concrete value kind actually matches the target type.
 			// This is critical for type switches on interface slice elements.
-			assertionOk = kindMatchesType(obj.Kind(), targetType)
+			assertionOk = kindMatchesType(obj.Kind(), obj.RawSize(), targetType)
 			if assertionOk {
 				result = obj
 			} else {

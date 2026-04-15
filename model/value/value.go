@@ -277,11 +277,30 @@ func MakeString(s string) Value {
 	return Value{kind: KindString, obj: s}
 }
 
-// MakeComplex creates a complex value.
+// MakeComplex creates a complex128 value.
 func MakeComplex(real, imag float64) Value {
 	return Value{
 		kind: KindComplex,
+		size: Size64, // complex128 (2x float64)
 		obj:  complex(real, imag),
+	}
+}
+
+// MakeComplexSized creates a complex value with the given size (Size32=complex64, Size64=complex128).
+func MakeComplexSized(real, imag float64, sz Size) Value {
+	return Value{
+		kind: KindComplex,
+		size: sz,
+		obj:  complex(real, imag),
+	}
+}
+
+// MakeComplex64 creates a complex64 value.
+func MakeComplex64(real, imag float32) Value {
+	return Value{
+		kind: KindComplex,
+		size: Size32, // complex64 (2x float32)
+		obj:  complex(float64(real), float64(imag)),
 	}
 }
 
@@ -377,7 +396,10 @@ func MakeFromReflect(rv reflect.Value) Value {
 		return MakeFloat(rv.Float())
 	case reflect.String:
 		return MakeString(rv.String())
-	case reflect.Complex64, reflect.Complex128:
+	case reflect.Complex64:
+		c := rv.Complex()
+		return MakeComplex64(float32(real(c)), float32(imag(c)))
+	case reflect.Complex128:
 		c := rv.Complex()
 		return MakeComplex(real(c), imag(c))
 	case reflect.Slice:
@@ -426,7 +448,7 @@ func FromInterface(v any) Value {
 	case float64:
 		return MakeFloat(val)
 	case complex64:
-		return MakeComplex(float64(real(val)), float64(imag(val)))
+		return MakeComplex64(real(val), imag(val))
 	case complex128:
 		return MakeComplex(real(val), imag(val))
 	case string:

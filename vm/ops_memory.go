@@ -206,7 +206,8 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 						v.push(value.MakeFromReflect(elem))
 					}
 				} else {
-					v.push(value.MakeNil())
+					// Nil pointer dereference — panic, matching Go semantics.
+					panic("runtime error: invalid memory address or nil pointer dereference")
 				}
 			} else {
 				v.push(ptr)

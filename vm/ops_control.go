@@ -288,14 +288,36 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 				freeVars = d.closure.FreeVars
 			}
 
-			// Execute the deferred function synchronously using a child VM
-			// that shares the same globals/context/program. This avoids
-			// interference with the parent frame stack.
+			// Execute the deferred function using a child VM.
+			// A child VM isolates the defer's frame stack from the parent,
+			// so nested calls within the defer don't interfere with the parent.
 			childVM := v.newDeferVM()
 			deferFrame := newFrame(d.fn, d.args, freeVars)
 			childVM.frames[0] = deferFrame
 			childVM.fp = 1
-			_, _ = childVM.run()
+			_, runErr := childVM.run()
+
+			// If the child VM panicked (returned an error), we need to
+			// switch to panic mode and run remaining defers using
+			// runDefersDuringPanic so that recover() in earlier defers
+			// can catch this panic.
+			// childVM.run() clears panicking at the top frame, so we
+			// detect panics via the error return.
+			if runErr != nil {
+				v.panicking = true
+				// Extract the original panic value. childVM.run() formats
+				// it as "panic: <value>", so we parse it back.
+				// Note: this loses the original type (e.g., int 42 → string "42"),
+				// but recover() in Go typically receives the formatted string anyway.
+				panicMsg := runErr.Error()
+				if len(panicMsg) > 7 && panicMsg[:7] == "panic: " {
+					v.panicVal = value.FromInterface(panicMsg[7:])
+				} else {
+					v.panicVal = value.FromInterface(panicMsg)
+				}
+				v.runDefersDuringPanic(frame)
+				break
+			}
 		}
 
 	case bytecode.OpRecover:

@@ -11,9 +11,25 @@ import (
 
 // executeOp executes a single bytecode instruction.
 // It routes to category-specific handlers for each opcode group.
+// Go runtime panics (nil deref, index out of range, etc.) are caught and
+// converted to VM panics so that guest code's recover() can handle them.
 // Note: hot-path opcodes (arithmetic, comparisons, stack ops, jumps, returns,
 // calls) are inlined in run.go and never reach this dispatcher.
-func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error {
+func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) (retErr error) {
+	// Catch Go runtime panics and convert them to VM panics.
+	// This allows guest code's recover() to catch errors like:
+	// - nil pointer dereference
+	// - index out of range
+	// - assignment to entry in nil map
+	// - integer division by zero
+	defer func() {
+		if r := recover(); r != nil {
+			v.panicking = true
+			v.panicVal = value.FromInterface(r)
+			retErr = nil
+		}
+	}()
+
 	switch op {
 	// Non-hot-path arithmetic & bitwise
 	case bytecode.OpDiv, bytecode.OpMod,
@@ -94,10 +110,11 @@ func toFloat64(v value.Value) float64 {
 	}
 }
 
-// kindMatchesType checks whether a value.Kind matches a go/types.Type.
+// kindMatchesType checks whether a value.Kind + value.Size matches a go/types.Type.
 // This is used by OpAssert (type switch) to correctly match primitive values
-// against target types, rather than blindly assuming success.
-func kindMatchesType(k value.Kind, t types.Type) bool {
+// against target types. The size parameter enables exact type matching
+// (e.g., int vs int64, complex64 vs complex128).
+func kindMatchesType(k value.Kind, sz value.Size, t types.Type) bool {
 	// Unwrap named types to get the underlying type
 	t = t.Underlying()
 
@@ -105,24 +122,42 @@ func kindMatchesType(k value.Kind, t types.Type) bool {
 	case value.KindInt:
 		if basic, ok := t.(*types.Basic); ok {
 			switch basic.Kind() {
-			case types.Int, types.Int8, types.Int16, types.Int32, types.Int64:
-				return true
+			case types.Int:
+				return sz == value.SizePtr
+			case types.Int8:
+				return sz == value.Size8
+			case types.Int16:
+				return sz == value.Size16
+			case types.Int32:
+				return sz == value.Size32
+			case types.Int64:
+				return sz == value.Size64
 			}
 		}
 		return false
 	case value.KindUint:
 		if basic, ok := t.(*types.Basic); ok {
 			switch basic.Kind() {
-			case types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64, types.Uintptr:
-				return true
+			case types.Uint:
+				return sz == value.SizePtr
+			case types.Uint8:
+				return sz == value.Size8
+			case types.Uint16:
+				return sz == value.Size16
+			case types.Uint32:
+				return sz == value.Size32
+			case types.Uint64, types.Uintptr:
+				return sz == value.Size64
 			}
 		}
 		return false
 	case value.KindFloat:
 		if basic, ok := t.(*types.Basic); ok {
 			switch basic.Kind() {
-			case types.Float32, types.Float64:
-				return true
+			case types.Float32:
+				return sz == value.Size32
+			case types.Float64:
+				return sz == value.Size64
 			}
 		}
 		return false
@@ -139,8 +174,10 @@ func kindMatchesType(k value.Kind, t types.Type) bool {
 	case value.KindComplex:
 		if basic, ok := t.(*types.Basic); ok {
 			switch basic.Kind() {
-			case types.Complex64, types.Complex128:
-				return true
+			case types.Complex64:
+				return sz == value.Size32
+			case types.Complex128:
+				return sz == value.Size64
 			}
 		}
 		return false
