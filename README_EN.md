@@ -241,28 +241,28 @@ gig gen ./mydep                 # Generates registration code in myapp/mydep/pac
 Real benchmarks comparing **Gig**, **Yaegi** (Go interpreter), **GopherLua** (Lua interpreter), and **native Go**, running on the same machine with identical algorithms.
 
 > **Environment**: AMD EPYC 9754 128-Core, 32 threads, Linux amd64, Go 1.23.1  
-> Benchmarks use `-count=5` with `benchstat` for statistical significance. Source: [`benchmarks/bench_test.go`](benchmarks/bench_test.go)
+> Benchmarks use `-count=3`. Source: [`benchmarks/bench_test.go`](benchmarks/bench_test.go), [`benchmarks/stress_test.go`](benchmarks/stress_test.go), [`benchmarks/extreme_stress_test.go`](benchmarks/extreme_stress_test.go)
 
 ### Core Workloads (Gig vs Yaegi vs GopherLua vs Native Go)
 
-| Workload                          | Native Go |          Gig |      Yaegi |  GopherLua |        Gig vs Yaegi |
-| --------------------------------- | --------: | -----------: | ---------: | ---------: | ------------------: |
-| **Fibonacci(25)** recursive       |    449 μs | **23.9 ms** |   101.7 ms |   24.3 ms | **Gig 4.3x faster** |
-| **ArithmeticSum(1K)** loop        |    663 ns |  **74.0 μs** |    40.4 μs |    37.4 μs |    Yaegi 1.8x faster |
-| **BubbleSort(100)** nested loops  |    6.3 μs | **966.4 μs** | 1,242.4 μs |   775.9 μs | **Gig 1.3x faster** |
-| **Sieve(1000)** primes            |    1.8 μs | **273.7 μs** |   202.3 μs |   203.7 μs |    Yaegi 1.4x faster |
-| **ClosureCalls(1K)** captured var |    339 ns | **336.1 μs** |   935.2 μs |   118.6 μs | **Gig 2.8x faster** |
+| Workload                          | Native Go |          Gig |      Yaegi |  GopherLua |        Gig vs Yaegi | Native/Gig |
+| --------------------------------- | --------: | -----------: | ---------: | ---------: | ------------------: | ---------: |
+| **Fibonacci(25)** recursive       |    450 μs | **23.7 ms** |   102.4 ms |   24.3 ms | **Gig 4.3x faster** |     52.7x |
+| **ArithmeticSum(1K)** loop        |    336 ns |  **74.0 μs** |    40.8 μs |    37.4 μs |    Yaegi 1.8x faster |    220x |
+| **BubbleSort(100)** nested loops  |    6.2 μs | **953.5 μs** | 1,235.3 μs |   775.9 μs | **Gig 1.3x faster** |    154x |
+| **Sieve(1000)** primes            |    1.7 μs | **270.3 μs** |   202.1 μs |   203.7 μs |    Yaegi 1.3x faster |    159x |
+| **ClosureCalls(1K)** captured var |    660 ns | **389.4 μs** |   943.4 μs |   118.6 μs | **Gig 2.4x faster** |    590x |
 
 ### External Function Calls (Gig vs Yaegi vs Native Go)
 
 Calling Go standard library functions from interpreted code — the most common real-world pattern:
 
-| Workload                           | Native Go |          Gig |      Yaegi |        Gig vs Yaegi |
-| ---------------------------------- | --------: | -----------: | ---------: | ------------------: |
-| **DirectCall** (strings/strconv)   |   26.8 μs | **532.8 μs** | 1,472.5 μs | **Gig 2.8x faster** |
-| **Reflect** (fmt/encoding)         |   22.4 μs | **356.2 μs** |   966.6 μs | **Gig 2.7x faster** |
-| **Method** (Builder/Buffer/Regexp) |   17.2 μs | **432.0 μs** | 1,165.1 μs | **Gig 2.7x faster** |
-| **Mixed** (functions + methods)    |   11.1 μs | **304.6 μs** |   824.6 μs | **Gig 2.7x faster** |
+| Workload                           | Native Go |          Gig |      Yaegi |        Gig vs Yaegi | Native/Gig |
+| ---------------------------------- | --------: | -----------: | ---------: | ------------------: | ---------: |
+| **DirectCall** (strings/strconv)   |   26.8 μs | **541.4 μs** | 1,470.5 μs | **Gig 2.7x faster** |     20.2x |
+| **Reflect** (fmt/encoding)         |   22.8 μs | **397.1 μs** |   962.1 μs | **Gig 2.4x faster** |     17.4x |
+| **Method** (Builder/Buffer/Regexp) |   17.1 μs | **486.3 μs** | 1,171.4 μs | **Gig 2.4x faster** |     28.4x |
+| **Mixed** (functions + methods)    |   11.2 μs | **338.2 μs** |   823.2 μs | **Gig 2.4x faster** |     30.2x |
 
 ### Memory Efficiency
 
@@ -282,40 +282,62 @@ Real rule engine workload (string processing + math + conditional logic + stdlib
 
 | Concurrency | Throughput          | Avg Latency  | Errors | Heap Alloc  | GC Pauses |
 | ----------: | ------------------: | -----------: | -----: | ----------: | --------: |
-|           1 |     **0.44M ops/s** |       2.3 μs |      0 |  ~1,159 MB |       169 |
-|          10 |     **2.18M ops/s** |       4.6 μs |      0 |  ~5,625 MB |       719 |
-|         100 |     **3.24M ops/s** |      30.9 μs |      0 |  ~8,360 MB |       433 |
-|         500 |     **3.91M ops/s** |     128.0 μs |      0 | ~10,147 MB |       287 |
-|       1,000 |     **4.17M ops/s** |     239.7 μs |      0 | ~10,868 MB |       236 |
-|       2,000 |     **4.42M ops/s** |     452.7 μs |      0 | ~11,435 MB |       140 |
-|       5,000 |     **4.76M ops/s** |   1,051.2 μs |      0 | ~12,492 MB |        79 |
-|      10,000 |     **4.78M ops/s** |   2,092.9 μs |      0 | ~12,672 MB |        54 |
+|           1 |     **430K ops/s** |       2.3 μs |      0 |  ~1,130 MB |       163 |
+|          10 |   **2,061K ops/s** |       4.9 μs |      0 |  ~5,275 MB |       687 |
+|         100 |   **3,081K ops/s** |      32.5 μs |      0 |  ~7,990 MB |       474 |
+|         500 |   **3,765K ops/s** |     132.8 μs |      0 |  ~9,818 MB |       308 |
+|       1,000 |   **4,077K ops/s** |     245.3 μs |      0 | ~10,624 MB |       240 |
+|       2,000 |   **4,426K ops/s** |     451.9 μs |      0 | ~11,550 MB |       156 |
+|       5,000 |   **4,686K ops/s** |   1,067.0 μs |      0 | ~12,306 MB |        81 |
+|      10,000 |   **4,776K ops/s** |   2,093.7 μs |      0 | ~12,597 MB |        55 |
 
 **Native Go baseline (same workload):**
 
 | Concurrency | Throughput       | Avg Latency  | Heap Alloc  | GC Pauses |
 | ----------: | ---------------: | -----------: | ----------: | --------: |
-|           1 |    6,377K ops/s |       0.2 μs |    ~900 MB |        89 |
-|         100 |   31,381K ops/s |       3.2 μs |  ~4,320 MB |       243 |
-|       1,000 |   31,679K ops/s |      31.6 μs |  ~4,353 MB |       217 |
-|      10,000 |   29,776K ops/s |     335.8 μs |  ~4,375 MB |       152 |
+|           1 |    6,423K ops/s |       0.2 μs |    ~904 MB |        89 |
+|         100 |   30,148K ops/s |       3.3 μs |  ~4,123 MB |       308 |
+|       1,000 |   31,287K ops/s |      32.0 μs |  ~4,296 MB |       223 |
+|      10,000 |   28,375K ops/s |     352.6 μs |  ~4,206 MB |       153 |
 
-**Throughput ratio (Native / Gig):** single-core 14.4x → 10K concurrency 6.2x
+**Throughput ratio (Native / Gig):** single-core 14.9x → 10K concurrency 5.9x
 
 **Key findings**:
 - **Zero errors**: 10,000 concurrent goroutines, 3 rounds, 0 errors
-- **Good concurrency scaling**: throughput grows from 0.44M (1G) to 4.78M (10000G) — 10.8x improvement
-- **Gap narrows at scale**: ratio drops from 14.4x at 1G to 6.2x at 10000G
+- **Good concurrency scaling**: throughput grows from 430K (1G) to 4,776K (10000G) — 11.1x improvement
+- **Gap narrows at scale**: ratio drops from 14.9x at 1G to 5.9x at 10000G
+- **GC-friendly**: GC pauses decrease at higher concurrency (memory allocation pressure spreads)
+
+### Stateful Concurrent Stress Test
+
+Using `WithStatefulGlobals()` mode with rule engine workload + global counter protected by `*sync.Mutex`:
+
+**Gig Stateful (32-core AMD EPYC 9754, WithStatefulGlobals + *sync.Mutex):**
+
+| Concurrency | Throughput        | Avg Latency    | Errors | Heap Alloc  | GC Pauses |
+| ----------: | ----------------: | -------------: | -----: | ----------: | --------: |
+|           1 |     **296K ops/s** |       3.4 μs |      0 |    ~960 MB |       217 |
+|         100 |     **372K ops/s** |     268.7 μs |      0 |  ~1,210 MB |       155 |
+|       1,000 |     **402K ops/s** |   2,489.7 μs |      0 |  ~1,332 MB |        36 |
+|       5,000 |     **376K ops/s** |  13,309.8 μs |      0 |  ~1,386 MB |        11 |
+|      10,000 |     **372K ops/s** |  26,861.2 μs |      0 |  ~1,544 MB |         6 |
+
+**Counter correctness verification**: 100G × 100 ops = 10,000 counter increments, final value = 10,000 ✓ (zero lost updates)
+
+**Key findings**:
+- **Stateful mode throughput ~8-13% of stateless**: overhead from SharedGlobals RWMutex + *sync.Mutex double locking
+- **Zero errors, zero lost updates**: mutex-protected global counter increments are perfectly precise
+- **Throughput saturates at high concurrency**: ~375K ops/s at 5K+ goroutines, lock contention becomes the bottleneck
 
 ### Analysis
 
 **Gig beats Yaegi on 3/5 core workloads**, with advantages ranging from 1.3x to 4.3x:
 
 - **4.3x faster** on deep recursion (Fib25) — O(1) function lookup, frame pooling, and only 7 allocs vs 2.1M
-- **2.7–2.8x faster** on external calls — 1,162 generated DirectCall wrappers eliminate `reflect.Value.Call()` for 92% of stdlib functions and methods
-- **2.8x faster** on closures — efficient closure representation with shared `*value.Value` captures
+- **2.4–2.7x faster** on external calls — 1,162 generated DirectCall wrappers eliminate `reflect.Value.Call()` for 92% of stdlib functions and methods
+- **2.4x faster** on closures — efficient closure representation with shared `*value.Value` captures
 - **1.3x faster** on nested loops (BubbleSort) — optimized slice operations
-- **Tight loops** (ArithSum, Sieve) — Yaegi is 1.4–1.8x faster; Gig's bytecode interpretation overhead is more visible in micro-loops
+- **Tight loops** (ArithSum, Sieve) — Yaegi is 1.3–1.8x faster; Gig's bytecode interpretation overhead is more visible in micro-loops
 
 **GopherLua vs Gig**: GopherLua is 2-4x faster on core workloads because Lua is a simpler, dynamically-typed language optimized for these patterns. However:
 
@@ -344,7 +366,14 @@ Key optimizations: SSA-to-bytecode compilation, 32-byte tagged-union values, sup
 
 ```bash
 cd benchmarks
-go test -bench=. -benchmem -count=5 -timeout=30m -run='^$'
+# Core benchmarks
+go test -bench='^Benchmark(Gig|Yaegi|Lua|Native|Expr)' -benchmem -count=3 -timeout=30m -run='^$'
+# Concurrent stress test
+go test -run='TestExtremeStress' -v -timeout=10m
+# Stateful stress test
+go test -run='TestStatefulStress' -v -timeout=10m
+# Go Native vs Gig concurrent globals comparison
+go test -run='TestConcurrentGlobals_GoNative_vs_Gig' -v -timeout=2m
 ```
 
 ## Security
