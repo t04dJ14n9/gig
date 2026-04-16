@@ -76,6 +76,7 @@ type CompiledProgram struct {
 // while providing type-safe access to external type lookup.
 type TypeResolver interface {
 	LookupExternalType(t types.Type) (reflect.Type, bool)
+	LookupExternalTypeByName(pkgPath, typeName string) (reflect.Type, bool)
 }
 
 // CachedReflectType looks up a cached reflect.Type for the given types.Type.

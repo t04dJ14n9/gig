@@ -21,7 +21,10 @@ func (c *compiler) compileValue(v ssa.Value) {
 		if fnIdx, ok := c.funcIndex[val]; ok {
 			c.emitClosure(fnIdx, 0)
 		} else {
-			c.emit(bytecode.OpNil)
+			// External function not in funcIndex — look up the actual Go function
+			// and store it as a constant so it can be used as a value (e.g., passed
+			// as a callback argument). OpCallIndirect handles reflect.Func values.
+			c.compileExternalFuncValue(val)
 		}
 	case *ssa.Phi:
 		if slot, ok := c.phiSlots[val]; ok {
@@ -520,6 +523,20 @@ func (c *compiler) compileSlice(i *ssa.Slice) {
 	}
 
 	c.emit(bytecode.OpSlice)
+
+	// If the result type is a named slice type (e.g., sort.IntSlice from [5]int[:]),
+	// emit OpChangeType to convert the underlying []int to the named type.
+	if named, ok := i.Type().(*types.Named); ok {
+		if _, isSlice := named.Underlying().(*types.Slice); isSlice {
+			typeIdx := c.addType(named)
+			srcLocalIdx := uint16(bytecode.NoSourceLocal)
+			c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+				byte(bytecode.OpChangeType),
+				byte(typeIdx>>8), byte(typeIdx),
+				byte(srcLocalIdx>>8), byte(srcLocalIdx))
+		}
+	}
+
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
 

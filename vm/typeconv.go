@@ -124,6 +124,17 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 				cache[tt] = rt
 				return rt
 			}
+			// Fallback: lookup by package path + type name. The SSA/type-checker creates
+			// its own *types.Named objects that differ by pointer identity from the ones
+			// stored via AddType/SetExternalType. A name-based lookup resolves this
+			// mismatch for external named types like sort.IntSlice.
+			obj := tt.Obj()
+			if pkg := obj.Pkg(); pkg != nil {
+				if rt, ok := prog.TypeResolver.LookupExternalTypeByName(pkg.Path(), obj.Name()); ok {
+					cache[tt] = rt
+					return rt
+				}
+			}
 		}
 		// Mark this named type as being processed BEFORE recursing into the
 		// underlying type. If we encounter it again via a pointer field, the

@@ -1,8 +1,6 @@
 package compiler
 
 import (
-	"reflect"
-
 	"git.woa.com/youngjin/gig/model/bytecode"
 	"git.woa.com/youngjin/gig/model/value"
 )
@@ -29,8 +27,4 @@ type PackageLookup interface {
 	// LookupExternalVar resolves an external variable by package path and name.
 	// Returns a pointer to the variable and whether it was found.
 	LookupExternalVar(pkgPath, varName string) (ptr any, ok bool)
-
-	// LookupExternalTypeByName resolves an external type by package path and type name.
-	// Returns the reflect.Type and whether it was found.
-	LookupExternalTypeByName(pkgPath, typeName string) (reflect.Type, bool)
 }

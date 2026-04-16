@@ -27,6 +27,31 @@ func extractMethodName(ssaName string) string {
 	return name
 }
 
+// compileExternalFuncValue compiles an external function reference as a value
+// (not a direct call). This is used when an external function like
+// strings.TrimSpace is passed as a callback argument.
+// It looks up the actual Go function and stores it as a constant,
+// so OpCallIndirect can call it via reflection later.
+func (c *compiler) compileExternalFuncValue(fn *ssa.Function) {
+	var fnVal any
+	if fn.Pkg != nil && c.lookup != nil {
+		pkgPath := fn.Pkg.Pkg.Path()
+		if f, _, ok := c.lookup.LookupExternalFunc(pkgPath, fn.Name()); ok {
+			fnVal = f
+		}
+	}
+	if fnVal == nil {
+		// Could not resolve — emit nil (best effort)
+		c.emit(bytecode.OpNil)
+		return
+	}
+	// Store the Go function as a constant; OpConst will push it as a
+	// value.FromInterface which preserves the reflect.Func type.
+	// OpCallIndirect's reflect.Func branch handles calling it.
+	funcIdx := c.addConstant(fnVal)
+	c.emit(bytecode.OpConst, uint16(funcIdx))
+}
+
 // compileExternalStaticCall compiles a call to an external package function.
 // It uses the injected PackageLookup to resolve the function, avoiding direct importer dependency.
 func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resultIdx int) {

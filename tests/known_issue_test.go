@@ -6,8 +6,8 @@ package tests
 // with native Go execution. Tests that PANIC or produce wrong results are
 // expected failures — they document bugs awaiting fixes.
 //
-// When a bug is fixed, move its function to testdata/resolved_issue/main.go
-// and register it in correctness_test.go's resolved_issueTests map.
+// When a bug is fixed, promote its test to a passing test (e.g. move to
+// divergence_hunt_test.go or correctness_test.go).
 
 import (
 	_ "embed"
@@ -16,6 +16,7 @@ import (
 
 	"git.woa.com/youngjin/gig"
 	_ "git.woa.com/youngjin/gig/stdlib/packages"
+	"git.woa.com/youngjin/gig/tests/testdata/known_issues"
 )
 
 //go:embed testdata/known_issues/main.go
@@ -73,62 +74,77 @@ func runKnownIssueTest(t *testing.T, prog *gig.Program, name string, tc KnownIss
 	})
 }
 
-// TestKnownIssues_Tricky runs all known interpreter bugs.
+// TestKnownIssues runs all known interpreter bugs.
 // Every sub-test here is EXPECTED TO FAIL — they document real bugs.
-func TestKnownIssues_Tricky(t *testing.T) {
+// When a bug is fixed, remove it from here and promote to a passing test.
+func TestKnownIssues(t *testing.T) {
 	issues := map[string]KnownIssue{
-		// Issue 1  → Resolved Issue 28 (sort named-type conversion)
-		// Issue 2  → fixed in gentool (time.Duration DirectCall)
-		// Issue 3  → Resolved Issue 29 (fmt.Stringer)
-		// Issue 4  → Resolved Issue 30 (fmt.Sprintf %T)
-		// Issue 5  → Resolved Issue 31 (fmt.Sprintf %v _gig_id)
-		// Issue 6  → Resolved Issue 32 (int64/uint64 narrowing)
-		// Issue 7  → Resolved Issue 33 (bytes.Buffer.Cap)
-		// Issue 8  → Resolved Issue 34 (json.Encoder method dispatch collision)
-		// StrangeSyntax Bug 1 → Resolved Issue 36 (nil slice to interface)
-		// StrangeSyntax Bug 2 → Resolved Issue 37 (nil map access zero value)
-		// StrangeSyntax Bug 3 → Resolved Issue 38 (nil map delete no-op)
-		// StrangeSyntax Bug 4 → Resolved Issue 39 (blank expr interface return)
-		// StrangeSyntax Bug 5 → Resolved Issue 40 (closed channel send recoverable)
-		// StrangeSyntax Bug 6 → Resolved Issue 41 (nil func return type info)
-	}
-
-	if len(issues) == 0 {
-		t.Skip("No known issues — all resolved!")
-	}
-
-	prog, err := gig.Build(knownIssuesSrc, gig.WithAllowPanic())
-	if err != nil {
-		t.Fatalf("Build error: %v", err)
-	}
-
-	for name, tc := range issues {
-		runKnownIssueTest(t, prog, name, tc)
-	}
-}
-
-// TestKnownIssues_PanicRecover tests panic/recover/defer bugs.
-// These tests document that defer closures cannot properly modify captured variables
-// during panic recovery. Root cause: value.SetElem() fails in defer closure context.
-func TestKnownIssues_PanicRecover(t *testing.T) {
-	issues := map[string]KnownIssue{
-		// IMPORTANT: In Go, only NAMED return values can be modified by defers
-		// during panic recovery. Local variables modified by defers do NOT affect
-		// the return value — the function returns the zero value of the return type.
-		//
-		// PanicRecoverBasic: returns 0 (zero value of int) — PASS
-		// PanicRecoverWithValue: returns 0 (result is a local var, not named return) — PASS
-		// DeferRunsOnPanic: returns 0 (result is a local var) — PASS
-		// MultipleDefersOnPanic: returns 0 (result/order are local vars) — PASS
-		// NamedReturnPanicRecover: returns 42 (result IS a named return) — PASS
-		// NestedRecover: returns 0 (result is a local var) — needs defer-after-recover fix
-		// PanicInDefer: returns 1 (result=1 set before panic, not a named return) — needs fix
-		// PanicInClosure: returns 0 (zero value) — PASS
-		// DeferPanicRecoverChain: returns 0 (result is a local var) — needs fix
-	}
-
-	if len(issues) == 0 {
-		t.Skip("No known issues — all resolved!")
+		"SortIntSliceCompositeLiteral": {
+			funcName: "SortIntSliceCompositeLiteral",
+			native:   func() any { return known_issues.SortIntSliceCompositeLiteral() },
+			issue:    "sort.IntSlice{...} composite literal lacks sort.Interface methods — sort.Sort panics with 'missing method Len'",
+			panics:   true,
+		},
+		"TypedNilInterface": {
+			funcName: "TypedNilInterface",
+			native:   func() any { return known_issues.TypedNilInterface() },
+			issue:    "typed nil pointer assigned to interface is incorrectly treated as nil — interface should be non-nil",
+		},
+		"InterfaceMethodOnTypedNil": {
+			funcName: "InterfaceMethodOnTypedNil",
+			native:   func() any { return known_issues.InterfaceMethodOnTypedNil() },
+			issue:    "calling method on typed nil interface should panic with nil pointer dereference, but Gig returns 'ok'",
+		},
+		"CToF": {
+			funcName: "CToF",
+			native:   func() any { return known_issues.CToF() },
+			issue:    "named type arithmetic returns float64 instead of named type Fahrenheit",
+		},
+		"AssignTypeAssertion": {
+			funcName: "AssignTypeAssertion",
+			native:   func() any { return known_issues.AssignTypeAssertion() },
+			issue:    "failed type assertion comma-ok returns nil instead of zero value of target type",
+		},
+		"SliceNilSubslice": {
+			funcName: "SliceNilSubslice",
+			native:   func() any { return known_issues.SliceNilSubslice() },
+			issue:    "nil slice [0:0] returns empty non-nil slice instead of nil slice",
+		},
+		"LinkedListReverse": {
+			funcName: "LinkedListReverse",
+			native:   func() any { return known_issues.LinkedListReverse() },
+			issue:    "linked list reverse with pointer reassignment fails — struct field modifications through pointer traversal not propagated correctly",
+		},
+		"GlobalSliceAccess": {
+			funcName: "GlobalSliceAccess",
+			native:   func() any { return known_issues.GlobalSliceAccess() },
+			issue:    "package-level var with slice initializer not properly initialized",
+		},
+		"GlobalMapAccess": {
+			funcName: "GlobalMapAccess",
+			native:   func() any { return known_issues.GlobalMapAccess() },
+			issue:    "package-level var with map initializer not properly initialized",
+		},
+		"GlobalStringAccess": {
+			funcName: "GlobalStringAccess",
+			native:   func() any { return known_issues.GlobalStringAccess() },
+			issue:    "package-level var with string initializer not properly initialized",
+		},
+		"GlobalBoolAccess": {
+			funcName: "GlobalBoolAccess",
+			native:   func() any { return known_issues.GlobalBoolAccess() },
+			issue:    "package-level var with bool initializer not properly initialized",
+		},
+		"GlobalFloatAccess": {
+			funcName: "GlobalFloatAccess",
+			native:   func() any { return known_issues.GlobalFloatAccess() },
+			issue:    "package-level var with float initializer not properly initialized",
+		},
+		"GlobalPointerNil": {
+			funcName: "GlobalPointerNil",
+			native:   func() any { return known_issues.GlobalPointerNil() },
+			issue:    "package-level var with nil pointer initializer not properly initialized",
+		},
 	}
 
 	prog, err := gig.Build(knownIssuesSrc, gig.WithAllowPanic())
