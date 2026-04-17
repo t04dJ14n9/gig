@@ -559,6 +559,12 @@ func (v *vm) run() (value.Value, error) {
 			val := stack[sp]
 			sp--
 			ptr := stack[sp]
+			// Nil pointer dereference check
+			if ptr.IsNil() || !ptr.IsValid() {
+				v.panicking = true
+				v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
+				continue
+			}
 			// Fast path: *int64 pointer (from native int slice OpIndexAddr)
 			if p, ok := ptr.IntPtr(); ok {
 				*p = val.RawInt()
@@ -612,6 +618,15 @@ func (v *vm) run() (value.Value, error) {
 		case bytecode.OpDeref:
 			sp--
 			ptr := stack[sp]
+			// Nil pointer dereference check for reflect-based pointers.
+			// IntPtr fast path handles native *int64 pointers.
+			if ptr.Kind() == value.KindReflect || ptr.Kind() == value.KindPointer {
+				if ptr.IsNil() {
+					v.panicking = true
+					v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
+					continue
+				}
+			}
 			// Fast path: *int64 pointer (from native int slice OpIndexAddr)
 			if p, ok := ptr.IntPtr(); ok {
 				stack[sp] = value.MakeInt(*p)
