@@ -254,6 +254,21 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 
 		low := int(lowVal.Int())
 
+		// Handle nil container: nil[0:0] returns nil, nil[0:n] panics for n > 0
+		if container.Kind() == value.KindNil {
+			high := int(highVal.Int())
+			if high == sliceEndSentinel {
+				high = 0
+			}
+			if low != 0 || high != 0 {
+				panic("runtime error: slice bounds out of range")
+			}
+			// nil[0:0] returns a nil slice with the same type (Go semantics)
+			// Use container's original type if available, otherwise just push nil
+			v.push(container)
+			break
+		}
+
 		// Handle string slicing specially
 		if container.Kind() == value.KindString {
 			high := int(highVal.Int())
@@ -280,6 +295,19 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 
 		rv := v.mustReflectValue(container)
 		if rv.IsValid() {
+			// Nil slice check: in Go, nil[0:0] returns nil, not an empty non-nil slice.
+			if rv.Kind() == reflect.Slice && rv.IsNil() {
+				high := int(highVal.Int())
+				if high == sliceEndSentinel {
+					high = 0
+				}
+				if low != 0 || high != 0 {
+					panic("runtime error: slice bounds out of range")
+				}
+				// Return nil slice with the correct type
+				v.push(container)
+				break
+			}
 			// If it's a pointer to an array or slice, dereference it first
 			if rv.Kind() == reflect.Ptr {
 				elemKind := rv.Elem().Kind()
@@ -336,6 +364,8 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			}
 			v.push(value.MakeFromReflect(sliced))
 		} else {
+			// Nil slice subslicing: in Go, nil[0:0] returns nil (not an empty non-nil slice).
+			// Since rv is invalid, the container is nil. Return nil to match Go semantics.
 			v.push(value.MakeNil())
 		}
 

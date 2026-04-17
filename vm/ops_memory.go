@@ -226,6 +226,23 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 					// (critical for swap patterns like p.a, p.b = p.b, p.a).
 					if elem.Kind() == reflect.Ptr && elem.CanSet() {
 						v.push(value.MakeFromReflect(reflect.ValueOf(elem.Interface())))
+					} else if elem.Kind() == reflect.Interface && elem.CanSet() && elem.Type().NumMethod() == 0 {
+						// Same issue for interface{} fields (from self-referencing structs
+						// where *T is converted to interface{} by cycle-breaking). The elem
+						// references the struct field directly; if we don't copy, subsequent
+						// mutations of the field would corrupt this loaded value.
+						// Only apply this to empty interfaces (interface{} / any) which are
+						// used as cycle-breaking placeholders. Real Go interfaces (io.Reader, etc.)
+						// don't need this copy and it would break type assignability.
+						if elem.IsNil() {
+							// Nil interface — push as KindNil so nil comparisons work correctly.
+							v.push(value.MakeNil())
+						} else {
+							// Copy the concrete value out of the interface to break
+							// the reference to the original field memory.
+							concrete := elem.Elem()
+							v.push(value.MakeFromReflect(reflect.ValueOf(concrete.Interface())))
+						}
 					} else {
 						v.push(value.MakeFromReflect(elem))
 					}

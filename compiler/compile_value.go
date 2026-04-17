@@ -417,7 +417,14 @@ func (c *compiler) compileMakeChan(i *ssa.MakeChan) {
 // compileMakeInterface compiles a MakeInterface instruction.
 func (c *compiler) compileMakeInterface(i *ssa.MakeInterface) {
 	resultIdx := c.symbolTable.AllocLocal(i)
+	ifaceTypeIdx := c.addType(i.Type())     // interface type (e.g., error)
+	concreteTypeIdx := c.addType(i.X.Type()) // concrete type (e.g., *MyError3)
 	c.compileValue(i.X)
+	// Emit: OpMakeInterface, ifaceTypeIdx_hi, ifaceTypeIdx_lo, concreteTypeIdx_hi, concreteTypeIdx_lo
+	c.currentFunc.Instructions = append(c.currentFunc.Instructions,
+		byte(bytecode.OpMakeInterface),
+		byte(ifaceTypeIdx>>8), byte(ifaceTypeIdx),
+		byte(concreteTypeIdx>>8), byte(concreteTypeIdx))
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
 

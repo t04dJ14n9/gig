@@ -486,7 +486,15 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 			v.push(value.MakeNil())
 			return nil
 		}
-		rv = rv.Elem()
+		concrete := rv.Elem()
+		// Check for typed nil pointer receiver — calling a method on a nil
+		// pointer should panic with nil pointer dereference (Go semantics).
+		if concrete.Kind() == reflect.Ptr && concrete.IsNil() {
+			v.panicking = true
+			v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
+			return nil
+		}
+		rv = concrete
 		// Update args[0] with the unwrapped value for callCompiledMethod
 		args[0] = value.MakeFromReflect(rv)
 	}

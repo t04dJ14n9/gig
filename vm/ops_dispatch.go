@@ -59,7 +59,8 @@ func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) (retErr error) {
 		return v.executeContainer(op, frame)
 
 	// Type conversions
-	case bytecode.OpAssert, bytecode.OpConvert, bytecode.OpChangeType:
+	case bytecode.OpAssert, bytecode.OpConvert, bytecode.OpChangeType,
+		bytecode.OpMakeInterface:
 		return v.executeConvert(op, frame)
 
 	// Channels, defer, panic, print, halt
