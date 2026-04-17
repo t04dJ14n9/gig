@@ -204,7 +204,12 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 		}
 		switch ptr.Kind() {
 		case value.KindPointer:
-			v.push(ptr.Elem())
+			if ptr.Elem().IsValid() {
+				v.push(ptr.Elem())
+			} else {
+				// Nil pointer dereference
+				panic("runtime error: invalid memory address or nil pointer dereference")
+			}
 		case value.KindInterface:
 			// For interface values, just pass through (interfaces are already dereferenced)
 			v.push(ptr)
@@ -254,12 +259,21 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 				v.push(ptr)
 			}
 		default:
+			// Nil/invalid pointer dereference — panic, matching Go semantics.
+			// This catches KindNil and KindInvalid being dereferenced.
+			if ptr.IsNil() || !ptr.IsValid() {
+				panic("runtime error: invalid memory address or nil pointer dereference")
+			}
 			v.push(ptr)
 		}
 
 	case bytecode.OpSetDeref:
 		val := v.pop()
 		ptr := v.pop()
+		// Nil pointer dereference check
+		if ptr.IsNil() || !ptr.IsValid() {
+			panic("runtime error: invalid memory address or nil pointer dereference")
+		}
 		// Fast path: GlobalRef from shared-mode OpGlobal — use locked write.
 		if iface := ptr.Interface(); iface != nil {
 			if ref, ok := iface.(*GlobalRef); ok {
