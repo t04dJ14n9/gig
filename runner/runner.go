@@ -167,7 +167,7 @@ const DefaultTimeout = 10 * time.Second
 // ExecuteInit runs the program's init() function if present and returns the globals snapshot.
 // The snapshot should be passed to runner.New as initialGlobals.
 func ExecuteInit(program *bytecode.CompiledProgram) ([]value.Value, error) {
-	if _, hasInit := program.Functions["init#1"]; hasInit {
+	if _, hasInit := program.Functions["init"]; hasInit {
 		initVM := vm.New(program)
 		ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 		defer cancel()

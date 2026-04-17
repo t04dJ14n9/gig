@@ -206,6 +206,47 @@ func (v Value) Equal(other Value) bool {
 	// When an external function returns an interface{} holding e.g. a string,
 	// it comes back as KindReflect. We need to compare the underlying value.
 	a, b := v, other
+
+	// Treat KindInvalid (uninitialized zero Value) as KindNil.
+	// Go globals with reference types (pointer, slice, map, chan, func, interface)
+	// default to nil, but SSA may not emit explicit zero stores for them,
+	// leaving them as KindInvalid in the interpreter. Comparing an uninitialized
+	// global to nil should return true, just like in Go.
+	if a.kind == KindInvalid {
+		a = MakeNil()
+	}
+	if b.kind == KindInvalid {
+		b = MakeNil()
+	}
+
+	// Handle nil comparison with interface values first.
+	// In Go, a typed nil interface is NOT equal to nil.
+	// e.g., var p *T = nil; var e error = p; e == nil → false
+	isInterfaceNil := func(val Value) (bool, bool) {
+		if val.kind == KindInterface {
+			if rv, ok := val.obj.(reflect.Value); ok && rv.Kind() == reflect.Interface {
+				return true, rv.IsNil()
+			}
+			return true, true
+		}
+		if val.kind == KindReflect {
+			if rv, ok := val.obj.(reflect.Value); ok && rv.Kind() == reflect.Interface {
+				return true, rv.IsNil()
+			}
+		}
+		return false, false
+	}
+	if b.kind == KindNil {
+		if isIface, isNil := isInterfaceNil(a); isIface {
+			return isNil
+		}
+	}
+	if a.kind == KindNil {
+		if isIface, isNil := isInterfaceNil(b); isIface {
+			return isNil
+		}
+	}
+
 	if a.kind == KindReflect || a.kind == KindInterface {
 		a = unwrapForComparison(a)
 	}
