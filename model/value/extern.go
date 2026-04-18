@@ -17,26 +17,44 @@ import (
 )
 
 // gigStructWrapper wraps an interpreter-synthesized struct value to implement
-// Go interfaces (fmt.Stringer, fmt.Formatter) that the underlying anonymous
+// Go interfaces (fmt.Stringer, fmt.Formatter, error) that the underlying anonymous
 // struct type cannot satisfy because reflect.StructOf doesn't support methods.
 //
 // The wrapper is transparent: it delegates all fmt verbs to the underlying
 // value, and only intercepts %T (for correct type name) and %v/%s (for
-// String() dispatch).
+// String() dispatch). When the interpreted type has an Error() method, the
+// wrapper also implements the error interface so that errors.As and type
+// assertions work correctly.
 type gigStructWrapper struct {
 	iface     any           // the underlying struct value (clean, no phantom fields)
 	typeName  string        // qualified type name from gig tag (e.g., "pkg.Type")
 	stringer  func() string // nil if no String() method
+	errorer   func() string // nil if no Error() method
 	hasMethod bool          // true if String() method exists
+	hasError  bool          // true if Error() method exists
 }
 
 // Ensure gigStructWrapper implements the relevant interfaces.
 var (
 	_ fmt.Stringer  = (*gigStructWrapper)(nil)
 	_ fmt.Formatter = (*gigStructWrapper)(nil)
+	_ error         = (*gigStructWrapper)(nil)
 )
 
 func (g *gigStructWrapper) String() string {
+	if g.stringer != nil {
+		return g.stringer()
+	}
+	if g.errorer != nil {
+		return g.errorer()
+	}
+	return fmt.Sprint(g.iface)
+}
+
+func (g *gigStructWrapper) Error() string {
+	if g.errorer != nil {
+		return g.errorer()
+	}
 	if g.stringer != nil {
 		return g.stringer()
 	}
@@ -155,13 +173,17 @@ func FmtWrap(v Value) any {
 
 	// Check if the interpreted type has a String() method via the global resolver registry
 	stringerFunc, hasStringer := resolveStringer(v)
+	// Check if the interpreted type has an Error() method
+	errorerFunc, hasError := resolveErrorer(v)
 
 	// Always return the wrapper for gig structs - it handles all fmt verbs correctly
 	return &gigStructWrapper{
 		iface:     iface,
 		typeName:  typeName,
 		stringer:  stringerFunc,
+		errorer:   errorerFunc,
 		hasMethod: hasStringer,
+		hasError:  hasError,
 	}
 }
 
@@ -185,6 +207,222 @@ func resolveStringer(v Value) (func() string, bool) {
 	}
 	str := result.String()
 	return func() string { return str }, true
+}
+
+// resolveErrorer attempts to resolve the Error() method for a value.
+// Returns a function that can be called later, and a boolean indicating if found.
+func resolveErrorer(v Value) (func() string, bool) {
+	result, found := callMethod(nil, "Error", v)
+	if !found {
+		// If not found, try with pointer to the value (for pointer receiver methods)
+		if rv, ok := v.ReflectValue(); ok && rv.Kind() == reflect.Struct {
+			ptrRV := reflect.New(rv.Type())
+			ptrRV.Elem().Set(rv)
+			ptrValue := MakeFromReflect(ptrRV)
+			result, found = callMethod(nil, "Error", ptrValue)
+		}
+	}
+
+	if !found {
+		return nil, false
+	}
+	str := result.String()
+	return func() string { return str }, true
+}
+
+// ErrorValue extracts a Go error from a value.Value.
+// If the value is already a native Go error, returns it directly.
+// If the value is an interpreter-synthesized struct with an Error() method,
+// returns a gigStructWrapper that implements the error interface.
+// Otherwise returns nil.
+//
+// This is the boundary function for generated DirectCall wrappers —
+// use it whenever extracting an error-typed parameter from args.
+func ErrorValue(v Value) error {
+	iface := v.Interface()
+	if iface == nil {
+		return nil
+	}
+	// If it's already a Go error (e.g., from fmt.Errorf, errors.New), return as-is
+	if e, ok := iface.(error); ok {
+		return e
+	}
+	typeName := isGigStruct(iface)
+	if typeName == "" {
+		return nil
+	}
+	// Check if the interpreted type has an Error() method
+	errorerFunc, hasError := resolveErrorer(v)
+	if !hasError {
+		return nil
+	}
+	stringerFunc, hasStringer := resolveStringer(v)
+	_ = hasStringer
+	return &gigStructWrapper{
+		iface:     iface,
+		typeName:  typeName,
+		stringer:  stringerFunc,
+		errorer:   errorerFunc,
+		hasMethod: hasStringer,
+		hasError:  true,
+	}
+}
+
+// ErrorWrap prepares a value.Value for use as a Go error.
+// If the value is an interpreter-synthesized struct with an Error() method,
+// returns a wrapper that implements the error interface. Otherwise returns
+// the raw interface{} value.
+//
+// Deprecated: Use ErrorValue instead for typed error extraction.
+func ErrorWrap(v Value) any {
+	if e := ErrorValue(v); e != nil {
+		return e
+	}
+	return v.Interface()
+}
+
+// GigErrorsAs implements errors.As semantics for interpreter-defined types.
+// It mirrors the standard library's errors.As but uses the interpreter's type
+// name registry for matching, since reflect.StructOf types can't implement
+// interfaces and have different reflect.Type identities than named Go types.
+//
+// err is the error value (may be a gigStructWrapper or a native Go error).
+// target is a pointer to the target type (e.g., **CustomError as interface{}).
+//
+// Returns true if the error (or any error in its Unwrap chain) matches target.
+func GigErrorsAs(err error, target any) bool {
+	if target == nil {
+		panic("errors: target cannot be nil")
+	}
+
+	targetVal := reflect.ValueOf(target)
+	targetType := targetVal.Type()
+	if targetType.Kind() != reflect.Ptr || targetVal.IsNil() {
+		panic("errors: target must be a non-nil pointer")
+	}
+
+	elemType := targetType.Elem()
+
+	for {
+		// Try matching the current error against the target
+		if gigAsMatchValue(err, elemType, targetVal) {
+			return true
+		}
+
+		// Try unwrapping
+		unwrapper, ok := err.(interface{ Unwrap() error })
+		if !ok {
+			return false
+		}
+		err = unwrapper.Unwrap()
+		if err == nil {
+			return false
+		}
+	}
+}
+
+// gigAsMatchValue checks if an error value matches the target type.
+// It handles both native Go types (via reflect.AssignableTo) and
+// interpreter-defined types (via gig type name matching).
+func gigAsMatchValue(err error, elemType reflect.Type, targetVal reflect.Value) bool {
+	errVal := reflect.ValueOf(err)
+	errType := errVal.Type()
+
+	// Direct type match: err's type is assignable to target element type
+	if errType.AssignableTo(elemType) {
+		targetVal.Elem().Set(errVal)
+		return true
+	}
+
+	// If err is a *gigStructWrapper, try matching by interpreter type name
+	if wrapper, ok := err.(*gigStructWrapper); ok {
+		// Case 1: target is **StructType (errors.As(&ce) where ce is *CustomError)
+		if elemType.Kind() == reflect.Ptr {
+			ptrElemType := elemType.Elem()
+
+			// Check if the wrapper's underlying value type is assignable
+			ifaceType := reflect.TypeOf(wrapper.iface)
+			if ifaceType.AssignableTo(elemType) {
+				targetVal.Elem().Set(reflect.ValueOf(wrapper.iface))
+				return true
+			}
+
+			// Match by gig type name: compare wrapper's typeName with target's gig tag
+			wrapperTypeName := extractBareTypeName(wrapper.typeName)
+			targetTypeName := extractGigTagFromType(ptrElemType)
+			if targetTypeName == "" {
+				targetTypeName = ptrElemType.Name()
+			}
+			targetTypeName = extractBareTypeName(targetTypeName)
+
+			if wrapperTypeName != "" && wrapperTypeName == targetTypeName {
+				// Type names match — set the target to the underlying value
+				if ifaceType.AssignableTo(elemType) {
+					targetVal.Elem().Set(reflect.ValueOf(wrapper.iface))
+					return true
+				}
+				// Try converting through interface{} if the pointer element is also a gig struct
+				if ifaceType.Kind() == reflect.Ptr && ptrElemType.Kind() == reflect.Struct {
+					// Both are pointers to structs — try setting the value directly
+					if ifaceType.Elem().ConvertibleTo(ptrElemType) {
+						converted := reflect.ValueOf(wrapper.iface).Elem().Convert(ptrElemType)
+						ptr := reflect.New(ptrElemType)
+						ptr.Elem().Set(converted)
+						targetVal.Elem().Set(ptr)
+						return true
+					}
+				}
+			}
+		}
+
+		// Case 2: target is an interface type (e.g., error)
+		if elemType.Kind() == reflect.Interface {
+			if errType.Implements(elemType) {
+				targetVal.Elem().Set(errVal)
+				return true
+			}
+		}
+
+		// Case 3: target is a struct type (value receiver, unlikely for errors)
+		if elemType.Kind() == reflect.Struct {
+			ifaceType := reflect.TypeOf(wrapper.iface)
+			if ifaceType.AssignableTo(elemType) {
+				targetVal.Elem().Set(reflect.ValueOf(wrapper.iface))
+				return true
+			}
+		}
+	}
+
+	// For non-gig errors, try standard interface check
+	if elemType.Kind() == reflect.Interface && errType.Implements(elemType) {
+		targetVal.Elem().Set(errVal)
+		return true
+	}
+
+	return false
+}
+
+// extractBareTypeName extracts the short type name from a qualified name.
+// "known_issues.CustomError" → "CustomError"
+// "CustomError" → "CustomError"
+func extractBareTypeName(qualName string) string {
+	if idx := strings.LastIndex(qualName, "."); idx >= 0 {
+		return qualName[idx+1:]
+	}
+	return qualName
+}
+
+// extractGigTagFromType extracts the gig tag value from a reflect.Type.
+// Returns "" if not found.
+func extractGigTagFromType(rt reflect.Type) string {
+	if rt.Kind() != reflect.Struct || rt.NumField() == 0 {
+		return ""
+	}
+	tag := rt.Field(0).Tag.Get("gig")
+	if strings.HasPrefix(tag, "#") {
+		return tag[1:]
+	}
+	return tag
 }
 
 // SprintfExtern is a general-purpose fmt.Sprintf replacement that correctly

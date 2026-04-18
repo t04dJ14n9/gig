@@ -47,6 +47,21 @@ func isFmtPackage(pkgRef string) bool {
 	return pkgRef == "fmt"
 }
 
+// customCallOverrides maps (pkgRef, funcName) to a custom call expression
+// generator. When a function matches, the generator is called instead of
+// the default call expression. This is used for functions that need special
+// handling (e.g., errors.As needs GigErrorsAs for interpreter type matching).
+var customCallOverrides = map[string]map[string]func(argExprs []string) string{
+	"errors": {
+		// errors.As needs GigErrorsAs because reflect.StructOf types can't
+		// implement interfaces, so reflect.Type.AssignableTo won't match
+		// interpreter-defined error types.
+		"As": func(argExprs []string) string {
+			return fmt.Sprintf("value.GigErrorsAs(%s, %s)", argExprs[0], argExprs[1])
+		},
+	},
+}
+
 func generateDirectCall(fi *funcInfo, pkgRef string) string {
 	sig := fi.Sig
 	params := sig.Params()
@@ -146,6 +161,12 @@ func generateDirectCall(fi *funcInfo, pkgRef string) string {
 	var callExpr string
 	if isSprintfLike(fi) {
 		callExpr = fmt.Sprintf("value.SprintfExtern(%s)", strings.Join(argExprs, ", "))
+	} else if override := customCallOverrides[pkgRef]; override != nil {
+		if gen, ok := override[fi.Name]; ok {
+			callExpr = gen(argExprs)
+		} else {
+			callExpr = fmt.Sprintf("%s.%s(%s)", pkgRef, fi.Name, strings.Join(argExprs, ", "))
+		}
 	} else {
 		callExpr = fmt.Sprintf("%s.%s(%s)", pkgRef, fi.Name, strings.Join(argExprs, ", "))
 	}
@@ -276,7 +297,10 @@ func extractArg(t types.Type, valExpr string, pkgRef string) string {
 	if named, ok := t.(*types.Named); ok {
 		obj := named.Obj()
 		if obj.Pkg() == nil && obj.Name() == errorTypeName {
-			return fmt.Sprintf("%s.Interface().(error)", valExpr)
+			// Use value.ErrorValue to handle interpreter-defined types
+			// with Error() method that can't satisfy the error interface
+			// because reflect.StructOf types can't have methods.
+			return fmt.Sprintf("value.ErrorValue(%s)", valExpr)
 		}
 	}
 
@@ -286,7 +310,8 @@ func extractArg(t types.Type, valExpr string, pkgRef string) string {
 		if obj.Pkg() == nil {
 			// Builtin alias: 'error' or 'any' (= interface{})
 			if obj.Name() == errorTypeName {
-				return fmt.Sprintf("%s.Interface().(error)", valExpr)
+				// Use value.ErrorValue for the same reason as Named error above.
+				return fmt.Sprintf("value.ErrorValue(%s)", valExpr)
 			}
 			// 'any' and other builtin aliases: pass raw value
 			return fmt.Sprintf("%s.Interface()", valExpr)
