@@ -31,14 +31,23 @@ func ErrorIs() string {
 	return fmt.Sprintf("%v", errors.Is(wrapped, base))
 }
 
+// CustomErr is a custom error type for testing errors.As with struct pointers.
+type CustomErr struct {
+	Code int
+	Msg  string
+}
+
+func (e *CustomErr) Error() string {
+	return fmt.Sprintf("code=%d msg=%s", e.Code, e.Msg)
+}
+
 func ErrorAs() string {
-	// errors.As requires runtime type introspection of the target pointer.
-	// The interpreter wraps arguments in interface{}, so &ce becomes
-	// an interface{} instead of **CustomErr, causing errors.As to fail.
-	// Test a simpler version that doesn't rely on errors.As with struct pointers.
-	base := errors.New("not found")
-	wrapped := fmt.Errorf("db: %w", base)
-	return fmt.Sprintf("%v", errors.Is(wrapped, base))
+	err := &CustomErr{Code: 404, Msg: "not found"}
+	var ce *CustomErr
+	if errors.As(err, &ce) {
+		return fmt.Sprintf("code=%d", ce.Code)
+	}
+	return "no match"
 }
 
 func ErrorChainIs() string {

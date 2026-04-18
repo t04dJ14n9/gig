@@ -284,7 +284,7 @@ func direct_method_io_PipeReader_Close(args []value.Value) value.Value {
 
 func direct_method_io_PipeReader_CloseWithError(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.PipeReader)
-	a0 := args[1].Interface().(error)
+	a0 := value.ErrorValue(args[1])
 	return value.FromInterface(recv.CloseWithError(a0))
 }
 
@@ -311,7 +311,7 @@ func direct_method_io_PipeWriter_Close(args []value.Value) value.Value {
 
 func direct_method_io_PipeWriter_CloseWithError(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.PipeWriter)
-	a0 := args[1].Interface().(error)
+	a0 := value.ErrorValue(args[1])
 	return value.FromInterface(recv.CloseWithError(a0))
 }
 

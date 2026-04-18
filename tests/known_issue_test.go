@@ -76,7 +76,7 @@ func TestKnownIssues(t *testing.T) {
 	issues := map[string]KnownIssue{}
 
 	if len(issues) == 0 {
-		t.Log("No known issues — all previously documented bugs have been fixed! (including sync.Cond.Wait)")
+		t.Log("No known issues — all previously documented bugs have been fixed! (including errors.As with struct pointer)")
 		return
 	}
 
