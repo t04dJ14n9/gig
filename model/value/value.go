@@ -407,6 +407,10 @@ func MakeFromReflect(rv reflect.Value) Value {
 		if rv.Type().Elem().Kind() == reflect.Uint8 {
 			return MakeBytes(rv.Bytes())
 		}
+		// Native []int64 storage: use KindSlice so Interface() converts to []int correctly
+		if rv.Type().Elem().Kind() == reflect.Int64 {
+			return MakeIntSlice(rv.Interface().([]int64))
+		}
 		return Value{kind: KindReflect, obj: rv}
 	default:
 		return Value{kind: KindReflect, obj: rv}

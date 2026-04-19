@@ -255,12 +255,24 @@ func (v Value) toReflectFunc(typ reflect.Type) reflect.Value {
 
 // toReflectSlice converts Value to reflect.Value for slice types.
 func (v Value) toReflectSlice(typ reflect.Type) reflect.Value {
-	if s, ok := v.obj.([]int64); ok && typ.Kind() == reflect.Slice {
-		target := reflect.MakeSlice(typ, len(s), cap(s))
-		for i, n := range s {
-			target.Index(i).SetInt(n)
+	if s, ok := v.obj.([]int64); ok {
+		// For []int64 storage (KindSlice), convert to []int when target is interface{}
+		// or when target is []int. This ensures %T reports []int instead of []int64.
+		if typ.Kind() == reflect.Interface && typ.NumMethod() == 0 {
+			// Target is interface{} - convert to []int for Go compatibility
+			result := make([]int, len(s))
+			for i, n := range s {
+				result[i] = int(n)
+			}
+			return reflect.ValueOf(result)
 		}
-		return target
+		if typ.Kind() == reflect.Slice {
+			target := reflect.MakeSlice(typ, len(s), cap(s))
+			for i, n := range s {
+				target.Index(i).SetInt(n)
+			}
+			return target
+		}
 	}
 	if s, ok := v.obj.([]Value); ok && typ.Kind() == reflect.Slice {
 		target := reflect.MakeSlice(typ, len(s), cap(s))
