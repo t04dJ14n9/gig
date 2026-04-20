@@ -2,6 +2,7 @@ package vm
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -67,15 +68,38 @@ func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string,
 			fp:      0,
 			globals: make([]value.Value, len(program.Globals)),
 			ctx:     context.Background(),
-			extCallCache: &externalCallCache{
-				cache: make([]*extCallCacheEntry, len(program.Constants)),
-			},
 		}
 		// Note: tempVM does not have initialGlobals since resolveCompiledMethod
 		// is called without a VM context. This is acceptable because method resolution
 		// only needs to execute the method, not full program init.
-		tempVM.callFunction(fn, []value.Value{receiver}, nil)
-		result, err := tempVM.run()
+		//
+		// Normalize the receiver through reflect so the interpreter always sees
+		// a clean, concretely-typed value. Without this, a receiver that lives
+		// inside an interface{} box causes reflect.Set panics when the method
+		// body accesses fields on it.
+		methodReceiver := receiver
+		if rv, ok := receiver.ReflectValue(); ok && rv.IsValid() {
+			// Re-wrap through the concrete type to strip any interface{} layer.
+			concrete := reflect.New(rv.Type()).Elem()
+			concrete.Set(rv)
+			methodReceiver = value.MakeFromReflect(concrete)
+		}
+		tempVM.callFunction(fn, []value.Value{methodReceiver}, nil)
+		// Side-channel method invocation: if the method body encounters a
+		// Go-level panic (e.g., reflect operations on mismatched types) that
+		// the VM's own panic protocol doesn't convert to an error, recover
+		// so the caller gets (nil, false) and can fall back to the default
+		// formatting instead of crashing.
+		var result value.Value
+		var err error
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("side-channel method %q panicked: %v", methodName, r)
+				}
+			}()
+			result, err = tempVM.run()
+		}()
 		if err != nil {
 			return value.MakeNil(), false
 		}

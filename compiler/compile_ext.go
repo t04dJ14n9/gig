@@ -3,6 +3,7 @@ package compiler
 
 import (
 	"go/types"
+	"reflect"
 	"strings"
 
 	"golang.org/x/tools/go/ssa"
@@ -93,6 +94,14 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 				Func:       fnVal,
 				DirectCall: directCall,
 			}
+			// Pre-compute reflect metadata so the VM avoids reflect.Type queries.
+			if fnVal != nil {
+				if rv := reflect.ValueOf(fnVal); rv.Kind() == reflect.Func {
+					rt := rv.Type()
+					extFuncInfo.IsVariadic = rt.IsVariadic()
+					extFuncInfo.NumIn = rt.NumIn()
+				}
+			}
 		}
 	}
 
@@ -100,6 +109,14 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 		extFuncInfo = &external.ExternalFuncInfo{
 			Func:       fn,
 			DirectCall: nil,
+		}
+		// Pre-compute reflect metadata for the SSA function fallback.
+		if fn != nil {
+			if rv := reflect.ValueOf(fn); rv.Kind() == reflect.Func {
+				rt := rv.Type()
+				extFuncInfo.IsVariadic = rt.IsVariadic()
+				extFuncInfo.NumIn = rt.NumIn()
+			}
 		}
 	}
 

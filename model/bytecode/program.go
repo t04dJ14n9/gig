@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sync"
 
+	"git.woa.com/youngjin/gig/model/external"
 	"git.woa.com/youngjin/gig/model/value"
 )
 
@@ -69,6 +70,12 @@ type CompiledProgram struct {
 	// reflect.Value belongs to, replacing the old _gig_id phantom field approach.
 	// Key: reflect.Type, Value: string (bare type name, e.g. "Foo").
 	ReflectTypeNames sync.Map
+
+	// ExternCalls is the pre-resolved external call table, indexed the same as Constants.
+	// Built once by ResolveExternCalls after compilation. Because CompiledProgram is
+	// read-only after compilation, all VMs sharing the same program access this without
+	// locks — replacing the old per-VM extCallCache with its RWMutex.
+	ExternCalls []*ResolvedCall
 }
 
 // TypeResolver resolves external types at runtime.
@@ -107,4 +114,89 @@ func (p *CompiledProgram) LookupTypeName(rt reflect.Type) string {
 		return v.(string)
 	}
 	return ""
+}
+
+// ResolvedCall is a pre-resolved external function/method entry.
+// It is built once by ResolveExternCalls after compilation and is immutable
+// afterwards. Because it lives on CompiledProgram (which is read-only after
+// compilation), all VMs sharing the same program can access it without locks.
+type ResolvedCall struct {
+	// DirectCall is the fast-path wrapper. Nil means use reflect.
+	DirectCall func(args []value.Value) value.Value
+
+	// Fn is the reflect.Value of the function (slow path).
+	Fn reflect.Value
+
+	// FnType is the function's reflect.Type (slow path).
+	FnType reflect.Type
+
+	// IsVariadic indicates whether the function takes variadic arguments.
+	IsVariadic bool
+
+	// NumIn is the number of declared parameters.
+	NumIn int
+
+	// MethodName is set for method calls (ExternalMethodInfo), empty for functions.
+	MethodName string
+}
+
+// ResolveExternCalls pre-resolves all constant pool entries that reference
+// external functions or methods into ResolvedCall entries. Call this once
+// after compilation. The resulting slice is indexed the same as Constants,
+// so the VM can do a direct array lookup: program.ExternCalls[funcIdx].
+func (p *CompiledProgram) ResolveExternCalls() {
+	p.ExternCalls = make([]*ResolvedCall, len(p.Constants))
+	for i, c := range p.Constants {
+		p.ExternCalls[i] = ResolveConstant(c)
+	}
+}
+
+// ResolveConstant creates a ResolvedCall from a constant pool entry.
+// Exported so the VM's fallback path can use it.
+func ResolveConstant(c any) *ResolvedCall {
+	if c == nil {
+		return nil
+	}
+
+	switch info := c.(type) {
+	case *external.ExternalFuncInfo:
+		rc := &ResolvedCall{
+			DirectCall: info.DirectCall,
+			IsVariadic: info.IsVariadic,
+			NumIn:      info.NumIn,
+		}
+		if info.Func != nil {
+			rc.Fn = reflect.ValueOf(info.Func)
+			if rc.Fn.Kind() == reflect.Func {
+				rc.FnType = rc.Fn.Type()
+				// If the compile-time metadata wasn't set (e.g. old-style registration),
+				// derive it from reflection.
+				if !rc.IsVariadic && rc.FnType.IsVariadic() {
+					rc.IsVariadic = rc.FnType.IsVariadic()
+					rc.NumIn = rc.FnType.NumIn()
+				}
+			}
+		}
+		return rc
+
+	case *external.ExternalMethodInfo:
+		return &ResolvedCall{
+			DirectCall: info.DirectCall,
+			MethodName: info.MethodName,
+		}
+
+	default:
+		// Legacy: raw function value in constant pool.
+		rv := reflect.ValueOf(c)
+		if rv.Kind() == reflect.Func {
+			ft := rv.Type()
+			return &ResolvedCall{
+				Fn:         rv,
+				FnType:     ft,
+				IsVariadic: ft.IsVariadic(),
+				NumIn:      ft.NumIn(),
+			}
+		}
+		return nil
+	}
 }

@@ -17,48 +17,133 @@ import (
 )
 
 // gigStructWrapper wraps an interpreter-synthesized struct value to implement
-// Go interfaces (fmt.Stringer, fmt.Formatter, error) that the underlying anonymous
-// struct type cannot satisfy because reflect.StructOf doesn't support methods.
+// Go interfaces (fmt.Stringer, fmt.Formatter, error, fmt.GoStringer) that the
+// underlying anonymous struct type cannot satisfy because reflect.StructOf
+// doesn't support methods.
 //
 // The wrapper is transparent: it delegates all fmt verbs to the underlying
-// value, and only intercepts %T (for correct type name) and %v/%s (for
-// String() dispatch). When the interpreted type has an Error() method, the
-// wrapper also implements the error interface so that errors.As and type
-// assertions work correctly.
+// value, and only intercepts %T (for correct type name), %v/%s (for
+// String() dispatch), and %#v (for GoString() dispatch). When the interpreted
+// type has an Error() method, the wrapper also implements the error interface
+// so that errors.As and type assertions work correctly.
+//
+// Method resolution is lazy — each lazy* function resolves its corresponding
+// method at most once, only when the wrapper actually needs to dispatch it.
+// This avoids eagerly invoking the interpreter for methods that may never be
+// needed (and whose invocation in a side-channel VM may fail).
 type gigStructWrapper struct {
-	iface     any           // the underlying struct value (clean, no phantom fields)
-	typeName  string        // qualified type name from gig tag (e.g., "pkg.Type")
-	stringer  func() string // nil if no String() method
-	errorer   func() string // nil if no Error() method
-	hasMethod bool          // true if String() method exists
-	hasError  bool          // true if Error() method exists
+	iface          any                     // the underlying struct value (clean, no phantom fields)
+	typeName       string                  // qualified type name from gig tag (e.g., "pkg.Type")
+	lazyStringer   func() (func() string, bool)
+	lazyErrorer    func() (func() string, bool)
+	lazyGoStringer func() (func() string, bool)
 }
 
 // Ensure gigStructWrapper implements the relevant interfaces.
 var (
-	_ fmt.Stringer  = (*gigStructWrapper)(nil)
-	_ fmt.Formatter = (*gigStructWrapper)(nil)
-	_ error         = (*gigStructWrapper)(nil)
+	_ fmt.Stringer   = (*gigStructWrapper)(nil)
+	_ fmt.Formatter  = (*gigStructWrapper)(nil)
+	_ fmt.GoStringer = (*gigStructWrapper)(nil)
+	_ error          = (*gigStructWrapper)(nil)
 )
 
-func (g *gigStructWrapper) String() string {
-	if g.stringer != nil {
-		return g.stringer()
+// tryStringer / tryErrorer / tryGoStringer return (fn, ok) where fn is the
+// resolved method callable and ok indicates whether the interpreted type
+// actually defined the method. They are safe to call multiple times.
+func (g *gigStructWrapper) tryStringer() (func() string, bool) {
+	if g.lazyStringer == nil {
+		return nil, false
 	}
-	if g.errorer != nil {
-		return g.errorer()
+	return g.lazyStringer()
+}
+func (g *gigStructWrapper) tryErrorer() (func() string, bool) {
+	if g.lazyErrorer == nil {
+		return nil, false
+	}
+	return g.lazyErrorer()
+}
+func (g *gigStructWrapper) tryGoStringer() (func() string, bool) {
+	if g.lazyGoStringer == nil {
+		return nil, false
+	}
+	return g.lazyGoStringer()
+}
+
+// String implements fmt.Stringer. It prefers the interpreted type's String()
+// method, but falls back to Error() so that types implementing only error
+// (not Stringer) still produce meaningful output when fmt calls String().
+// Note: fmt.handleMethods checks error before Stringer, so fmt.Sprint(wrapper)
+// calls Error() first — but String() must still work correctly when called
+// directly, e.g. by code that explicitly calls .String().
+func (g *gigStructWrapper) String() string {
+	if f, ok := g.tryStringer(); ok {
+		return f()
+	}
+	if f, ok := g.tryErrorer(); ok {
+		return f()
 	}
 	return fmt.Sprint(g.iface)
 }
 
+// Error implements error. It prefers the interpreted type's Error() method,
+// but falls back to String() so that types implementing only Stringer
+// (not error) still produce meaningful output.
+// fmt.handleMethods checks error before Stringer, so fmt.Sprint(wrapper)
+// dispatches here first — ensuring error messages are never accidentally
+// replaced by a decorative String() representation.
 func (g *gigStructWrapper) Error() string {
-	if g.errorer != nil {
-		return g.errorer()
+	if f, ok := g.tryErrorer(); ok {
+		return f()
 	}
-	if g.stringer != nil {
-		return g.stringer()
+	if f, ok := g.tryStringer(); ok {
+		return f()
 	}
 	return fmt.Sprint(g.iface)
+}
+
+// GoString implements fmt.GoStringer. Dispatches to the interpreted
+// GoString() method if present; otherwise falls back to the default
+// Go-syntax representation produced by Format with the '#' flag.
+func (g *gigStructWrapper) GoString() string {
+	if f, ok := g.tryGoStringer(); ok {
+		return f()
+	}
+	return g.defaultGoString()
+}
+
+// defaultGoString renders the wrapped value in Go-syntax form, matching
+// native fmt's %#v output: "pkg.Type{Field: value, Field: value}" for
+// struct values, "&pkg.Type{...}" for struct pointers, "(*pkg.Type)(nil)"
+// for nil struct pointers.
+func (g *gigStructWrapper) defaultGoString() string {
+	rv := reflect.ValueOf(g.iface)
+	// Dereference pointers for inspection; render "&T{...}" or "(*T)(nil)".
+	prefix := ""
+	if rv.Kind() == reflect.Ptr {
+		if rv.IsNil() {
+			return fmt.Sprintf("(*%s)(nil)", g.typeName)
+		}
+		rv = rv.Elem()
+		prefix = "&"
+	}
+	if rv.Kind() != reflect.Struct {
+		return fmt.Sprintf("%s%#v", prefix, g.iface)
+	}
+	var sb strings.Builder
+	sb.WriteString(prefix)
+	sb.WriteString(g.typeName)
+	sb.WriteByte('{')
+	rt := rv.Type()
+	for i := 0; i < rt.NumField(); i++ {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(rt.Field(i).Name)
+		sb.WriteByte(':')
+		fmt.Fprintf(&sb, "%#v", rv.Field(i).Interface())
+	}
+	sb.WriteByte('}')
+	return sb.String()
 }
 
 func (g *gigStructWrapper) Format(f fmt.State, verb rune) {
@@ -66,24 +151,60 @@ func (g *gigStructWrapper) Format(f fmt.State, verb rune) {
 	case 'T':
 		_, _ = fmt.Fprint(f, g.typeName)
 	case 'v', 's':
-		if g.stringer != nil && (verb == 's' || (verb == 'v' && !f.Flag('#'))) {
-			_, _ = fmt.Fprint(f, g.stringer())
+		if verb == 's' || (verb == 'v' && !f.Flag('#') && !f.Flag('+')) {
+			if fn, ok := g.tryStringer(); ok {
+				_, _ = fmt.Fprint(f, fn())
+				return
+			}
+			if verb == 'v' {
+				// Plain %v: default struct rendering without type name.
+				rv := reflect.ValueOf(g.iface)
+				if rv.Kind() == reflect.Ptr {
+					if rv.IsNil() {
+						_, _ = fmt.Fprint(f, "<nil>")
+						return
+					}
+					rv = rv.Elem()
+					_, _ = fmt.Fprint(f, "&")
+				}
+				if rv.Kind() == reflect.Struct {
+					rt := rv.Type()
+					_, _ = fmt.Fprint(f, "{")
+					for i := 0; i < rt.NumField(); i++ {
+						if i > 0 {
+							_, _ = fmt.Fprint(f, " ")
+						}
+						_, _ = fmt.Fprintf(f, "%v", rv.Field(i).Interface())
+					}
+					_, _ = fmt.Fprint(f, "}")
+					return
+				}
+			}
+			_, _ = fmt.Fprintf(f, "%v", g.iface)
 			return
 		}
-		// Delegate to the underlying value — it's clean (no phantom fields)
+		// %#v — Go-syntax representation. Prefer GoString() if defined;
+		// otherwise fall back to defaultGoString which renders the struct
+		// with commas between fields (matching native fmt).
 		if verb == 'v' && f.Flag('#') {
-			_, _ = fmt.Fprintf(f, "%s{", g.typeName)
+			_, _ = fmt.Fprint(f, g.GoString())
+			return
+		}
+		// %+v — fields shown with names.
+		if verb == 'v' && f.Flag('+') {
 			rv := reflect.ValueOf(g.iface)
-			rt := rv.Type()
-			for i := 0; i < rt.NumField(); i++ {
-				if i > 0 {
-					_, _ = fmt.Fprint(f, " ")
+			if rv.Kind() == reflect.Ptr {
+				if rv.IsNil() {
+					_, _ = fmt.Fprintf(f, "<nil>")
+					return
 				}
-				_, _ = fmt.Fprintf(f, "%s:%v", rt.Field(i).Name, rv.Field(i).Interface())
+				rv = rv.Elem()
+				_, _ = fmt.Fprint(f, "&")
 			}
-			_, _ = fmt.Fprint(f, "}")
-		} else if verb == 'v' && f.Flag('+') {
-			rv := reflect.ValueOf(g.iface)
+			if rv.Kind() != reflect.Struct {
+				_, _ = fmt.Fprintf(f, "%+v", g.iface)
+				return
+			}
 			rt := rv.Type()
 			_, _ = fmt.Fprint(f, "{")
 			for i := 0; i < rt.NumField(); i++ {
@@ -93,9 +214,9 @@ func (g *gigStructWrapper) Format(f fmt.State, verb rune) {
 				_, _ = fmt.Fprintf(f, "%s:%v", rt.Field(i).Name, rv.Field(i).Interface())
 			}
 			_, _ = fmt.Fprint(f, "}")
-		} else {
-			_, _ = fmt.Fprintf(f, "%v", g.iface)
+			return
 		}
+		_, _ = fmt.Fprintf(f, "%v", g.iface)
 	default:
 		_, _ = fmt.Fprintf(f, "%"+string(verb), g.iface)
 	}
@@ -160,6 +281,11 @@ func isGigStruct(v any) string {
 // This is the boundary function for fmt.Print/Sprint/Fprintf/etc. — use it
 // whenever passing interpreter values to ...interface{} variadic args in
 // fmt-family functions.
+//
+// Method resolution (String/Error/GoString) is deferred: we capture the
+// underlying Value and resolve lazily when the wrapper's corresponding method
+// is actually invoked by fmt. Eager resolution can fail when the method body
+// depends on program state not fully reachable from a side-channel VM.
 func FmtWrap(v Value) any {
 	iface := v.Interface()
 	if iface == nil {
@@ -171,30 +297,68 @@ func FmtWrap(v Value) any {
 		return iface
 	}
 
-	// Check if the interpreted type has a String() method via the global resolver registry
-	stringerFunc, hasStringer := resolveStringer(v)
-	// Check if the interpreted type has an Error() method
-	errorerFunc, hasError := resolveErrorer(v)
+	captured := v
+
+	// Lazy resolvers — each is called at most once by the wrapper, and only
+	// when the corresponding fmt verb triggers its interface.
+	var (
+		stringerFunc   func() string
+		stringerResolved bool
+		errorerFunc    func() string
+		errorerResolved bool
+		gostringerFunc func() string
+		gostringerResolved bool
+	)
+	lazyStringer := func() (func() string, bool) {
+		if !stringerResolved {
+			stringerFunc, _ = resolveStringer(captured)
+			stringerResolved = true
+		}
+		return stringerFunc, stringerFunc != nil
+	}
+	lazyErrorer := func() (func() string, bool) {
+		if !errorerResolved {
+			errorerFunc, _ = resolveErrorer(captured)
+			errorerResolved = true
+		}
+		return errorerFunc, errorerFunc != nil
+	}
+	lazyGoStringer := func() (func() string, bool) {
+		if !gostringerResolved {
+			gostringerFunc, _ = resolveGoStringer(captured)
+			gostringerResolved = true
+		}
+		return gostringerFunc, gostringerFunc != nil
+	}
 
 	// Always return the wrapper for gig structs - it handles all fmt verbs correctly
 	return &gigStructWrapper{
-		iface:     iface,
-		typeName:  typeName,
-		stringer:  stringerFunc,
-		errorer:   errorerFunc,
-		hasMethod: hasStringer,
-		hasError:  hasError,
+		iface:          iface,
+		typeName:       typeName,
+		lazyStringer:   lazyStringer,
+		lazyErrorer:    lazyErrorer,
+		lazyGoStringer: lazyGoStringer,
 	}
 }
 
 // resolveStringer attempts to resolve the String() method for a value.
 // Returns a function that can be called later, and a boolean indicating if found.
-func resolveStringer(v Value) (func() string, bool) {
+// Uses a panic recovery guard because side-channel method invocation via
+// ResolveCompiledMethod can fail on method bodies that depend on features
+// only wired up by a full program VM (e.g., global state, extCallCache). On
+// such failure we return (nil, false) so the caller falls back to default
+// formatting instead of propagating a panic through fmt.
+func resolveStringer(v Value) (fn func() string, ok bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			fn, ok = nil, false
+		}
+	}()
 	// Try to call String() method via the global resolver registry
 	result, found := callMethod(nil, "String", v)
 	if !found {
 		// If not found, try with pointer to the value (for pointer receiver methods)
-		if rv, ok := v.ReflectValue(); ok && rv.Kind() == reflect.Struct {
+		if rv, rvOK := v.ReflectValue(); rvOK && rv.Kind() == reflect.Struct {
 			ptrRV := reflect.New(rv.Type())
 			ptrRV.Elem().Set(rv)
 			ptrValue := MakeFromReflect(ptrRV)
@@ -211,15 +375,48 @@ func resolveStringer(v Value) (func() string, bool) {
 
 // resolveErrorer attempts to resolve the Error() method for a value.
 // Returns a function that can be called later, and a boolean indicating if found.
-func resolveErrorer(v Value) (func() string, bool) {
+// Uses a panic recovery guard, see resolveStringer for details.
+func resolveErrorer(v Value) (fn func() string, ok bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			fn, ok = nil, false
+		}
+	}()
 	result, found := callMethod(nil, "Error", v)
 	if !found {
 		// If not found, try with pointer to the value (for pointer receiver methods)
-		if rv, ok := v.ReflectValue(); ok && rv.Kind() == reflect.Struct {
+		if rv, rvOK := v.ReflectValue(); rvOK && rv.Kind() == reflect.Struct {
 			ptrRV := reflect.New(rv.Type())
 			ptrRV.Elem().Set(rv)
 			ptrValue := MakeFromReflect(ptrRV)
 			result, found = callMethod(nil, "Error", ptrValue)
+		}
+	}
+
+	if !found {
+		return nil, false
+	}
+	str := result.String()
+	return func() string { return str }, true
+}
+
+// resolveGoStringer attempts to resolve the GoString() method for a value.
+// Returns a function that can be called later, and a boolean indicating if found.
+// Uses a panic recovery guard, see resolveStringer for details.
+func resolveGoStringer(v Value) (fn func() string, ok bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			fn, ok = nil, false
+		}
+	}()
+	result, found := callMethod(nil, "GoString", v)
+	if !found {
+		// If not found, try with pointer to the value (for pointer receiver methods)
+		if rv, rvOK := v.ReflectValue(); rvOK && rv.Kind() == reflect.Struct {
+			ptrRV := reflect.New(rv.Type())
+			ptrRV.Elem().Set(rv)
+			ptrValue := MakeFromReflect(ptrRV)
+			result, found = callMethod(nil, "GoString", ptrValue)
 		}
 	}
 
@@ -256,15 +453,28 @@ func ErrorValue(v Value) error {
 	if !hasError {
 		return nil
 	}
-	stringerFunc, hasStringer := resolveStringer(v)
-	_ = hasStringer
+	// Also capture Stringer/GoStringer lazily so the wrapper is complete.
+	stringerFunc, _ := resolveStringer(v)
+	gostringerFunc, _ := resolveGoStringer(v)
+	constFn := func(s string) func() string { return func() string { return s } }
+	errFn := func() string { return errorerFunc() }
+
+	var lazyStringer, lazyErrorer, lazyGoStringer func() (func() string, bool)
+	if stringerFunc != nil {
+		sf := constFn(stringerFunc())
+		lazyStringer = func() (func() string, bool) { return sf, true }
+	}
+	lazyErrorer = func() (func() string, bool) { return errFn, true }
+	if gostringerFunc != nil {
+		gf := constFn(gostringerFunc())
+		lazyGoStringer = func() (func() string, bool) { return gf, true }
+	}
 	return &gigStructWrapper{
-		iface:     iface,
-		typeName:  typeName,
-		stringer:  stringerFunc,
-		errorer:   errorerFunc,
-		hasMethod: hasStringer,
-		hasError:  true,
+		iface:          iface,
+		typeName:       typeName,
+		lazyStringer:   lazyStringer,
+		lazyErrorer:    lazyErrorer,
+		lazyGoStringer: lazyGoStringer,
 	}
 }
 

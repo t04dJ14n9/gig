@@ -34,7 +34,6 @@
 //
 //   - vm.go          — VM struct, constructor, Execute entry points
 //   - pool.go        — VMPool, ResolveCompiledMethod
-//   - cache.go       — External function call cache
 //   - interfaces.go  — VM interface and constructors
 //   - run.go         — Main fetch-decode-execute loop with hot-path inlined instructions
 //   - frame.go       — Frame (call stack entry) and DeferInfo (deferred call metadata)
@@ -133,10 +132,6 @@ type vm struct {
 	// Replaces the boolean runningDefer flag to support nested defer panics.
 	deferDepth int
 
-	// extCallCache caches resolved external function info for fast dispatch.
-	// Uses a shared cache pointer for concurrent access from goroutines.
-	extCallCache *externalCallCache
-
 	// initialGlobals is the post-init globals snapshot.
 	// Used by Reset() to restore globals to their initial state.
 	initialGlobals []value.Value
@@ -184,9 +179,6 @@ func newVM(program *bytecode.CompiledProgram, initialGlobals []value.Value, goro
 		globals:        globals,
 		initialGlobals: initialGlobals,
 		goroutines:     goroutines,
-		extCallCache: &externalCallCache{
-			cache: make([]*extCallCacheEntry, len(program.Constants)),
-		},
 	}
 }
 

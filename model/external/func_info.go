@@ -15,4 +15,12 @@ type ExternalFuncInfo struct {
 
 	// DirectCall is a typed wrapper that avoids reflect.Call.
 	DirectCall func(args []value.Value) value.Value
+
+	// IsVariadic indicates whether the function takes variadic arguments.
+	// Pre-computed at compile time so the VM avoids reflect.Type queries.
+	IsVariadic bool
+
+	// NumIn is the number of declared parameters (including the variadic slice type).
+	// Pre-computed at compile time so the VM avoids reflect.Type queries.
+	NumIn int
 }
