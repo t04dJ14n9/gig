@@ -86,7 +86,6 @@ func (v *vm) newChildVM() *vm {
 		globals:        nil, // Not used when shared is set
 		shared:         v.shared,
 		ctx:            v.ctx,
-		extCallCache:   v.extCallCache,
 		initialGlobals: v.initialGlobals,
 		goroutines:     v.goroutines,
 	}
@@ -112,6 +111,5 @@ func (v *vm) newDeferVM() *vm {
 		globals:      v.getGlobals(),
 		shared:       v.shared,
 		ctx:          v.ctx,
-		extCallCache: v.extCallCache,
 	}
 }

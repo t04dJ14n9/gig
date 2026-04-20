@@ -26,10 +26,9 @@ func (v *vm) executeCall(op bytecode.OpCode, frame *Frame) error { //nolint:gocy
 			// Propagate runtime context so that closures converted to Go
 			// functions (via reflect.MakeFunc for sync.Once.Do etc.) can
 			// access shared globals, spawn goroutines, and use the same
-			// external call cache as the parent VM.
+			// program-level ExternCalls table as the parent VM.
 			closure.Shared = v.shared
 			closure.Goroutines = v.goroutines
-			closure.ExtCallCache = v.extCallCache
 			closure.Ctx = v.ctx
 			// Get free variables (popped in reverse order)
 			for i := int(numFree) - 1; i >= 0; i-- {

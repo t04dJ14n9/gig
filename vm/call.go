@@ -12,7 +12,6 @@ import (
 )
 
 // ExternalCallCancelledError is returned when a context is cancelled before/after an external call.
-// This wraps the original context error to provide more context.
 type ExternalCallCancelledError struct {
 	Cause error
 }
@@ -23,6 +22,34 @@ func (e *ExternalCallCancelledError) Error() string {
 
 func (e *ExternalCallCancelledError) Unwrap() error {
 	return e.Cause
+}
+
+// checkCtx returns an ExternalCallCancelledError if the VM's context is done.
+// Used by all external call paths to avoid duplicating the select block.
+func (v *vm) checkCtx() error {
+	select {
+	case <-v.ctx.Done():
+		return &ExternalCallCancelledError{Cause: v.ctx.Err()}
+	default:
+		return nil
+	}
+}
+
+// pushReflectResults converts reflect.Call output and pushes it onto the VM stack.
+// Handles 0, 1, or multiple return values. Used by all reflect-based call paths.
+func (v *vm) pushReflectResults(out []reflect.Value) {
+	switch len(out) {
+	case 0:
+		v.push(value.MakeNil())
+	case 1:
+		v.push(value.MakeFromReflect(out[0]))
+	default:
+		results := make([]value.Value, len(out))
+		for i, val := range out {
+			results[i] = value.MakeFromReflect(val)
+		}
+		v.push(value.FromInterface(results))
+	}
 }
 
 // convertClosureArgsForMethod converts interpreted closure arguments to real Go
@@ -85,12 +112,10 @@ func convertClosureArgs(args []value.Value, fnType reflect.Type) {
 	numIn := fnType.NumIn()
 	for i, arg := range args {
 		if arg.Kind() == value.KindFunc {
-			// Determine the target function type from the external function's signature
 			var targetType reflect.Type
 			if i < numIn {
 				targetType = fnType.In(i)
 			} else if fnType.IsVariadic() && numIn > 0 {
-				// For variadic args, use the element type of the variadic slice
 				targetType = fnType.In(numIn - 1).Elem()
 			}
 			if targetType != nil && targetType.Kind() == reflect.Func {
@@ -108,7 +133,6 @@ func unpackVariadicArgs(args []value.Value, numArgs int) []value.Value {
 
 	// Fast path 1: native []value.Value slice (function slices, etc.)
 	if lastArg.Kind() == value.KindReflect || lastArg.Kind() == value.KindSlice {
-		// Try native []value.Value first (zero reflection)
 		if rawObj := lastArg.RawObj(); rawObj != nil {
 			if valSlice, ok := rawObj.([]value.Value); ok {
 				unpackedArgs := make([]value.Value, numArgs-1+len(valSlice))
@@ -160,7 +184,6 @@ func unpackVariadicArgs(args []value.Value, numArgs int) []value.Value {
 // callCompiledFunction calls a compiled function by its index.
 // It creates a new call frame with the function's local variables.
 func (v *vm) callCompiledFunction(funcIdx, numArgs int) {
-	// O(1) function lookup via direct index table
 	if funcIdx < 0 || funcIdx >= len(v.program.FuncByIndex) {
 		v.push(value.MakeNil())
 		return
@@ -171,16 +194,13 @@ func (v *vm) callCompiledFunction(funcIdx, numArgs int) {
 		return
 	}
 
-	// Get a pooled frame (avoids Frame + locals allocation)
 	frame := v.fpool.get(fn, v.sp, nil)
 
-	// Pop arguments directly into the frame's locals (avoids temporary args slice)
 	intL := frame.intLocals
 	for i := numArgs - 1; i >= 0; i-- {
 		if i < fn.NumLocals {
 			val := v.pop()
 			frame.locals[i] = val
-			// Mirror int parameters into intLocals for OpInt* opcodes
 			if intL != nil {
 				intL[i] = val.RawInt()
 			}
@@ -202,11 +222,9 @@ func (v *vm) callCompiledFunction(funcIdx, numArgs int) {
 // Used for calling closures.
 func (v *vm) callFunction(fn *bytecode.CompiledFunction, args []value.Value, freeVars []*value.Value) {
 	frame := v.fpool.get(fn, v.sp, freeVars)
-	// Copy arguments into locals
 	for i, arg := range args {
 		if i < fn.NumLocals {
 			frame.locals[i] = arg
-			// Mirror int parameters into intLocals for OpInt* opcodes
 			if frame.intLocals != nil {
 				frame.intLocals[i] = arg.RawInt()
 			}
@@ -214,7 +232,6 @@ func (v *vm) callFunction(fn *bytecode.CompiledFunction, args []value.Value, fre
 	}
 	if v.fp >= len(v.frames) {
 		if !v.growFrames() {
-			// Stack overflow — trigger a panic that the safety net will catch.
 			panic("gig: call stack overflow")
 		}
 	}
@@ -222,105 +239,78 @@ func (v *vm) callFunction(fn *bytecode.CompiledFunction, args []value.Value, fre
 	v.fp++
 }
 
-// callExternal calls an external (native Go) function.
-// It first checks the inline cache, then resolves the function if not cached.
-// Supports both DirectCall (fast path) and reflect.Call (slow path).
-// Returns an error if the context is cancelled during or immediately after the call.
+// callExternal calls an external (native Go) function or method.
+//
+// Redesigned: the constant pool is pre-resolved into program.ExternCalls[] at
+// compile time (see bytecode.ResolveExternCalls). This eliminates the old
+// per-VM extCallCache with its RWMutex — all VMs sharing the same program do
+// a lock-free array lookup.
+//
+// Flow: OpCallExternal → callExternal → ExternCalls[funcIdx] → DirectCall | reflect
 func (v *vm) callExternal(funcIdx, numArgs int) error {
-	// Pop arguments first (before any cache lookup)
+	// Pop arguments first
 	args := make([]value.Value, numArgs)
 	for i := numArgs - 1; i >= 0; i-- {
 		args[i] = v.pop()
 	}
 
-	// Check if this is a method call (ExternalMethodInfo)
+	// Method calls use the ExternalMethodInfo constant directly (not ExternCalls).
+	// This is because method dispatch needs the ReceiverTypeName hint and
+	// GlobalRef/*value.Value resolution, which are method-specific.
 	if funcIdx < len(v.program.Constants) {
 		if methodInfo, ok := v.program.Constants[funcIdx].(*external.ExternalMethodInfo); ok {
 			return v.callExternalMethod(methodInfo, args)
 		}
 	}
 
-	// Fast path: read-lock check (common case — cache already populated)
-	var cacheEntry *extCallCacheEntry
-	v.extCallCache.mu.RLock()
-	if funcIdx < len(v.extCallCache.cache) {
-		cacheEntry = v.extCallCache.cache[funcIdx]
-	}
-	v.extCallCache.mu.RUnlock()
-
-	if cacheEntry == nil {
-		// Slow path: write-lock to populate the entry (double-checked)
-		v.extCallCache.mu.Lock()
-		if funcIdx < len(v.extCallCache.cache) {
-			cacheEntry = v.extCallCache.cache[funcIdx]
-			if cacheEntry == nil {
-				cacheEntry = v.resolveExternalFunc(funcIdx)
-				v.extCallCache.cache[funcIdx] = cacheEntry
-			}
-		}
-		v.extCallCache.mu.Unlock()
-	}
+	// Direct array lookup into pre-resolved table (no locks!)
+	rc := v.externCall(funcIdx)
 
 	// Fast path: DirectCall available
-	if cacheEntry.directCall != nil {
-		// For variadic functions, SSA packs variadic args into a slice.
-		// We need to unpack them for DirectCall wrappers.
-		if cacheEntry.isVariadic && numArgs == cacheEntry.numIn {
+	if rc.DirectCall != nil {
+		if rc.IsVariadic && numArgs == rc.NumIn {
 			args = unpackVariadicArgs(args, numArgs)
 		}
-		// Convert interpreted closures to real Go functions before calling DirectCall.
-		// DirectCall wrappers use Interface() which returns *v.Closure, not a Go func.
-		if cacheEntry.fnType != nil {
-			convertClosureArgs(args, cacheEntry.fnType)
+		if rc.FnType != nil {
+			convertClosureArgs(args, rc.FnType)
 		}
-		result := cacheEntry.directCall(args)
-		v.push(result)
-		// Check context after the call for post-call cancellation
-		select {
-		case <-v.ctx.Done():
-			return &ExternalCallCancelledError{Cause: v.ctx.Err()}
-		default:
-		}
-		return nil
+		v.push(rc.DirectCall(args))
+		return v.checkCtx()
 	}
 
-	// Slow path: use reflect.Call
-	return v.callExternalReflect(cacheEntry, args)
+	// Slow path: reflect.Call
+	return v.callExternalReflect(rc, args)
 }
 
-// resolveExternalFunc resolves an external function from the constant pool.
-// It creates a cache entry for future calls.
-func (v *vm) resolveExternalFunc(funcIdx int) *extCallCacheEntry {
-	entry := &extCallCacheEntry{}
-
-	// Check if constant is ExternalFuncInfo (new optimized path)
-	if funcIdx < len(v.program.Constants) {
-		if extInfo, ok := v.program.Constants[funcIdx].(*external.ExternalFuncInfo); ok {
-			entry.directCall = extInfo.DirectCall
-			if extInfo.Func != nil {
-				entry.fn = reflect.ValueOf(extInfo.Func)
-				// Check if it's actually a function (not an *ssa.Function or other type)
-				if entry.fn.Kind() == reflect.Func {
-					entry.fnType = entry.fn.Type()
-					entry.isVariadic = entry.fnType.IsVariadic()
-					entry.numIn = entry.fnType.NumIn()
-				}
-			}
-			return entry
-		}
-		// Fallback: old-style constant (just the function value)
-		extFunc := v.program.Constants[funcIdx]
-		if extFunc != nil {
-			entry.fn = reflect.ValueOf(extFunc)
-			if entry.fn.Kind() == reflect.Func {
-				entry.fnType = entry.fn.Type()
-				entry.isVariadic = entry.fnType.IsVariadic()
-				entry.numIn = entry.fnType.NumIn()
-			}
+// externCall returns the pre-resolved call entry for the given constant pool index.
+// Falls back to resolving on-the-fly for indices outside the pre-resolved table
+// (shouldn't happen in normal operation, but provides safety).
+func (v *vm) externCall(funcIdx int) *bytecode.ResolvedCall {
+	if funcIdx < len(v.program.ExternCalls) {
+		if rc := v.program.ExternCalls[funcIdx]; rc != nil {
+			return rc
 		}
 	}
+	// Fallback: resolve from constant pool (rare — only if pre-resolution missed it)
+	return resolveConstantFallback(v.program, funcIdx)
+}
 
-	return entry
+// resolveConstantFallback resolves a constant pool entry on-the-fly.
+// This is a safety net for cases where ResolveExternCalls wasn't called
+// or the entry wasn't pre-resolved.
+func resolveConstantFallback(prog *bytecode.CompiledProgram, funcIdx int) *bytecode.ResolvedCall {
+	if funcIdx >= len(prog.Constants) {
+		return nil
+	}
+	// Re-use the same resolution logic as ResolveExternCalls
+	rc := bytecode.ResolveConstant(prog.Constants[funcIdx])
+	if rc != nil {
+		// Patch the program-level table so future calls skip this path
+		if funcIdx < len(prog.ExternCalls) {
+			prog.ExternCalls[funcIdx] = rc
+		}
+	}
+	return rc
 }
 
 // buildReflectArgs converts []value.Value args to []reflect.Value for reflect.Call,
@@ -331,10 +321,8 @@ func buildReflectArgs(args []value.Value, fnType reflect.Type) []reflect.Value {
 	numArgs := len(args)
 
 	if isVariadic && numArgs == numIn {
-		// The last arg might be the variadic slice packed by SSA
 		lastArg := args[numArgs-1]
 		if rv, ok := lastArg.ReflectValue(); ok && rv.Kind() == reflect.Slice {
-			// Unpack: use first N-1 args normally, then spread the slice elements
 			sliceLen := rv.Len()
 			in := make([]reflect.Value, numIn-1+sliceLen)
 			for i := 0; i < numArgs-1; i++ {
@@ -354,7 +342,6 @@ func buildReflectArgs(args []value.Value, fnType reflect.Type) []reflect.Value {
 			}
 			return in
 		}
-		// Last arg is not a slice, treat normally
 		in := make([]reflect.Value, numArgs)
 		for i, arg := range args {
 			if i >= numIn-1 {
@@ -381,43 +368,24 @@ func buildReflectArgs(args []value.Value, fnType reflect.Type) []reflect.Value {
 
 // callExternalReflect executes an external function using reflect.Call.
 // This is the slow path when no DirectCall wrapper is available.
-func (v *vm) callExternalReflect(entry *extCallCacheEntry, args []value.Value) error {
-	if !entry.fn.IsValid() || entry.fn.Kind() != reflect.Func {
+func (v *vm) callExternalReflect(rc *bytecode.ResolvedCall, args []value.Value) error {
+	if !rc.Fn.IsValid() || rc.Fn.Kind() != reflect.Func {
 		v.push(value.MakeNil())
 		return nil
 	}
 
-	in := buildReflectArgs(args, entry.fnType)
+	in := buildReflectArgs(args, rc.FnType)
+	out := rc.Fn.Call(in)
 
-	// Call the function
-	out := entry.fn.Call(in)
-
-	// Check context after the call for post-call cancellation
-	select {
-	case <-v.ctx.Done():
-		return &ExternalCallCancelledError{Cause: v.ctx.Err()}
-	default:
+	if err := v.checkCtx(); err != nil {
+		return err
 	}
-
-	// Convert result
-	if len(out) == 0 {
-		v.push(value.MakeNil())
-	} else if len(out) == 1 {
-		v.push(value.MakeFromReflect(out[0]))
-	} else {
-		// Multiple return values - pack as slice
-		results := make([]value.Value, len(out))
-		for i, val := range out {
-			results[i] = value.MakeFromReflect(val)
-		}
-		v.push(value.FromInterface(results))
-	}
+	v.pushReflectResults(out)
 	return nil
 }
 
 // callExternalMethod dispatches a method call on an external type.
 // args[0] is the receiver, args[1:] are the method arguments.
-// Uses DirectCall fast path if available, otherwise falls back to reflection.
 func (v *vm) callExternalMethod(methodInfo *external.ExternalMethodInfo, args []value.Value) error {
 	if len(args) == 0 {
 		v.push(value.MakeNil())
@@ -425,11 +393,6 @@ func (v *vm) callExternalMethod(methodInfo *external.ExternalMethodInfo, args []
 	}
 
 	// Resolve GlobalRef / *value.Value receivers.
-	// When SSA compiles `mu.Lock()` on a value-type global `var mu sync.Mutex`,
-	// it generates `t0 = &mu; (*sync.Mutex).Lock(t0)`. OpGlobal pushes a GlobalRef
-	// (shared mode) or *value.Value (non-shared) as the "address" of the global.
-	// The global slot stores a heap-allocated pointer (*T via reflect.New(T)),
-	// so we just load it and pass it directly — no copy needed.
 	if iface0 := args[0].Interface(); iface0 != nil {
 		switch ref := iface0.(type) {
 		case *GlobalRef:
@@ -441,17 +404,9 @@ func (v *vm) callExternalMethod(methodInfo *external.ExternalMethodInfo, args []
 
 	// Fast path: DirectCall wrapper resolved at compile time
 	if methodInfo.DirectCall != nil {
-		// Convert interpreted closures in method args to real Go functions.
 		convertClosureArgsForMethod(methodInfo.MethodName, args)
-		result := methodInfo.DirectCall(args)
-		v.push(result)
-		// Check context after the call
-		select {
-		case <-v.ctx.Done():
-			return &ExternalCallCancelledError{Cause: v.ctx.Err()}
-		default:
-		}
-		return nil
+		v.push(methodInfo.DirectCall(args))
+		return v.checkCtx()
 	}
 
 	// Slow path: use reflect.MethodByName + reflect.Call
@@ -460,7 +415,6 @@ func (v *vm) callExternalMethod(methodInfo *external.ExternalMethodInfo, args []
 
 // callExternalMethodReflect dispatches a method call using reflection.
 func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, args []value.Value) error {
-	// Get the receiver as a reflect.Value
 	receiver := args[0]
 	var rv reflect.Value
 	if reflectVal, ok := receiver.ReflectValue(); ok {
@@ -479,63 +433,39 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 		return nil
 	}
 
-	// For interface method dispatch: if the receiver is an interface, unwrap it
-	// to get the concrete type, then look up the method on the concrete type.
+	// For interface method dispatch: unwrap to concrete type
 	if rv.Kind() == reflect.Interface {
 		if rv.IsNil() {
 			v.push(value.MakeNil())
 			return nil
 		}
 		concrete := rv.Elem()
-		// Check for typed nil pointer receiver — calling a method on a nil
-		// pointer should panic with nil pointer dereference (Go semantics).
 		if concrete.Kind() == reflect.Ptr && concrete.IsNil() {
 			v.panicking = true
 			v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
 			return nil
 		}
 		rv = concrete
-		// Update args[0] with the unwrapped value for callCompiledMethod
 		args[0] = value.MakeFromReflect(rv)
 	}
 
-	// Look up the method by name (including pointer receiver and embedded interface fallbacks)
+	// Look up the method by name
 	method, found := findMethod(rv, methodInfo.MethodName, args)
 	if !found {
-		// Reflection-based lookup failed. This happens when typeToReflect
-		// strips named types to anonymous structs (e.g., Impl → struct{val int}).
-		// Fall back to calling a compiled method from the function table.
 		return v.callCompiledMethod(methodInfo.MethodName, methodInfo.ReceiverTypeName, args)
 	}
 
 	// Build arguments (skip the receiver at args[0])
 	methodType := method.Type()
 	methodArgs := args[1:]
-
 	in := buildReflectArgs(methodArgs, methodType)
 
-	// Call the method
 	out := method.Call(in)
 
-	// Check context after the call for post-call cancellation
-	select {
-	case <-v.ctx.Done():
-		return &ExternalCallCancelledError{Cause: v.ctx.Err()}
-	default:
+	if err := v.checkCtx(); err != nil {
+		return err
 	}
-
-	// Convert result
-	if len(out) == 0 {
-		v.push(value.MakeNil())
-	} else if len(out) == 1 {
-		v.push(value.MakeFromReflect(out[0]))
-	} else {
-		results := make([]value.Value, len(out))
-		for i, v := range out {
-			results[i] = value.MakeFromReflect(v)
-		}
-		v.push(value.FromInterface(results))
-	}
+	v.pushReflectResults(out)
 	return nil
 }
 
@@ -544,15 +474,12 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 // 2. Pointer receiver method via Addr()
 // 3. Pointer receiver via addressable copy (for non-addressable structs)
 // 4. Methods on concrete values inside embedded interface fields
-//
-// args[0] may be updated if the method is found on an embedded interface's concrete value.
 func findMethod(rv reflect.Value, methodName string, args []value.Value) (reflect.Value, bool) {
 	method := rv.MethodByName(methodName)
 	if method.IsValid() {
 		return method, true
 	}
 
-	// Try pointer receiver
 	if rv.CanAddr() {
 		method = rv.Addr().MethodByName(methodName)
 		if method.IsValid() {
@@ -560,7 +487,6 @@ func findMethod(rv reflect.Value, methodName string, args []value.Value) (reflec
 		}
 	}
 
-	// Create an addressable copy for non-addressable structs
 	if !rv.CanAddr() && rv.Kind() == reflect.Struct {
 		addrCopy := reflect.New(rv.Type()).Elem()
 		addrCopy.Set(rv)
@@ -570,7 +496,6 @@ func findMethod(rv reflect.Value, methodName string, args []value.Value) (reflec
 		}
 	}
 
-	// Search embedded interface fields for the method
 	if rv.Kind() == reflect.Struct {
 		for i := 0; i < rv.NumField(); i++ {
 			field := rv.Field(i)
@@ -596,20 +521,10 @@ func findMethod(rv reflect.Value, methodName string, args []value.Value) (reflec
 
 // callCompiledMethod searches the compiled function table for a method with the
 // given name and calls it. This is the fallback path for invoke (interface method)
-// calls when reflection-based MethodByName fails — typically because typeToReflect
-// converts named types to anonymous struct types that lack the named type's methods.
-//
-// receiverTypeName is an optional hint from ExternalMethodInfo.ReceiverTypeName.
-// When non-empty, it restricts matching to methods whose receiver type name matches.
-// This prevents mis-dispatch when multiple types define methods with the same name
-// (e.g., both GetterImpl.Get and AdderStruct.Add, or multiple types with Get).
-//
-// args[0] is the receiver, args[1:] are the method arguments.
+// calls when reflection-based MethodByName fails.
 func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args []value.Value) error {
-	// Use MethodsByName index for O(k) lookup instead of O(n) scan.
 	candidates := v.program.MethodsByName[methodName]
 
-	// If we have a receiver type hint, first try to match both name and receiver type.
 	if receiverTypeName != "" {
 		for _, fn := range candidates {
 			if fn.ReceiverTypeName == receiverTypeName {
@@ -622,7 +537,6 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 		}
 	}
 
-	// Fallback: try to infer receiver type from the actual runtime value in args[0].
 	if len(args) > 0 {
 		if concreteTypeName := inferReceiverTypeName(args[0], v.program); concreteTypeName != "" {
 			for _, fn := range candidates {
@@ -637,7 +551,6 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 		}
 	}
 
-	// Last resort: match by method name only (first candidate).
 	if len(candidates) > 0 {
 		fn := candidates[0]
 		for _, arg := range args {
@@ -647,51 +560,37 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 		return nil
 	}
 
-	// No compiled method found — push nil
 	v.push(value.MakeNil())
 	return nil
 }
 
-// inferReceiverTypeName tries to extract a type name from a runtime value.Value
-// receiver. This is used when callCompiledMethod doesn't have a static type hint
-// but needs to disambiguate by the actual value being dispatched on.
-// It first checks the program-level ReflectTypeNames registry, then falls back
-// to scanning field PkgPath suffixes for unexported fields.
+// inferReceiverTypeName tries to extract a type name from a runtime value.Value receiver.
 func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram) string {
 	rv, ok := receiver.ReflectValue()
 	if !ok {
 		return ""
 	}
-	// Unwrap interface
 	if rv.Kind() == reflect.Interface && !rv.IsNil() {
 		rv = rv.Elem()
 	}
-	// Unwrap pointer
 	if rv.Kind() == reflect.Ptr {
 		rv = rv.Elem()
 	}
 	t := rv.Type()
-	// For real Go types passed through, the name is available directly.
 	if t.Name() != "" {
 		return t.Name()
 	}
-	// Check the program-level ReflectTypeNames registry (new approach).
 	if prog != nil {
 		if name := prog.LookupTypeName(t); name != "" {
 			return name
 		}
 	}
-	// Fallback: for synthesized struct types (from reflect.StructOf via typeToReflect),
-	// the type name may be embedded in the field PkgPath as a "#PkgName.TypeName" suffix
-	// (or "#TypeName"). Extract just the bare TypeName to match against the
-	// *types.Named receiver type name.
 	if t.Kind() == reflect.Struct {
 		for i := 0; i < t.NumField(); i++ {
 			f := t.Field(i)
 			pkgPath := f.PkgPath
 			if idx := strings.LastIndex(pkgPath, "#"); idx >= 0 {
 				qualName := pkgPath[idx+1:]
-				// Strip package prefix if present (e.g., "thirdparty.uppercaseProcessor" → "uppercaseProcessor")
 				if dotIdx := strings.LastIndex(qualName, "."); dotIdx >= 0 {
 					return qualName[dotIdx+1:]
 				}

@@ -384,6 +384,35 @@ Gig enforces security by banning certain imports:
 - `reflect` - Type safety
 - `panic` usage - Controlled execution
 
+## Known Limitations
+
+- **Third-party reflection**: Interpreter-synthesized structs expose methods via `gigStructWrapper`, which only covers `fmt.Stringer`, `error`, `fmt.Formatter`, and `fmt.GoStringer`. Third-party libraries that inspect `reflect.Type` or assert other interfaces (e.g., `json.Marshaler`) may not recognize interpreter types. Stdlib packages like `encoding/json` work natively (via struct tags), and `errors.As` is handled via `GigErrorsAs`.
+
+  ```go
+  // ✅ Works: stdlib uses fmt.Stringer / struct tags
+  fmt.Println(myStruct)           // calls String()
+  json.Marshal(myStruct)          // uses struct tags
+
+  // ❌ Doesn't work: third-party asserts non-standard interfaces
+  var jm json.Marshaler = myStruct  // compile error: gigStructWrapper doesn't implement json.Marshaler
+  ```
+
+- **`errors.As` with struct pointer targets**: `errors.As(err, &ce)` where `ce` is a struct pointer type cannot match. Interpreter-generated struct types (`reflect.StructOf`) have different `reflect.Type` identities than native named Go types, and wrapping args in `interface{}` loses runtime type info, preventing reflection from assigning the interpreter type to a native pointer target.
+
+  ```go
+  type CustomError struct { Msg string }
+  func (e *CustomError) Error() string { return e.Msg }
+
+  var err error = interpretResult  // gigStructWrapper
+
+  // ✅ Works: interface target
+  errors.As(err, new(error))       // matches — gigStructWrapper implements error
+
+  // ❌ Doesn't work: struct pointer target
+  var ce *CustomError
+  errors.As(err, &ce)              // no match — reflect.Type mismatch
+  ```
+
 ## Architecture
 
 Gig uses a multi-stage compilation pipeline to transform Go source code into efficient bytecode, which is then executed by a stack-based virtual machine.

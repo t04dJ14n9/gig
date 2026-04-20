@@ -222,5 +222,8 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.CompiledProgram, err
 		}
 	}
 
+	// Pre-resolve external call entries so the VM can do lock-free array lookup
+	c.program.ResolveExternCalls()
+
 	return c.program, nil
 }

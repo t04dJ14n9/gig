@@ -389,6 +389,35 @@ Gig 通过禁止某些导入来强制安全性：
 - `reflect` - 类型安全
 - `panic` 使用 - 受控执行
 
+## 已知限制
+
+- **第三方库反射受限**：解释器合成的结构体通过 `gigStructWrapper` 暴露方法，仅覆盖 `fmt.Stringer`、`error`、`fmt.Formatter`、`fmt.GoStringer`。第三方库若通过反射检查 `reflect.Type` 或断言其他接口（如 `json.Marshaler`），可能无法识别解释器类型。`encoding/json` 等标准库可直接工作（基于 struct tag），`errors.As` 通过 `GigErrorsAs` 适配。
+
+  ```go
+  // ✅ 可行：标准库通过 fmt.Stringer / struct tag 工作
+  fmt.Println(myStruct)           // 调用 String()
+  json.Marshal(myStruct)          // 使用 struct tag
+
+  // ❌ 不可行：第三方库通过反射断言非标准接口
+  var jm json.Marshaler = myStruct  // 编译错误：gigStructWrapper 未实现 json.Marshaler
+  ```
+
+- **`errors.As` 不支持结构体指针目标**：当 `errors.As(err, &ce)` 中 `ce` 为结构体指针类型时无法匹配。原因是解释器生成的结构体类型（`reflect.StructOf`）与 Go 原生命名类型有不同的 `reflect.Type`，且参数传递时包装为 `interface{}` 会丢失运行时类型信息，导致反射无法将解释器类型赋值给原生指针目标。
+
+  ```go
+  type CustomError struct { Msg string }
+  func (e *CustomError) Error() string { return e.Msg }
+
+  var err error = interpretResult  // gigStructWrapper
+
+  // ✅ 可行：接口目标
+  errors.As(err, new(error))       // 匹配，因为 gigStructWrapper 实现了 error
+
+  // ❌ 不可行：结构体指针目标
+  var ce *CustomError
+  errors.As(err, &ce)              // 不匹配，reflect.Type 不一致
+  ```
+
 ## 架构
 
 Gig 使用多阶段编译流水线将 Go 源代码转换为高效字节码，然后由基于栈的虚拟机执行。
