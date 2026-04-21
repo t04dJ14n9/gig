@@ -9927,3 +9927,872 @@ func MapRangeOrderIndependentR14() int {
 	}
 	return sum // 60
 }
+
+// ============================================================================
+// ROUND 15: Package-level types for method tests
+type val15GetValue struct{ X int }
+
+func (v val15GetValue) Get() int { return v.X }
+
+type ns15NilSafe struct{ X int }
+
+func (n *ns15NilSafe) GetX() int {
+	if n == nil {
+		return 0
+	}
+	return n.X
+}
+
+type impl15Iface struct{ X int }
+
+func (i impl15Iface) Do() int { return i.X }
+
+// ROUND 15: Additional Edge Cases - variadic, select, control flow, numeric, string
+// ============================================================================
+
+// VariadicWithNilR15 tests passing nil to variadic ...interface{}
+func VariadicWithNilR15() int {
+	var f func(args ...interface{}) int
+	f = func(args ...interface{}) int { return len(args) }
+	return f(nil...) // 0
+}
+
+// VariadicSpreadR15 tests spreading slice into variadic
+func VariadicSpreadR15() int {
+	sum := func(nums ...int) int {
+		total := 0
+		for _, n := range nums {
+			total += n
+		}
+		return total
+	}
+	nums := []int{10, 20, 30}
+	return sum(nums...) // 60
+}
+
+// SelectWithDefaultOnlyR15 tests select with only default
+func SelectWithDefaultOnlyR15() int {
+	select {
+	default:
+		return 42
+	}
+}
+
+// NestedSelectR15 tests select inside select
+func NestedSelectR15() int {
+	ch1 := make(chan int, 1)
+	ch1 <- 10
+	select {
+	case v := <-ch1:
+		select {
+		default:
+			return v // 10
+		}
+	}
+}
+
+// ForBreakContinueR15 tests for with break and continue
+func ForBreakContinueR15() int {
+	sum := 0
+	for i := 0; i < 10; i++ {
+		if i%2 == 0 {
+			continue
+		}
+		if i > 5 {
+			break
+		}
+		sum += i
+	}
+	return sum // 1+3+5 = 9
+}
+
+// SwitchWithNoCasesR15 tests switch with no cases (only default)
+func SwitchWithNoCasesR15() int {
+	x := 5
+	switch x {
+	default:
+		return x
+	}
+}
+
+// MultipleShortVarDeclSameNameR15 tests re-declaring same variable name
+func MultipleShortVarDeclSameNameR15() int {
+	x := 1
+	x, y := 2, 3
+	return x + y // 5
+}
+
+// PointerToPointerDerefR15 tests double deref
+func PointerToPointerDerefR15() int {
+	x := 100
+	p := &x
+	pp := &p
+	return **pp // 100
+}
+
+// SliceOfFuncsR15 tests slice of functions
+func SliceOfFuncsR15() int {
+	fns := []func(int) int{
+		func(x int) int { return x + 1 },
+		func(x int) int { return x * 2 },
+		func(x int) int { return x * x },
+	}
+	return fns[0](5) + fns[1](5) + fns[2](5) // 6 + 10 + 25 = 41
+}
+
+// MapDeleteAllR15 tests deleting all keys from map
+func MapDeleteAllR15() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for k := range m {
+		delete(m, k)
+	}
+	return len(m) // 0
+}
+
+// StringConcatR15 tests string concatenation
+func StringConcatR15() int {
+	s := "hello" + " " + "world"
+	return len(s) // 11
+}
+
+// StringIndexByteR15 tests indexing string returns byte
+func StringIndexByteR15() int {
+	s := "ABC"
+	return int(s[0]) + int(s[1]) + int(s[2]) // 65+66+67 = 198
+}
+
+// RuneLenR15 tests len of string with multibyte chars
+func RuneLenR15() int {
+	s := "中文"
+	return len(s) // 6 bytes (3 per rune)
+}
+
+// NumericOverflowR15 tests int8 range values
+func NumericOverflowR15() int {
+	var x int8 = 127
+	var y int8 = -128
+	if x > 0 && y < 0 {
+		return 1
+	}
+	return 0 // 1
+}
+
+// FloatComparisonR15 tests float comparison
+func FloatComparisonR15() int {
+	a := 0.1 + 0.2
+	b := 0.3
+	if a != b {
+		return 1 // float imprecision
+	}
+	return 0
+}
+
+// StructLiteralWithoutFieldNamesR15 tests struct literal without field names
+func StructLiteralWithoutFieldNamesR15() int {
+	type Pt15 struct{ X, Y int }
+	p := Pt15{3, 4}
+	return p.X + p.Y // 7
+}
+
+// SliceFromSliceSharedR15 tests sub-slice shares memory with original
+func SliceFromSliceSharedR15() int {
+	a := []int{10, 20, 30, 40, 50}
+	b := a[1:3] // [20, 30]
+	b[1] = 99
+	return a[2] // 99
+}
+
+// MapTwoValueDeleteR15 tests comma-ok after delete
+func MapTwoValueDeleteR15() int {
+	m := map[string]int{"x": 1}
+	delete(m, "x")
+	_, ok := m["x"]
+	if ok {
+		return 1
+	}
+	return 0 // 0
+}
+
+// NilMapWritePanicR15 tests writing to nil map (guarded)
+func NilMapWritePanicR15() int {
+	var m map[string]int
+	if m == nil {
+		m = make(map[string]int)
+	}
+	m["key"] = 42
+	return m["key"] // 42
+}
+
+// ArrayLenCapR15 tests array has same len and cap
+func ArrayLenCapR15() int {
+	var a [5]int
+	return len(a)*10 + cap(a) // 55
+}
+
+// SliceMakeLenCapR15 tests make with len < cap
+func SliceMakeLenCapR15() int {
+	s := make([]int, 3, 7)
+	return len(s)*10 + cap(s) // 37
+}
+
+// ChannelDirR15 tests channel direction with select
+func ChannelDirR15() int {
+	ch := make(chan int, 1)
+	ch <- 42
+	select {
+	case v := <-ch:
+		return v // 42
+	}
+}
+
+// InterfaceConvertToInterfaceR15 tests interface to interface conversion
+func InterfaceConvertToInterfaceR15() int {
+	var i interface{} = 42
+	var j interface{} = i
+	return j.(int) // 42
+}
+
+// SliceAppendNilSliceR15 tests append to nil slice
+func SliceAppendNilSliceR15() int {
+	var s []int
+	s = append(s, 1, 2, 3)
+	return len(s) // 3
+}
+
+// MapWithFloatKeyR15 tests map with float64 key
+func MapWithFloatKeyR15() int {
+	m := map[float64]int{1.5: 15, 2.5: 25}
+	return m[1.5] + m[2.5] // 40
+}
+
+// StructFieldSliceAppendR15 tests appending to struct's slice field
+func StructFieldSliceAppendR15() int {
+	type Container15 struct{ Items []int }
+	c := Container15{Items: []int{1, 2}}
+	c.Items = append(c.Items, 3)
+	return len(c.Items) // 3
+}
+
+// PointerMethodValueReceiverR15 tests value method on pointer
+func PointerMethodValueReceiverR15() int {
+	p := &val15GetValue{X: 42}
+	return p.Get() // 42
+}
+
+// ClosureCaptureTwoVarsR15 tests closure captures two variables
+func ClosureCaptureTwoVarsR15() int {
+	x, y := 3, 4
+	f := func() int { return x + y }
+	return f() // 7
+}
+
+// MultiReturnInIfR15 tests multi-return in if condition
+func MultiReturnInIfR15() int {
+	m := map[string]int{"key": 42}
+	if v, ok := m["key"]; ok {
+		return v // 42
+	}
+	return 0
+}
+
+// SliceOfEmptyStructR15 tests slice of empty struct
+func SliceOfEmptyStructR15() int {
+	type Empty15 struct{}
+	s := make([]Empty15, 5)
+	return len(s) // 5
+}
+
+// MapWithArrayKeyR15 tests map with array key (comparable)
+func MapWithArrayKeyR15() int {
+	m := map[[2]int]string{
+		{1, 2}: "ab",
+		{3, 4}: "cd",
+	}
+	return len(m[[2]int{1, 2}]) // 2
+}
+
+// SwitchCaseMultipleR15 tests switch with multiple values per case
+func SwitchCaseMultipleR15() int {
+	x := 3
+	switch x {
+	case 1, 2, 3:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// RangeOverNilChannelR15 tests range over nil channel blocks (guarded)
+func RangeOverNilChannelR15() int {
+	var ch chan int
+	if ch == nil {
+		return 0 // nil channel blocks, so we guard
+	}
+	return 1
+}
+
+// SliceCopyOverlapR15 tests copy with overlapping regions
+func SliceCopyOverlapR15() int {
+	s := []int{1, 2, 3, 4, 5}
+	copy(s[1:], s[:4])
+	return s[0] + s[1] + s[2] // 1+1+2 = 4
+}
+
+// StructCompareSameR15 tests comparing identical structs
+func StructCompareSameR15() bool {
+	type P15 struct{ X int }
+	return P15{X: 1} == P15{X: 1}
+}
+
+// TypeAssertionOnNilR15 tests type assertion on nil interface
+func TypeAssertionOnNilR15() int {
+	var i interface{}
+	_, ok := i.(int)
+	if ok {
+		return 1
+	}
+	return 0 // 0 - nil interface fails assertion
+}
+
+// MapLenAfterAssignR15 tests map len after assignment
+func MapLenAfterAssignR15() int {
+	m := map[int]int{1: 10, 2: 20}
+	m[3] = 30
+	return len(m) // 3
+}
+
+// SliceOfStringConcatR15 tests concatenating strings from slice
+func SliceOfStringConcatR15() string {
+	s := []string{"a", "b", "c"}
+	result := ""
+	for _, v := range s {
+		result += v
+	}
+	return result // "abc"
+}
+
+// PointerToStructLiteralR15 tests pointer from struct literal
+func PointerToStructLiteralR15() int {
+	type S15 struct{ X int }
+	p := &S15{X: 99}
+	return p.X // 99
+}
+
+// ChannelCloseAndDrainR15 tests close then drain remaining
+func ChannelCloseAndDrainR15() int {
+	ch := make(chan int, 3)
+	ch <- 1
+	ch <- 2
+	close(ch)
+	v1 := <-ch
+	v2 := <-ch
+	return v1 + v2 // 3
+}
+
+// SliceModifyOriginalR15 tests modifying slice element
+func SliceModifyOriginalR15() int {
+	s := []int{1, 2, 3}
+	s[1] = 99
+	return s[1] // 99
+}
+
+// MapKeyStructR15 tests map with struct key
+func MapKeyStructR15() int {
+	type K15 struct{ A, B string }
+	m := map[K15]int{{"a", "b"}: 10}
+	return m[K15{"a", "b"}] // 10
+}
+
+// ForRangeIndexOnlyR15 tests range with only index
+func ForRangeIndexOnlyR15() int {
+	s := []int{10, 20, 30}
+	sum := 0
+	for i := range s {
+		sum += i // 0 + 1 + 2
+	}
+	return sum // 3
+}
+
+// NilSliceComparisonR15 tests nil slice comparison
+func NilSliceComparisonR15() int {
+	var s []int
+	if s == nil {
+		return 1
+	}
+	return 0 // 1
+}
+
+// StructEmbedMethodCallR15 tests calling embedded struct's method
+func StructEmbedMethodCallR15() int {
+	d := derived14Promoted{base14Promoted: base14Promoted{X: 7}, Y: 3}
+	return d.GetX() // 7
+}
+
+// InterfaceSliceLenR15 tests len of []interface{}
+func InterfaceSliceLenR15() int {
+	s := []interface{}{1, "two", 3.0, true, nil}
+	return len(s) // 5
+}
+
+// MapRangeCountR15 tests counting via map range
+func MapRangeCountR15() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30, 4: 40}
+	count := 0
+	for range m {
+		count++
+	}
+	return count // 4
+}
+
+// SliceCapAfterResliceR15 tests cap after reslice
+func SliceCapAfterResliceR15() int {
+	s := make([]int, 5, 10)
+	t := s[2:4]
+	return cap(t) // 8 (10-2)
+}
+
+// StringEmptyComparisonR15 tests empty string comparison
+func StringEmptyComparisonR15() int {
+	s := ""
+	if s == "" {
+		return 1
+	}
+	return 0 // 1
+}
+
+// MapValueNilInterfaceR15 tests map with nil interface value
+func MapValueNilInterfaceR15() int {
+	m := map[string]interface{}{"a": nil}
+	v := m["a"]
+	if v == nil {
+		return 1
+	}
+	return 0 // 1
+}
+
+// SliceAppendSelfR15 tests append slice to itself
+func SliceAppendSelfR15() int {
+	s := []int{1, 2}
+	s = append(s, s...)
+	return len(s) // 4
+}
+
+// StructFieldMapR15 tests struct with map field
+func StructFieldMapR15() int {
+	type SM15 struct{ M map[string]int }
+	s := SM15{M: map[string]int{"a": 1}}
+	s.M["b"] = 2
+	return len(s.M) // 2
+}
+
+// PointerAssignNilR15 tests assigning nil to pointer
+func PointerAssignNilR15() int {
+	var p *int
+	if p == nil {
+		return 1
+	}
+	return 0 // 1
+}
+
+// MapAccessEmptyR15 tests accessing empty map
+func MapAccessEmptyR15() int {
+	m := map[int]int{}
+	return m[1] // 0
+}
+
+// SliceOfSliceR15 tests 2D slice
+func SliceOfSliceR15() int {
+	s := [][]int{{1, 2}, {3, 4}}
+	return s[0][1] + s[1][0] // 2 + 3 = 5
+}
+
+// SwitchNoConditionR15 tests switch without condition
+func SwitchNoConditionR15() int {
+	x := 5
+	switch {
+	case x < 3:
+		return 0
+	case x < 10:
+		return 1
+	default:
+		return 2
+	}
+}
+
+// MapIntIntR15 tests map[int]int basic operations
+func MapIntIntR15() int {
+	m := map[int]int{}
+	m[0] = 100
+	return m[0] // 100
+}
+
+// StructZeroValueComparisonR15 tests zero value struct comparison
+func StructZeroValueComparisonR15() bool {
+	type Z15 struct{ X int }
+	return Z15{} == Z15{}
+}
+
+// ChannelNilBlockR15 tests nil channel blocks (guarded)
+func ChannelNilBlockR15() int {
+	var ch chan int
+	select {
+	case <-ch:
+		return 0
+	default:
+		return 1 // nil channel is never ready
+	}
+}
+
+// SliceRangeModifyR15 tests modifying slice during range
+func SliceRangeModifyR15() int {
+	s := []int{1, 2, 3}
+	for i := range s {
+		s[i] *= 10
+	}
+	return s[0] + s[1] + s[2] // 10+20+30 = 60
+}
+
+// StringSliceR15 tests slicing a string
+func StringSliceR15() string {
+	s := "Hello, World"
+	return s[7:12] // "World"
+}
+
+// MapKeyTypeSwitchR15 tests type switch on map key
+func MapKeyTypeSwitchR15() int {
+	m := map[interface{}]int{1: 10, "a": 20}
+	sum := 0
+	for k := range m {
+		switch k.(type) {
+		case int:
+			sum += m[k]
+		case string:
+			sum += m[k]
+		}
+	}
+	return sum // 30
+}
+
+// StructFieldChannelR15 tests struct with channel field
+func StructFieldChannelR15() int {
+	type SC15 struct{ Ch chan int }
+	s := SC15{Ch: make(chan int, 1)}
+	s.Ch <- 42
+	return <-s.Ch // 42
+}
+
+// PointerSliceOfStructR15 tests slice of struct pointers
+func PointerSliceOfStructR15() int {
+	type P15 struct{ X int }
+	a, b := P15{X: 1}, P15{X: 2}
+	s := []*P15{&a, &b}
+	return s[0].X + s[1].X // 3
+}
+
+// MapStringKeyR15 tests map with string key operations
+func MapStringKeyR15() int {
+	m := map[string]int{}
+	m["hello"] = 5
+	m["world"] = 5
+	return m["hello"] + m["world"] // 10
+}
+
+// SliceDeleteFirstR15 tests deleting first element
+func SliceDeleteFirstR15() int {
+	s := []int{1, 2, 3, 4}
+	s = s[1:]
+	return len(s)*10 + s[0] // 32
+}
+
+// RangeOverSliceIndexValueR15 tests range with index and value
+func RangeOverSliceIndexValueR15() int {
+	s := []int{10, 20, 30}
+	sum := 0
+	for i, v := range s {
+		sum += i + v
+	}
+	return sum // (0+10)+(1+20)+(2+30) = 63
+}
+
+// NilPointerDerefGuardR15 tests guarded nil pointer deref
+func NilPointerDerefGuardR15() int {
+	var p *int
+	if p != nil {
+		return *p
+	}
+	return -1 // -1
+}
+
+// MapWriteReadR15 tests write then read from map
+func MapWriteReadR15() int {
+	m := map[string]int{}
+	m["key"] = 42
+	v, ok := m["key"]
+	if ok {
+		return v // 42
+	}
+	return 0
+}
+
+// SliceLenZeroR15 tests len of empty slice
+func SliceLenZeroR15() int {
+	s := []int{}
+	return len(s) // 0
+}
+
+// StructEmbeddedPointerNilR15 tests nil embedded pointer struct
+func StructEmbeddedPointerNilR15() int {
+	type Inner15 struct{ X int }
+	type Outer15 struct {
+		*Inner15
+	}
+	var o Outer15
+	if o.Inner15 == nil {
+		return 1
+	}
+	return 0 // 1
+}
+
+// ChannelSelectPriorityR15 tests select picks ready channel
+func ChannelSelectPriorityR15() int {
+	ch := make(chan int, 1)
+	ch <- 99
+	select {
+	case v := <-ch:
+		return v // 99
+	default:
+		return 0
+	}
+}
+
+// SliceOfInterfaceNilR15 tests []interface{} with nil element
+func SliceOfInterfaceNilR15() int {
+	s := []interface{}{nil, nil, nil}
+	count := 0
+	for _, v := range s {
+		if v == nil {
+			count++
+		}
+	}
+	return count // 3
+}
+
+// MapDeleteAndReinsertR15 tests delete and reinsert map key
+func MapDeleteAndReinsertR15() int {
+	m := map[int]int{1: 10}
+	delete(m, 1)
+	m[1] = 20
+	return m[1] // 20
+}
+
+// StructLiteralWithFieldsR15 tests struct literal with named fields
+func StructLiteralWithFieldsR15() int {
+	type P15F struct{ X, Y, Z int }
+	p := P15F{Z: 3, X: 1, Y: 2}
+	return p.X + p.Y + p.Z // 6
+}
+
+// PointerSwapValuesR15 tests swap values using pointers
+func PointerSwapValuesR15() int {
+	a, b := 10, 20
+	pa, pb := &a, &b
+	*pa, *pb = *pb, *pa
+	return a + b // 30
+}
+
+// MapRangeDeleteSafeR15 tests deleting during range is safe
+func MapRangeDeleteSafeR15() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for k := range m {
+		delete(m, k)
+	}
+	return len(m) // 0
+}
+
+// SliceMakeZeroLenR15 tests make with zero len
+func SliceMakeZeroLenR15() int {
+	s := make([]int, 0)
+	if s != nil && len(s) == 0 {
+		return 1
+	}
+	return 0 // 1
+}
+
+// StringRangeR15 tests range over string
+func StringRangeR15() int {
+	s := "Go"
+	sum := 0
+	for _, r := range s {
+		sum += int(r)
+	}
+	return sum // 71+111 = 182
+}
+
+// StructMethodOnNilPointerR15 tests method on nil struct pointer (guarded)
+func StructMethodOnNilPointerR15() int {
+	var p *ns15NilSafe
+	return p.GetX() // 0
+}
+
+// MapWithStructValR15 tests map with struct value
+func MapWithStructValR15() int {
+	type V15 struct{ A, B int }
+	m := map[int]V15{1: {10, 20}}
+	return m[1].A + m[1].B // 30
+}
+
+// ChannelClosedRecvZeroR15 tests receiving from closed channel returns zero
+func ChannelClosedRecvZeroR15() int {
+	ch := make(chan int)
+	close(ch)
+	v, ok := <-ch
+	if !ok && v == 0 {
+		return 1
+	}
+	return 0 // 1
+}
+
+// SliceAppendExpandR15 tests append expands capacity
+func SliceAppendExpandR15() int {
+	s := make([]int, 0, 1)
+	s = append(s, 1)
+	c1 := cap(s)
+	s = append(s, 2)
+	c2 := cap(s)
+	if c2 >= c1 {
+		return 1
+	}
+	return 0 // 1
+}
+
+// MapNilReadR15 tests reading from nil map returns zero
+func MapNilReadR15() int {
+	var m map[int]int
+	return m[1] // 0
+}
+
+// StructFieldModifyR15 tests modifying struct field directly
+func StructFieldModifyR15() int {
+	type S15M struct{ X int }
+	s := S15M{X: 10}
+	s.X = 20
+	return s.X // 20
+}
+
+// PointerToChannelR15 tests pointer to channel
+func PointerToChannelR15() int {
+	ch := make(chan int, 1)
+	p := &ch
+	*p <- 42
+	return <-ch // 42
+}
+
+// SliceOfBoolLenR15 tests len of bool slice
+func SliceOfBoolLenR15() int {
+	s := make([]bool, 3)
+	return len(s) // 3
+}
+
+// MapInterfaceValR15 tests map with interface{} value
+func MapInterfaceValR15() int {
+	m := map[string]interface{}{"num": 42, "str": "hi"}
+	return m["num"].(int) // 42
+}
+
+// StringRuneAtIndexR15 tests getting rune at index via range
+func StringRuneAtIndexR15() int {
+	s := "abc"
+	idx := 1
+	var r rune
+	for i, ch := range s {
+		if i == idx {
+			r = ch
+			break
+		}
+	}
+	return int(r) // 98 = 'b'
+}
+
+// StructEmbeddedInterfaceR15 tests struct with embedded interface
+func StructEmbeddedInterfaceR15() int {
+	var ifc interface{ Do() int } = impl15Iface{X: 7}
+	return ifc.Do() // 7
+}
+
+// MapTwoValLookupR15 tests map two-value lookup
+func MapTwoValLookupR15() int {
+	m := map[string]int{"a": 1, "b": 2}
+	if v, ok := m["c"]; ok {
+		return v
+	}
+	return -1 // -1
+}
+
+// SliceGrowWithAppendR15 tests slice capacity growth pattern
+func SliceGrowWithAppendR15() int {
+	s := make([]int, 0)
+	for i := 0; i < 10; i++ {
+		s = append(s, i)
+	}
+	return len(s) // 10
+}
+
+// NilInterfaceMethodGuardR15 tests calling method on nil interface (guarded)
+func NilInterfaceMethodGuardR15() int {
+	type IF15 interface{ Get() int }
+	var ifc IF15
+	if ifc == nil {
+		return 0 // nil interface
+	}
+	return ifc.Get()
+}
+
+// MapWithStringKeyLenR15 tests len of map with string keys
+func MapWithStringKeyLenR15() int {
+	m := map[string]int{"a": 1, "b": 2, "c": 3}
+	return len(m) // 3
+}
+
+// SliceOfIntSumR15 tests summing int slice
+func SliceOfIntSumR15() int {
+	s := []int{1, 2, 3, 4, 5}
+	sum := 0
+	for _, v := range s {
+		sum += v
+	}
+	return sum // 15
+}
+
+// StructPointerEmbeddedR15 tests struct with embedded pointer
+func StructPointerEmbeddedR15() int {
+	d := derived14Promoted{base14Promoted: base14Promoted{X: 10}, Y: 5}
+	return d.GetX() + d.Y // 15
+}
+
+// ChannelSendRecvOrderR15 tests send then receive order
+func ChannelSendRecvOrderR15() int {
+	ch := make(chan int, 2)
+	ch <- 1
+	ch <- 2
+	return <-ch + <-ch // 3
+}
+
+// MapKeyDifferentTypesR15 tests map with interface{} keys of different types
+func MapKeyDifferentTypesR15() int {
+	m := map[interface{}]string{1: "int", "1": "string", true: "bool"}
+	return len(m[1]) + len(m["1"]) + len(m[true]) // 3+6+4 = 13
+}
+
+// MapOverwriteKeyR15 tests overwriting a map key
+func MapOverwriteKeyR15() int {
+	m := map[int]int{1: 10}
+	m[1] = 20
+	m[1] = 30
+	return m[1] // 30
+}
+
+// SliceLastElementR15 tests getting last element
+func SliceLastElementR15() int {
+	s := []int{10, 20, 30, 40}
+	return s[len(s)-1] // 40
+}
