@@ -2,9 +2,8 @@
 package packages
 
 import (
-	"reflect"
-
 	github_com_tidwall_gjson "github.com/tidwall/gjson"
+	"reflect"
 
 	"git.woa.com/youngjin/gig/importer"
 	"git.woa.com/youngjin/gig/model/value"
@@ -79,7 +78,11 @@ func direct_github_com_tidwall_gjson_AppendJSONString(args []value.Value) value.
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].String()
 	return value.MakeBytes([]byte(github_com_tidwall_gjson.AppendJSONString(a0, a1)))
@@ -108,7 +111,11 @@ func direct_github_com_tidwall_gjson_GetBytes(args []value.Value) value.Value {
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	a1 := args[1].String()
 	return value.FromInterface(github_com_tidwall_gjson.GetBytes(a0, a1))
@@ -128,7 +135,11 @@ func direct_github_com_tidwall_gjson_GetManyBytes(args []value.Value) value.Valu
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	varArgs := make([]string, len(args)-1)
 	for i := 1; i < len(args); i++ {
@@ -153,7 +164,11 @@ func direct_github_com_tidwall_gjson_ParseBytes(args []value.Value) value.Value 
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.FromInterface(github_com_tidwall_gjson.ParseBytes(a0))
 }
@@ -168,7 +183,11 @@ func direct_github_com_tidwall_gjson_ValidBytes(args []value.Value) value.Value 
 		if b, ok := (args[0]).Bytes(); ok {
 			return b
 		}
-		return (args[0]).Interface().([]byte)
+		v := (args[0]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
 	}()
 	return value.MakeBool(github_com_tidwall_gjson.ValidBytes(a0))
 }
@@ -208,7 +227,7 @@ func direct_method_github_com_tidwall_gjson_Result_Get(args []value.Value) value
 
 func direct_method_github_com_tidwall_gjson_Result_Int(args []value.Value) value.Value {
 	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.MakeInt(int64(recv.Int()))
+	return value.MakeInt64(recv.Int())
 }
 
 func direct_method_github_com_tidwall_gjson_Result_IsArray(args []value.Value) value.Value {
@@ -262,7 +281,7 @@ func direct_method_github_com_tidwall_gjson_Result_Time(args []value.Value) valu
 
 func direct_method_github_com_tidwall_gjson_Result_Uint(args []value.Value) value.Value {
 	recv := args[0].Interface().(github_com_tidwall_gjson.Result)
-	return value.MakeUint(uint64(recv.Uint()))
+	return value.MakeUint64(recv.Uint())
 }
 
 func direct_method_github_com_tidwall_gjson_Result_Value(args []value.Value) value.Value {
@@ -271,6 +290,6 @@ func direct_method_github_com_tidwall_gjson_Result_Value(args []value.Value) val
 }
 
 func direct_method_github_com_tidwall_gjson_Type_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(github_com_tidwall_gjson.Type)
+	recv := github_com_tidwall_gjson.Type(int(args[0].Int()))
 	return value.MakeString(string(recv.String()))
 }

@@ -2,9 +2,8 @@
 package packages
 
 import (
-	time "time"
-
 	github_com_spf13_cast "github.com/spf13/cast"
+	time "time"
 
 	"git.woa.com/youngjin/gig/importer"
 	"git.woa.com/youngjin/gig/model/value"
@@ -126,13 +125,13 @@ func direct_github_com_spf13_cast_ToBoolSliceE(args []value.Value) value.Value {
 
 func direct_github_com_spf13_cast_ToDuration(args []value.Value) value.Value {
 	a0 := args[0].Interface()
-	return value.MakeInt(int64(int64(github_com_spf13_cast.ToDuration(a0))))
+	return value.MakeInt64(int64(github_com_spf13_cast.ToDuration(a0)))
 }
 
 func direct_github_com_spf13_cast_ToDurationE(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToDurationE(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(int64(r0))), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(int64(r0)), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToDurationSlice(args []value.Value) value.Value {
@@ -226,13 +225,13 @@ func direct_github_com_spf13_cast_ToInt32SliceE(args []value.Value) value.Value 
 
 func direct_github_com_spf13_cast_ToInt64(args []value.Value) value.Value {
 	a0 := args[0].Interface()
-	return value.MakeInt(int64(github_com_spf13_cast.ToInt64(a0)))
+	return value.MakeInt64(github_com_spf13_cast.ToInt64(a0))
 }
 
 func direct_github_com_spf13_cast_ToInt64E(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToInt64E(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToInt64Slice(args []value.Value) value.Value {
@@ -444,13 +443,13 @@ func direct_github_com_spf13_cast_ToUint32SliceE(args []value.Value) value.Value
 
 func direct_github_com_spf13_cast_ToUint64(args []value.Value) value.Value {
 	a0 := args[0].Interface()
-	return value.MakeUint(uint64(github_com_spf13_cast.ToUint64(a0)))
+	return value.MakeUint64(github_com_spf13_cast.ToUint64(a0))
 }
 
 func direct_github_com_spf13_cast_ToUint64E(args []value.Value) value.Value {
 	a0 := args[0].Interface()
 	r0, r1 := github_com_spf13_cast.ToUint64E(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeUint64(r0), value.FromInterface(r1)})
 }
 
 func direct_github_com_spf13_cast_ToUint64SliceE(args []value.Value) value.Value {
