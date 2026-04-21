@@ -41,6 +41,11 @@ import (
 	_ "unicode/utf8"
 
 	_ "github.com/Masterminds/semver/v3"
+	_ "github.com/go-playground/validator/v10"
+	_ "github.com/golang-jwt/jwt/v5"
 	_ "github.com/google/uuid"
+	_ "github.com/mitchellh/mapstructure"
 	_ "github.com/shopspring/decimal"
+	_ "github.com/sirupsen/logrus"
+	_ "github.com/spf13/cast"
 )

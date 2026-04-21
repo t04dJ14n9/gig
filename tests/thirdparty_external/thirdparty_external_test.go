@@ -19,6 +19,21 @@ var decimalSrc string
 //go:embed testdata/semver_source.go
 var semverSrc string
 
+//go:embed testdata/logrus_source.go
+var logrusSrc string
+
+//go:embed testdata/cast_source.go
+var castSrc string
+
+//go:embed testdata/jwt_source.go
+var jwtSrc string
+
+//go:embed testdata/mapstructure_source.go
+var mapstructureSrc string
+
+//go:embed testdata/validator_source.go
+var validatorSrc string
+
 type caseItem struct {
 	funcName string
 	args     []any
@@ -49,6 +64,8 @@ func runSourceSet(t *testing.T, set sourceSet) {
 	}
 }
 
+// --- uuid ---
+
 func TestThirdpartyExternal_UUID(t *testing.T) {
 	set := sourceSet{
 		src: uuidSrc,
@@ -77,6 +94,8 @@ func TestThirdpartyExternal_UUID(t *testing.T) {
 	}
 }
 
+// --- decimal ---
+
 func TestThirdpartyExternal_Decimal(t *testing.T) {
 	runSourceSet(t, sourceSet{
 		src: decimalSrc,
@@ -88,6 +107,8 @@ func TestThirdpartyExternal_Decimal(t *testing.T) {
 	})
 }
 
+// --- semver ---
+
 func TestThirdpartyExternal_Semver(t *testing.T) {
 	runSourceSet(t, sourceSet{
 		src: semverSrc,
@@ -95,6 +116,87 @@ func TestThirdpartyExternal_Semver(t *testing.T) {
 			"check":     {funcName: "SemverCheck", args: []any{"1.4.5", ">= 1.2, < 2.0"}, want: true},
 			"inc patch": {funcName: "SemverIncPatch", args: []any{"2.3.4"}, want: "2.3.5"},
 			"compare":   {funcName: "SemverCompare", args: []any{"1.2.0", "1.3.0"}, want: -1},
+		},
+	})
+}
+
+// --- logrus ---
+
+func TestThirdpartyExternal_Logrus(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: logrusSrc,
+		cases: map[string]caseItem{
+			"parse debug":  {funcName: "LogrusLevelParse", args: []any{"debug"}, want: "debug"},
+			"parse info":   {funcName: "LogrusLevelParse", args: []any{"info"}, want: "info"},
+			"parse error":  {funcName: "LogrusLevelParse", args: []any{"error"}, want: "error"},
+			"get level":    {funcName: "LogrusGetLevel", args: nil, want: "info"},
+		},
+	})
+
+	// LogrusNewLogger returns JSON with "hello" msg — check it contains that
+	prog, err := gig.Build(logrusSrc)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	got, err := prog.Run("LogrusNewLogger")
+	if err != nil {
+		t.Fatalf("Run LogrusNewLogger failed: %v", err)
+	}
+	s, ok := got.(string)
+	if !ok {
+		t.Fatalf("LogrusNewLogger: expected string, got %T", got)
+	}
+	if !strings.Contains(s, "hello") {
+		t.Fatalf("LogrusNewLogger: expected JSON containing 'hello', got %q", s)
+	}
+}
+
+// --- cast ---
+
+func TestThirdpartyExternal_Cast(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: castSrc,
+		cases: map[string]caseItem{
+			"to string":      {funcName: "CastToString", args: []any{42}, want: "42"},
+			"to int":         {funcName: "CastToInt", args: []any{"123"}, want: 123},
+			"to float64":     {funcName: "CastToFloat64", args: []any{"3.14"}, want: float64(3.14)},
+			"to bool true":   {funcName: "CastToBool", args: []any{1}, want: true},
+			"to bool false":  {funcName: "CastToBool", args: []any{0}, want: false},
+		},
+	})
+}
+
+// --- jwt ---
+
+func TestThirdpartyExternal_JWT(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: jwtSrc,
+		cases: map[string]caseItem{
+			"signing method": {funcName: "JWTGetSigningMethod", args: nil, want: "HS256"},
+		},
+	})
+}
+
+// --- mapstructure ---
+
+func TestThirdpartyExternal_Mapstructure(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: mapstructureSrc,
+		cases: map[string]caseItem{
+			"decode name": {funcName: "MapstructureDecode", args: []any{map[string]any{"Name": "Alice", "Age": 30}}, want: "Alice"},
+			"weak decode": {funcName: "MapstructureWeakDecode", args: []any{map[string]any{"Port": "8080"}}, want: 8080},
+		},
+	})
+}
+
+// --- validator ---
+
+func TestThirdpartyExternal_Validator(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: validatorSrc,
+		cases: map[string]caseItem{
+			"valid var":    {funcName: "ValidatorVarValid", args: nil, want: true},
+			"invalid var":  {funcName: "ValidatorVarInvalid", args: nil, want: true},
 		},
 	})
 }
