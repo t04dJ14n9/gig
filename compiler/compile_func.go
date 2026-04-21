@@ -10,7 +10,11 @@ import (
 	"git.woa.com/youngjin/gig/model/bytecode"
 )
 
-// isIntType returns true if the type is a signed integer (int, int8..int64).
+// isIntType returns true if the type is int or int64 (full-width signed integers).
+// Only full-width types are eligible for OpInt* superinstructions because
+// those instructions use int64-backed intLocals without truncation wrapping.
+// Sized types (int8, int16, int32) must use the generic path which preserves
+// the size tag via MakeIntSized for correct overflow wrapping semantics.
 func isIntType(t types.Type) bool {
 	if t == nil {
 		return false
@@ -20,7 +24,7 @@ func isIntType(t types.Type) bool {
 		return false
 	}
 	switch basic.Kind() {
-	case types.Int, types.Int8, types.Int16, types.Int32, types.Int64:
+	case types.Int, types.Int64:
 		return true
 	}
 	return false

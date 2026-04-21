@@ -152,6 +152,12 @@ func (g *gigStructWrapper) Format(f fmt.State, verb rune) {
 		_, _ = fmt.Fprint(f, g.typeName)
 	case 'v', 's':
 		if verb == 's' || (verb == 'v' && !f.Flag('#') && !f.Flag('+')) {
+			// Go's fmt checks error before Stringer for %v and %s.
+			// We match that priority: try Error() first, then String().
+			if fn, ok := g.tryErrorer(); ok {
+				_, _ = fmt.Fprint(f, fn())
+				return
+			}
 			if fn, ok := g.tryStringer(); ok {
 				_, _ = fmt.Fprint(f, fn())
 				return
