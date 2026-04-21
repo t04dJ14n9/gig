@@ -48,9 +48,9 @@ func TestIsIntType(t *testing.T) {
 	}{
 		{"nil", nil, false},
 		{"int", types.Typ[types.Int], true},
-		{"int8", types.Typ[types.Int8], true},
-		{"int16", types.Typ[types.Int16], true},
-		{"int32", types.Typ[types.Int32], true},
+		{"int8", types.Typ[types.Int8], false},
+		{"int16", types.Typ[types.Int16], false},
+		{"int32", types.Typ[types.Int32], false},
 		{"int64", types.Typ[types.Int64], true},
 		{"uint", types.Typ[types.Uint], false},
 		{"uint8", types.Typ[types.Uint8], false},

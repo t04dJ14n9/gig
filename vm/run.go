@@ -873,10 +873,9 @@ func (v *vm) run() (value.Value, error) {
 			sp--
 			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				r := a.RawInt() + b.RawInt()
-				locals[idx] = value.MakeIntSized(r, a.RawSize())
+				locals[idx] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
 				if intLocals != nil {
-					intLocals[idx] = r
+					intLocals[idx] = locals[idx].RawInt()
 				}
 			} else {
 				locals[idx] = a.Add(b)
@@ -890,10 +889,9 @@ func (v *vm) run() (value.Value, error) {
 			sp--
 			a := stack[sp]
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				r := a.RawInt() - b.RawInt()
-				locals[idx] = value.MakeIntSized(r, a.RawSize())
+				locals[idx] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
 				if intLocals != nil {
-					intLocals[idx] = r
+					intLocals[idx] = locals[idx].RawInt()
 				}
 			} else {
 				locals[idx] = a.Sub(b)

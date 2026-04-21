@@ -1229,6 +1229,25 @@ func TestStrangeSyntax(t *testing.T) {
 		"MapKeyDifferentTypesR15":       {strangeSyntaxSrc, "MapKeyDifferentTypesR15", nil, strange_syntax.MapKeyDifferentTypesR15},
 		"MapOverwriteKeyR15":            {strangeSyntaxSrc, "MapOverwriteKeyR15", nil, strange_syntax.MapOverwriteKeyR15},
 		"SliceLastElementR15":           {strangeSyntaxSrc, "SliceLastElementR15", nil, strange_syntax.SliceLastElementR15},
+
+		// Overflow wrapping tests
+		"Int8OverflowWrap":         {strangeSyntaxSrc, "Int8OverflowWrap", nil, strange_syntax.Int8OverflowWrap},
+		"Int8UnderflowWrap":        {strangeSyntaxSrc, "Int8UnderflowWrap", nil, strange_syntax.Int8UnderflowWrap},
+		"Int8OverflowCompare":      {strangeSyntaxSrc, "Int8OverflowCompare", nil, strange_syntax.Int8OverflowCompare},
+		"Int8MultiplyOverflow":     {strangeSyntaxSrc, "Int8MultiplyOverflow", nil, strange_syntax.Int8MultiplyOverflow},
+		"Int8NegateOverflow":       {strangeSyntaxSrc, "Int8NegateOverflow", nil, strange_syntax.Int8NegateOverflow},
+		"Uint8OverflowWrap":        {strangeSyntaxSrc, "Uint8OverflowWrap", nil, strange_syntax.Uint8OverflowWrap},
+		"Uint8UnderflowWrap":       {strangeSyntaxSrc, "Uint8UnderflowWrap", nil, strange_syntax.Uint8UnderflowWrap},
+		"Int16OverflowWrap":        {strangeSyntaxSrc, "Int16OverflowWrap", nil, strange_syntax.Int16OverflowWrap},
+		"Int16MultiplyOverflow":    {strangeSyntaxSrc, "Int16MultiplyOverflow", nil, strange_syntax.Int16MultiplyOverflow},
+		"Uint16OverflowWrap":       {strangeSyntaxSrc, "Uint16OverflowWrap", nil, strange_syntax.Uint16OverflowWrap},
+		"Int32OverflowWrap":        {strangeSyntaxSrc, "Int32OverflowWrap", nil, strange_syntax.Int32OverflowWrap},
+		"Uint32OverflowWrap":       {strangeSyntaxSrc, "Uint32OverflowWrap", nil, strange_syntax.Uint32OverflowWrap},
+		"Int8OverflowLessThan":     {strangeSyntaxSrc, "Int8OverflowLessThan", nil, strange_syntax.Int8OverflowLessThan},
+		"Uint8UnderflowGreaterThan": {strangeSyntaxSrc, "Uint8UnderflowGreaterThan", nil, strange_syntax.Uint8UnderflowGreaterThan},
+		"Int8OverflowInLoop":       {strangeSyntaxSrc, "Int8OverflowInLoop", nil, strange_syntax.Int8OverflowInLoop},
+		"Int8AddAssignOverflow":    {strangeSyntaxSrc, "Int8AddAssignOverflow", nil, strange_syntax.Int8AddAssignOverflow},
+		"Int8SubAssignOverflow":    {strangeSyntaxSrc, "Int8SubAssignOverflow", nil, strange_syntax.Int8SubAssignOverflow},
 	}
 
 	runTestSet(t, testSet{src: strangeSyntaxSrc, tests: tests})

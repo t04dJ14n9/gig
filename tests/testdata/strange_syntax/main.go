@@ -10067,11 +10067,11 @@ func RuneLenR15() int {
 	return len(s) // 6 bytes (3 per rune)
 }
 
-// NumericOverflowR15 tests int8 range values
+// NumericOverflowR15 tests int8 overflow wrapping (Go two's complement semantics)
 func NumericOverflowR15() int {
 	var x int8 = 127
-	var y int8 = -128
-	if x > 0 && y < 0 {
+	x++
+	if x == -128 && x < 0 {
 		return 1
 	}
 	return 0 // 1
@@ -10795,4 +10795,135 @@ func MapOverwriteKeyR15() int {
 func SliceLastElementR15() int {
 	s := []int{10, 20, 30, 40}
 	return s[len(s)-1] // 40
+}
+
+// --- Overflow Wrapping Tests (bug fix verification) ---
+
+// Int8OverflowWrap tests int8 127+1 wraps to -128
+func Int8OverflowWrap() int8 {
+	var x int8 = 127
+	x++
+	return x // -128
+}
+
+// Int8UnderflowWrap tests int8 -128-1 wraps to 127
+func Int8UnderflowWrap() int8 {
+	var x int8 = -128
+	x--
+	return x // 127
+}
+
+// Int8OverflowCompare tests that overflowed int8 compares correctly
+func Int8OverflowCompare() int {
+	var x int8 = 127
+	x++
+	if x == -128 && x < 0 {
+		return 1
+	}
+	return 0 // 1
+}
+
+// Int8MultiplyOverflow tests int8 multiplication overflow
+func Int8MultiplyOverflow() int8 {
+	var x int8 = 100
+	var y int8 = 2
+	return x * y // 200 wraps to -56
+}
+
+// Int8NegateOverflow tests -(-128) wraps to -128
+func Int8NegateOverflow() int8 {
+	var x int8 = -128
+	return -x // -128
+}
+
+// Uint8OverflowWrap tests uint8 255+1 wraps to 0
+func Uint8OverflowWrap() uint8 {
+	var x uint8 = 255
+	x++
+	return x // 0
+}
+
+// Uint8UnderflowWrap tests uint8 0-1 wraps to 255
+func Uint8UnderflowWrap() uint8 {
+	var x uint8 = 0
+	x--
+	return x // 255
+}
+
+// Int16OverflowWrap tests int16 32767+1 wraps to -32768
+func Int16OverflowWrap() int16 {
+	var x int16 = 32767
+	x++
+	return x // -32768
+}
+
+// Int16MultiplyOverflow tests int16 multiplication overflow
+func Int16MultiplyOverflow() int16 {
+	var x int16 = 10000
+	var y int16 = 10
+	return x * y // 100000 wraps to -31072
+}
+
+// Uint16OverflowWrap tests uint16 65535+1 wraps to 0
+func Uint16OverflowWrap() uint16 {
+	var x uint16 = 65535
+	x++
+	return x // 0
+}
+
+// Int32OverflowWrap tests int32 max+1 wraps
+func Int32OverflowWrap() int32 {
+	var x int32 = 2147483647
+	x++
+	return x // -2147483648
+}
+
+// Uint32OverflowWrap tests uint32 max+1 wraps
+func Uint32OverflowWrap() uint32 {
+	var x uint32 = 4294967295
+	x++
+	return x // 0
+}
+
+// Int8OverflowLessThan tests comparison after int8 overflow
+func Int8OverflowLessThan() int {
+	var x int8 = 127
+	x++
+	if x < 0 {
+		return 1
+	}
+	return 0 // 1
+}
+
+// Uint8UnderflowGreaterThan tests comparison after uint8 underflow
+func Uint8UnderflowGreaterThan() int {
+	var x uint8 = 0
+	x--
+	if x > 200 {
+		return 1
+	}
+	return 0 // 1
+}
+
+// Int8OverflowInLoop tests overflow in a loop
+func Int8OverflowInLoop() int8 {
+	var x int8 = 120
+	for i := 0; i < 10; i++ {
+		x++
+	}
+	return x // 120+10=130 wraps to -126
+}
+
+// Int8AddAssignOverflow tests += overflow
+func Int8AddAssignOverflow() int8 {
+	var x int8 = 100
+	x += 50
+	return x // 150 wraps to -106
+}
+
+// Int8SubAssignOverflow tests -= underflow
+func Int8SubAssignOverflow() int8 {
+	var x int8 = -100
+	x -= 50
+	return x // -150 wraps to 106
 }

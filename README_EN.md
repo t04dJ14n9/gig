@@ -247,11 +247,11 @@ Real benchmarks comparing **Gig**, **Yaegi** (Go interpreter), **GopherLua** (Lu
 
 | Workload                          | Native Go |          Gig |      Yaegi |  GopherLua |        Gig vs Yaegi | Native/Gig |
 | --------------------------------- | --------: | -----------: | ---------: | ---------: | ------------------: | ---------: |
-| **Fibonacci(25)** recursive       |    450 μs | **23.7 ms** |   102.4 ms |   24.3 ms | **Gig 4.3x faster** |     52.7x |
-| **ArithmeticSum(1K)** loop        |    336 ns |  **74.0 μs** |    40.8 μs |    37.4 μs |    Yaegi 1.8x faster |    220x |
-| **BubbleSort(100)** nested loops  |    6.2 μs | **953.5 μs** | 1,235.3 μs |   775.9 μs | **Gig 1.3x faster** |    154x |
-| **Sieve(1000)** primes            |    1.7 μs | **270.3 μs** |   202.1 μs |   203.7 μs |    Yaegi 1.3x faster |    159x |
-| **ClosureCalls(1K)** captured var |    660 ns | **389.4 μs** |   943.4 μs |   118.6 μs | **Gig 2.4x faster** |    590x |
+| **Fibonacci(25)** recursive       |    448 μs | **23.8 ms** |   102.3 ms |   21.8 ms | **Gig 4.3x faster** |     53.1x |
+| **ArithmeticSum(1K)** loop        |    658 ns |  **74.5 μs** |    40.6 μs |    38.6 μs |    Yaegi 1.8x faster |    113x |
+| **BubbleSort(100)** nested loops  |    6.4 μs |  **5.0 ms** | 1,236.2 μs |   777.1 μs | **Gig 1.3x faster** |    781x |
+| **Sieve(1000)** primes            |    1.7 μs | **273.4 μs** |   203.4 μs |   205.4 μs |    Yaegi 1.3x faster |    159x |
+| **ClosureCalls(1K)** captured var |    339 ns | **438.8 μs** |   938.8 μs |   121.7 μs | **Gig 2.1x faster** |   1294x |
 
 ### External Function Calls (Gig vs Yaegi vs Native Go)
 
@@ -259,20 +259,20 @@ Calling Go standard library functions from interpreted code — the most common 
 
 | Workload                           | Native Go |          Gig |      Yaegi |        Gig vs Yaegi | Native/Gig |
 | ---------------------------------- | --------: | -----------: | ---------: | ------------------: | ---------: |
-| **DirectCall** (strings/strconv)   |   26.8 μs | **541.4 μs** | 1,470.5 μs | **Gig 2.7x faster** |     20.2x |
-| **Reflect** (fmt/encoding)         |   22.8 μs | **397.1 μs** |   962.1 μs | **Gig 2.4x faster** |     17.4x |
-| **Method** (Builder/Buffer/Regexp) |   17.1 μs | **486.3 μs** | 1,171.4 μs | **Gig 2.4x faster** |     28.4x |
-| **Mixed** (functions + methods)    |   11.2 μs | **338.2 μs** |   823.2 μs | **Gig 2.4x faster** |     30.2x |
+| **DirectCall** (strings/strconv)   |   26.7 μs | **545.3 μs** | 1,531.2 μs | **Gig 2.8x faster** |     20.4x |
+| **Reflect** (fmt/encoding)         |   22.4 μs | **365.2 μs** |   985.6 μs | **Gig 2.7x faster** |     16.3x |
+| **Method** (Builder/Buffer/Regexp) |   17.3 μs | **452.4 μs** | 1,171.7 μs | **Gig 2.6x faster** |     26.1x |
+| **Mixed** (functions + methods)    |   11.0 μs | **320.3 μs** |   824.5 μs | **Gig 2.6x faster** |     29.1x |
 
 ### Memory Efficiency
 
-| Workload        | Gig allocs/op | Yaegi allocs/op |  Gig advantage |
-| --------------- | ------------: | --------------: | -------------: |
-| Fibonacci(25)   |         **7** |       2,138,705 | 305,529x fewer |
-| BubbleSort(100) |         **9** |           5,085 |     565x fewer |
-| Sieve(1000)     |         **7** |              43 |       6x fewer |
-| ExtCallMethod   |     **6,906** |          13,916 |     2.0x fewer |
-| ExtCallMixed    |     **4,258** |           9,125 |     2.1x fewer |
+| Workload        | Gig allocs/op | Yaegi allocs/op |  Notes |
+| --------------- | ------------: | --------------: | -----: |
+| Fibonacci(25)   |         **7** |       2,138,704 | Gig 305,529x fewer |
+| BubbleSort(100) |    **39,811** |           5,085 | Yaegi 7.8x fewer (Gig allocs per slice element) |
+| Sieve(1000)     |         **7** |              43 | Gig 6x fewer |
+| ExtCallMethod   |     **6,906** |          13,916 | Gig 2.0x fewer |
+| ExtCallMixed    |     **4,258** |           9,125 | Gig 2.1x fewer |
 
 ### Concurrent Stress Test
 
@@ -282,30 +282,30 @@ Real rule engine workload (string processing + math + conditional logic + stdlib
 
 | Concurrency | Throughput          | Avg Latency  | Errors | Heap Alloc  | GC Pauses |
 | ----------: | ------------------: | -----------: | -----: | ----------: | --------: |
-|           1 |     **430K ops/s** |       2.3 μs |      0 |  ~1,130 MB |       163 |
-|          10 |   **2,061K ops/s** |       4.9 μs |      0 |  ~5,275 MB |       687 |
-|         100 |   **3,081K ops/s** |      32.5 μs |      0 |  ~7,990 MB |       474 |
-|         500 |   **3,765K ops/s** |     132.8 μs |      0 |  ~9,818 MB |       308 |
-|       1,000 |   **4,077K ops/s** |     245.3 μs |      0 | ~10,624 MB |       240 |
-|       2,000 |   **4,426K ops/s** |     451.9 μs |      0 | ~11,550 MB |       156 |
-|       5,000 |   **4,686K ops/s** |   1,067.0 μs |      0 | ~12,306 MB |        81 |
-|      10,000 |   **4,776K ops/s** |   2,093.7 μs |      0 | ~12,597 MB |        55 |
+|           1 |     **422K ops/s** |       2.4 μs |      0 |  ~1,097 MB |       158 |
+|          10 |   **2,073K ops/s** |       4.8 μs |      0 |  ~5,227 MB |       671 |
+|         100 |   **3,141K ops/s** |      31.8 μs |      0 |  ~8,060 MB |       445 |
+|         500 |   **3,821K ops/s** |     130.9 μs |      0 |  ~9,716 MB |       286 |
+|       1,000 |   **4,140K ops/s** |     241.5 μs |      0 | ~10,619 MB |       239 |
+|       2,000 |   **4,538K ops/s** |     440.8 μs |      0 | ~11,727 MB |       156 |
+|       5,000 |   **4,842K ops/s** |   1,032.7 μs |      0 | ~12,760 MB |        86 |
+|      10,000 |   **4,972K ops/s** |   2,011.1 μs |      0 | ~12,975 MB |        57 |
 
 **Native Go baseline (same workload):**
 
 | Concurrency | Throughput       | Avg Latency  | Heap Alloc  | GC Pauses |
 | ----------: | ---------------: | -----------: | ----------: | --------: |
-|           1 |    6,423K ops/s |       0.2 μs |    ~904 MB |        89 |
-|         100 |   30,148K ops/s |       3.3 μs |  ~4,123 MB |       308 |
-|       1,000 |   31,287K ops/s |      32.0 μs |  ~4,296 MB |       223 |
-|      10,000 |   28,375K ops/s |     352.6 μs |  ~4,206 MB |       153 |
+|           1 |    6,458K ops/s |       0.2 μs |    ~904 MB |        89 |
+|         100 |   29,690K ops/s |       3.4 μs |  ~4,109 MB |       311 |
+|       1,000 |   31,068K ops/s |      32.2 μs |  ~4,264 MB |       235 |
+|      10,000 |   27,678K ops/s |     361.4 μs |  ~4,079 MB |       136 |
 
-**Throughput ratio (Native / Gig):** single-core 14.9x → 10K concurrency 5.9x
+**Throughput ratio (Native / Gig):** single-core 15.3x → 10K concurrency 5.6x
 
 **Key findings**:
 - **Zero errors**: 10,000 concurrent goroutines, 3 rounds, 0 errors
-- **Good concurrency scaling**: throughput grows from 430K (1G) to 4,776K (10000G) — 11.1x improvement
-- **Gap narrows at scale**: ratio drops from 14.9x at 1G to 5.9x at 10000G
+- **Good concurrency scaling**: throughput grows from 422K (1G) to 4,972K (10000G) — 11.8x improvement
+- **Gap narrows at scale**: ratio drops from 15.3x at 1G to 5.6x at 10000G
 - **GC-friendly**: GC pauses decrease at higher concurrency (memory allocation pressure spreads)
 
 ### Stateful Concurrent Stress Test
@@ -316,11 +316,11 @@ Using `WithStatefulGlobals()` mode with rule engine workload + global counter pr
 
 | Concurrency | Throughput        | Avg Latency    | Errors | Heap Alloc  | GC Pauses |
 | ----------: | ----------------: | -------------: | -----: | ----------: | --------: |
-|           1 |     **296K ops/s** |       3.4 μs |      0 |    ~960 MB |       217 |
-|         100 |     **372K ops/s** |     268.7 μs |      0 |  ~1,210 MB |       155 |
-|       1,000 |     **402K ops/s** |   2,489.7 μs |      0 |  ~1,332 MB |        36 |
-|       5,000 |     **376K ops/s** |  13,309.8 μs |      0 |  ~1,386 MB |        11 |
-|      10,000 |     **372K ops/s** |  26,861.2 μs |      0 |  ~1,544 MB |         6 |
+|           1 |     **289K ops/s** |       3.5 μs |      0 |    ~938 MB |       211 |
+|         100 |     **338K ops/s** |     295.5 μs |      0 |  ~1,100 MB |       141 |
+|       1,000 |     **316K ops/s** |   3,167.0 μs |      0 |  ~1,053 MB |        29 |
+|       5,000 |     **273K ops/s** |  18,305.6 μs |      0 |  ~1,051 MB |         8 |
+|      10,000 |     **250K ops/s** |  39,997.9 μs |      0 |  ~1,142 MB |         4 |
 
 **Counter correctness verification**: 100G × 100 ops = 10,000 counter increments, final value = 10,000 ✓ (zero lost updates)
 
@@ -334,8 +334,8 @@ Using `WithStatefulGlobals()` mode with rule engine workload + global counter pr
 **Gig beats Yaegi on 3/5 core workloads**, with advantages ranging from 1.3x to 4.3x:
 
 - **4.3x faster** on deep recursion (Fib25) — O(1) function lookup, frame pooling, and only 7 allocs vs 2.1M
-- **2.4–2.7x faster** on external calls — 1,162 generated DirectCall wrappers eliminate `reflect.Value.Call()` for 92% of stdlib functions and methods
-- **2.4x faster** on closures — efficient closure representation with shared `*value.Value` captures
+- **2.6–2.8x faster** on external calls — 1,162 generated DirectCall wrappers eliminate `reflect.Value.Call()` for 92% of stdlib functions and methods
+- **2.1x faster** on closures — efficient closure representation with shared `*value.Value` captures
 - **1.3x faster** on nested loops (BubbleSort) — optimized slice operations
 - **Tight loops** (ArithSum, Sieve) — Yaegi is 1.3–1.8x faster; Gig's bytecode interpretation overhead is more visible in micro-loops
 

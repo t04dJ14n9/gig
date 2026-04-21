@@ -16,9 +16,16 @@ import (
 func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string, receiver value.Value) (value.Value, bool) {
 	rv, ok := receiver.ReflectValue()
 	if !ok {
-		return value.MakeNil(), false
+		// Fallback: try Interface() → reflect.ValueOf
+		iface := receiver.Interface()
+		if iface == nil {
+			return value.MakeNil(), false
+		}
+		rv = reflect.ValueOf(iface)
 	}
-	if rv.Kind() == reflect.Interface && !rv.IsNil() {
+	// Unwrap interface layers — the receiver may be stored as an interface{} reflect.Value
+	// (e.g., when passed through fmt.Sprint → FmtWrap → resolveErrorer → callMethod).
+	for rv.Kind() == reflect.Interface && !rv.IsNil() {
 		rv = rv.Elem()
 	}
 
@@ -78,8 +85,9 @@ func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string,
 		// inside an interface{} box causes reflect.Set panics when the method
 		// body accesses fields on it.
 		methodReceiver := receiver
-		if rv, ok := receiver.ReflectValue(); ok && rv.IsValid() {
-			// Re-wrap through the concrete type to strip any interface{} layer.
+		// Use the already-unwrapped rv (not receiver.ReflectValue()) to avoid
+		// re-wrapping an interface{} layer.
+		if rv.IsValid() {
 			concrete := reflect.New(rv.Type()).Elem()
 			concrete.Set(rv)
 			methodReceiver = value.MakeFromReflect(concrete)
