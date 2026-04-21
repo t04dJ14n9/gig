@@ -319,21 +319,39 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			// Native int array/slice → []int64 fast path
 			// SSA compiles make([]int, N) with constant N as Alloc([N]int) + Slice,
 			// so we intercept it here to produce a native []int64.
-			if (rv.Kind() == reflect.Array || rv.Kind() == reflect.Slice) && rv.Type().Elem().Kind() == reflect.Int {
-				n := rv.Len()
+			//
+			// IMPORTANT: For arrays, we must NOT copy to []int64 because that
+			// breaks shared-underlying-array semantics (e.g., a[1:3] and a[2:4]
+			// must share memory). Use rv.Slice() instead which preserves sharing.
+			// For slices from reflect, also use rv.Slice() to preserve sharing.
+			// The []int64 fast path is only used when the source is already
+			// a native []int64 (handled by the IntSlice() check above).
+			if rv.Kind() == reflect.Array && rv.Type().Elem().Kind() == reflect.Int {
 				high := int(highVal.Int())
 				if high == sliceEndSentinel {
-					high = n
+					high = rv.Len()
 				}
-				s := make([]int64, n)
-				for i := 0; i < n; i++ {
-					s[i] = rv.Index(i).Int()
-				}
+				var sliced reflect.Value
 				if maxVal.Kind() != value.KindNil && maxVal.Int() != sliceEndSentinel {
-					v.push(value.MakeIntSlice(s[low:high:int(maxVal.Int())]))
+					sliced = rv.Slice3(low, high, int(maxVal.Int()))
 				} else {
-					v.push(value.MakeIntSlice(s[low:high]))
+					sliced = rv.Slice(low, high)
 				}
+				v.push(value.MakeFromReflect(sliced))
+				break
+			}
+			if rv.Kind() == reflect.Slice && rv.Type().Elem().Kind() == reflect.Int {
+				high := int(highVal.Int())
+				if high == sliceEndSentinel {
+					high = rv.Len()
+				}
+				var sliced reflect.Value
+				if maxVal.Kind() != value.KindNil && maxVal.Int() != sliceEndSentinel {
+					sliced = rv.Slice3(low, high, int(maxVal.Int()))
+				} else {
+					sliced = rv.Slice(low, high)
+				}
+				v.push(value.MakeFromReflect(sliced))
 				break
 			}
 
