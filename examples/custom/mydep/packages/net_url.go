@@ -178,9 +178,11 @@ func direct_method_net_url_URL_IsAbs(args []value.Value) value.Value {
 
 func direct_method_net_url_URL_JoinPath(args []value.Value) value.Value {
 	recv := args[0].Interface().(*net_url.URL)
-	varArgs := make([]string, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].String()
+	var varArgs []string
+	if len(args) > 1 {
+		if sl, ok := args[1].Interface().([]string); ok {
+			varArgs = sl
+		}
 	}
 	return value.FromInterface(recv.JoinPath(varArgs...))
 }
