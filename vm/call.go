@@ -449,6 +449,17 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 		args[0] = value.MakeFromReflect(rv)
 	}
 
+	// Nil pointer check for non-interface dispatch (e.g., free variables
+	// that lost the interface wrapper). In Go, calling any method on a
+	// nil *T through an interface panics because the runtime dereferences
+	// the pointer. When the value arrives here as a raw nil pointer (not
+	// wrapped in an interface), we must also panic to match Go semantics.
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		v.panicking = true
+		v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
+		return nil
+	}
+
 	// Look up the method by name
 	method, found := findMethod(rv, methodInfo.MethodName, args)
 	if !found {
@@ -573,10 +584,16 @@ func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram)
 	if rv.Kind() == reflect.Interface && !rv.IsNil() {
 		rv = rv.Elem()
 	}
+	var t reflect.Type
 	if rv.Kind() == reflect.Ptr {
-		rv = rv.Elem()
+		// Use the pointer's element type without dereferencing the value.
+		// This avoids panic on nil pointers (rv.Elem() on nil *T returns zero Value).
+		t = rv.Type().Elem()
+	} else if rv.IsValid() {
+		t = rv.Type()
+	} else {
+		return ""
 	}
-	t := rv.Type()
 	if t.Name() != "" {
 		return t.Name()
 	}
