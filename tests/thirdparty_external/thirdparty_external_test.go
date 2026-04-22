@@ -124,6 +124,15 @@ var mahoniaSrc string
 //go:embed testdata/iso8601_source.go
 var iso8601Src string
 
+//go:embed testdata/gjson_source.go
+var gjsonSrc string
+
+//go:embed testdata/sjson_source.go
+var sjsonSrc string
+
+//go:embed testdata/carbon_source.go
+var carbonSrc string
+
 type caseItem struct {
 	funcName string
 	args     []any
@@ -974,6 +983,135 @@ func TestThirdpartyExternal_Iso8601(t *testing.T) {
 			"parse":          {funcName: "Iso8601Parse", args: nil, want: "2024-06-15"},
 			"parse string":   {funcName: "Iso8601ParseString", args: nil, want: "10:30:00"},
 			"parse offset":   {funcName: "Iso8601ParseWithOffset", args: nil, want: "10"},
+		},
+	})
+}
+
+// --- gjson ---
+
+func TestThirdpartyExternal_Gjson(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: gjsonSrc,
+		cases: map[string]caseItem{
+			"get name":      {funcName: "GjsonGetName", args: []any{`{"name": "Alice"}`}, want: "Alice"},
+			"get age":       {funcName: "GjsonGetAge", args: []any{`{"age": 30}`}, want: int64(30)},
+			"nested":        {funcName: "GjsonGetNested", args: []any{`{"user": {"name": "Bob"}}`}, want: "Bob"},
+			"array access":  {funcName: "GjsonArrayAccess", args: []any{`{"items": [{"name": "first"}]}`}, want: "first"},
+			"exists true":   {funcName: "GjsonExists", args: []any{`{"name": "test"}`}, want: true},
+			"exists false":  {funcName: "GjsonNotExists", args: []any{`{"name": "test"}`}, want: false},
+			"bool true":     {funcName: "GjsonBoolValue", args: []any{`{"active": true}`}, want: true},
+			"bool false":    {funcName: "GjsonBoolValue", args: []any{`{"active": false}`}, want: false},
+			"float":         {funcName: "GjsonFloatValue", args: []any{`{"price": 19.99}`}, want: 19.99},
+			"uint":          {funcName: "GjsonUintValue", args: []any{`{"count": 100}`}, want: uint64(100)},
+			"simple path":   {funcName: "GjsonGetPath", args: []any{`{"a": {"b": "c"}}`, "a.b"}, want: "c"},
+			"array index":   {funcName: "GjsonGetPath", args: []any{`{"items": ["x", "y", "z"]}`, "items.1"}, want: "y"},
+			"get many":      {funcName: "GjsonGetMany", args: []any{`{"name": "Alice", "age": 30}`}, want: "Alice:30"},
+			"valid JSON":    {funcName: "GjsonValid", args: []any{`{"valid": true}`}, want: true},
+			"invalid JSON":  {funcName: "GjsonValid", args: []any{`{invalid}`}, want: false},
+			"parse and get": {funcName: "GjsonParseAndGet", args: []any{`{"name": "test"}`}, want: "test"},
+			"deep nested":   {funcName: "GjsonDeepNested", args: []any{`{"data": {"items": [{"name": "first", "subItems": [{"value": "a"}, {"value": "b"}]}]}}`}, want: "b"},
+			"multi paths":   {funcName: "GjsonMultiplePaths", args: []any{`{"a": "hello", "b": 42, "c": true}`}, want: "hello:42:true"},
+			"array length":  {funcName: "GjsonGetArrayLength", args: []any{`{"items": [1,2,3,4,5]}`}, want: int64(5)},
+			"is array":      {funcName: "GjsonIsArray", args: []any{`{"items": [1,2,3]}`}, want: true},
+			"is object":     {funcName: "GjsonIsObject", args: []any{`{"user": {"name": "x"}}`}, want: true},
+			"map values":    {funcName: "GjsonMapValues", args: []any{`{"user": {"name": "Bob", "age": 25}}`}, want: "Bob"},
+		},
+	})
+}
+
+// --- sjson ---
+
+func TestThirdpartyExternal_Sjson(t *testing.T) {
+	// Set operations — check the result contains the expected value
+	prog, err := gig.Build(sjsonSrc)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	setCases := []struct {
+		name     string
+		funcName string
+		args     []any
+		contains string
+	}{
+		{"set name", "SjsonSetName", []any{`{"name": "old"}`, "new"}, `"new"`},
+		{"set age", "SjsonSetAge", []any{`{}`, int(25)}, `25`},
+		{"set nested", "SjsonSetNested", []any{`{}`, "Beijing"}, `"Beijing"`},
+		{"set bool true", "SjsonSetBool", []any{`{}`, true}, `true`},
+		{"set bool false", "SjsonSetBool", []any{`{}`, false}, `false`},
+		{"set float", "SjsonSetFloat", []any{`{}`, 9.99}, `9.99`},
+		{"set null", "SjsonSetNull", []any{`{}`}, `null`},
+		{"set raw", "SjsonSetRaw", []any{`{}`, `{"x":1}`}, `{"x":1}`},
+	}
+
+	for _, tc := range setCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := prog.Run(tc.funcName, tc.args...)
+			if err != nil {
+				t.Fatalf("Run %s failed: %v", tc.funcName, err)
+			}
+			s, ok := got.(string)
+			if !ok {
+				t.Fatalf("%s: expected string, got %T", tc.name, got)
+			}
+			if !strings.Contains(s, tc.contains) {
+				t.Errorf("%s: expected result to contain %q, got %q", tc.name, tc.contains, s)
+			}
+		})
+	}
+
+	// Delete operations — exact match
+	runSourceSet(t, sourceSet{
+		src: sjsonSrc,
+		cases: map[string]caseItem{
+			"delete name":     {funcName: "SjsonDeleteField", args: []any{`{"name": "Alice", "age": 30}`, "name"}, want: `{ "age": 30}`},
+			"delete nested":   {funcName: "SjsonDeleteNested", args: []any{`{"address": {"city": "Beijing", "zip": "100000"}}`}, want: `{"address": {"city": "Beijing"}}`},
+		},
+	})
+}
+
+// --- carbon ---
+
+func TestThirdpartyExternal_Carbon(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: carbonSrc,
+		cases: map[string]caseItem{
+			"parse date":       {funcName: "CarbonParseDate", args: []any{"2024-01-15"}, want: "2024-01-15"},
+			"create from date": {funcName: "CarbonCreateFromDate", args: []any{int64(2024), int64(6), int64(15)}, want: "2024-06-15"},
+			"create from time": {funcName: "CarbonCreateFromTime", args: []any{int64(14), int64(30), int64(0)}, want: "14:30:00"},
+			"create datetime":  {funcName: "CarbonCreateFromDateTime", args: []any{int64(2024), int64(3), int64(20), int64(10), int64(0), int64(0)}, want: "2024-03-20 10:00:00"},
+			"add 1 day":        {funcName: "CarbonAddDays", args: []any{"2024-01-15", int64(1)}, want: "2024-01-16"},
+			"add 10 days":      {funcName: "CarbonAddDays", args: []any{"2024-01-15", int64(10)}, want: "2024-01-25"},
+			"sub 1 day":        {funcName: "CarbonSubDays", args: []any{"2024-01-15", int64(1)}, want: "2024-01-14"},
+			"sub 15 days":      {funcName: "CarbonSubDays", args: []any{"2024-01-15", int64(15)}, want: "2023-12-31"},
+			"add 1 month":      {funcName: "CarbonAddMonths", args: []any{"2024-01-31", int64(1)}, want: "2024-03-02"},
+			"add 1 year":       {funcName: "CarbonAddYears", args: []any{"2024-01-15", int64(1)}, want: "2025-01-15"},
+			"add 2 hours":      {funcName: "CarbonAddHours", args: []any{"2024-01-15 10:00:00", int64(2)}, want: "12:00:00"},
+			"add 30 min":       {funcName: "CarbonAddMinutes", args: []any{"2024-01-15 10:00:00", int64(30)}, want: "10:30:00"},
+			"start of day":     {funcName: "CarbonStartOfDay", args: []any{"2024-01-15"}, want: "2024-01-15 00:00:00"},
+			"end of day":       {funcName: "CarbonEndOfDay", args: []any{"2024-01-15"}, want: "2024-01-15 23:59:59"},
+			"start of month":   {funcName: "CarbonStartOfMonth", args: []any{"2024-01-15"}, want: "2024-01-01"},
+			"end of month":     {funcName: "CarbonEndOfMonth", args: []any{"2024-01-15"}, want: "2024-01-31"},
+			"start of year":    {funcName: "CarbonStartOfYear", args: []any{"2024-06-15"}, want: "2024-01-01"},
+			"end of year":      {funcName: "CarbonEndOfYear", args: []any{"2024-06-15"}, want: "2024-12-31"},
+			"is weekend true":  {funcName: "CarbonIsWeekend", args: []any{"2024-01-13"}, want: true},
+			"is weekend false": {funcName: "CarbonIsWeekend", args: []any{"2024-01-15"}, want: false},
+			"is leap 2024":     {funcName: "CarbonIsLeapYear", args: []any{"2024-01-01"}, want: true},
+			"is leap 2023":     {funcName: "CarbonIsLeapYear", args: []any{"2023-01-01"}, want: false},
+			"day of week":      {funcName: "CarbonDayOfWeek", args: []any{"2024-01-15"}, want: 1},
+			"day of year":      {funcName: "CarbonDayOfYear", args: []any{"2024-01-15"}, want: 15},
+			"month":            {funcName: "CarbonMonth", args: []any{"2024-01-15"}, want: 1},
+			"year":             {funcName: "CarbonYear", args: []any{"2024-01-15"}, want: 2024},
+			"days in jan":      {funcName: "CarbonDaysInMonth", args: []any{"2024-01-15"}, want: 31},
+			"days in feb leap": {funcName: "CarbonDaysInMonth", args: []any{"2024-02-15"}, want: 29},
+			"days in feb norm": {funcName: "CarbonDaysInMonth", args: []any{"2023-02-15"}, want: 28},
+			"timestamp":        {funcName: "CarbonToTimestamp", args: []any{"2024-01-01 00:00:00"}, want: int64(1704067200)},
+			"rfc3339":          {funcName: "CarbonToRfc3339", args: []any{"2024-01-15 10:30:00"}, want: "2024-01-15T10:30:00Z"},
+			"iso8601":          {funcName: "CarbonToIso8601", args: []any{"2024-01-15 10:30:00"}, want: "2024-01-15T10:30:00+00:00"},
+			"layout":           {funcName: "CarbonLayoutFormat", args: []any{"2024-01-15", "2006/01/02"}, want: "2024/01/15"},
+			"layout time":      {funcName: "CarbonLayoutFormat", args: []any{"2024-01-15 14:30:00", "15:04:05"}, want: "14:30:00"},
+			"parse and fmt":    {funcName: "CarbonParseAndFormat", args: []any{"2024-06-15"}, want: "2024-6-15"},
+			"ts conversion":    {funcName: "CarbonTimestampConversion", args: []any{"2024-01-01 00:00:00"}, want: "1704067200"},
 		},
 	})
 }

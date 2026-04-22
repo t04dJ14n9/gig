@@ -72,6 +72,7 @@ import (
 
 	_ "github.com/acarl005/stripansi"
 	_ "github.com/axgle/mahonia"
+	_ "github.com/dromara/carbon/v2"
 	_ "github.com/gosimple/slug"
 	_ "github.com/hako/durafmt"
 	_ "github.com/lithammer/fuzzysearch/fuzzy"
@@ -80,4 +81,6 @@ import (
 	_ "github.com/mozillazg/go-unidecode"
 	_ "github.com/relvacode/iso8601"
 	_ "github.com/rivo/uniseg"
+	_ "github.com/tidwall/gjson"
+	_ "github.com/tidwall/sjson"
 )
