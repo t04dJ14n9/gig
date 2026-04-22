@@ -94,6 +94,36 @@ var ewmaSrc string
 //go:embed testdata/shellquote_source.go
 var shellquoteSrc string
 
+//go:embed testdata/stripansi_source.go
+var stripansiSrc string
+
+//go:embed testdata/runewidth_source.go
+var runewidthSrc string
+
+//go:embed testdata/uniseg_source.go
+var unisegSrc string
+
+//go:embed testdata/ansi_source.go
+var ansiSrc string
+
+//go:embed testdata/unidecode_source.go
+var unidecodeSrc string
+
+//go:embed testdata/fuzzy_source.go
+var fuzzySrc string
+
+//go:embed testdata/slug_source.go
+var slugSrc string
+
+//go:embed testdata/durafmt_source.go
+var durafmtSrc string
+
+//go:embed testdata/mahonia_source.go
+var mahoniaSrc string
+
+//go:embed testdata/iso8601_source.go
+var iso8601Src string
+
 type caseItem struct {
 	funcName string
 	args     []any
@@ -688,4 +718,262 @@ func TestThirdpartyExternal_Shellquote(t *testing.T) {
 	if !ok || len(s) == 0 {
 		t.Fatalf("ShellquoteJoin: expected non-empty string, got %v (%T)", got, got)
 	}
+}
+
+// --- stripansi ---
+
+func TestThirdpartyExternal_Stripansi(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: stripansiSrc,
+		cases: map[string]caseItem{
+			"strip":   {funcName: "StripansiStrip", args: nil, want: "hello"},
+			"plain":   {funcName: "StripansiPlain", args: nil, want: "plain text"},
+			"multi":   {funcName: "StripansiMultiple", args: nil, want: "green yellow"},
+		},
+	})
+}
+
+// --- runewidth ---
+
+func TestThirdpartyExternal_Runewidth(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: runewidthSrc,
+		cases: map[string]caseItem{
+			"rune width":  {funcName: "RunewidthRuneWidth", args: nil, want: 2},
+			"fill left":   {funcName: "RunewidthFillLeft", args: nil, want: "      1234"},
+			"fill right":  {funcName: "RunewidthFillRight", args: nil, want: "1234      "},
+			"truncate":    {funcName: "RunewidthTruncate", args: nil, want: "Hello..."},
+		},
+	})
+
+	// StringWidth and Wrap output depends on EastAsianWidth
+	prog, err := gig.Build(runewidthSrc)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	got, err := prog.Run("RunewidthStringWidth")
+	if err != nil {
+		t.Fatalf("Run RunewidthStringWidth failed: %v", err)
+	}
+	if got.(int) < 7 {
+		t.Fatalf("RunewidthStringWidth: expected >= 7, got %v", got)
+	}
+	got, err = prog.Run("RunewidthWrap")
+	if err != nil {
+		t.Fatalf("Run RunewidthWrap failed: %v", err)
+	}
+	s, ok := got.(string)
+	if !ok || len(s) == 0 {
+		t.Fatalf("RunewidthWrap: expected non-empty string, got %v (%T)", got, got)
+	}
+}
+
+// --- uniseg ---
+
+func TestThirdpartyExternal_Uniseg(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: unisegSrc,
+		cases: map[string]caseItem{
+			"grapheme count":    {funcName: "UnisegGraphemeClusterCount", args: nil, want: 2},
+			"has newline":       {funcName: "UnisegHasNewline", args: nil, want: true},
+		},
+	})
+
+	// StringWidth and WordCount depend on locale/settings
+	prog, err := gig.Build(unisegSrc)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	got, err := prog.Run("UnisegStringWidth")
+	if err != nil {
+		t.Fatalf("Run UnisegStringWidth failed: %v", err)
+	}
+	if got.(int) < 7 {
+		t.Fatalf("UnisegStringWidth: expected >= 7, got %v", got)
+	}
+	got, err = prog.Run("UnisegWordCount")
+	if err != nil {
+		t.Fatalf("Run UnisegWordCount failed: %v", err)
+	}
+	if got.(int) < 4 {
+		t.Fatalf("UnisegWordCount: expected >= 4, got %v", got)
+	}
+
+	// FirstGraphemeCluster returns a non-empty string
+	got, err = prog.Run("UnisegFirstGraphemeCluster")
+	if err != nil {
+		t.Fatalf("Run UnisegFirstGraphemeCluster failed: %v", err)
+	}
+	s, ok := got.(string)
+	if !ok || len(s) == 0 {
+		t.Fatalf("UnisegFirstGraphemeCluster: expected non-empty string, got %v (%T)", got, got)
+	}
+}
+
+// --- ansi ---
+
+func TestThirdpartyExternal_Ansi(t *testing.T) {
+	// Color returns string with ANSI escape codes wrapping the text
+	prog, err := gig.Build(ansiSrc)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	got, err := prog.Run("AnsiColor")
+	if err != nil {
+		t.Fatalf("Run AnsiColor failed: %v", err)
+	}
+	s, ok := got.(string)
+	if !ok || !strings.Contains(s, "hello") {
+		t.Fatalf("AnsiColor: expected string containing 'hello', got %q", got)
+	}
+
+	// ColorFunc produces ANSI escape codes
+	got, err = prog.Run("AnsiColorFunc")
+	if err != nil {
+		t.Fatalf("Run AnsiColorFunc failed: %v", err)
+	}
+	s, ok = got.(string)
+	if !ok || !strings.Contains(s, "world") {
+		t.Fatalf("AnsiColorFunc: expected string containing 'world', got %q", got)
+	}
+
+	// ColorCode returns ANSI escape code string
+	got, err = prog.Run("AnsiColorCode")
+	if err != nil {
+		t.Fatalf("Run AnsiColorCode failed: %v", err)
+	}
+	s, ok = got.(string)
+	if !ok || !strings.HasPrefix(s, "\x1b[") {
+		t.Fatalf("AnsiColorCode: expected ANSI escape code, got %q", got)
+	}
+
+	got, err = prog.Run("AnsiReset")
+	if err != nil {
+		t.Fatalf("Run AnsiReset failed: %v", err)
+	}
+	s, ok = got.(string)
+	if !ok || !strings.HasPrefix(s, "\x1b[") {
+		t.Fatalf("AnsiReset: expected ANSI escape code, got %q", got)
+	}
+}
+
+// --- unidecode ---
+
+func TestThirdpartyExternal_Unidecode(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: unidecodeSrc,
+		cases: map[string]caseItem{
+			"transliterate": {funcName: "UnidecodeUnidecode", args: nil, want: "Bei Jing kozuscek"},
+			"plain":         {funcName: "UnidecodePlain", args: nil, want: "Hello World"},
+		},
+	})
+
+	// Version returns a non-empty string
+	prog, err := gig.Build(unidecodeSrc)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	got, err := prog.Run("UnidecodeVersion")
+	if err != nil {
+		t.Fatalf("Run UnidecodeVersion failed: %v", err)
+	}
+	s, ok := got.(string)
+	if !ok || len(s) == 0 {
+		t.Fatalf("UnidecodeVersion: expected non-empty string, got %v (%T)", got, got)
+	}
+}
+
+// --- fuzzy ---
+
+func TestThirdpartyExternal_Fuzzy(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: fuzzySrc,
+		cases: map[string]caseItem{
+			"match":       {funcName: "FuzzyMatch", args: nil, want: true},
+			"match fold":  {funcName: "FuzzyMatchFold", args: nil, want: true},
+			"find count":  {funcName: "FuzzyFind", args: nil, want: 2},
+			"lev distance": {funcName: "FuzzyLevenshteinDistance", args: nil, want: 3},
+		},
+	})
+
+	// RankMatch returns a non-negative score for matches
+	prog, err := gig.Build(fuzzySrc)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	got, err := prog.Run("FuzzyRankMatch")
+	if err != nil {
+		t.Fatalf("Run FuzzyRankMatch failed: %v", err)
+	}
+	if got.(int) <= 0 {
+		t.Fatalf("FuzzyRankMatch: expected positive score, got %v", got)
+	}
+}
+
+// --- slug ---
+
+func TestThirdpartyExternal_Slug(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: slugSrc,
+		cases: map[string]caseItem{
+			"make":       {funcName: "SlugMake", args: nil, want: "hello-world-khello-vorld"},
+			"make lang":  {funcName: "SlugMakeLang", args: nil, want: "diese-und-dass"},
+			"is slug":    {funcName: "SlugIsSlug", args: nil, want: true},
+			"not slug":   {funcName: "SlugIsSlugInvalid", args: nil, want: false},
+			"substitute": {funcName: "SlugSubstitute", args: nil, want: "Hello Go"},
+		},
+	})
+}
+
+// --- durafmt ---
+
+func TestThirdpartyExternal_Durafmt(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: durafmtSrc,
+		cases: map[string]caseItem{
+			"duration": {funcName: "DurafmtDuration", args: nil, want: int64(5400000000000)},
+		},
+	})
+
+	// Parse and Format produce human-readable strings
+	prog, err := gig.Build(durafmtSrc)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	for _, name := range []string{"DurafmtParse", "DurafmtParseShort", "DurafmtLimitFirstN"} {
+		got, err := prog.Run(name)
+		if err != nil {
+			t.Fatalf("Run %s failed: %v", name, err)
+		}
+		s, ok := got.(string)
+		if !ok || len(s) == 0 {
+			t.Fatalf("%s: expected non-empty string, got %v (%T)", name, got, got)
+		}
+	}
+}
+
+// --- mahonia ---
+
+func TestThirdpartyExternal_Mahonia(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: mahoniaSrc,
+		cases: map[string]caseItem{
+			"get charset utf8": {funcName: "MahoniaGetCharset", args: nil, want: "UTF-8"},
+			"get charset gbk":  {funcName: "MahoniaGetCharsetGbk", args: nil, want: "GBK"},
+			"register charset": {funcName: "MahoniaRegisterCharset", args: nil, want: "test-charset"},
+		},
+	})
+}
+
+// --- iso8601 ---
+
+func TestThirdpartyExternal_Iso8601(t *testing.T) {
+	runSourceSet(t, sourceSet{
+		src: iso8601Src,
+		cases: map[string]caseItem{
+			"parse":          {funcName: "Iso8601Parse", args: nil, want: "2024-06-15"},
+			"parse string":   {funcName: "Iso8601ParseString", args: nil, want: "10:30:00"},
+			"parse offset":   {funcName: "Iso8601ParseWithOffset", args: nil, want: "10"},
+		},
+	})
 }

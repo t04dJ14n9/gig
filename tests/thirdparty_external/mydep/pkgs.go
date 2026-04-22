@@ -69,4 +69,15 @@ import (
 	_ "github.com/mattn/go-isatty"
 	_ "github.com/mohae/deepcopy"
 	_ "github.com/spf13/pflag"
+
+	_ "github.com/acarl005/stripansi"
+	_ "github.com/axgle/mahonia"
+	_ "github.com/gosimple/slug"
+	_ "github.com/hako/durafmt"
+	_ "github.com/lithammer/fuzzysearch/fuzzy"
+	_ "github.com/mattn/go-runewidth"
+	_ "github.com/mgutz/ansi"
+	_ "github.com/mozillazg/go-unidecode"
+	_ "github.com/relvacode/iso8601"
+	_ "github.com/rivo/uniseg"
 )
