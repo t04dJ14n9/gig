@@ -52,9 +52,11 @@ func direct_path_IsAbs(args []value.Value) value.Value {
 }
 
 func direct_path_Join(args []value.Value) value.Value {
-	varArgs := make([]string, len(args)-0)
+	varArgs := make([]string, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.MakeString(string(path.Join(varArgs...)))
 }

@@ -134,18 +134,22 @@ func direct_text_template_New(args []value.Value) value.Value {
 
 func direct_text_template_ParseFS(args []value.Value) value.Value {
 	a0 := args[0].Interface().(io_fs.FS)
-	varArgs := make([]string, len(args)-1)
+	varArgs := make([]string, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	r0, r1 := text_template.ParseFS(a0, varArgs...)
 	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
 }
 
 func direct_text_template_ParseFiles(args []value.Value) value.Value {
-	varArgs := make([]string, len(args)-0)
+	varArgs := make([]string, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	r0, r1 := text_template.ParseFiles(varArgs...)
 	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
@@ -245,6 +249,12 @@ func direct_method_text_template_Template_Option(args []value.Value) value.Value
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.FromInterface(recv.Option(varArgs...))
@@ -264,6 +274,12 @@ func direct_method_text_template_Template_ParseFS(args []value.Value) value.Valu
 	if len(args) > 2 {
 		if sl, ok := args[2].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 2; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	r0, r1 := recv.ParseFS(a0, varArgs...)
@@ -276,6 +292,12 @@ func direct_method_text_template_Template_ParseFiles(args []value.Value) value.V
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	r0, r1 := recv.ParseFiles(varArgs...)

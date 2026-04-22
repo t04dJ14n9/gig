@@ -62,6 +62,184 @@ var customCallOverrides = map[string]map[string]func(argExprs []string) string{
 	},
 }
 
+// --- Shared helpers for DirectCall generation ---
+
+// resolveNamedBasicCast checks if a type is a named or alias type wrapping a basic
+// type and returns the cast expression for variadic element conversion.
+// Returns e.g. "color.Attribute(args[i].Int())" or "".
+func resolveNamedBasicCast(elemType types.Type, pkgRef string) string {
+	if named, ok := elemType.(*types.Named); ok {
+		if bt, ok := named.Underlying().(*types.Basic); ok {
+			basicExpr := extractBasic(bt, "args[i]")
+			qualName := resolveQualifiedName(named, pkgRef)
+			if basicExpr != "" && qualName != "" {
+				return fmt.Sprintf("%s(%s)", qualName, basicExpr)
+			}
+		}
+	}
+	if alias, ok := elemType.(*types.Alias); ok {
+		if bt, ok := alias.Underlying().(*types.Basic); ok {
+			basicExpr := extractBasic(bt, "args[i]")
+			obj := alias.Obj()
+			pkg := obj.Pkg()
+			if basicExpr != "" && pkg != nil {
+				return fmt.Sprintf("%s.%s(%s)", sanitizePkgName(pkg.Path()), obj.Name(), basicExpr)
+			}
+		}
+	}
+	return ""
+}
+
+// variadicConfig controls variadic argument code generation.
+type variadicConfig struct {
+	elemType  types.Type
+	pkgRef    string
+	fixedCnt  int       // number of fixed params (before variadic)
+	argsOff   int       // args index offset (0 for functions, 1 for methods after receiver)
+	isMethod  bool      // true for method DirectCalls (different variadic pattern)
+	useFmtWrap bool     // true for fmt.* functions (FmtWrap for Stringer dispatch)
+}
+
+// emitVariadicArgs generates variadic argument extraction code into the builder.
+// Returns the arg expression to append (e.g. "varArgs...") or "" on error.
+func emitVariadicArgs(b *strings.Builder, cfg variadicConfig) string {
+	elemType := cfg.elemType
+	pkgRef := cfg.pkgRef
+	fixedCnt := cfg.fixedCnt
+	argsOff := cfg.argsOff
+
+	// Named types wrapping interface{} (e.g., type DecodeHookFunc interface{})
+	// must use the named type for the slice, not []interface{}, because Go
+	// does not allow implicit conversion between them.
+	if isEmptyInterface(elemType) && !isNamedOrAlias(elemType) {
+		if cfg.isMethod {
+			// Method: compiler passes variadic args as a single slice at args[fixedCnt+1]
+			sliceIdx := fixedCnt + argsOff
+			fmt.Fprintf(b, "\tvar varArgs []interface{}\n")
+			fmt.Fprintf(b, "\tif len(args) > %d {\n", sliceIdx)
+			fmt.Fprintf(b, "\t\tif sl, ok := args[%d].Interface().([]interface{}); ok {\n", sliceIdx)
+			fmt.Fprintf(b, "\t\t\tvarArgs = sl\n")
+			fmt.Fprintf(b, "\t\t} else if sl, ok := args[%d].Interface().([]string); ok {\n", sliceIdx)
+			fmt.Fprintf(b, "\t\t\tvarArgs = make([]interface{}, len(sl))\n")
+			fmt.Fprintf(b, "\t\t\tfor i, s := range sl { varArgs[i] = s }\n")
+			fmt.Fprintf(b, "\t\t}\n")
+			fmt.Fprintf(b, "\t}\n")
+		} else {
+			// Function: args are spread across args[fixedCnt:]
+			wrapExpr := "args[i].Interface()"
+			if cfg.useFmtWrap {
+				wrapExpr = "value.FmtWrap(args[i])"
+			}
+			fmt.Fprintf(b, "\tvarArgs := make([]interface{}, len(args)-%d)\n", fixedCnt)
+			fmt.Fprintf(b, "\tfor i := %d; i < len(args); i++ {\n", fixedCnt)
+			fmt.Fprintf(b, "\t\tvarArgs[i-%d] = %s\n", fixedCnt, wrapExpr)
+			b.WriteString("\t}\n")
+		}
+		return "varArgs..."
+	}
+
+	elemTypeStr := resolveTypeName(elemType, pkgRef)
+	if elemTypeStr == "" {
+		return ""
+	}
+
+	namedBasicCast := resolveNamedBasicCast(elemType, pkgRef)
+
+	if cfg.isMethod {
+		// Method: compiler passes variadic args as a single slice at args[fixedCnt+1]
+		sliceIdx := fixedCnt + argsOff
+		fmt.Fprintf(b, "\tvar varArgs []%s\n", elemTypeStr)
+		fmt.Fprintf(b, "\tif len(args) > %d {\n", sliceIdx)
+		fmt.Fprintf(b, "\t\tif sl, ok := args[%d].Interface().([]%s); ok {\n", sliceIdx, elemTypeStr)
+		fmt.Fprintf(b, "\t\t\tvarArgs = sl\n")
+		fmt.Fprintf(b, "\t\t} else {\n")
+		emitVariadicElementLoop(b, elemTypeStr, namedBasicCast, sliceIdx)
+		b.WriteString("\t\t}\n")
+		fmt.Fprintf(b, "\t}\n")
+	} else {
+		// Function: args are spread across args[fixedCnt:]
+		if namedBasicCast != "" {
+			fmt.Fprintf(b, "\tvarArgs := make([]%s, 0, len(args)-%d)\n", elemTypeStr, fixedCnt)
+			fmt.Fprintf(b, "\tfor i := %d; i < len(args); i++ {\n", fixedCnt)
+			fmt.Fprintf(b, "\t\tif args[i].IsValid() {\n")
+			fmt.Fprintf(b, "\t\t\tvarArgs = append(varArgs, %s)\n", namedBasicCast)
+			b.WriteString("\t\t}\n")
+			b.WriteString("\t}\n")
+		} else {
+			fmt.Fprintf(b, "\tvarArgs := make([]%s, 0, len(args)-%d)\n", elemTypeStr, fixedCnt)
+			fmt.Fprintf(b, "\tfor i := %d; i < len(args); i++ {\n", fixedCnt)
+			fmt.Fprintf(b, "\t\tif v := args[i].Interface(); v != nil {\n")
+			fmt.Fprintf(b, "\t\t\tvarArgs = append(varArgs, v.(%s))\n", elemTypeStr)
+			b.WriteString("\t\t}\n")
+			b.WriteString("\t}\n")
+		}
+	}
+
+	return "varArgs..."
+}
+
+// emitVariadicElementLoop emits the element conversion loop for method variadic args
+// when the slice couldn't be directly asserted.
+func emitVariadicElementLoop(b *strings.Builder, elemTypeStr string, namedBasicCast string, startIdx int) {
+	if namedBasicCast != "" {
+		fmt.Fprintf(b, "\t\t\tfor i := %d; i < len(args); i++ {\n", startIdx)
+		fmt.Fprintf(b, "\t\t\t\tif args[i].IsValid() {\n")
+		fmt.Fprintf(b, "\t\t\t\t\tvarArgs = append(varArgs, %s)\n", namedBasicCast)
+		b.WriteString("\t\t\t\t}\n")
+		b.WriteString("\t\t\t}\n")
+	} else {
+		fmt.Fprintf(b, "\t\t\tfor i := %d; i < len(args); i++ {\n", startIdx)
+		fmt.Fprintf(b, "\t\t\t\tif v := args[i].Interface(); v != nil {\n")
+		fmt.Fprintf(b, "\t\t\t\t\tvarArgs = append(varArgs, v.(%s))\n", elemTypeStr)
+		b.WriteString("\t\t\t\t}\n")
+		b.WriteString("\t\t\t}\n")
+	}
+}
+
+// emitCallResults generates the result wrapping code for a DirectCall function.
+// Returns "" if any return type is unsupported.
+func emitCallResults(b *strings.Builder, results *types.Tuple, callExpr string, writebacks []*intSliceWriteback) string {
+	switch results.Len() {
+	case 0:
+		fmt.Fprintf(b, "\t%s\n", callExpr)
+		emitWritebacks(b, writebacks)
+		b.WriteString("\treturn value.MakeNil()\n")
+	case 1:
+		if len(writebacks) > 0 {
+			fmt.Fprintf(b, "\t_ret := %s\n", callExpr)
+			emitWritebacks(b, writebacks)
+			retExpr := wrapReturn(results.At(0).Type(), "_ret")
+			if retExpr == "" {
+				return ""
+			}
+			fmt.Fprintf(b, "\treturn %s\n", retExpr)
+		} else {
+			retExpr := wrapReturn(results.At(0).Type(), callExpr)
+			if retExpr == "" {
+				return ""
+			}
+			fmt.Fprintf(b, "\treturn %s\n", retExpr)
+		}
+	default:
+		// Multi-return (2-6 results): r0, r1, ... := call(...)
+		var retVars []string
+		for i := 0; i < results.Len(); i++ {
+			retVars = append(retVars, fmt.Sprintf("r%d", i))
+		}
+		fmt.Fprintf(b, "\t%s := %s\n", strings.Join(retVars, ", "), callExpr)
+		emitWritebacks(b, writebacks)
+		var wrapped []string
+		for i := 0; i < results.Len(); i++ {
+			w := wrapReturn(results.At(i).Type(), fmt.Sprintf("r%d", i))
+			wrapped = append(wrapped, w)
+		}
+		fmt.Fprintf(b, "\treturn value.MakeValueSlice([]value.Value{%s})\n", strings.Join(wrapped, ", "))
+	}
+	return "ok" // non-empty string indicates success
+}
+
+// --- Function DirectCall generation ---
+
 func generateDirectCall(fi *funcInfo, pkgRef string) string {
 	sig := fi.Sig
 	params := sig.Params()
@@ -93,10 +271,6 @@ func generateDirectCall(fi *funcInfo, pkgRef string) string {
 		return ""
 	}
 
-	// Determine if this function needs FmtWrap for interface{} args.
-	// fmt.* functions check for Stringer/Formatter interfaces, so they need wrapping.
-	useFmtWrap := isFmtPackage(pkgRef)
-
 	b := &strings.Builder{}
 	fmt.Fprintf(b, "func direct_%s_%s(args []value.Value) value.Value {\n", pkgRef, fi.Name)
 
@@ -127,37 +301,22 @@ func generateDirectCall(fi *funcInfo, pkgRef string) string {
 	if isVariadic {
 		sliceType := params.At(params.Len() - 1).Type().(*types.Slice)
 		elemType := sliceType.Elem()
-
-		if isEmptyInterface(elemType) {
-			// For fmt.* functions, use FmtWrap to enable Stringer dispatch.
-			// For everything else, use plain Interface() — encoding/sort/etc.
-			// work natively on the raw struct.
-			wrapExpr := "args[i].Interface()"
-			if useFmtWrap {
-				wrapExpr = "value.FmtWrap(args[i])"
-			}
-			fmt.Fprintf(b, "\tvarArgs := make([]interface{}, len(args)-%d)\n", fixedCount)
-			fmt.Fprintf(b, "\tfor i := %d; i < len(args); i++ {\n", fixedCount)
-			fmt.Fprintf(b, "\t\tvarArgs[i-%d] = %s\n", fixedCount, wrapExpr)
-			b.WriteString("\t}\n")
-			argExprs = append(argExprs, "varArgs...")
-		} else {
-			elemTypeStr := resolveTypeName(elemType, pkgRef)
-			elemExtract := extractArg(elemType, "args[i]", pkgRef)
-			if elemTypeStr == "" || elemExtract == "" {
-				return ""
-			}
-			fmt.Fprintf(b, "\tvarArgs := make([]%s, len(args)-%d)\n", elemTypeStr, fixedCount)
-			fmt.Fprintf(b, "\tfor i := %d; i < len(args); i++ {\n", fixedCount)
-			fmt.Fprintf(b, "\t\tvarArgs[i-%d] = %s\n", fixedCount, elemExtract)
-			b.WriteString("\t}\n")
-			argExprs = append(argExprs, "varArgs...")
+		varArgExpr := emitVariadicArgs(b, variadicConfig{
+			elemType:   elemType,
+			pkgRef:     pkgRef,
+			fixedCnt:   fixedCount,
+			argsOff:    0,
+			isMethod:   false,
+			useFmtWrap: isFmtPackage(pkgRef),
+		})
+		if varArgExpr == "" {
+			return ""
 		}
+		argExprs = append(argExprs, varArgExpr)
 	}
 
 	// For Sprintf-like functions (string, ...interface{}) string, use
 	// value.SprintfExtern to correctly handle %T with interpreter structs.
-	// This is a general approach — applies to any package, not just fmt.
 	var callExpr string
 	if isSprintfLike(fi) {
 		callExpr = fmt.Sprintf("value.SprintfExtern(%s)", strings.Join(argExprs, ", "))
@@ -171,563 +330,12 @@ func generateDirectCall(fi *funcInfo, pkgRef string) string {
 		callExpr = fmt.Sprintf("%s.%s(%s)", pkgRef, fi.Name, strings.Join(argExprs, ", "))
 	}
 
-	switch results.Len() {
-	case 0:
-		fmt.Fprintf(b, "\t%s\n", callExpr)
-		emitWritebacks(b, writebacks)
-		b.WriteString("\treturn value.MakeNil()\n")
-	case 1:
-		if len(writebacks) > 0 {
-			fmt.Fprintf(b, "\t_ret := %s\n", callExpr)
-			emitWritebacks(b, writebacks)
-			retExpr := wrapReturn(results.At(0).Type(), "_ret")
-			if retExpr == "" {
-				return ""
-			}
-			fmt.Fprintf(b, "\treturn %s\n", retExpr)
-		} else {
-			retExpr := wrapReturn(results.At(0).Type(), callExpr)
-			if retExpr == "" {
-				return ""
-			}
-			fmt.Fprintf(b, "\treturn %s\n", retExpr)
-		}
-	default:
-		// Multi-return (2-4 results): r0, r1, ... := call(...)
-		var retVars []string
-		for i := 0; i < results.Len(); i++ {
-			retVars = append(retVars, fmt.Sprintf("r%d", i))
-		}
-		fmt.Fprintf(b, "\t%s := %s\n", strings.Join(retVars, ", "), callExpr)
-		emitWritebacks(b, writebacks)
-		var wrapped []string
-		for i := 0; i < results.Len(); i++ {
-			w := wrapReturn(results.At(i).Type(), fmt.Sprintf("r%d", i))
-			wrapped = append(wrapped, w)
-		}
-		fmt.Fprintf(b, "\treturn value.MakeValueSlice([]value.Value{%s})\n", strings.Join(wrapped, ", "))
+	if emitCallResults(b, results, callExpr, writebacks) == "" {
+		return ""
 	}
 
 	b.WriteString("}\n")
 	return b.String()
-}
-
-// --- Type info structs ---
-func canWrapParam(t types.Type) bool {
-	if named, ok := t.(*types.Named); ok {
-		obj := named.Obj()
-		pkg := obj.Pkg()
-
-		if pkg == nil {
-			return obj.Name() == errorTypeName
-		}
-
-		if pkg.Path() == currentPkgPath {
-			return canWrapType(t.Underlying(), false)
-		}
-
-		// Cross-package named types: allow if we can extract via .Interface().(Type)
-		return canWrapType(t.Underlying(), true)
-	}
-
-	// Handle type aliases (Go 1.23+), including builtin 'any'
-	if alias, ok := t.(*types.Alias); ok {
-		obj := alias.Obj()
-		pkg := obj.Pkg()
-
-		if pkg == nil {
-			return canWrapType(t.Underlying(), false)
-		}
-
-		if pkg.Path() == currentPkgPath {
-			return canWrapType(t.Underlying(), false)
-		}
-
-		return canWrapType(t.Underlying(), true)
-	}
-
-	return canWrapType(t.Underlying(), false)
-}
-
-// canWrapType checks whether a type can be wrapped in a DirectCall.
-// If crossPkg is true, all representable types are allowed (extracted via .Interface()).
-// If false, stricter checks apply (e.g., slices only with basic element types).
-func canWrapType(t types.Type, crossPkg bool) bool {
-	switch ut := t.(type) {
-	case *types.Basic:
-		return ut.Kind() != types.UnsafePointer && ut.Kind() != types.Invalid
-	case *types.Slice:
-		if crossPkg {
-			return true
-		}
-		// Same-package: allow slices with basic element types only
-		if _, ok := ut.Elem().Underlying().(*types.Basic); ok {
-			return true
-		}
-		return false
-	case *types.Interface:
-		return true
-	case *types.Pointer:
-		if crossPkg {
-			return true
-		}
-		if bt, ok := ut.Elem().(*types.Basic); ok {
-			return bt.Kind() != types.UnsafePointer && bt.Kind() != types.Invalid
-		}
-		_, isNamed := ut.Elem().(*types.Named)
-		return isNamed
-	case *types.Struct:
-		return true
-	case *types.Map:
-		return true
-	case *types.Chan:
-		return true
-	case *types.Signature:
-		return true
-	case *types.Array:
-		return true
-	default:
-		return false
-	}
-}
-
-// --- Argument extraction ---
-
-func extractArg(t types.Type, valExpr string, pkgRef string) string {
-	if named, ok := t.(*types.Named); ok {
-		obj := named.Obj()
-		if obj.Pkg() == nil && obj.Name() == errorTypeName {
-			// Use value.ErrorValue to handle interpreter-defined types
-			// with Error() method that can't satisfy the error interface
-			// because reflect.StructOf types can't have methods.
-			return fmt.Sprintf("value.ErrorValue(%s)", valExpr)
-		}
-	}
-
-	// Handle type aliases (Go 1.23+), including builtin 'any'
-	if alias, ok := t.(*types.Alias); ok {
-		obj := alias.Obj()
-		if obj.Pkg() == nil {
-			// Builtin alias: 'error' or 'any' (= interface{})
-			if obj.Name() == errorTypeName {
-				// Use value.ErrorValue for the same reason as Named error above.
-				return fmt.Sprintf("value.ErrorValue(%s)", valExpr)
-			}
-			// 'any' and other builtin aliases: pass raw value
-			return fmt.Sprintf("%s.Interface()", valExpr)
-		}
-	}
-
-	if named, ok := t.(*types.Named); ok {
-		underlying := t.Underlying()
-		obj := named.Obj()
-		pkg := obj.Pkg()
-
-		// Same-package named type with basic underlying: cast via basic extraction
-		if pkg != nil && pkg.Path() == currentPkgPath {
-			if bt, ok := underlying.(*types.Basic); ok {
-				basicExpr := extractBasic(bt, valExpr)
-				if basicExpr == "" {
-					return ""
-				}
-				namedName := resolveTypeName(named, pkgRef)
-				if namedName == "" {
-					return ""
-				}
-				return fmt.Sprintf("%s(%s)", namedName, basicExpr)
-			}
-			// For non-basic same-package types (interfaces, structs, pointers, etc.),
-			// use .Interface().(TypeName) type assertion
-			namedName := resolveTypeName(named, pkgRef)
-			if namedName != "" {
-				return fmt.Sprintf("%s.Interface().(%s)", valExpr, namedName)
-			}
-			return extractUnderlyingWithPkgRef(underlying, valExpr, pkgRef)
-		}
-
-		// Cross-package named type: check if it has a basic underlying type
-		// If so, use a cast (e.g., time.Duration(args[i].Int())) instead of
-		// .Interface().(time.Duration) which panics because the VM stores
-		// named-basic types as their underlying basic kind (e.g., int64).
-		if bt, ok := underlying.(*types.Basic); ok {
-			basicExpr := extractBasic(bt, valExpr)
-			if basicExpr == "" {
-				return ""
-			}
-			qualifiedName := resolveQualifiedName(named, pkgRef)
-			if qualifiedName != "" {
-				return fmt.Sprintf("%s(%s)", qualifiedName, basicExpr)
-			}
-			return ""
-		}
-
-		// For non-basic cross-package types (structs, interfaces, pointers, etc.),
-		// use .Interface().(pkg.Type) type assertion
-		qualifiedName := resolveQualifiedName(named, pkgRef)
-		if qualifiedName != "" {
-			return fmt.Sprintf("%s.Interface().(%s)", valExpr, qualifiedName)
-		}
-		return ""
-	}
-
-	// Handle type aliases (Go 1.23+), including builtin 'any'
-	if alias, ok := t.(*types.Alias); ok {
-		underlying := t.Underlying()
-		obj := alias.Obj()
-		pkg := obj.Pkg()
-
-		if pkg == nil {
-			// Builtin alias (e.g. 'any' = interface{}, 'error' = interface{Error() string})
-			// Already handled above for 'error'; for 'any' and others, extract as interface{}
-			return extractUnderlyingWithPkgRef(underlying, valExpr, pkgRef)
-		}
-
-		if pkg.Path() == currentPkgPath {
-			if bt, ok := underlying.(*types.Basic); ok {
-				basicExpr := extractBasic(bt, valExpr)
-				if basicExpr == "" {
-					return ""
-				}
-				aliasName := resolveTypeName(alias, pkgRef)
-				if aliasName == "" {
-					return ""
-				}
-				return fmt.Sprintf("%s(%s)", aliasName, basicExpr)
-			}
-			aliasName := resolveTypeName(alias, pkgRef)
-			if aliasName != "" {
-				return fmt.Sprintf("%s.Interface().(%s)", valExpr, aliasName)
-			}
-			return extractUnderlyingWithPkgRef(underlying, valExpr, pkgRef)
-		}
-
-		// Cross-package alias: check if basic underlying for cast
-		if bt, ok := underlying.(*types.Basic); ok {
-			basicExpr := extractBasic(bt, valExpr)
-			if basicExpr == "" {
-				return ""
-			}
-			return fmt.Sprintf("%s.%s(%s)", sanitizePkgName(pkg.Path()), obj.Name(), basicExpr)
-		}
-		return fmt.Sprintf("%s.Interface().(%s.%s)", valExpr, sanitizePkgName(pkg.Path()), obj.Name())
-	}
-
-	// For non-named types (e.g., *pkg.Type pointers), handle with pkgRef
-	return extractUnderlyingWithPkgRef(t, valExpr, pkgRef)
-}
-
-func extractUnderlyingWithPkgRef(t types.Type, valExpr string, pkgRef string) string {
-	switch ut := t.(type) {
-	case *types.Basic:
-		return extractBasic(ut, valExpr)
-	case *types.Slice:
-		// For basic element types, use the optimized extractSlice
-		if _, ok := ut.Elem().Underlying().(*types.Basic); ok {
-			return extractSlice(ut, valExpr, pkgRef)
-		}
-		// For non-basic element types ([][]byte, []*T, etc.), use Interface()
-		// without a type assertion — the VM stores these via reflection
-		return fmt.Sprintf("%s.Interface()", valExpr)
-	case *types.Interface:
-		return fmt.Sprintf("%s.Interface()", valExpr)
-	case *types.Pointer:
-		// If the pointer element is a named type, generate a typed assertion like .Interface().(*pkg.Type)
-		if named, ok := ut.Elem().(*types.Named); ok {
-			qualName := resolveQualifiedName(named, pkgRef)
-			if qualName != "" {
-				return fmt.Sprintf("%s.Interface().(*%s)", valExpr, qualName)
-			}
-		}
-		// If the pointer element is a basic type, generate .Interface().(*basicType)
-		if bt, ok := ut.Elem().(*types.Basic); ok {
-			return fmt.Sprintf("%s.Interface().(*%s)", valExpr, bt.Name())
-		}
-		return fmt.Sprintf("%s.Interface()", valExpr)
-	case *types.Struct:
-		return fmt.Sprintf("%s.Interface()", valExpr)
-	case *types.Map:
-		keyName := resolveTypeName(ut.Key(), pkgRef)
-		elemName := resolveTypeName(ut.Elem(), pkgRef)
-		if keyName != "" && elemName != "" {
-			return fmt.Sprintf("%s.Interface().(map[%s]%s)", valExpr, keyName, elemName)
-		}
-		return fmt.Sprintf("%s.Interface()", valExpr)
-	case *types.Chan:
-		// chan T: extract via .Interface().(chan T)
-		elemName := resolveTypeName(ut.Elem(), pkgRef)
-		if elemName != "" {
-			var dirStr string
-			switch ut.Dir() {
-			case types.SendRecv:
-				dirStr = fmt.Sprintf("chan %s", elemName)
-			case types.SendOnly:
-				dirStr = fmt.Sprintf("chan<- %s", elemName)
-			case types.RecvOnly:
-				dirStr = fmt.Sprintf("<-chan %s", elemName)
-			}
-			if dirStr != "" {
-				return fmt.Sprintf("%s.Interface().(%s)", valExpr, dirStr)
-			}
-		}
-		return fmt.Sprintf("%s.Interface()", valExpr)
-	case *types.Signature:
-		// func(T) R: extract via .Interface().(func(T) R)
-		funcTypeName := resolveFuncTypeName(ut, pkgRef)
-		if funcTypeName != "" {
-			return fmt.Sprintf("%s.Interface().(%s)", valExpr, funcTypeName)
-		}
-		return fmt.Sprintf("%s.Interface()", valExpr)
-	case *types.Array:
-		// [N]T: extract via .Interface().([N]T)
-		arrTypeName := resolveArrayTypeName(ut, pkgRef)
-		if arrTypeName != "" {
-			return fmt.Sprintf("%s.Interface().(%s)", valExpr, arrTypeName)
-		}
-		return fmt.Sprintf("%s.Interface()", valExpr)
-	default:
-		return ""
-	}
-}
-
-// resolveQualifiedName returns the fully-qualified Go type name for a named type,
-// suitable for use in a type assertion like args[i].Interface().(pkg.Type).
-// For pointer types it returns *pkg.Type, etc.
-func resolveQualifiedName(named *types.Named, pkgRef string) string {
-	obj := named.Obj()
-	pkg := obj.Pkg()
-	if pkg == nil {
-		// Builtin type
-		return obj.Name()
-	}
-	if pkg.Path() == currentPkgPath {
-		return fmt.Sprintf("%s.%s", pkgRef, obj.Name())
-	}
-	// Cross-package: use the import alias
-	return fmt.Sprintf("%s.%s", sanitizePkgName(pkg.Path()), obj.Name())
-}
-
-func extractBasic(bt *types.Basic, valExpr string) string {
-	info := bt.Info()
-	kind := bt.Kind()
-
-	switch {
-	case kind == types.Bool:
-		return fmt.Sprintf("%s.Bool()", valExpr)
-	case info&types.IsInteger != 0 && info&types.IsUnsigned != 0:
-		switch kind {
-		case types.Uint8:
-			return fmt.Sprintf("byte(%s.Uint())", valExpr)
-		case types.Uint16:
-			return fmt.Sprintf("uint16(%s.Uint())", valExpr)
-		case types.Uint32:
-			return fmt.Sprintf("uint32(%s.Uint())", valExpr)
-		case types.Uint64:
-			return fmt.Sprintf("%s.Uint()", valExpr)
-		case types.Uint:
-			return fmt.Sprintf("uint(%s.Uint())", valExpr)
-		case types.Uintptr:
-			return fmt.Sprintf("uintptr(%s.Uint())", valExpr)
-		default:
-			return fmt.Sprintf("uint(%s.Uint())", valExpr)
-		}
-	case info&types.IsInteger != 0:
-		switch kind {
-		case types.Int8:
-			return fmt.Sprintf("int8(%s.Int())", valExpr)
-		case types.Int16:
-			return fmt.Sprintf("int16(%s.Int())", valExpr)
-		case types.Int32:
-			return fmt.Sprintf("int32(%s.Int())", valExpr)
-		case types.Int64:
-			return fmt.Sprintf("%s.Int()", valExpr)
-		case types.Int:
-			return fmt.Sprintf("int(%s.Int())", valExpr)
-		default:
-			return fmt.Sprintf("int(%s.Int())", valExpr)
-		}
-	case info&types.IsFloat != 0:
-		switch kind {
-		case types.Float32:
-			return fmt.Sprintf("float32(%s.Float())", valExpr)
-		case types.Float64:
-			return fmt.Sprintf("%s.Float()", valExpr)
-		default:
-			return fmt.Sprintf("%s.Float()", valExpr)
-		}
-	case info&types.IsComplex != 0:
-		return fmt.Sprintf("%s.Complex()", valExpr)
-	case info&types.IsString != 0:
-		return fmt.Sprintf("%s.String()", valExpr)
-	case kind == types.UnsafePointer:
-		return ""
-	default:
-		return fmt.Sprintf("%s.Interface()", valExpr)
-	}
-}
-
-// needsIntSliceConversion returns true if a slice type's elements are integers
-// that are NOT int64/uint64 (i.e., the VM stores them as []int64 but the Go
-// function expects a different int width like []int, []int32, []uint16, etc.).
-// These parameters need conversion AND post-call writeback for in-place mutation.
-func needsIntSliceConversion(st *types.Slice) bool {
-	bt, ok := st.Elem().Underlying().(*types.Basic)
-	if !ok {
-		return false
-	}
-	// Exclude byte (uint8) — the VM has native KindBytes support.
-	// Exclude int64/uint64 — stored natively, assertion works directly.
-	if bt.Kind() == types.Byte || bt.Kind() == types.Int64 || bt.Kind() == types.Uint64 {
-		return false
-	}
-	return bt.Info()&types.IsInteger != 0
-}
-
-// resolveSliceType unwraps a type (including named types and aliases) to find
-// the underlying *types.Slice, if any. Returns (slice, true) or (nil, false).
-func resolveSliceType(t types.Type) (*types.Slice, bool) {
-	st, ok := t.Underlying().(*types.Slice)
-	return st, ok
-}
-
-// intSliceWriteback records info needed to generate post-call writeback code
-// for a parameter that was converted from []int64 to a narrower integer slice.
-type intSliceWriteback struct {
-	argName  string // e.g. "a0"
-	backName string // e.g. "_back0"
-	elemName string // e.g. "int", "math_big.Word"
-}
-
-// emitIntSliceExtraction writes multi-line extraction code for an integer slice
-// parameter that needs conversion from the VM's native []int64 representation.
-// It returns an intSliceWriteback struct for generating post-call writeback.
-func emitIntSliceExtraction(b *strings.Builder, st *types.Slice, valExpr string, argName string, backName string, pkgRef string) *intSliceWriteback {
-	elemName := resolveTypeName(st.Elem(), pkgRef)
-
-	// Declare backing store reference and target slice
-	fmt.Fprintf(b, "\tvar %s []int64\n", backName)
-	fmt.Fprintf(b, "\tvar %s []%s\n", argName, elemName)
-	fmt.Fprintf(b, "\tif _s, _ok := %s.IntSlice(); _ok {\n", valExpr)
-	fmt.Fprintf(b, "\t\t%s = _s\n", backName)
-	fmt.Fprintf(b, "\t\t%s = make([]%s, len(_s))\n", argName, elemName)
-	fmt.Fprintf(b, "\t\tfor _i, _v := range _s { %s[_i] = %s(_v) }\n", argName, elemName)
-	b.WriteString("\t} else {\n")
-	fmt.Fprintf(b, "\t\t%s = %s.Interface().([]%s)\n", argName, valExpr, elemName)
-	b.WriteString("\t}\n")
-
-	return &intSliceWriteback{
-		argName:  argName,
-		backName: backName,
-		elemName: elemName,
-	}
-}
-
-// emitWritebacks writes post-call writeback code for all integer slice parameters
-// that were converted from []int64.
-func emitWritebacks(b *strings.Builder, writebacks []*intSliceWriteback) {
-	for _, wb := range writebacks {
-		fmt.Fprintf(b, "\tif %s != nil { for _i, _v := range %s { %s[_i] = int64(_v) } }\n",
-			wb.backName, wb.argName, wb.backName)
-	}
-}
-
-func extractSlice(st *types.Slice, valExpr string, pkgRef string) string {
-	if bt, ok := st.Elem().Underlying().(*types.Basic); ok {
-		switch bt.Kind() {
-		case types.Byte:
-			// Use native KindBytes accessor — zero reflection for []byte params
-			// Falls back to Interface() for KindReflect values, with nil-safe assertion
-			return fmt.Sprintf("func() []byte { if b, ok := (%s).Bytes(); ok { return b }; v := (%s).Interface(); if v == nil { return nil }; return v.([]byte) }()", valExpr, valExpr)
-		case types.String:
-			// []string is stored as []string in the VM — safe to assert directly
-			return fmt.Sprintf("%s.Interface().([]string)", valExpr)
-		default:
-			// For integer slices that need conversion ([]int, []int32, etc.),
-			// the caller MUST use emitIntSliceExtraction instead of this function
-			// so that writeback code can be generated. This branch handles
-			// the simple assertion cases ([]int64, []float64, etc.).
-			elemName := resolveTypeName(st.Elem(), pkgRef)
-			if elemName == "" {
-				return fmt.Sprintf("%s.Interface()", valExpr)
-			}
-			return fmt.Sprintf("%s.Interface().([]%s)", valExpr, elemName)
-		}
-	}
-	return fmt.Sprintf("%s.Interface()", valExpr)
-}
-
-// --- Return value wrapping ---
-
-func wrapReturn(t types.Type, goExpr string) string {
-	// Unwrap named/alias types to check their underlying type
-	underlying := t.Underlying()
-
-	// Basic type (or named type with basic underlying): use typed Make* constructors
-	if bt, ok := underlying.(*types.Basic); ok {
-		// If it's a named type wrapping a basic, cast to the basic type first
-		if _, isNamed := t.(*types.Named); isNamed {
-			basicName := bt.Name()
-			return wrapBasicReturn(bt, fmt.Sprintf("%s(%s)", basicName, goExpr))
-		}
-		if _, isAlias := t.(*types.Alias); isAlias {
-			basicName := bt.Name()
-			return wrapBasicReturn(bt, fmt.Sprintf("%s(%s)", basicName, goExpr))
-		}
-		return wrapBasicReturn(bt, goExpr)
-	}
-
-	// []byte: use MakeBytes for zero-reflection
-	if st, ok := underlying.(*types.Slice); ok {
-		if bt, ok := st.Elem().Underlying().(*types.Basic); ok && bt.Kind() == types.Byte {
-			return fmt.Sprintf("value.MakeBytes([]byte(%s))", goExpr)
-		}
-	}
-
-	// error interface: use FromInterface (handles nil correctly)
-	if named, ok := t.(*types.Named); ok {
-		if named.Obj().Pkg() == nil && named.Obj().Name() == errorTypeName {
-			return fmt.Sprintf("value.FromInterface(%s)", goExpr)
-		}
-	}
-
-	return fmt.Sprintf("value.FromInterface(%s)", goExpr)
-}
-
-func wrapBasicReturn(bt *types.Basic, goExpr string) string {
-	info := bt.Info()
-	kind := bt.Kind()
-
-	switch {
-	case kind == types.Bool:
-		return fmt.Sprintf("value.MakeBool(%s)", goExpr)
-	case info&types.IsInteger != 0 && info&types.IsUnsigned != 0:
-		// Use sized Make* constructors to preserve the exact width across the
-		// VM boundary.  MakeUint uses SizePtr (returns uint via Interface()),
-		// while MakeUint64 uses Size64 (returns uint64 via Interface()).
-		switch kind {
-		case types.Uint64:
-			return fmt.Sprintf("value.MakeUint64(%s)", goExpr)
-		default:
-			return fmt.Sprintf("value.MakeUint(uint64(%s))", goExpr)
-		}
-	case info&types.IsInteger != 0:
-		// Use sized Make* constructors to preserve the exact width across the
-		// VM boundary.  MakeInt uses SizePtr (returns int via Interface()),
-		// while MakeInt64 uses Size64 (returns int64 via Interface()).
-		switch kind {
-		case types.Int64:
-			return fmt.Sprintf("value.MakeInt64(%s)", goExpr)
-		default:
-			return fmt.Sprintf("value.MakeInt(int64(%s))", goExpr)
-		}
-	case info&types.IsFloat != 0:
-		return fmt.Sprintf("value.MakeFloat(float64(%s))", goExpr)
-	case info&types.IsComplex != 0:
-		return fmt.Sprintf("value.FromInterface(%s)", goExpr)
-	case info&types.IsString != 0:
-		return fmt.Sprintf("value.MakeString(string(%s))", goExpr)
-	default:
-		return fmt.Sprintf("value.FromInterface(%s)", goExpr)
-	}
 }
 
 // --- Method DirectCall generation ---
@@ -874,73 +482,23 @@ func generateSingleMethodDirectCall(sig *types.Signature, pkgRef string, typeNam
 	if isVariadic {
 		sliceType := params.At(params.Len() - 1).Type().(*types.Slice)
 		elemType := sliceType.Elem()
-
-		// The compiler passes variadic args as a single slice value at
-		// args[fixedCount+1] (after the receiver). Extract the slice directly.
-		sliceIdx := fixedCount + 1
-		if isEmptyInterface(elemType) {
-			fmt.Fprintf(b, "\tvar varArgs []interface{}\n")
-			fmt.Fprintf(b, "\tif len(args) > %d {\n", sliceIdx)
-			fmt.Fprintf(b, "\t\tif sl, ok := args[%d].Interface().([]interface{}); ok {\n", sliceIdx)
-			fmt.Fprintf(b, "\t\t\tvarArgs = sl\n")
-			fmt.Fprintf(b, "\t\t} else if sl, ok := args[%d].Interface().([]string); ok {\n", sliceIdx)
-			fmt.Fprintf(b, "\t\t\tvarArgs = make([]interface{}, len(sl))\n")
-			fmt.Fprintf(b, "\t\t\tfor i, s := range sl { varArgs[i] = s }\n")
-			fmt.Fprintf(b, "\t\t}\n")
-			fmt.Fprintf(b, "\t}\n")
-			argExprs = append(argExprs, "varArgs...")
-		} else {
-			elemTypeStr := resolveTypeName(elemType, pkgRef)
-			if elemTypeStr == "" {
-				return ""
-			}
-			fmt.Fprintf(b, "\tvar varArgs []%s\n", elemTypeStr)
-			fmt.Fprintf(b, "\tif len(args) > %d {\n", sliceIdx)
-			fmt.Fprintf(b, "\t\tif sl, ok := args[%d].Interface().([]%s); ok {\n", sliceIdx, elemTypeStr)
-			fmt.Fprintf(b, "\t\t\tvarArgs = sl\n")
-			fmt.Fprintf(b, "\t\t}\n")
-			fmt.Fprintf(b, "\t}\n")
-			argExprs = append(argExprs, "varArgs...")
+		varArgExpr := emitVariadicArgs(b, variadicConfig{
+			elemType: elemType,
+			pkgRef:   pkgRef,
+			fixedCnt: fixedCount,
+			argsOff:  1, // offset by 1 for receiver
+			isMethod: true,
+		})
+		if varArgExpr == "" {
+			return ""
 		}
+		argExprs = append(argExprs, varArgExpr)
 	}
 
 	callExpr := fmt.Sprintf("recv.%s(%s)", methodName, strings.Join(argExprs, ", "))
 
-	switch results.Len() {
-	case 0:
-		fmt.Fprintf(b, "\t%s\n", callExpr)
-		emitWritebacks(b, writebacks)
-		b.WriteString("\treturn value.MakeNil()\n")
-	case 1:
-		if len(writebacks) > 0 {
-			fmt.Fprintf(b, "\t_ret := %s\n", callExpr)
-			emitWritebacks(b, writebacks)
-			retExpr := wrapReturn(results.At(0).Type(), "_ret")
-			if retExpr == "" {
-				return ""
-			}
-			fmt.Fprintf(b, "\treturn %s\n", retExpr)
-		} else {
-			retExpr := wrapReturn(results.At(0).Type(), callExpr)
-			if retExpr == "" {
-				return ""
-			}
-			fmt.Fprintf(b, "\treturn %s\n", retExpr)
-		}
-	default:
-		// Multi-return: r0, r1, ... := recv.Method(...)
-		var retVars []string
-		for i := 0; i < results.Len(); i++ {
-			retVars = append(retVars, fmt.Sprintf("r%d", i))
-		}
-		fmt.Fprintf(b, "\t%s := %s\n", strings.Join(retVars, ", "), callExpr)
-		emitWritebacks(b, writebacks)
-		var wrapped []string
-		for i := 0; i < results.Len(); i++ {
-			w := wrapReturn(results.At(i).Type(), fmt.Sprintf("r%d", i))
-			wrapped = append(wrapped, w)
-		}
-		fmt.Fprintf(b, "\treturn value.MakeValueSlice([]value.Value{%s})\n", strings.Join(wrapped, ", "))
+	if emitCallResults(b, results, callExpr, writebacks) == "" {
+		return ""
 	}
 
 	b.WriteString("}\n")

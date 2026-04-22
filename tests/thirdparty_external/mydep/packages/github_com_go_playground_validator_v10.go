@@ -70,7 +70,7 @@ func init() {
 }
 
 func direct_github_com_go_playground_validator_v10_New(args []value.Value) value.Value {
-	varArgs := make([]github_com_go_playground_validator_v10.Option, 0)
+	varArgs := make([]github_com_go_playground_validator_v10.Option, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
 		if v := args[i].Interface(); v != nil {
 			varArgs = append(varArgs, v.(github_com_go_playground_validator_v10.Option))
@@ -204,6 +204,12 @@ func direct_method_github_com_go_playground_validator_v10_Validate_RegisterValid
 	if len(args) > 3 {
 		if sl, ok := args[3].Interface().([]bool); ok {
 			varArgs = sl
+		} else {
+			for i := 3; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(bool))
+				}
+			}
 		}
 	}
 	return value.FromInterface(recv.RegisterValidation(a0, a1, varArgs...))
@@ -217,6 +223,12 @@ func direct_method_github_com_go_playground_validator_v10_Validate_RegisterValid
 	if len(args) > 3 {
 		if sl, ok := args[3].Interface().([]bool); ok {
 			varArgs = sl
+		} else {
+			for i := 3; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(bool))
+				}
+			}
 		}
 	}
 	return value.FromInterface(recv.RegisterValidationCtx(a0, a1, varArgs...))
@@ -249,6 +261,12 @@ func direct_method_github_com_go_playground_validator_v10_Validate_StructExcept(
 	if len(args) > 2 {
 		if sl, ok := args[2].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 2; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.FromInterface(recv.StructExcept(a0, varArgs...))
@@ -262,6 +280,12 @@ func direct_method_github_com_go_playground_validator_v10_Validate_StructExceptC
 	if len(args) > 3 {
 		if sl, ok := args[3].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 3; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.FromInterface(recv.StructExceptCtx(a0, a1, varArgs...))
@@ -289,6 +313,12 @@ func direct_method_github_com_go_playground_validator_v10_Validate_StructPartial
 	if len(args) > 2 {
 		if sl, ok := args[2].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 2; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.FromInterface(recv.StructPartial(a0, varArgs...))
@@ -302,6 +332,12 @@ func direct_method_github_com_go_playground_validator_v10_Validate_StructPartial
 	if len(args) > 3 {
 		if sl, ok := args[3].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 3; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.FromInterface(recv.StructPartialCtx(a0, a1, varArgs...))

@@ -39,6 +39,7 @@ func init() {
 	pkg.AddMethodDirectCall("Error", "Unwrap", direct_method_net_url_Error_Unwrap)
 	pkg.AddMethodDirectCall("EscapeError", "Error", direct_method_net_url_EscapeError_Error)
 	pkg.AddMethodDirectCall("InvalidHostError", "Error", direct_method_net_url_InvalidHostError_Error)
+	pkg.AddMethodDirectCall("URL", "AppendBinary", direct_method_net_url_URL_AppendBinary)
 	pkg.AddMethodDirectCall("URL", "EscapedFragment", direct_method_net_url_URL_EscapedFragment)
 	pkg.AddMethodDirectCall("URL", "EscapedPath", direct_method_net_url_URL_EscapedPath)
 	pkg.AddMethodDirectCall("URL", "Hostname", direct_method_net_url_URL_Hostname)
@@ -67,9 +68,11 @@ func init() {
 
 func direct_net_url_JoinPath(args []value.Value) value.Value {
 	a0 := args[0].String()
-	varArgs := make([]string, len(args)-1)
+	varArgs := make([]string, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	r0, r1 := net_url.JoinPath(a0, varArgs...)
 	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
@@ -156,6 +159,22 @@ func direct_method_net_url_InvalidHostError_Error(args []value.Value) value.Valu
 	return value.MakeString(string(recv.Error()))
 }
 
+func direct_method_net_url_URL_AppendBinary(args []value.Value) value.Value {
+	recv := args[0].Interface().(*net_url.URL)
+	a0 := func() []byte {
+		if b, ok := (args[1]).Bytes(); ok {
+			return b
+		}
+		v := (args[1]).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
+	}()
+	r0, r1 := recv.AppendBinary(a0)
+	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+}
+
 func direct_method_net_url_URL_EscapedFragment(args []value.Value) value.Value {
 	recv := args[0].Interface().(*net_url.URL)
 	return value.MakeString(string(recv.EscapedFragment()))
@@ -182,6 +201,12 @@ func direct_method_net_url_URL_JoinPath(args []value.Value) value.Value {
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.FromInterface(recv.JoinPath(varArgs...))

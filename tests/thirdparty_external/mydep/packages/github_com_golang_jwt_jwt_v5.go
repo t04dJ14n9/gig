@@ -167,7 +167,7 @@ func direct_github_com_golang_jwt_jwt_v5_GetSigningMethod(args []value.Value) va
 
 func direct_github_com_golang_jwt_jwt_v5_New(args []value.Value) value.Value {
 	a0 := args[0].Interface().(github_com_golang_jwt_jwt_v5.SigningMethod)
-	varArgs := make([]github_com_golang_jwt_jwt_v5.TokenOption, 0)
+	varArgs := make([]github_com_golang_jwt_jwt_v5.TokenOption, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
 		if v := args[i].Interface(); v != nil {
 			varArgs = append(varArgs, v.(github_com_golang_jwt_jwt_v5.TokenOption))
@@ -182,17 +182,21 @@ func direct_github_com_golang_jwt_jwt_v5_NewNumericDate(args []value.Value) valu
 }
 
 func direct_github_com_golang_jwt_jwt_v5_NewParser(args []value.Value) value.Value {
-	varArgs := make([]github_com_golang_jwt_jwt_v5.ParserOption, len(args)-0)
+	varArgs := make([]github_com_golang_jwt_jwt_v5.ParserOption, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].Interface().(github_com_golang_jwt_jwt_v5.ParserOption)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(github_com_golang_jwt_jwt_v5.ParserOption))
+		}
 	}
 	return value.FromInterface(github_com_golang_jwt_jwt_v5.NewParser(varArgs...))
 }
 
 func direct_github_com_golang_jwt_jwt_v5_NewValidator(args []value.Value) value.Value {
-	varArgs := make([]github_com_golang_jwt_jwt_v5.ParserOption, len(args)-0)
+	varArgs := make([]github_com_golang_jwt_jwt_v5.ParserOption, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].Interface().(github_com_golang_jwt_jwt_v5.ParserOption)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(github_com_golang_jwt_jwt_v5.ParserOption))
+		}
 	}
 	return value.FromInterface(github_com_golang_jwt_jwt_v5.NewValidator(varArgs...))
 }
@@ -200,7 +204,7 @@ func direct_github_com_golang_jwt_jwt_v5_NewValidator(args []value.Value) value.
 func direct_github_com_golang_jwt_jwt_v5_NewWithClaims(args []value.Value) value.Value {
 	a0 := args[0].Interface().(github_com_golang_jwt_jwt_v5.SigningMethod)
 	a1 := args[1].Interface().(github_com_golang_jwt_jwt_v5.Claims)
-	varArgs := make([]github_com_golang_jwt_jwt_v5.TokenOption, 0)
+	varArgs := make([]github_com_golang_jwt_jwt_v5.TokenOption, 0, len(args)-2)
 	for i := 2; i < len(args); i++ {
 		if v := args[i].Interface(); v != nil {
 			varArgs = append(varArgs, v.(github_com_golang_jwt_jwt_v5.TokenOption))
@@ -212,9 +216,11 @@ func direct_github_com_golang_jwt_jwt_v5_NewWithClaims(args []value.Value) value
 func direct_github_com_golang_jwt_jwt_v5_Parse(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].Interface().(github_com_golang_jwt_jwt_v5.Keyfunc)
-	varArgs := make([]github_com_golang_jwt_jwt_v5.ParserOption, len(args)-2)
+	varArgs := make([]github_com_golang_jwt_jwt_v5.ParserOption, 0, len(args)-2)
 	for i := 2; i < len(args); i++ {
-		varArgs[i-2] = args[i].Interface().(github_com_golang_jwt_jwt_v5.ParserOption)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(github_com_golang_jwt_jwt_v5.ParserOption))
+		}
 	}
 	r0, r1 := github_com_golang_jwt_jwt_v5.Parse(a0, a1, varArgs...)
 	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
@@ -330,9 +336,11 @@ func direct_github_com_golang_jwt_jwt_v5_ParseWithClaims(args []value.Value) val
 	a0 := args[0].String()
 	a1 := args[1].Interface().(github_com_golang_jwt_jwt_v5.Claims)
 	a2 := args[2].Interface().(github_com_golang_jwt_jwt_v5.Keyfunc)
-	varArgs := make([]github_com_golang_jwt_jwt_v5.ParserOption, len(args)-3)
+	varArgs := make([]github_com_golang_jwt_jwt_v5.ParserOption, 0, len(args)-3)
 	for i := 3; i < len(args); i++ {
-		varArgs[i-3] = args[i].Interface().(github_com_golang_jwt_jwt_v5.ParserOption)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(github_com_golang_jwt_jwt_v5.ParserOption))
+		}
 	}
 	r0, r1 := github_com_golang_jwt_jwt_v5.ParseWithClaims(a0, a1, a2, varArgs...)
 	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})

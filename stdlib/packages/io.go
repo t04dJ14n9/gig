@@ -130,17 +130,21 @@ func direct_io_LimitReader(args []value.Value) value.Value {
 }
 
 func direct_io_MultiReader(args []value.Value) value.Value {
-	varArgs := make([]io.Reader, len(args)-0)
+	varArgs := make([]io.Reader, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].Interface().(io.Reader)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(io.Reader))
+		}
 	}
 	return value.FromInterface(io.MultiReader(varArgs...))
 }
 
 func direct_io_MultiWriter(args []value.Value) value.Value {
-	varArgs := make([]io.Writer, len(args)-0)
+	varArgs := make([]io.Writer, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].Interface().(io.Writer)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(io.Writer))
+		}
 	}
 	return value.FromInterface(io.MultiWriter(varArgs...))
 }

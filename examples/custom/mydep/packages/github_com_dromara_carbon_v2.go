@@ -712,9 +712,11 @@ func direct_github_com_dromara_carbon_v2_CreateFromDate(args []value.Value) valu
 	a0 := int(args[0].Int())
 	a1 := int(args[1].Int())
 	a2 := int(args[2].Int())
-	varArgs := make([]string, len(args)-3)
+	varArgs := make([]string, 0, len(args)-3)
 	for i := 3; i < len(args); i++ {
-		varArgs[i-3] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromDate(a0, a1, a2, varArgs...))
 }
@@ -724,9 +726,11 @@ func direct_github_com_dromara_carbon_v2_CreateFromDateMicro(args []value.Value)
 	a1 := int(args[1].Int())
 	a2 := int(args[2].Int())
 	a3 := int(args[3].Int())
-	varArgs := make([]string, len(args)-4)
+	varArgs := make([]string, 0, len(args)-4)
 	for i := 4; i < len(args); i++ {
-		varArgs[i-4] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromDateMicro(a0, a1, a2, a3, varArgs...))
 }
@@ -736,9 +740,11 @@ func direct_github_com_dromara_carbon_v2_CreateFromDateMilli(args []value.Value)
 	a1 := int(args[1].Int())
 	a2 := int(args[2].Int())
 	a3 := int(args[3].Int())
-	varArgs := make([]string, len(args)-4)
+	varArgs := make([]string, 0, len(args)-4)
 	for i := 4; i < len(args); i++ {
-		varArgs[i-4] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromDateMilli(a0, a1, a2, a3, varArgs...))
 }
@@ -748,9 +754,11 @@ func direct_github_com_dromara_carbon_v2_CreateFromDateNano(args []value.Value) 
 	a1 := int(args[1].Int())
 	a2 := int(args[2].Int())
 	a3 := int(args[3].Int())
-	varArgs := make([]string, len(args)-4)
+	varArgs := make([]string, 0, len(args)-4)
 	for i := 4; i < len(args); i++ {
-		varArgs[i-4] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromDateNano(a0, a1, a2, a3, varArgs...))
 }
@@ -762,9 +770,11 @@ func direct_github_com_dromara_carbon_v2_CreateFromDateTime(args []value.Value) 
 	a3 := int(args[3].Int())
 	a4 := int(args[4].Int())
 	a5 := int(args[5].Int())
-	varArgs := make([]string, len(args)-6)
+	varArgs := make([]string, 0, len(args)-6)
 	for i := 6; i < len(args); i++ {
-		varArgs[i-6] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromDateTime(a0, a1, a2, a3, a4, a5, varArgs...))
 }
@@ -777,9 +787,11 @@ func direct_github_com_dromara_carbon_v2_CreateFromDateTimeMicro(args []value.Va
 	a4 := int(args[4].Int())
 	a5 := int(args[5].Int())
 	a6 := int(args[6].Int())
-	varArgs := make([]string, len(args)-7)
+	varArgs := make([]string, 0, len(args)-7)
 	for i := 7; i < len(args); i++ {
-		varArgs[i-7] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromDateTimeMicro(a0, a1, a2, a3, a4, a5, a6, varArgs...))
 }
@@ -792,9 +804,11 @@ func direct_github_com_dromara_carbon_v2_CreateFromDateTimeMilli(args []value.Va
 	a4 := int(args[4].Int())
 	a5 := int(args[5].Int())
 	a6 := int(args[6].Int())
-	varArgs := make([]string, len(args)-7)
+	varArgs := make([]string, 0, len(args)-7)
 	for i := 7; i < len(args); i++ {
-		varArgs[i-7] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromDateTimeMilli(a0, a1, a2, a3, a4, a5, a6, varArgs...))
 }
@@ -807,9 +821,11 @@ func direct_github_com_dromara_carbon_v2_CreateFromDateTimeNano(args []value.Val
 	a4 := int(args[4].Int())
 	a5 := int(args[5].Int())
 	a6 := int(args[6].Int())
-	varArgs := make([]string, len(args)-7)
+	varArgs := make([]string, 0, len(args)-7)
 	for i := 7; i < len(args); i++ {
-		varArgs[i-7] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromDateTimeNano(a0, a1, a2, a3, a4, a5, a6, varArgs...))
 }
@@ -836,9 +852,11 @@ func direct_github_com_dromara_carbon_v2_CreateFromPersian(args []value.Value) v
 
 func direct_github_com_dromara_carbon_v2_CreateFromStdTime(args []value.Value) value.Value {
 	a0 := args[0].Interface().(github_com_dromara_carbon_v2.StdTime)
-	varArgs := make([]string, len(args)-1)
+	varArgs := make([]string, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromStdTime(a0, varArgs...))
 }
@@ -847,9 +865,11 @@ func direct_github_com_dromara_carbon_v2_CreateFromTime(args []value.Value) valu
 	a0 := int(args[0].Int())
 	a1 := int(args[1].Int())
 	a2 := int(args[2].Int())
-	varArgs := make([]string, len(args)-3)
+	varArgs := make([]string, 0, len(args)-3)
 	for i := 3; i < len(args); i++ {
-		varArgs[i-3] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromTime(a0, a1, a2, varArgs...))
 }
@@ -859,9 +879,11 @@ func direct_github_com_dromara_carbon_v2_CreateFromTimeMicro(args []value.Value)
 	a1 := int(args[1].Int())
 	a2 := int(args[2].Int())
 	a3 := int(args[3].Int())
-	varArgs := make([]string, len(args)-4)
+	varArgs := make([]string, 0, len(args)-4)
 	for i := 4; i < len(args); i++ {
-		varArgs[i-4] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromTimeMicro(a0, a1, a2, a3, varArgs...))
 }
@@ -871,9 +893,11 @@ func direct_github_com_dromara_carbon_v2_CreateFromTimeMilli(args []value.Value)
 	a1 := int(args[1].Int())
 	a2 := int(args[2].Int())
 	a3 := int(args[3].Int())
-	varArgs := make([]string, len(args)-4)
+	varArgs := make([]string, 0, len(args)-4)
 	for i := 4; i < len(args); i++ {
-		varArgs[i-4] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromTimeMilli(a0, a1, a2, a3, varArgs...))
 }
@@ -883,45 +907,55 @@ func direct_github_com_dromara_carbon_v2_CreateFromTimeNano(args []value.Value) 
 	a1 := int(args[1].Int())
 	a2 := int(args[2].Int())
 	a3 := int(args[3].Int())
-	varArgs := make([]string, len(args)-4)
+	varArgs := make([]string, 0, len(args)-4)
 	for i := 4; i < len(args); i++ {
-		varArgs[i-4] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromTimeNano(a0, a1, a2, a3, varArgs...))
 }
 
 func direct_github_com_dromara_carbon_v2_CreateFromTimestamp(args []value.Value) value.Value {
 	a0 := args[0].Int()
-	varArgs := make([]string, len(args)-1)
+	varArgs := make([]string, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromTimestamp(a0, varArgs...))
 }
 
 func direct_github_com_dromara_carbon_v2_CreateFromTimestampMicro(args []value.Value) value.Value {
 	a0 := args[0].Int()
-	varArgs := make([]string, len(args)-1)
+	varArgs := make([]string, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromTimestampMicro(a0, varArgs...))
 }
 
 func direct_github_com_dromara_carbon_v2_CreateFromTimestampMilli(args []value.Value) value.Value {
 	a0 := args[0].Int()
-	varArgs := make([]string, len(args)-1)
+	varArgs := make([]string, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromTimestampMilli(a0, varArgs...))
 }
 
 func direct_github_com_dromara_carbon_v2_CreateFromTimestampNano(args []value.Value) value.Value {
 	a0 := args[0].Int()
-	varArgs := make([]string, len(args)-1)
+	varArgs := make([]string, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.CreateFromTimestampNano(a0, varArgs...))
 }
@@ -936,9 +970,11 @@ func direct_github_com_dromara_carbon_v2_IsTestNow(args []value.Value) value.Val
 
 func direct_github_com_dromara_carbon_v2_Max(args []value.Value) value.Value {
 	a0 := args[0].Interface().(*github_com_dromara_carbon_v2.Carbon)
-	varArgs := make([]*github_com_dromara_carbon_v2.Carbon, len(args)-1)
+	varArgs := make([]*github_com_dromara_carbon_v2.Carbon, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].Interface().(*github_com_dromara_carbon_v2.Carbon)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.Max(a0, varArgs...))
 }
@@ -953,9 +989,11 @@ func direct_github_com_dromara_carbon_v2_MaxValue(args []value.Value) value.Valu
 
 func direct_github_com_dromara_carbon_v2_Min(args []value.Value) value.Value {
 	a0 := args[0].Interface().(*github_com_dromara_carbon_v2.Carbon)
-	varArgs := make([]*github_com_dromara_carbon_v2.Carbon, len(args)-1)
+	varArgs := make([]*github_com_dromara_carbon_v2.Carbon, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].Interface().(*github_com_dromara_carbon_v2.Carbon)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.Min(a0, varArgs...))
 }
@@ -969,9 +1007,11 @@ func direct_github_com_dromara_carbon_v2_MinValue(args []value.Value) value.Valu
 }
 
 func direct_github_com_dromara_carbon_v2_NewCarbon(args []value.Value) value.Value {
-	varArgs := make([]github_com_dromara_carbon_v2.StdTime, len(args)-0)
+	varArgs := make([]github_com_dromara_carbon_v2.StdTime, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].Interface().(github_com_dromara_carbon_v2.StdTime)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(github_com_dromara_carbon_v2.StdTime))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.NewCarbon(varArgs...))
 }
@@ -1061,18 +1101,22 @@ func direct_github_com_dromara_carbon_v2_NewTimestampNano(args []value.Value) va
 }
 
 func direct_github_com_dromara_carbon_v2_Now(args []value.Value) value.Value {
-	varArgs := make([]string, len(args)-0)
+	varArgs := make([]string, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.Now(varArgs...))
 }
 
 func direct_github_com_dromara_carbon_v2_Parse(args []value.Value) value.Value {
 	a0 := args[0].String()
-	varArgs := make([]string, len(args)-1)
+	varArgs := make([]string, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.Parse(a0, varArgs...))
 }
@@ -1080,9 +1124,11 @@ func direct_github_com_dromara_carbon_v2_Parse(args []value.Value) value.Value {
 func direct_github_com_dromara_carbon_v2_ParseByFormat(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
-	varArgs := make([]string, len(args)-2)
+	varArgs := make([]string, 0, len(args)-2)
 	for i := 2; i < len(args); i++ {
-		varArgs[i-2] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.ParseByFormat(a0, a1, varArgs...))
 }
@@ -1090,9 +1136,11 @@ func direct_github_com_dromara_carbon_v2_ParseByFormat(args []value.Value) value
 func direct_github_com_dromara_carbon_v2_ParseByFormats(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].Interface().([]string)
-	varArgs := make([]string, len(args)-2)
+	varArgs := make([]string, 0, len(args)-2)
 	for i := 2; i < len(args); i++ {
-		varArgs[i-2] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.ParseByFormats(a0, a1, varArgs...))
 }
@@ -1100,9 +1148,11 @@ func direct_github_com_dromara_carbon_v2_ParseByFormats(args []value.Value) valu
 func direct_github_com_dromara_carbon_v2_ParseByLayout(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].String()
-	varArgs := make([]string, len(args)-2)
+	varArgs := make([]string, 0, len(args)-2)
 	for i := 2; i < len(args); i++ {
-		varArgs[i-2] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.ParseByLayout(a0, a1, varArgs...))
 }
@@ -1110,9 +1160,11 @@ func direct_github_com_dromara_carbon_v2_ParseByLayout(args []value.Value) value
 func direct_github_com_dromara_carbon_v2_ParseByLayouts(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].Interface().([]string)
-	varArgs := make([]string, len(args)-2)
+	varArgs := make([]string, 0, len(args)-2)
 	for i := 2; i < len(args); i++ {
-		varArgs[i-2] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.ParseByLayouts(a0, a1, varArgs...))
 }
@@ -1120,9 +1172,11 @@ func direct_github_com_dromara_carbon_v2_ParseByLayouts(args []value.Value) valu
 func direct_github_com_dromara_carbon_v2_ParseWithFormats(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].Interface().([]string)
-	varArgs := make([]string, len(args)-2)
+	varArgs := make([]string, 0, len(args)-2)
 	for i := 2; i < len(args); i++ {
-		varArgs[i-2] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.ParseWithFormats(a0, a1, varArgs...))
 }
@@ -1130,9 +1184,11 @@ func direct_github_com_dromara_carbon_v2_ParseWithFormats(args []value.Value) va
 func direct_github_com_dromara_carbon_v2_ParseWithLayouts(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := args[1].Interface().([]string)
-	varArgs := make([]string, len(args)-2)
+	varArgs := make([]string, 0, len(args)-2)
 	for i := 2; i < len(args); i++ {
-		varArgs[i-2] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.ParseWithLayouts(a0, a1, varArgs...))
 }
@@ -1201,17 +1257,21 @@ func direct_github_com_dromara_carbon_v2_SetWeekendDays(args []value.Value) valu
 }
 
 func direct_github_com_dromara_carbon_v2_Tomorrow(args []value.Value) value.Value {
-	varArgs := make([]string, len(args)-0)
+	varArgs := make([]string, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.Tomorrow(varArgs...))
 }
 
 func direct_github_com_dromara_carbon_v2_Yesterday(args []value.Value) value.Value {
-	varArgs := make([]string, len(args)-0)
+	varArgs := make([]string, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_dromara_carbon_v2.Yesterday(varArgs...))
 }
@@ -1481,6 +1541,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_Closest(args []value.Valu
 	if len(args) > 2 {
 		if sl, ok := args[2].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 2; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.FromInterface(recv.Closest(a0, varArgs...))
@@ -1579,6 +1645,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffAbsInDays(args []valu
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(recv.DiffAbsInDays(varArgs...))
@@ -1590,6 +1662,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffAbsInDuration(args []
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(int64(recv.DiffAbsInDuration(varArgs...)))
@@ -1601,6 +1679,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffAbsInHours(args []val
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(recv.DiffAbsInHours(varArgs...))
@@ -1612,6 +1696,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffAbsInMinutes(args []v
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(recv.DiffAbsInMinutes(varArgs...))
@@ -1623,6 +1713,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffAbsInMonths(args []va
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(recv.DiffAbsInMonths(varArgs...))
@@ -1634,6 +1730,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffAbsInSeconds(args []v
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(recv.DiffAbsInSeconds(varArgs...))
@@ -1645,6 +1747,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffAbsInString(args []va
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.DiffAbsInString(varArgs...)))
@@ -1656,6 +1764,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffAbsInWeeks(args []val
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(recv.DiffAbsInWeeks(varArgs...))
@@ -1667,6 +1781,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffAbsInYears(args []val
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(recv.DiffAbsInYears(varArgs...))
@@ -1678,6 +1798,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffForHumans(args []valu
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.DiffForHumans(varArgs...)))
@@ -1689,6 +1815,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffInDays(args []value.V
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(recv.DiffInDays(varArgs...))
@@ -1700,6 +1832,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffInDuration(args []val
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(int64(recv.DiffInDuration(varArgs...)))
@@ -1711,6 +1849,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffInHours(args []value.
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(recv.DiffInHours(varArgs...))
@@ -1722,6 +1866,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffInMinutes(args []valu
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(recv.DiffInMinutes(varArgs...))
@@ -1733,6 +1883,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffInMonths(args []value
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(recv.DiffInMonths(varArgs...))
@@ -1744,6 +1900,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffInSeconds(args []valu
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(recv.DiffInSeconds(varArgs...))
@@ -1755,6 +1917,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffInString(args []value
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.DiffInString(varArgs...)))
@@ -1766,6 +1934,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffInWeeks(args []value.
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(recv.DiffInWeeks(varArgs...))
@@ -1777,6 +1951,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_DiffInYears(args []value.
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.MakeInt64(recv.DiffInYears(varArgs...))
@@ -1850,6 +2030,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_Farthest(args []value.Val
 	if len(args) > 2 {
 		if sl, ok := args[2].Interface().([]*github_com_dromara_carbon_v2.Carbon); ok {
 			varArgs = sl
+		} else {
+			for i := 2; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(*github_com_dromara_carbon_v2.Carbon))
+				}
+			}
 		}
 	}
 	return value.FromInterface(recv.Farthest(a0, varArgs...))
@@ -1862,6 +2048,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_Format(args []value.Value
 	if len(args) > 2 {
 		if sl, ok := args[2].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 2; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.Format(a0, varArgs...)))
@@ -2230,6 +2422,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_Layout(args []value.Value
 	if len(args) > 2 {
 		if sl, ok := args[2].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 2; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.Layout(a0, varArgs...)))
@@ -2884,6 +3082,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToAnsicString(args []valu
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToAnsicString(varArgs...)))
@@ -2895,6 +3099,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToAtomString(args []value
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToAtomString(varArgs...)))
@@ -2906,6 +3116,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToCookieString(args []val
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToCookieString(varArgs...)))
@@ -2917,6 +3133,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToDateMicroString(args []
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToDateMicroString(varArgs...)))
@@ -2928,6 +3150,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToDateMilliString(args []
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToDateMilliString(varArgs...)))
@@ -2939,6 +3167,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToDateNanoString(args []v
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToDateNanoString(varArgs...)))
@@ -2950,6 +3184,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToDateString(args []value
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToDateString(varArgs...)))
@@ -2961,6 +3201,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToDateTimeMicroString(arg
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToDateTimeMicroString(varArgs...)))
@@ -2972,6 +3218,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToDateTimeMilliString(arg
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToDateTimeMilliString(varArgs...)))
@@ -2983,6 +3235,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToDateTimeNanoString(args
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToDateTimeNanoString(varArgs...)))
@@ -2994,6 +3252,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToDateTimeString(args []v
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToDateTimeString(varArgs...)))
@@ -3005,6 +3269,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToDayDateTimeString(args 
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToDayDateTimeString(varArgs...)))
@@ -3016,6 +3286,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToFormattedDateString(arg
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToFormattedDateString(varArgs...)))
@@ -3027,6 +3303,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToFormattedDayDateString(
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToFormattedDayDateString(varArgs...)))
@@ -3038,6 +3320,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToIso8601MicroString(args
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToIso8601MicroString(varArgs...)))
@@ -3049,6 +3337,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToIso8601MilliString(args
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToIso8601MilliString(varArgs...)))
@@ -3060,6 +3354,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToIso8601NanoString(args 
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToIso8601NanoString(varArgs...)))
@@ -3071,6 +3371,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToIso8601String(args []va
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToIso8601String(varArgs...)))
@@ -3082,6 +3388,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToIso8601ZuluMicroString(
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToIso8601ZuluMicroString(varArgs...)))
@@ -3093,6 +3405,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToIso8601ZuluMilliString(
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToIso8601ZuluMilliString(varArgs...)))
@@ -3104,6 +3422,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToIso8601ZuluNanoString(a
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToIso8601ZuluNanoString(varArgs...)))
@@ -3115,6 +3439,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToIso8601ZuluString(args 
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToIso8601ZuluString(varArgs...)))
@@ -3126,6 +3456,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToKitchenString(args []va
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToKitchenString(varArgs...)))
@@ -3137,6 +3473,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToMonthString(args []valu
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToMonthString(varArgs...)))
@@ -3148,6 +3490,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToRfc1036String(args []va
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToRfc1036String(varArgs...)))
@@ -3159,6 +3507,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToRfc1123String(args []va
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToRfc1123String(varArgs...)))
@@ -3170,6 +3524,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToRfc1123zString(args []v
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToRfc1123zString(varArgs...)))
@@ -3181,6 +3541,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToRfc2822String(args []va
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToRfc2822String(varArgs...)))
@@ -3192,6 +3558,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToRfc3339MicroString(args
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToRfc3339MicroString(varArgs...)))
@@ -3203,6 +3575,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToRfc3339MilliString(args
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToRfc3339MilliString(varArgs...)))
@@ -3214,6 +3592,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToRfc3339NanoString(args 
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToRfc3339NanoString(varArgs...)))
@@ -3225,6 +3609,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToRfc3339String(args []va
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToRfc3339String(varArgs...)))
@@ -3236,6 +3626,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToRfc7231String(args []va
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToRfc7231String(varArgs...)))
@@ -3247,6 +3643,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToRfc822String(args []val
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToRfc822String(varArgs...)))
@@ -3258,6 +3660,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToRfc822zString(args []va
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToRfc822zString(varArgs...)))
@@ -3269,6 +3677,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToRfc850String(args []val
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToRfc850String(varArgs...)))
@@ -3280,6 +3694,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToRssString(args []value.
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToRssString(varArgs...)))
@@ -3291,6 +3711,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToRubyDateString(args []v
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToRubyDateString(varArgs...)))
@@ -3302,6 +3728,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToShortDateMicroString(ar
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToShortDateMicroString(varArgs...)))
@@ -3313,6 +3745,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToShortDateMilliString(ar
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToShortDateMilliString(varArgs...)))
@@ -3324,6 +3762,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToShortDateNanoString(arg
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToShortDateNanoString(varArgs...)))
@@ -3335,6 +3779,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToShortDateString(args []
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToShortDateString(varArgs...)))
@@ -3346,6 +3796,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToShortDateTimeMicroStrin
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToShortDateTimeMicroString(varArgs...)))
@@ -3357,6 +3813,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToShortDateTimeMilliStrin
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToShortDateTimeMilliString(varArgs...)))
@@ -3368,6 +3830,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToShortDateTimeNanoString
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToShortDateTimeNanoString(varArgs...)))
@@ -3379,6 +3847,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToShortDateTimeString(arg
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToShortDateTimeString(varArgs...)))
@@ -3390,6 +3864,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToShortMonthString(args [
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToShortMonthString(varArgs...)))
@@ -3401,6 +3881,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToShortTimeMicroString(ar
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToShortTimeMicroString(varArgs...)))
@@ -3412,6 +3898,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToShortTimeMilliString(ar
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToShortTimeMilliString(varArgs...)))
@@ -3423,6 +3915,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToShortTimeNanoString(arg
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToShortTimeNanoString(varArgs...)))
@@ -3434,6 +3932,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToShortTimeString(args []
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToShortTimeString(varArgs...)))
@@ -3445,6 +3949,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToShortWeekString(args []
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToShortWeekString(varArgs...)))
@@ -3456,6 +3966,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToString(args []value.Val
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToString(varArgs...)))
@@ -3467,6 +3983,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToTimeMicroString(args []
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToTimeMicroString(varArgs...)))
@@ -3478,6 +4000,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToTimeMilliString(args []
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToTimeMilliString(varArgs...)))
@@ -3489,6 +4017,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToTimeNanoString(args []v
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToTimeNanoString(varArgs...)))
@@ -3500,6 +4034,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToTimeString(args []value
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToTimeString(varArgs...)))
@@ -3511,6 +4051,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToUnixDateString(args []v
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToUnixDateString(varArgs...)))
@@ -3522,6 +4068,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToW3cString(args []value.
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToW3cString(varArgs...)))
@@ -3533,6 +4085,12 @@ func direct_method_github_com_dromara_carbon_v2_Carbon_ToWeekString(args []value
 	if len(args) > 1 {
 		if sl, ok := args[1].Interface().([]string); ok {
 			varArgs = sl
+		} else {
+			for i := 1; i < len(args); i++ {
+				if v := args[i].Interface(); v != nil {
+					varArgs = append(varArgs, v.(string))
+				}
+			}
 		}
 	}
 	return value.MakeString(string(recv.ToWeekString(varArgs...)))

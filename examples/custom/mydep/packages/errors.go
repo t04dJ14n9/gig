@@ -36,9 +36,11 @@ func direct_errors_Is(args []value.Value) value.Value {
 }
 
 func direct_errors_Join(args []value.Value) value.Value {
-	varArgs := make([]error, len(args)-0)
+	varArgs := make([]error, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = value.ErrorValue(args[i])
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(error))
+		}
 	}
 	return value.FromInterface(errors.Join(varArgs...))
 }

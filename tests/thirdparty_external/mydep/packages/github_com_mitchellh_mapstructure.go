@@ -48,9 +48,11 @@ func init() {
 }
 
 func direct_github_com_mitchellh_mapstructure_ComposeDecodeHookFunc(args []value.Value) value.Value {
-	varArgs := make([]github_com_mitchellh_mapstructure.DecodeHookFunc, len(args)-0)
+	varArgs := make([]github_com_mitchellh_mapstructure.DecodeHookFunc, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].Interface().(github_com_mitchellh_mapstructure.DecodeHookFunc)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(github_com_mitchellh_mapstructure.DecodeHookFunc))
+		}
 	}
 	return value.FromInterface(github_com_mitchellh_mapstructure.ComposeDecodeHookFunc(varArgs...))
 }
@@ -83,9 +85,11 @@ func direct_github_com_mitchellh_mapstructure_NewDecoder(args []value.Value) val
 }
 
 func direct_github_com_mitchellh_mapstructure_OrComposeDecodeHookFunc(args []value.Value) value.Value {
-	varArgs := make([]github_com_mitchellh_mapstructure.DecodeHookFunc, len(args)-0)
+	varArgs := make([]github_com_mitchellh_mapstructure.DecodeHookFunc, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].Interface().(github_com_mitchellh_mapstructure.DecodeHookFunc)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(github_com_mitchellh_mapstructure.DecodeHookFunc))
+		}
 	}
 	return value.FromInterface(github_com_mitchellh_mapstructure.OrComposeDecodeHookFunc(varArgs...))
 }

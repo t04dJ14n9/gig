@@ -127,27 +127,33 @@ func init() {
 
 func direct_github_com_shopspring_decimal_Avg(args []value.Value) value.Value {
 	a0 := args[0].Interface().(github_com_shopspring_decimal.Decimal)
-	varArgs := make([]github_com_shopspring_decimal.Decimal, len(args)-1)
+	varArgs := make([]github_com_shopspring_decimal.Decimal, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].Interface().(github_com_shopspring_decimal.Decimal)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(github_com_shopspring_decimal.Decimal))
+		}
 	}
 	return value.FromInterface(github_com_shopspring_decimal.Avg(a0, varArgs...))
 }
 
 func direct_github_com_shopspring_decimal_Max(args []value.Value) value.Value {
 	a0 := args[0].Interface().(github_com_shopspring_decimal.Decimal)
-	varArgs := make([]github_com_shopspring_decimal.Decimal, len(args)-1)
+	varArgs := make([]github_com_shopspring_decimal.Decimal, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].Interface().(github_com_shopspring_decimal.Decimal)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(github_com_shopspring_decimal.Decimal))
+		}
 	}
 	return value.FromInterface(github_com_shopspring_decimal.Max(a0, varArgs...))
 }
 
 func direct_github_com_shopspring_decimal_Min(args []value.Value) value.Value {
 	a0 := args[0].Interface().(github_com_shopspring_decimal.Decimal)
-	varArgs := make([]github_com_shopspring_decimal.Decimal, len(args)-1)
+	varArgs := make([]github_com_shopspring_decimal.Decimal, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].Interface().(github_com_shopspring_decimal.Decimal)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(github_com_shopspring_decimal.Decimal))
+		}
 	}
 	return value.FromInterface(github_com_shopspring_decimal.Min(a0, varArgs...))
 }
@@ -233,9 +239,11 @@ func direct_github_com_shopspring_decimal_RescalePair(args []value.Value) value.
 
 func direct_github_com_shopspring_decimal_Sum(args []value.Value) value.Value {
 	a0 := args[0].Interface().(github_com_shopspring_decimal.Decimal)
-	varArgs := make([]github_com_shopspring_decimal.Decimal, len(args)-1)
+	varArgs := make([]github_com_shopspring_decimal.Decimal, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].Interface().(github_com_shopspring_decimal.Decimal)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(github_com_shopspring_decimal.Decimal))
+		}
 	}
 	return value.FromInterface(github_com_shopspring_decimal.Sum(a0, varArgs...))
 }

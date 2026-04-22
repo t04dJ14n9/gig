@@ -123,9 +123,11 @@ func direct_github_com_tidwall_gjson_GetBytes(args []value.Value) value.Value {
 
 func direct_github_com_tidwall_gjson_GetMany(args []value.Value) value.Value {
 	a0 := args[0].String()
-	varArgs := make([]string, len(args)-1)
+	varArgs := make([]string, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_tidwall_gjson.GetMany(a0, varArgs...))
 }
@@ -141,9 +143,11 @@ func direct_github_com_tidwall_gjson_GetManyBytes(args []value.Value) value.Valu
 		}
 		return v.([]byte)
 	}()
-	varArgs := make([]string, len(args)-1)
+	varArgs := make([]string, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(github_com_tidwall_gjson.GetManyBytes(a0, varArgs...))
 }
