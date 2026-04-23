@@ -32,4 +32,8 @@ Thumbs.db
 
 .codebuddy
 
-referencecmd/gig/gig
+# Compiled binary
+cmd/gig/gig
+
+# Reference projects (local only)
+reference/
