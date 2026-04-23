@@ -3,7 +3,7 @@ package external
 import "github.com/t04dJ14n9/gig/model/value"
 
 // ExternalMethodInfo contains method dispatch information.
-// It is stored in the constant pool and used by OpMethodCall.
+// It is stored in the constant pool and used by OpCallExternal.
 type ExternalMethodInfo struct {
 	// MethodName is the name of the method to call.
 	MethodName string

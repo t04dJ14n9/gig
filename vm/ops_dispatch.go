@@ -42,7 +42,7 @@ func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) (retErr error) {
 	case bytecode.OpGlobal, bytecode.OpSetGlobal,
 		bytecode.OpFree, bytecode.OpSetFree,
 		bytecode.OpField, bytecode.OpSetField, bytecode.OpAddr, bytecode.OpFieldAddr, bytecode.OpIndexAddr,
-		bytecode.OpDeref, bytecode.OpSetDeref, bytecode.OpNew, bytecode.OpMake:
+		bytecode.OpDeref, bytecode.OpSetDeref, bytecode.OpNew:
 		return v.executeMemory(op, frame)
 
 	// Closures & goroutines

@@ -82,12 +82,7 @@ const (
 	// Stack Operations
 	// ========================================
 
-	// OpNop is a no-operation instruction.
-	// Used as a placeholder or for debugging.
-	OpNop OpCode = iota
-
-	// OpPop discards the top value from the stack.
-	OpPop
+	OpPop OpCode = iota
 
 	// OpDup duplicates the top value on the stack.
 	OpDup
@@ -276,14 +271,6 @@ const (
 	// Operands: [iface_type_idx:2] [concrete_type_idx:2]
 	OpMakeInterface
 
-	// OpMakeArray creates a new array (rarely used).
-	// Operands: [type_idx:2]
-	OpMakeArray
-
-	// OpMakeStruct creates a new struct (rarely used).
-	// Operands: [type_idx:2]
-	OpMakeStruct
-
 	// ========================================
 	// Index Operations
 	// ========================================
@@ -303,18 +290,6 @@ const (
 	// OpSlice slices a slice/array/string.
 	// Stack: [... container low high max] -> [... sliced]
 	OpSlice
-
-	// _ (placeholder: was OpSliceLen, removed as dead code - use OpLen instead)
-
-	// ========================================
-	// Map Operations
-	// ========================================
-
-	// OpMapIter creates a map iterator.
-	OpMapIter
-
-	// OpMapIterNext advances a map iterator.
-	OpMapIterNext
 
 	// ========================================
 	// Struct Operations
@@ -384,14 +359,6 @@ const (
 	// Operands: [func_idx:2] [num_free:1]
 	OpClosure
 
-	// OpMethod gets a method value.
-	// Operands: [method_idx:2]
-	OpMethod
-
-	// OpMethodCall calls a method.
-	// Operands: [method_idx:2] [num_args:1]
-	OpMethodCall
-
 	// ========================================
 	// Concurrency Operations
 	// ========================================
@@ -417,12 +384,6 @@ const (
 	// OpRecvOk receives a value from a channel with comma-ok.
 	// Stack: [... ch] -> [... (value, ok) tuple]
 	OpRecvOk
-
-	// OpTrySend sends non-blocking.
-	OpTrySend
-
-	// OpTryRecv receives non-blocking.
-	OpTryRecv
 
 	// OpClose closes a channel.
 	// Stack: [... ch] -> [...]
@@ -508,10 +469,6 @@ const (
 	// OpNew allocates a new pointer.
 	// Operands: [type_idx:2]
 	OpNew
-
-	// OpMake allocates with make (generic).
-	// Operands: [type_idx:2] [size_idx:2]
-	OpMake
 
 	// ========================================
 	// External Function Calls
@@ -733,8 +690,6 @@ func buildOperandWidthTable() [256]int {
 	t[OpJumpTrue] = 2
 	t[OpJumpFalse] = 2
 	t[OpCall] = 3 // func_idx(2) + num_args(1)
-	t[OpMakeArray] = 2
-	t[OpMakeStruct] = 2
 	t[OpField] = 2
 	t[OpSetField] = 2
 	t[OpAddr] = 2
@@ -743,8 +698,6 @@ func buildOperandWidthTable() [256]int {
 	t[OpConvert] = 2
 	t[OpChangeType] = 4
 	t[OpClosure] = 3 // func_idx(2) + num_free(1)
-	t[OpMethod] = 2
-	t[OpMethodCall] = 3 // method_idx(2) + num_args(1)
 	t[OpDefer] = 2
 	t[OpDeferIndirect] = 2  // num_args(2)
 	t[OpDeferExternal] = 3  // func_idx(2) + num_args(1)
@@ -755,7 +708,6 @@ func buildOperandWidthTable() [256]int {
 	t[OpSelect] = 2         // meta_idx(2)
 	t[OpPack] = 2           // count(2)
 	t[OpNew] = 2
-	t[OpMake] = 4    // type_idx(2) + size_idx(2)
 	t[OpMakeInterface] = 4 // iface_type_idx(2) + concrete_type_idx(2)
 	t[OpPrint] = 1   // count(1)
 	t[OpPrintln] = 1 // count(1)
@@ -904,24 +856,16 @@ func init() { //nolint:gochecknoinits,decorder // table init placed after var de
 	opNameTable[OpLocalLocalMulSetLocal] = "LOCALLOCALMULSETLOCAL"
 	opNameTable[OpLocalLocalSubSetLocal] = "LOCALLOCALSUBSETLOCAL"
 	opNameTable[OpLsh] = "LSH"
-	opNameTable[OpMake] = "MAKE"
-	opNameTable[OpMakeArray] = "MAKEARRAY"
 	opNameTable[OpMakeChan] = "MAKECHAN"
 	opNameTable[OpMakeInterface] = "MAKEINTERFACE"
 	opNameTable[OpMakeMap] = "MAKEMAP"
 	opNameTable[OpMakeSlice] = "MAKESLICE"
-	opNameTable[OpMakeStruct] = "MAKESTRUCT"
-	opNameTable[OpMapIter] = "MAPITER"
-	opNameTable[OpMapIterNext] = "MAPITERNEXT"
-	opNameTable[OpMethod] = "METHOD"
-	opNameTable[OpMethodCall] = "METHODCALL"
 	opNameTable[OpMod] = "MOD"
 	opNameTable[OpMul] = "MUL"
 	opNameTable[OpMulLocalLocal] = "MULLOCALLOCAL"
 	opNameTable[OpNeg] = "NEG"
 	opNameTable[OpNew] = "NEW"
 	opNameTable[OpNil] = "NIL"
-	opNameTable[OpNop] = "NOP"
 	opNameTable[OpNot] = "NOT"
 	opNameTable[OpNotEqual] = "NOTEQUAL"
 	opNameTable[OpOr] = "OR"
@@ -954,8 +898,6 @@ func init() { //nolint:gochecknoinits,decorder // table init placed after var de
 	opNameTable[OpSubLocalLocal] = "SUBLOCALLOCAL"
 	opNameTable[OpSubSetLocal] = "SUBSETLOCAL"
 	opNameTable[OpTrue] = "TRUE"
-	opNameTable[OpTryRecv] = "TRYRECV"
-	opNameTable[OpTrySend] = "TRYSEND"
 	opNameTable[OpUnpack] = "UNPACK"
 	opNameTable[OpXor] = "XOR"
 }

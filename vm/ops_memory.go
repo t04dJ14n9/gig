@@ -9,8 +9,8 @@ import (
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
-// executeMemory handles global/free variable, field, address, dereference, new, and make opcodes.
-// Note: OpNop, OpPop, OpDup, OpConst, OpNil, OpTrue, OpFalse, OpLocal, OpSetLocal
+// executeMemory handles global/free variable, field, address, dereference, and new opcodes.
+// Note: OpPop, OpDup, OpConst, OpNil, OpTrue, OpFalse, OpLocal, OpSetLocal
 // are inlined in run.go's hot path and never reach this handler.
 func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx
 	switch op {

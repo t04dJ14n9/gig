@@ -47,7 +47,7 @@ func TestOperandWidth(t *testing.T) {
 		name  string
 		width int
 	}{
-		{OpNop, "OpNop", 0},
+		{OpPop, "OpPop", 0},
 		{OpConst, "OpConst", 2},
 		{OpLocal, "OpLocal", 2},
 		{OpJump, "OpJump", 2},
@@ -75,15 +75,11 @@ func TestOperandWidth(t *testing.T) {
 // and VM agree on their numeric values. This prevents silent breakage if
 // someone reorders the const block.
 func TestOpcodeConstants(t *testing.T) {
-	if OpNop != 0 {
-		t.Errorf("OpNop = %d, want 0", OpNop)
+	if OpPop != 0 {
+		t.Errorf("OpPop = %d, want 0", OpPop)
 	}
-	if OpPop != 1 {
-		t.Errorf("OpPop = %d, want 1", OpPop)
-	}
-	// OpHalt should be the last one; verify it is > 0.
-	if OpHalt == 0 {
-		t.Error("OpHalt should be non-zero")
+	if OpConst != 2 {
+		t.Errorf("OpConst = %d, want 2", OpConst)
 	}
 }
 
@@ -93,7 +89,6 @@ func TestOpCodeString(t *testing.T) {
 		op       OpCode
 		expected string
 	}{
-		{OpNop, "NOP"},
 		{OpPop, "POP"},
 		{OpDup, "DUP"},
 		{OpConst, "CONST"},
@@ -134,14 +129,10 @@ func TestOpCodeString(t *testing.T) {
 		{OpMakeSlice, "MAKESLICE"},
 		{OpMakeMap, "MAKEMAP"},
 		{OpMakeChan, "MAKECHAN"},
-		{OpMakeArray, "MAKEARRAY"},
-		{OpMakeStruct, "MAKESTRUCT"},
 		{OpIndex, "INDEX"},
 		{OpIndexOk, "INDEXOK"},
 		{OpSetIndex, "SETINDEX"},
 		{OpSlice, "SLICE"},
-		{OpMapIter, "MAPITER"},
-		{OpMapIterNext, "MAPITERNEXT"},
 		{OpField, "FIELD"},
 		{OpSetField, "SETFIELD"},
 		{OpAddr, "ADDR"},
@@ -153,15 +144,11 @@ func TestOpCodeString(t *testing.T) {
 		{OpConvert, "CONVERT"},
 		{OpChangeType, "CHANGETYPE"},
 		{OpClosure, "CLOSURE"},
-		{OpMethod, "METHOD"},
-		{OpMethodCall, "METHODCALL"},
 		{OpGoCall, "GOCALL"},
 		{OpGoCallIndirect, "GOCALLINDIRECT"},
 		{OpSend, "SEND"},
 		{OpRecv, "RECV"},
 		{OpRecvOk, "RECVOK"},
-		{OpTrySend, "TRYSEND"},
-		{OpTryRecv, "TRYRECV"},
 		{OpClose, "CLOSE"},
 		{OpSelect, "SELECT"},
 		{OpDefer, "DEFER"},
@@ -179,7 +166,6 @@ func TestOpCodeString(t *testing.T) {
 		{OpPrint, "PRINT"},
 		{OpPrintln, "PRINTLN"},
 		{OpNew, "NEW"},
-		{OpMake, "MAKE"},
 		{OpCallExternal, "CALLEXTERNAL"},
 		{OpCallIndirect, "CALLINDIRECT"},
 		{OpPack, "PACK"},
@@ -246,7 +232,7 @@ func TestProgramReflectTypeCache(t *testing.T) {
 func TestCompiledFunction(t *testing.T) {
 	fn := &CompiledFunction{
 		Name:         "testFunc",
-		Instructions: []byte{byte(OpNop), byte(OpConst), 0, 1, byte(OpReturnVal)},
+		Instructions: []byte{byte(OpPop), byte(OpConst), 0, 1, byte(OpReturnVal)},
 		NumLocals:    5,
 		NumParams:    2,
 		NumFreeVars:  1,
@@ -283,7 +269,7 @@ func TestProgramWithValues(t *testing.T) {
 		Functions: map[string]*CompiledFunction{
 			"main": {
 				Name:         "main",
-				Instructions: []byte{byte(OpNop), byte(OpReturn)},
+				Instructions: []byte{byte(OpPop), byte(OpReturn)},
 				NumLocals:    2,
 				NumParams:    0,
 				MaxStack:     10,
