@@ -224,30 +224,23 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 						}
 					}
 					elem := rv.Elem()
-					// When dereferencing a pointer-to-pointer (e.g. **int from FieldAddr),
-					// the inner pointer value is addressable and references the struct field
-					// directly. We must create an independent copy so that subsequent Store
-					// operations on the struct field don't silently mutate this loaded value
-					// (critical for swap patterns like p.a, p.b = p.b, p.a).
+					// When dereferencing a pointer that points into addressable
+					// memory (slice element, struct field, array element), the
+					// resulting reflect.Value aliases the original storage.
+					// We must create an independent copy so subsequent Store
+					// operations don't silently mutate this loaded value
+					// (critical for swap patterns like a[i],a[j]=a[j],a[i]).
 					if elem.Kind() == reflect.Ptr && elem.CanSet() {
 						v.push(value.MakeFromReflect(reflect.ValueOf(elem.Interface())))
 					} else if elem.Kind() == reflect.Interface && elem.CanSet() && elem.Type().NumMethod() == 0 {
-						// Same issue for interface{} fields (from self-referencing structs
-						// where *T is converted to interface{} by cycle-breaking). The elem
-						// references the struct field directly; if we don't copy, subsequent
-						// mutations of the field would corrupt this loaded value.
-						// Only apply this to empty interfaces (interface{} / any) which are
-						// used as cycle-breaking placeholders. Real Go interfaces (io.Reader, etc.)
-						// don't need this copy and it would break type assignability.
 						if elem.IsNil() {
-							// Nil interface — push as KindNil so nil comparisons work correctly.
 							v.push(value.MakeNil())
 						} else {
-							// Copy the concrete value out of the interface to break
-							// the reference to the original field memory.
 							concrete := elem.Elem()
 							v.push(value.MakeFromReflect(reflect.ValueOf(concrete.Interface())))
 						}
+					} else if elem.CanAddr() {
+						v.push(value.MakeFromReflect(cloneReflectValue(elem)))
 					} else {
 						v.push(value.MakeFromReflect(elem))
 					}
@@ -302,4 +295,14 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 	}
 
 	return nil
+}
+
+// cloneReflectValue creates an independent copy of a reflect.Value that
+// references addressable memory (slice element, struct field, etc.).
+// This breaks the alias so subsequent writes through the original
+// pointer don't corrupt the copy.
+func cloneReflectValue(rv reflect.Value) reflect.Value {
+	copy := reflect.New(rv.Type()).Elem()
+	copy.Set(rv)
+	return copy
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 
 	"github.com/t04dJ14n9/gig/model/bytecode"
@@ -33,28 +32,16 @@ func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string,
 	// falling back to scanning unexported field PkgPath for the # suffix.
 	receiverTypeName := ""
 	if rv.Kind() == reflect.Ptr {
-		elem := rv.Elem()
-		if elem.Kind() == reflect.Struct {
-			receiverTypeName = program.LookupTypeName(elem.Type())
+		elemType := rv.Type().Elem()
+		if elemType.Kind() == reflect.Struct {
+			receiverTypeName = program.LookupTypeName(elemType)
 		}
 	} else if rv.Kind() == reflect.Struct {
 		receiverTypeName = program.LookupTypeName(rv.Type())
 	}
 	// Fallback: scan unexported field PkgPath for # suffix
-	if receiverTypeName == "" && rv.Kind() == reflect.Struct {
-		rt := rv.Type()
-		for i := 0; i < rt.NumField(); i++ {
-			sf := rt.Field(i)
-			if idx := strings.LastIndex(sf.PkgPath, "#"); idx >= 0 {
-				qualName := sf.PkgPath[idx+1:]
-				if dotIdx := strings.LastIndex(qualName, "."); dotIdx >= 0 {
-					receiverTypeName = qualName[dotIdx+1:]
-				} else {
-					receiverTypeName = qualName
-				}
-				break
-			}
-		}
+	if receiverTypeName == "" {
+		receiverTypeName = pkgPathTypeName(rv.Type())
 	}
 
 	if receiverTypeName == "" {
@@ -67,15 +54,7 @@ func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string,
 			continue
 		}
 		// Found the method! Execute it with a temporary VM.
-		tempVM := &vm{
-			program: program,
-			stack:   make([]value.Value, deferVMStackSize),
-			sp:      0,
-			frames:  make([]*Frame, initialFrameDepth),
-			fp:      0,
-			globals: make([]value.Value, len(program.Globals)),
-			ctx:     context.Background(),
-		}
+		tempVM := newTempVM(program, make([]value.Value, len(program.Globals)), nil, nil, context.Background(), nil)
 		// Note: tempVM does not have initialGlobals since resolveCompiledMethod
 		// is called without a VM context. This is acceptable because method resolution
 		// only needs to execute the method, not full program init.

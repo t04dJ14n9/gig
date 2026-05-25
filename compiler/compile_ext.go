@@ -56,6 +56,18 @@ func (c *compiler) compileExternalFuncValue(fn *ssa.Function) {
 // compileExternalStaticCall compiles a call to an external package function.
 // It uses the injected PackageLookup to resolve the function, avoiding direct importer dependency.
 func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resultIdx int) {
+	// Validate: reject user-defined types flowing into third-party packages.
+	if !c.allowUnsafeTypePass && fn.Pkg != nil && fn.Pkg.Pkg != nil {
+		pkgPath := fn.Pkg.Pkg.Path()
+		argTypes := make([]types.Type, len(i.Call.Args))
+		for idx, arg := range i.Call.Args {
+			argTypes[idx] = arg.Type()
+		}
+		if err := validateExternalCallArgs(pkgPath, fn.Name(), argTypes); err != nil {
+			c.addError(err)
+		}
+	}
+
 	for _, arg := range i.Call.Args {
 		c.compileValue(arg)
 	}

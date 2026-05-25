@@ -12,7 +12,7 @@ Gig 是一个用 Go 语言编写的高性能 Go 解释器，采用 SSA 到字节
 - **基于栈的虚拟机**：高效字节码执行，开销极小
 - **Tagged-Union 值系统**：基本类型零反射开销
 - **安全性**：在解释代码中禁止 `unsafe`、`reflect` 和 `panic`
-- **可扩展**：支持注册外部 Go 包（内置 40+ 标准库包）
+- **可扩展**：支持注册外部 Go 包，内置标准库以 `stdlib/pkgs.go` 和 `stdlib/packages/` 为准
 - **Context 取消支持**：完整支持 `context.Context` 超时和取消（[文档](docs/context-cancellation_CN.md)）
 
 ## 安装
@@ -25,7 +25,7 @@ go get github.com/t04dJ14n9/gig
 
 ### 方式一：使用内置标准库（推荐）
 
-Gig 内置了 40+ 标准库包，只需导入 `gig/stdlib/packages`：
+Gig 的内置标准库由 `stdlib/pkgs.go` 声明，并生成到 `stdlib/packages/`。使用时只需导入 `gig/stdlib/packages`：
 
 ```go
 package main
@@ -62,7 +62,7 @@ func Greet(name string) string {
 }
 ```
 
-**内置包包括**：`fmt`、`strings`、`strconv`、`math`、`time`、`bytes`、`errors`、`sort`、`regexp`、`encoding/json`、`encoding/base64`、`net/url` 等 30 多个。
+**内置包以 `stdlib/pkgs.go` 为准**：生成代码位于 `stdlib/packages/`，常用覆盖包括 `fmt`、`strings`、`strconv`、`math`、`time`、`bytes`、`errors`、`sort`、`regexp`、`encoding/json`、`encoding/base64`、`net/url` 等。
 
 ### 方式二：使用自定义依赖
 
@@ -214,6 +214,9 @@ gig init -package <名称>
 # 生成注册代码
 gig gen <目录>
 
+# 在本仓库重新生成内置 stdlib 时，使用固定 Go 版本以避免生成新版符号
+go1.23.1 run ./cmd/gig gen ./stdlib
+
 # 示例
 gig init -package mydep         # 创建 mydep/pkgs.go
 gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
@@ -233,9 +236,26 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 - ✅ 映射（Map）
 - ✅ 结构体和方法
 - ✅ 接口
-- ✅ Goroutine（基础支持）
+- ✅ Goroutine、Channel 和 Select
+- ✅ 方法、接口和类型断言
 - ✅ 基于上下文的超时控制
-- ✅ 外部 Go 函数调用
+- ✅ `WithStatefulGlobals()` 有状态全局变量
+- ✅ 生成式标准库和外部包包装器（DirectCall 快速路径，反射回退）
+- ✅ 外部 Go 函数和方法调用
+
+### 支持的标准库表面
+
+内置标准库的完整列表以 `stdlib/pkgs.go` 为准，生成后的注册和 DirectCall 包装器在 `stdlib/packages/`。当前测试覆盖的常用表面包括：
+
+| 类别 | 示例 | 说明 |
+| --- | --- | --- |
+| 字符串和格式化 | `strings`、`fmt`、`bytes` | 字符串处理、格式化输出、Buffer/Builder 方法 |
+| 错误处理 | `errors` | `Is`、`Join`、`Unwrap` 和接口目标的 `As` |
+| 排序和堆 | `sort`、`container/heap` | 支持解释器实现的 `sort.Interface` 和 `heap.Interface` 适配 |
+| I/O 接口 | `io` | 常用 Reader/Writer 接口和工具函数 |
+| 并发 | `sync` | `Mutex` 等同步原语可用于有状态全局变量 |
+| 编码 | `encoding/json` | struct tag 驱动的 JSON 编码和解码 |
+| 时间、正则和 URL | `time`、`regexp`、`net/url` | 规则引擎常用解析和匹配能力 |
 
 ## 性能
 
@@ -335,7 +355,7 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 **Gig 在 3/5 项核心基准测试中优于 Yaegi**：
 
 - **递归快 4.3 倍**（Fib25）—— O(1) 函数查找、帧池化，仅 7 次分配 vs 210 万次
-- **外部调用快 2.6–2.8 倍** —— 1,162 个生成的 DirectCall 包装器消除了 92% 标准库函数和方法的 `reflect.Value.Call()`
+- **外部调用快 2.6–2.8 倍** —— 生成的 DirectCall 包装器让常用标准库函数和方法跳过 `reflect.Value.Call()`
 - **排序快 1.3 倍**（BubbleSort）—— 优化的切片操作和循环
 - **紧凑循环**（ArithSum、Sieve）—— Yaegi 快 1.3-1.8 倍；Gig 的字节码解释开销在极短循环中更明显
 - **闭包快 2.1 倍** —— 高效的闭包表示，通过共享 `*value.Value` 捕获变量
@@ -347,7 +367,7 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 - **没有结构体/接口/方法** —— Lua 使用表（table），不是 Go 的类型系统
 - **不同的语法** —— 团队需要学习 Lua；Gig 使用熟悉的 Go 语法
 
-关键优化：SSA 到字节码编译、32 字节 tagged-union 值、超级指令融合（17 种模式）、`intLocals []int64` 特化、`[]int64` 切片融合、DirectCall 代码生成、帧池化和内联缓存、**lock-free VMPool（sync.Pool，吞吐量提升 50%）**。
+关键优化：SSA 到字节码编译、32 字节 tagged-union 值、超级指令融合（17 种模式）、`intLocals []int64` 特化、`[]int64` 切片融合、DirectCall 代码生成、帧池化、外部调用预解析、**lock-free VMPool（sync.Pool，吞吐量提升 50%）**。
 
 **为什么选择 Gig：**
 
@@ -359,7 +379,7 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 | **Defer/Panic/Recover** | ✅                            | ✅           | ❌         | ❌         |
 | **安全沙箱**          | ✅（禁止 unsafe/reflect/panic） | ❌           | ❌         | ✅         |
 | **结构体/接口/方法**  | ✅                              | ✅           | ❌         | 有限       |
-| **40+ 标准库包**      | ✅                              | ✅           | 需手动注册 | N/A        |
+| **标准库包**          | ✅（以 `stdlib/pkgs.go` 和生成目录为准） | ✅           | 需手动注册 | N/A        |
 | **自定义 Go 包导入**  | ✅（代码生成）                  | ✅（符号表） | 需手动包装 | N/A        |
 | **Context 取消**      | ✅                              | ❌           | ❌         | ❌         |
 | **并发压力测试**      | ✅（10KG, 497万/秒, 0 错误）  | 未测试       | 未测试     | 未测试     |
@@ -391,7 +411,7 @@ Gig 通过禁止某些导入来强制安全性：
 
 ## 已知限制
 
-- **第三方库反射受限**：解释器合成的结构体通过 `gigStructWrapper` 暴露方法，仅覆盖 `fmt.Stringer`、`error`、`fmt.Formatter`、`fmt.GoStringer`。第三方库若通过反射检查 `reflect.Type` 或断言其他接口（如 `json.Marshaler`），可能无法识别解释器类型。`encoding/json` 等标准库可直接工作（基于 struct tag），`errors.As` 通过 `GigErrorsAs` 适配。
+- **第三方库反射和接口断言受限**：解释器合成的结构体通过 `gigStructWrapper` 暴露 `fmt.Stringer`、`error`、`fmt.Formatter`、`fmt.GoStringer`。第三方库若依赖原生命名类型的 `reflect.Type`，或断言其他接口（如 `json.Marshaler`），可能无法识别解释器类型。`encoding/json` 等标准库可基于 struct tag 工作，`errors.As` 通过 `GigErrorsAs` 适配常见接口目标。
 
   ```go
   // ✅ 可行：标准库通过 fmt.Stringer / struct tag 工作
@@ -402,7 +422,7 @@ Gig 通过禁止某些导入来强制安全性：
   var jm json.Marshaler = myStruct  // 编译错误：gigStructWrapper 未实现 json.Marshaler
   ```
 
-- **`errors.As` 不支持结构体指针目标**：当 `errors.As(err, &ce)` 中 `ce` 为结构体指针类型时无法匹配。原因是解释器生成的结构体类型（`reflect.StructOf`）与 Go 原生命名类型有不同的 `reflect.Type`，且参数传递时包装为 `interface{}` 会丢失运行时类型信息，导致反射无法将解释器类型赋值给原生指针目标。
+- **`errors.As` 的结构体指针目标仍有注意事项**：接口目标可以匹配，结构体指针目标依赖解释器类型和原生命名类型的 `reflect.Type` 是否可赋值。跨边界传递时仍可能因为 `reflect.StructOf` 类型身份不同而无法设置目标值。
 
   ```go
   type CustomError struct { Msg string }
@@ -415,8 +435,10 @@ Gig 通过禁止某些导入来强制安全性：
 
   // ❌ 不可行：结构体指针目标
   var ce *CustomError
-  errors.As(err, &ce)              // 不匹配，reflect.Type 不一致
+  errors.As(err, &ce)              // 可能不匹配，reflect.Type 不一致
   ```
+
+- **Typed nil 边界场景**：`OpMakeInterface` 会保留 `var p *T = nil; var e error = p` 这类 typed nil 语义，避免把非空接口误变成 `nil`。但当值穿过第三方反射代码、非标准接口断言或手写包装器时，仍需按 Go 的 typed nil 规则检查结果。
 
 ## 架构
 
@@ -529,7 +551,7 @@ flowchart LR
     end
 
     subgraph "packages/ [标准库]"
-        STDLIB["40+ 包<br/>(fmt, strings, math, ...)"]
+        STDLIB["生成包<br/>(以 stdlib/pkgs.go 为准)"]
     end
 
     UC --> BUILD
@@ -771,7 +793,7 @@ flowchart TB
 
     subgraph Execution["VM 执行"]
         CALL["OpCallExternal"]
-        CACHE["内联缓存"]
+        RESOLVED["预解析调用表"]
         DIRECT["DirectCall<br/>(快速路径)"]
         REFLECT["reflect.Call<br/>(慢速路径)"]
         METHODCALL["方法分发<br/>(MethodByName)"]
@@ -782,9 +804,9 @@ flowchart TB
     REG --> IMPORT --> TYPECONV --> METHOD
 
     IMPORT --> CALL
-    CALL --> CACHE
-    CACHE --> DIRECT
-    CACHE --> REFLECT
+    CALL --> RESOLVED
+    RESOLVED --> DIRECT
+    RESOLVED --> REFLECT
     CALL --> METHODCALL
 ```
 
@@ -802,7 +824,7 @@ flowchart TB
 | **外部类型** | `model/external/` | ExternalFuncInfo、ExternalObject 等共享类型       |
 | **导入器**   | `importer/`       | 外部包注册、类型解析                             |
 | **运行器**   | `runner/`         | VM 池、init 执行、有状态/无状态模式              |
-| **标准库包** | `stdlib/packages/`| 40+ 预注册标准库包                               |
+| **标准库包** | `stdlib/pkgs.go`, `stdlib/packages/` | 声明并生成内置标准库包装器           |
 | **CLI**      | `cmd/gig`         | 代码生成工具                                     |
 
 ### 关键设计决策
@@ -811,7 +833,7 @@ flowchart TB
 
 2. **Tagged-Union 值**：基本类型操作避免反射开销，将值存储在联合体中的原生 Go 类型中。
 
-3. **内联缓存**：外部函数调用缓存已解析的函数信息，实现快速分发。
+3. **外部调用预解析**：编译后构建不可变的 `ExternCalls` 表，运行时通过数组索引分发到 DirectCall 或反射回退。
 
 4. **上下文集成**：虚拟机每 1024 条指令检查一次上下文取消，实现响应式超时处理。
 

@@ -46,6 +46,8 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/tricky"
 	"github.com/t04dJ14n9/gig/tests/testdata/typeconv"
 	"github.com/t04dJ14n9/gig/tests/testdata/variables"
+
+	"github.com/t04dJ14n9/gig/tests/testdata/parity"
 )
 
 func TestAdvanced(t *testing.T)   { runTestSet(t, testSet{src: advancedSrc, tests: advancedTests}) }
@@ -126,6 +128,9 @@ func TestTrickyStructs(t *testing.T) {
 }
 func TestTypeconv(t *testing.T)  { runTestSet(t, testSet{src: typeconvSrc, tests: typeconvTests}) }
 func TestVariables(t *testing.T) { runTestSet(t, testSet{src: variablesSrc, tests: variablesTests}) }
+func TestParity(t *testing.T) {
+	runTestSet(t, testSet{src: paritySrc, tests: parityTests, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}})
+}
 
 // ============================================================================
 // Helper Functions
@@ -354,6 +359,9 @@ var variablesSrc string
 
 //go:embed testdata/initialize/main.go
 var initSrc string
+
+//go:embed testdata/parity/main.go
+var paritySrc string
 
 // ============================================================================
 // All Test Cases - Consolidated from all test files
@@ -2045,4 +2053,92 @@ var variablesTests = map[string]testCase{
 	"Multiply":   {variablesSrc, "Multiply", []any{6, 7}, variables.Multiply},
 	"Max":        {variablesSrc, "Max", []any{100, 42}, variables.Max},
 	"IsPositive": {variablesSrc, "IsPositive", []any{5}, variables.IsPositive},
+}
+
+var parityTests = map[string]testCase{
+	// Type assertions
+	"TypeAssertInt":           {paritySrc, "TypeAssertInt", nil, parity.TypeAssertInt},
+	"TypeAssertCommaOk":       {paritySrc, "TypeAssertCommaOk", nil, parity.TypeAssertCommaOk},
+	"TypeAssertCommaOkFail":           {paritySrc, "TypeAssertCommaOkFail", nil, parity.TypeAssertCommaOkFail},
+	"TypeAssertInterfaceToInterface": {paritySrc, "TypeAssertInterfaceToInterface", nil, parity.TypeAssertInterfaceToInterface},
+	"TypeSwitch":                     {paritySrc, "TypeSwitch", nil, parity.TypeSwitch},
+	"TypeSwitchWithDefault":   {paritySrc, "TypeSwitchWithDefault", nil, parity.TypeSwitchWithDefault},
+	// Type conversions
+	"IntToFloat64Conv":    {paritySrc, "IntToFloat64Conv", nil, parity.IntToFloat64Conv},
+	"Float64ToIntConv":    {paritySrc, "Float64ToIntConv", nil, parity.Float64ToIntConv},
+	"UintToIntConv":       {paritySrc, "UintToIntConv", nil, parity.UintToIntConv},
+	"IntToUintConv":       {paritySrc, "IntToUintConv", nil, parity.IntToUintConv},
+	"RuneToStringConv":    {paritySrc, "RuneToStringConv", nil, parity.RuneToStringConv},
+	"ByteToStringConv":    {paritySrc, "ByteToStringConv", nil, parity.ByteToStringConv},
+	"StringToRuneSliceConv": {paritySrc, "StringToRuneSliceConv", nil, parity.StringToRuneSliceConv},
+	"StringToByteSliceConv": {paritySrc, "StringToByteSliceConv", nil, parity.StringToByteSliceConv},
+	"ByteSliceToStringConv": {paritySrc, "ByteSliceToStringConv", nil, parity.ByteSliceToStringConv},
+	"Int8Range":           {paritySrc, "Int8Range", nil, parity.Int8Range},
+	"Uint8Range":          {paritySrc, "Uint8Range", nil, parity.Uint8Range},
+	// Interface wrapping
+	"TypedNilInterface":  {paritySrc, "TypedNilInterface", nil, parity.TypedNilInterface},
+	"NonNilInterface":    {paritySrc, "NonNilInterface", nil, parity.NonNilInterface},
+	// Method dispatch
+	"PointerReceiverMethod":  {paritySrc, "PointerReceiverMethod", nil, parity.PointerReceiverMethod},
+	"ValueToPointerMethod":   {paritySrc, "ValueToPointerMethod", nil, parity.ValueToPointerMethod},
+	// errors.Is / errors.As
+	"ErrorsIsWrap":    {paritySrc, "ErrorsIsWrap", nil, parity.ErrorsIsWrap},
+	"ErrorsIsChain":   {paritySrc, "ErrorsIsChain", nil, parity.ErrorsIsChain},
+	"ErrorsIsNoMatch": {paritySrc, "ErrorsIsNoMatch", nil, parity.ErrorsIsNoMatch},
+	"ErrorsAsMatch":   {paritySrc, "ErrorsAsMatch", nil, parity.ErrorsAsMatch},
+	"ErrorsAsNoMatch": {paritySrc, "ErrorsAsNoMatch", nil, parity.ErrorsAsNoMatch},
+	// sort callbacks
+	"SortInts":        {paritySrc, "SortInts", nil, parity.SortInts},
+	"SortStrings":     {paritySrc, "SortStrings", nil, parity.SortStrings},
+	"SortFloat64s":    {paritySrc, "SortFloat64s", nil, parity.SortFloat64s},
+	"SortSliceCustom": {paritySrc, "SortSliceCustom", nil, parity.SortSliceCustom},
+	"SortSliceStable": {paritySrc, "SortSliceStable", nil, parity.SortSliceStable},
+	"SortSearchInts":  {paritySrc, "SortSearchInts", nil, parity.SortSearchInts},
+	"SortReverseInts": {paritySrc, "SortReverseInts", nil, parity.SortReverseInts},
+	// String operations
+	"StringContains":  {paritySrc, "StringContains", nil, parity.StringContains},
+	"StringReplace":   {paritySrc, "StringReplace", nil, parity.StringReplace},
+	"StringSplitJoin": {paritySrc, "StringSplitJoin", nil, parity.StringSplitJoin},
+	"StringHasPrefix": {paritySrc, "StringHasPrefix", nil, parity.StringHasPrefix},
+	"StringTrimSpace": {paritySrc, "StringTrimSpace", nil, parity.StringTrimSpace},
+	// Slicing edge cases
+	"ThreeIndexSlice":    {paritySrc, "ThreeIndexSlice", nil, parity.ThreeIndexSlice},
+	"SliceFromSlice":     {paritySrc, "SliceFromSlice", nil, parity.SliceFromSlice},
+	"SliceAppendShared":  {paritySrc, "SliceAppendShared", nil, parity.SliceAppendShared},
+	"NilSliceLenCap":     {paritySrc, "NilSliceLenCap", nil, parity.NilSliceLenCap},
+	// Map operations
+	"MapDeleteKey":   {paritySrc, "MapDeleteKey", nil, parity.MapDeleteKey},
+	"MapMissingKey":  {paritySrc, "MapMissingKey", nil, parity.MapMissingKey},
+	"MapCommaOk":     {paritySrc, "MapCommaOk", nil, parity.MapCommaOk},
+	"MapRange":       {paritySrc, "MapRange", nil, parity.MapRange},
+	// Closure and capture
+	"ClosureCaptureByRef": {paritySrc, "ClosureCaptureByRef", nil, parity.ClosureCaptureByRef},
+	"ClosureReturnFunc":   {paritySrc, "ClosureReturnFunc", nil, parity.ClosureReturnFunc},
+	// Defer / Panic / Recover
+	"DeferOrder":   {paritySrc, "DeferOrder", nil, parity.DeferOrder},
+	"PanicRecover": {paritySrc, "PanicRecover", nil, parity.PanicRecover},
+	"RecoverNil":   {paritySrc, "RecoverNil", nil, parity.RecoverNil},
+	// Float edge cases (IEEE 754)
+	"NaNLess":           {paritySrc, "NaNLess", nil, parity.NaNLess},
+	"NaNLessEq":         {paritySrc, "NaNLessEq", nil, parity.NaNLessEq},
+	"NaNGreater":        {paritySrc, "NaNGreater", nil, parity.NaNGreater},
+	"NaNGreaterEq":      {paritySrc, "NaNGreaterEq", nil, parity.NaNGreaterEq},
+	"NaNEq":             {paritySrc, "NaNEq", nil, parity.NaNEq},
+	"NaNNeq":            {paritySrc, "NaNNeq", nil, parity.NaNNeq},
+	"NaNLessThanNumber": {paritySrc, "NaNLessThanNumber", nil, parity.NaNLessThanNumber},
+	"NaNLessEqNumber":   {paritySrc, "NaNLessEqNumber", nil, parity.NaNLessEqNumber},
+	"NumberLessEqNaN":   {paritySrc, "NumberLessEqNaN", nil, parity.NumberLessEqNaN},
+	"InfArithmetic":     {paritySrc, "InfArithmetic", nil, parity.InfArithmetic},
+	"InfTimesZero":      {paritySrc, "InfTimesZero", nil, parity.InfTimesZero},
+	"NegativeZero":      {paritySrc, "NegativeZero", nil, parity.NegativeZero},
+	"FloatCompareNaN":   {paritySrc, "FloatCompareNaN", nil, parity.FloatCompareNaN},
+	// Integer overflow
+	"Uint8Overflow":   {paritySrc, "Uint8Overflow", nil, parity.Uint8Overflow},
+	"Int8Overflow":    {paritySrc, "Int8Overflow", nil, parity.Int8Overflow},
+	"Int8Underflow":   {paritySrc, "Int8Underflow", nil, parity.Int8Underflow},
+	"Uint16Overflow":  {paritySrc, "Uint16Overflow", nil, parity.Uint16Overflow},
+	// Slice capacity
+	"SliceAppendCap":     {paritySrc, "SliceAppendCap", nil, parity.SliceAppendCap},
+	"SliceSubAppend":     {paritySrc, "SliceSubAppend", nil, parity.SliceSubAppend},
+	"SliceSubAppendNoCap": {paritySrc, "SliceSubAppendNoCap", nil, parity.SliceSubAppendNoCap},
 }

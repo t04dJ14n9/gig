@@ -3,6 +3,7 @@ package vm
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/model/bytecode"
@@ -161,6 +162,44 @@ func (v *vm) runDefersDuringPanic(frame *Frame) bool {
 // jumps) are inlined directly in the loop to avoid per-instruction function call
 // overhead. Less frequent opcodes fall through to executeOp.
 //
+// lessEqCmp returns a <= b, correctly handling IEEE 754 NaN (NaN <= x is always false).
+func lessEqCmp(a, b value.Value) bool {
+	cmp := a.Cmp(b)
+	if cmp < 0 {
+		return true
+	}
+	if cmp > 0 {
+		return false
+	}
+	// cmp == 0: could be a == b, or one/both are NaN
+	if a.Kind() == value.KindFloat && math.IsNaN(a.Float()) {
+		return false
+	}
+	if b.Kind() == value.KindFloat && math.IsNaN(b.Float()) {
+		return false
+	}
+	return true
+}
+
+// greaterEqCmp returns a >= b, correctly handling IEEE 754 NaN (NaN >= x is always false).
+func greaterEqCmp(a, b value.Value) bool {
+	cmp := a.Cmp(b)
+	if cmp > 0 {
+		return true
+	}
+	if cmp < 0 {
+		return false
+	}
+	// cmp == 0: could be a == b, or one/both are NaN
+	if a.Kind() == value.KindFloat && math.IsNaN(a.Float()) {
+		return false
+	}
+	if b.Kind() == value.KindFloat && math.IsNaN(b.Float()) {
+		return false
+	}
+	return true
+}
+
 //nolint:gocyclo,cyclop,funlen,maintidx,gocognit
 func (v *vm) run() (value.Value, error) {
 	// Hoist hot fields into local variables for better register allocation.
@@ -403,7 +442,7 @@ func (v *vm) run() (value.Value, error) {
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
 				stack[sp] = value.MakeBool(a.RawInt() <= b.RawInt())
 			} else {
-				stack[sp] = value.MakeBool(a.Cmp(b) <= 0)
+				stack[sp] = value.MakeBool(lessEqCmp(a, b))
 			}
 			sp++
 			continue
@@ -429,7 +468,7 @@ func (v *vm) run() (value.Value, error) {
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
 				stack[sp] = value.MakeBool(a.RawInt() >= b.RawInt())
 			} else {
-				stack[sp] = value.MakeBool(a.Cmp(b) >= 0)
+				stack[sp] = value.MakeBool(greaterEqCmp(a, b))
 			}
 			sp++
 			continue
@@ -792,7 +831,7 @@ func (v *vm) run() (value.Value, error) {
 					frame.ip = int(offset)
 				}
 			} else {
-				if a.Cmp(b) <= 0 {
+				if lessEqCmp(a, b) {
 					frame.ip = int(offset)
 				}
 			}
@@ -860,7 +899,7 @@ func (v *vm) run() (value.Value, error) {
 					frame.ip = int(offset)
 				}
 			} else {
-				if a.Cmp(b) > 0 {
+				if !lessEqCmp(a, b) {
 					frame.ip = int(offset)
 				}
 			}

@@ -5,6 +5,7 @@
 package compiler
 
 import (
+	"errors"
 	"fmt"
 	"go/types"
 	"reflect"
@@ -22,17 +23,23 @@ type Compiler interface {
 
 // NewCompiler creates a new compiler with the given package lookup for resolving external functions.
 // The PackageLookup dependency is injected to decouple the compiler from the importer package.
-func NewCompiler(lookup PackageLookup) Compiler {
+func NewCompiler(lookup PackageLookup, allowUnsafeTypePass bool) Compiler {
 	return &compiler{
-		lookup:            lookup,
-		constants:         make([]any, 0),
-		types:             make([]types.Type, 0),
-		globals:           make(map[string]int),
-		globalZeroValues:  make(map[int]reflect.Value),
-		externalVarValues: make(map[int]any),
-		funcs:             make(map[string]*bytecode.CompiledFunction),
-		funcIndex:         make(map[*ssa.Function]int),
+		lookup:              lookup,
+		allowUnsafeTypePass: allowUnsafeTypePass,
+		constants:           make([]any, 0),
+		types:               make([]types.Type, 0),
+		globals:             make(map[string]int),
+		globalZeroValues:    make(map[int]reflect.Value),
+		externalVarValues:   make(map[int]any),
+		funcs:               make(map[string]*bytecode.CompiledFunction),
+		funcIndex:           make(map[*ssa.Function]int),
 	}
+}
+
+// addError records a compilation error for later reporting.
+func (c *compiler) addError(err error) {
+	c.errors = append(c.errors, err)
 }
 
 // compiler is the concrete implementation of the Compiler interface.
@@ -79,6 +86,12 @@ type compiler struct {
 
 	// phiSlots maps Phi nodes to their allocated local slots.
 	phiSlots map[*ssa.Phi]int
+
+	// errors collects non-fatal compilation errors (e.g., type safety violations).
+	errors []error
+
+	// allowUnsafeTypePass disables type safety validation for external calls.
+	allowUnsafeTypePass bool
 }
 
 // Compile is the main entry point that compiles an SSA package to a bytecode Program.
@@ -220,6 +233,11 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.CompiledProgram, err
 		case int64:
 			c.program.IntConstants[i] = v
 		}
+	}
+
+	// Check for compilation errors (type safety violations, etc.)
+	if len(c.errors) > 0 {
+		return nil, fmt.Errorf("compilation errors:\n%w", errors.Join(c.errors...))
 	}
 
 	// Pre-resolve external call entries so the VM can do lock-free array lookup

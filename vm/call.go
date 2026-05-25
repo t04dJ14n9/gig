@@ -440,11 +440,6 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 			return nil
 		}
 		concrete := rv.Elem()
-		if concrete.Kind() == reflect.Ptr && concrete.IsNil() {
-			v.panicking = true
-			v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
-			return nil
-		}
 		rv = concrete
 		args[0] = value.MakeFromReflect(rv)
 	}
@@ -454,12 +449,6 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 	// nil *T through an interface panics because the runtime dereferences
 	// the pointer. When the value arrives here as a raw nil pointer (not
 	// wrapped in an interface), we must also panic to match Go semantics.
-	if rv.Kind() == reflect.Ptr && rv.IsNil() {
-		v.panicking = true
-		v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
-		return nil
-	}
-
 	// Look up the method by name
 	method, found := findMethod(rv, methodInfo.MethodName, args)
 	if !found {
@@ -515,12 +504,16 @@ func findMethod(rv reflect.Value, methodName string, args []value.Value) (reflec
 			}
 			concrete := field.Elem()
 			if m := concrete.MethodByName(methodName); m.IsValid() {
-				args[0] = value.MakeFromReflect(concrete)
+				if len(args) > 0 {
+					args[0] = value.MakeFromReflect(concrete)
+				}
 				return m, true
 			}
 			if concrete.CanAddr() {
 				if m := concrete.Addr().MethodByName(methodName); m.IsValid() {
-					args[0] = value.MakeFromReflect(concrete.Addr())
+					if len(args) > 0 {
+						args[0] = value.MakeFromReflect(concrete.Addr())
+					}
 					return m, true
 				}
 			}
@@ -536,34 +529,37 @@ func findMethod(rv reflect.Value, methodName string, args []value.Value) (reflec
 func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args []value.Value) error {
 	candidates := v.program.MethodsByName[methodName]
 
+	// Try to find a matching candidate by receiver type name, then by inferred type.
+	matchIdx := -1
 	if receiverTypeName != "" {
-		for _, fn := range candidates {
+		for i, fn := range candidates {
 			if fn.ReceiverTypeName == receiverTypeName {
-				for _, arg := range args {
-					v.push(arg)
-				}
-				v.callCompiledFunction(fn.FuncIdx, len(args))
-				return nil
+				matchIdx = i
+				break
 			}
 		}
 	}
-
-	if len(args) > 0 {
+	if matchIdx < 0 && len(args) > 0 {
 		if concreteTypeName := inferReceiverTypeName(args[0], v.program); concreteTypeName != "" {
-			for _, fn := range candidates {
+			for i, fn := range candidates {
 				if fn.ReceiverTypeName == concreteTypeName {
-					for _, arg := range args {
-						v.push(arg)
-					}
-					v.callCompiledFunction(fn.FuncIdx, len(args))
-					return nil
+					matchIdx = i
+					break
 				}
 			}
 		}
 	}
+	if matchIdx < 0 && len(candidates) > 0 {
+		matchIdx = 0
+	}
 
-	if len(candidates) > 0 {
-		fn := candidates[0]
+	if matchIdx >= 0 {
+		fn := candidates[matchIdx]
+		if len(args) > 0 && shouldPanicOnNilValueReceiver(args[0], fn) {
+			v.panicking = true
+			v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
+			return nil
+		}
 		for _, arg := range args {
 			v.push(arg)
 		}
@@ -573,6 +569,14 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 
 	v.push(value.MakeNil())
 	return nil
+}
+
+func shouldPanicOnNilValueReceiver(receiver value.Value, fn *bytecode.CompiledFunction) bool {
+	if fn == nil || !fn.HasReceiver || fn.ReceiverIsPointer {
+		return false
+	}
+	rv, ok := receiver.ReflectValue()
+	return ok && rv.Kind() == reflect.Ptr && rv.IsNil()
 }
 
 // inferReceiverTypeName tries to extract a type name from a runtime value.Value receiver.
@@ -586,14 +590,20 @@ func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram)
 	}
 	var t reflect.Type
 	if rv.Kind() == reflect.Ptr {
-		// Use the pointer's element type without dereferencing the value.
-		// This avoids panic on nil pointers (rv.Elem() on nil *T returns zero Value).
 		t = rv.Type().Elem()
 	} else if rv.IsValid() {
 		t = rv.Type()
 	} else {
 		return ""
 	}
+	return resolveTypeName(t, prog)
+}
+
+// resolveTypeName returns a human-readable type name, trying (in order):
+// 1. reflect.Type.Name() (works for named types)
+// 2. Program-level ReflectTypeNames registry
+// 3. Scanning unexported struct field PkgPath for the "#" suffix heuristic
+func resolveTypeName(t reflect.Type, prog *bytecode.CompiledProgram) string {
 	if t.Name() != "" {
 		return t.Name()
 	}
@@ -602,17 +612,24 @@ func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram)
 			return name
 		}
 	}
-	if t.Kind() == reflect.Struct {
-		for i := 0; i < t.NumField(); i++ {
-			f := t.Field(i)
-			pkgPath := f.PkgPath
-			if idx := strings.LastIndex(pkgPath, "#"); idx >= 0 {
-				qualName := pkgPath[idx+1:]
-				if dotIdx := strings.LastIndex(qualName, "."); dotIdx >= 0 {
-					return qualName[dotIdx+1:]
-				}
-				return qualName
+	return pkgPathTypeName(t)
+}
+
+// pkgPathTypeName scans unexported struct fields for a PkgPath containing "#",
+// which embeds the original package path + type name (e.g. "pkg/path#TypeName").
+// Returns the type name portion, or "" if not found.
+func pkgPathTypeName(t reflect.Type) string {
+	if t.Kind() != reflect.Struct {
+		return ""
+	}
+	for i := 0; i < t.NumField(); i++ {
+		pkgPath := t.Field(i).PkgPath
+		if idx := strings.LastIndex(pkgPath, "#"); idx >= 0 {
+			qualName := pkgPath[idx+1:]
+			if dotIdx := strings.LastIndex(qualName, "."); dotIdx >= 0 {
+				return qualName[dotIdx+1:]
 			}
+			return qualName
 		}
 	}
 	return ""

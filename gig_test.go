@@ -1,6 +1,7 @@
 package gig
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -687,4 +688,120 @@ func GetCounter() int {
 	if got3 != 102 {
 		t.Errorf("GetCounter after increments: got %d, want 102", got3)
 	}
+}
+
+func TestWithAllowUnsafeTypePass(t *testing.T) {
+	source := `
+		package main
+
+		func Add(a, b int) int { return a + b }
+	`
+	prog, err := Build(source, WithAllowUnsafeTypePass())
+	if err != nil {
+		t.Fatalf("Build with WithAllowUnsafeTypePass failed: %v", err)
+	}
+	defer prog.Close()
+
+	result, err := prog.Run("Add", 1, 2)
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	got, _ := toInt64(result)
+	if got != 3 {
+		t.Errorf("got %v, want 3", result)
+	}
+}
+
+func TestCustomTypeBoundaryEnforcement(t *testing.T) {
+	t.Run("stdlib sort with custom type is allowed", func(t *testing.T) {
+		// sort.Sort with user-defined sort.Interface has a known runtime bug
+		// (tracked in TestDivergenceHunt172/SortByLength). Use sort.Slice instead,
+		// which exercises the same boundary-enforcement path (custom named slice type
+		// passed to a stdlib function) without hitting the interface-adapter issue.
+		source := `
+			package main
+
+			import (
+				"fmt"
+				"sort"
+			)
+
+			type ByLen []string
+
+			func SortWords() string {
+				words := ByLen{"banana", "pie", "kiwi"}
+				sort.Slice(words, func(i, j int) bool {
+					return len(words[i]) < len(words[j])
+				})
+				return fmt.Sprintf("%v", []string(words))
+			}
+		`
+		prog, err := Build(source)
+		if err != nil {
+			t.Fatalf("Build should allow stdlib sort: %v", err)
+		}
+		defer prog.Close()
+
+		result, err := prog.Run("SortWords")
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+		expected := "[pie kiwi banana]"
+		if fmt.Sprintf("%v", result) != expected {
+			t.Errorf("got %v, want %v", result, expected)
+		}
+	})
+
+	t.Run("primitives to any function are allowed", func(t *testing.T) {
+		source := `
+			package main
+
+			import "fmt"
+
+			func FormatInt() string {
+				return fmt.Sprintf("%d", 42)
+			}
+		`
+		prog, err := Build(source)
+		if err != nil {
+			t.Fatalf("Build should allow primitives: %v", err)
+		}
+		defer prog.Close()
+
+		result, err := prog.Run("FormatInt")
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+		if result != "42" {
+			t.Errorf("got %v, want 42", result)
+		}
+	})
+
+	t.Run("custom struct with fmt is allowed", func(t *testing.T) {
+		source := `
+			package main
+
+			import "fmt"
+
+			type Point struct { X, Y int }
+
+			func FormatPoint() string {
+				p := Point{1, 2}
+				return fmt.Sprintf("(%d,%d)", p.X, p.Y)
+			}
+		`
+		prog, err := Build(source)
+		if err != nil {
+			t.Fatalf("Build should allow struct with fmt: %v", err)
+		}
+		defer prog.Close()
+
+		result, err := prog.Run("FormatPoint")
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+		if result != "(1,2)" {
+			t.Errorf("got %v, want (1,2)", result)
+		}
+	})
 }

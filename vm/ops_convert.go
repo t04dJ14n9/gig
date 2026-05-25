@@ -23,9 +23,10 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 		var result value.Value
 		var assertionOk bool
 
-		// Special case: any value can be asserted to interface{}
+		// Special case: any value can be asserted to interface{} (empty interface).
 		// This handles nested interface assertions like: outer.(interface{})
-		if _, isInterface := targetType.(*types.Interface); isInterface {
+		// Use Underlying() to also handle *types.Named wrapping interface{} (e.g., "any").
+		if iface, isInterface := targetType.Underlying().(*types.Interface); isInterface && iface.NumMethods() == 0 {
 			// Any value can be asserted to interface{}, including nil
 			result = obj
 			assertionOk = true
@@ -302,6 +303,11 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 		concreteType := v.program.Types[concreteTypeIdx]
 		val := v.pop()
 
+		if adapter, ok := v.makeInterpretedInterfaceAdapter(targetType, concreteType, val); ok {
+			v.push(value.MakeFromReflect(reflect.ValueOf(adapter)))
+			break
+		}
+
 		// Get the interface's reflect.Type
 		ifaceRT := typeToReflect(targetType, v.program)
 		if ifaceRT == nil {
@@ -369,4 +375,76 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 	}
 
 	return nil
+}
+
+func (v *vm) makeInterpretedInterfaceAdapter(targetType, concreteType types.Type, receiver value.Value) (*interpretedInterfaceAdapter, bool) {
+	if !isHostCallbackInterface(targetType) {
+		return nil, false
+	}
+	receiverTypeName := namedTypeName(concreteType)
+	if receiverTypeName == "" {
+		return nil, false
+	}
+	return newInterpretedInterfaceAdapter(
+		v.program, receiver, receiverTypeName,
+		v.getGlobals(), v.initialGlobals, v.shared, v.ctx, v.goroutines,
+	), true
+}
+
+// isHostCallbackInterface checks whether the target type is sort.Interface or
+// container/heap.Interface — the two stdlib interfaces that receive callbacks
+// and for which gig provides interpreted-to-native adapters.
+//
+// The target may arrive as *types.Named (when the compiler stores the named
+// type) or as *types.Interface (when it stores the underlying interface).
+// We handle both.
+func isHostCallbackInterface(t types.Type) bool {
+	// Fast path: *types.Named wrapping sort.Interface or heap.Interface.
+	if named, ok := t.(*types.Named); ok {
+		obj := named.Obj()
+		if obj == nil || obj.Pkg() == nil {
+			return false
+		}
+		pkgPath := obj.Pkg().Path()
+		return obj.Name() == "Interface" && (pkgPath == "sort" || pkgPath == "container/heap")
+	}
+	// Slow path: *types.Interface directly. Match by method signature.
+	if iface, ok := t.(*types.Interface); ok {
+		return hasInterfaceMethods(iface, "Len", "Less", "Swap")
+	}
+	return false
+}
+
+// hasInterfaceMethods checks that an interface type has methods with exactly
+// the given names (order-independent).
+func hasInterfaceMethods(iface *types.Interface, names ...string) bool {
+	if iface.NumMethods() < len(names) {
+		return false
+	}
+	for _, name := range names {
+		found := false
+		for i := 0; i < iface.NumMethods(); i++ {
+			if iface.Method(i).Name() == name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
+func namedTypeName(t types.Type) string {
+	for {
+		switch tt := t.(type) {
+		case *types.Named:
+			return tt.Obj().Name()
+		case *types.Pointer:
+			t = tt.Elem()
+		default:
+			return ""
+		}
+	}
 }

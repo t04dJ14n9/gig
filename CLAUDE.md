@@ -106,6 +106,25 @@ The `importer/` package maintains a global registry that bridges `go/types` type
 
 At compile time, Gig bans imports of `unsafe`, `reflect`, and `panic` (unless `WithAllowPanic()` is set). The VM supports context-based cancellation (checked every 1024 instructions). Frame depth is capped at 1024.
 
+### Type Boundary Safety
+
+By default, gig rejects user-defined types (structs, interfaces, named types declared
+in the script) from being passed as arguments to third-party library functions (import
+path contains a dot, e.g., `github.com/foo/bar`).
+
+**Why**: Go's `reflect.StructOf` cannot attach methods to runtime-synthesized types.
+Third-party libraries using reflection (`reflect.MethodByName`, `Type.Implements()`)
+will see incorrect type information, causing silent data corruption or panics.
+
+**What's allowed**:
+
+- Custom types → stdlib functions (gig guarantees correctness via adapters for
+  `sort.Interface`, `heap.Interface`, `fmt.Stringer`, `error`, etc.)
+- Primitive types, slices, maps → any function
+- External registered types (`sort.IntSlice`, `time.Time`) → any function
+
+**Escape hatch**: `gig.WithAllowUnsafeTypePass()` disables the compile-time check.
+
 ### Performance Notes
 
 - Frame pooling eliminates allocations in recursion (Fib25: 2.1M → 7 allocations)

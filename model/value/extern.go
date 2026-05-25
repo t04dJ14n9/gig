@@ -251,6 +251,17 @@ func isGigStruct(v any) string {
 			}
 			gigTag := elemType.Field(0).Tag.Get("gig")
 			if gigTag == "" {
+				// Fallback: check PkgPath of unexported fields for "#TypeName"
+				for i := 0; i < elemType.NumField(); i++ {
+					pkgPath := elemType.Field(i).PkgPath
+					if idx := strings.LastIndex(pkgPath, "#"); idx >= 0 {
+						qualName := pkgPath[idx+1:]
+						if dotIdx := strings.LastIndex(qualName, "."); dotIdx >= 0 {
+							return qualName[dotIdx+1:]
+						}
+						return qualName
+					}
+				}
 				return ""
 			}
 			if strings.HasPrefix(gigTag, "#") {
@@ -271,6 +282,17 @@ func isGigStruct(v any) string {
 	}
 	gigTag := rt.Field(0).Tag.Get("gig")
 	if gigTag == "" {
+		// Fallback: check PkgPath of unexported fields for "#TypeName"
+		for i := 0; i < rt.NumField(); i++ {
+			pkgPath := rt.Field(i).PkgPath
+			if idx := strings.LastIndex(pkgPath, "#"); idx >= 0 {
+				qualName := pkgPath[idx+1:]
+				if dotIdx := strings.LastIndex(qualName, "."); dotIdx >= 0 {
+					return qualName[dotIdx+1:]
+				}
+				return qualName
+			}
+		}
 		return ""
 	}
 	if strings.HasPrefix(gigTag, "#") {
@@ -504,11 +526,42 @@ func ErrorWrap(v Value) any {
 //
 // err is the error value (may be a gigStructWrapper or a native Go error).
 // target is a pointer to the target type (e.g., **CustomError as interface{}).
+//   - If target is a *Value (frame slot pointer from OpAddr), GigErrorsAs
+//     unwraps it and sets the frame slot directly on match.
+//   - Otherwise, target is a normal Go double pointer.
 //
 // Returns true if the error (or any error in its Unwrap chain) matches target.
 func GigErrorsAs(err error, target any) bool {
 	if target == nil {
 		panic("errors: target cannot be nil")
+	}
+
+	// Handle *Value frame slot pointers from OpAddr.
+	// The frame slot holds the interpreted value; we need to match against
+	// its type and set it directly.
+	if vp, ok := target.(*Value); ok {
+		slotVal := vp.Interface()
+		if slotVal == nil {
+			return false
+		}
+		slotRV := reflect.ValueOf(slotVal)
+		if !slotRV.IsValid() || slotRV.Kind() != reflect.Ptr {
+			return false
+		}
+		elemType := slotRV.Type() // The target type (e.g., *myError)
+		for {
+			if gigAsMatchFrameSlot(err, elemType, vp) {
+				return true
+			}
+			unwrapper, ok := err.(interface{ Unwrap() error })
+			if !ok {
+				return false
+			}
+			err = unwrapper.Unwrap()
+			if err == nil {
+				return false
+			}
+		}
 	}
 
 	targetVal := reflect.ValueOf(target)
@@ -613,6 +666,41 @@ func gigAsMatchValue(err error, elemType reflect.Type, targetVal reflect.Value) 
 	if elemType.Kind() == reflect.Interface && errType.Implements(elemType) {
 		targetVal.Elem().Set(errVal)
 		return true
+	}
+
+	return false
+}
+
+// gigAsMatchFrameSlot checks if an error matches a target type and sets
+// the frame slot directly. Used when the target is a *Value from OpAddr.
+func gigAsMatchFrameSlot(err error, targetType reflect.Type, slot *Value) bool {
+	errVal := reflect.ValueOf(err)
+	errType := errVal.Type()
+
+	// Direct type match: err's type equals target type
+	if errType == targetType || errType.AssignableTo(targetType) {
+		*slot = MakeFromReflect(errVal)
+		return true
+	}
+
+	// If err is a *gigStructWrapper, try matching by interpreter type name
+	if wrapper, ok := err.(*gigStructWrapper); ok {
+		ifaceType := reflect.TypeOf(wrapper.iface)
+		if ifaceType == targetType || ifaceType.AssignableTo(targetType) {
+			*slot = MakeFromReflect(reflect.ValueOf(wrapper.iface))
+			return true
+		}
+		// Match by gig type name
+		wrapperTypeName := extractBareTypeName(wrapper.typeName)
+		targetTypeName := extractGigTagFromType(targetType)
+		if targetTypeName == "" {
+			targetTypeName = targetType.Name()
+		}
+		targetTypeName = extractBareTypeName(targetTypeName)
+		if wrapperTypeName != "" && wrapperTypeName == targetTypeName {
+			*slot = MakeFromReflect(reflect.ValueOf(wrapper.iface))
+			return true
+		}
 	}
 
 	return false

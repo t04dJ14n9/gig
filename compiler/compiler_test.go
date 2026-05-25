@@ -492,7 +492,7 @@ func TestSymbolTableFreeVars(t *testing.T) {
 
 func TestNewCompilerFields(t *testing.T) {
 	lookup := &mockLookup{}
-	c := NewCompiler(lookup).(*compiler)
+	c := NewCompiler(lookup, false).(*compiler)
 
 	if c.lookup != lookup {
 		t.Error("compiler.lookup != lookup")
@@ -519,7 +519,7 @@ func TestNewCompilerFields(t *testing.T) {
 
 func TestCompilerInterfaceContract(t *testing.T) {
 	lookup := &mockLookup{}
-	c := NewCompiler(lookup)
+	c := NewCompiler(lookup, false)
 
 	defer func() {
 		if r := recover(); r == nil {
@@ -677,7 +677,7 @@ func TestSymbolTableLocalLookupConsistency(t *testing.T) {
 
 func TestNewCompilerWithNilLookup(t *testing.T) {
 	// Should not panic
-	c := NewCompiler(nil)
+	c := NewCompiler(nil, false)
 	if c == nil {
 		t.Fatal("NewCompiler(nil) returned nil")
 	}

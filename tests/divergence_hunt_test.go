@@ -2766,9 +2766,9 @@ func TestDivergenceHunt171(t *testing.T) {
 }
 func TestDivergenceHunt172(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt172Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"SortByLength": {funcName: "SortByLength", native: divergence_hunt172.SortByLength, knownIssue: true},
-		"SortStructByField": {funcName: "SortStructByField", native: divergence_hunt172.SortStructByField, knownIssue: true},
-		"SortReverse": {funcName: "SortReverse", native: divergence_hunt172.SortReverse, knownIssue: true},
+		"SortByLength": {funcName: "SortByLength", native: divergence_hunt172.SortByLength},
+		"SortStructByField": {funcName: "SortStructByField", native: divergence_hunt172.SortStructByField},
+		"SortReverse": {funcName: "SortReverse", native: divergence_hunt172.SortReverse},
 		"SortInts": {funcName: "SortInts", native: divergence_hunt172.SortInts},
 		"SortStrings": {funcName: "SortStrings", native: divergence_hunt172.SortStrings},
 		"SortFloats": {funcName: "SortFloats", native: divergence_hunt172.SortFloats},
@@ -2780,16 +2780,16 @@ func TestDivergenceHunt172(t *testing.T) {
 }
 func TestDivergenceHunt173(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt173Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"HeapInit": {funcName: "HeapInit", native: divergence_hunt173.HeapInit, knownIssue: true},
-		"HeapPush": {funcName: "HeapPush", native: divergence_hunt173.HeapPush, knownIssue: true},
-		"HeapPop": {funcName: "HeapPop", native: divergence_hunt173.HeapPop, knownIssue: true},
-		"HeapRemove": {funcName: "HeapRemove", native: divergence_hunt173.HeapRemove, knownIssue: true},
-		"HeapFix": {funcName: "HeapFix", native: divergence_hunt173.HeapFix, knownIssue: true},
-		"HeapMultiplePushPop": {funcName: "HeapMultiplePushPop", native: divergence_hunt173.HeapMultiplePushPop, knownIssue: true},
-		"MaxHeapOperations": {funcName: "MaxHeapOperations", native: divergence_hunt173.MaxHeapOperations, knownIssue: true},
-		"PriorityQueueOperations": {funcName: "PriorityQueueOperations", native: divergence_hunt173.PriorityQueueOperations, knownIssue: true},
-		"HeapEmpty": {funcName: "HeapEmpty", native: divergence_hunt173.HeapEmpty, knownIssue: true},
-		"HeapSingleElement": {funcName: "HeapSingleElement", native: divergence_hunt173.HeapSingleElement, knownIssue: true},
+		"HeapInit": {funcName: "HeapInit", native: divergence_hunt173.HeapInit},
+		"HeapPush": {funcName: "HeapPush", native: divergence_hunt173.HeapPush},
+		"HeapPop": {funcName: "HeapPop", native: divergence_hunt173.HeapPop},
+		"HeapRemove": {funcName: "HeapRemove", native: divergence_hunt173.HeapRemove},
+		"HeapFix": {funcName: "HeapFix", native: divergence_hunt173.HeapFix},
+		"HeapMultiplePushPop": {funcName: "HeapMultiplePushPop", native: divergence_hunt173.HeapMultiplePushPop},
+		"MaxHeapOperations": {funcName: "MaxHeapOperations", native: divergence_hunt173.MaxHeapOperations},
+		"PriorityQueueOperations": {funcName: "PriorityQueueOperations", native: divergence_hunt173.PriorityQueueOperations},
+		"HeapEmpty": {funcName: "HeapEmpty", native: divergence_hunt173.HeapEmpty},
+		"HeapSingleElement": {funcName: "HeapSingleElement", native: divergence_hunt173.HeapSingleElement},
 	}})
 }
 func TestDivergenceHunt174(t *testing.T) {
