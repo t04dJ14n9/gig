@@ -78,10 +78,12 @@ func (c *compiler) compileValue(v ssa.Value) {
 						c.globalZeroValues[globalIdx] = reflect.Zero(rt)
 					}
 				}
-				// Defer struct globals to runtime for zero-value creation.
+				// Defer struct, slice, and map globals to runtime for zero-value creation.
+				// Structs need zero values for field access in init(). Slices and maps
+				// need non-nil pointers so OpSetDeref can write through them.
 				if _, ok := c.globalZeroValues[globalIdx]; !ok {
 					switch elemType.Underlying().(type) {
-					case *types.Struct:
+					case *types.Struct, *types.Slice, *types.Map:
 						if c.program.GlobalTypes == nil {
 							c.program.GlobalTypes = make(map[int]int)
 						}

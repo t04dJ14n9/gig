@@ -163,8 +163,16 @@ func (g *gigStructWrapper) Is(target error) bool {
 }
 
 // Unwrap implements errors.Unwrap interface. Dispatches to the interpreted type's
-// Unwrap() error method if present.
+// Unwrap() error method if present. Also handles native Go errors that implement
+// Unwrap() (like fmt.Errorf wrapped errors).
 func (g *gigStructWrapper) Unwrap() error {
+	// First, try native Go error Unwrap (for fmt.Errorf wrapped errors, etc.)
+	if e, ok := g.iface.(error); ok {
+		if unwrapper, ok2 := e.(interface{ Unwrap() error }); ok2 {
+			return unwrapper.Unwrap()
+		}
+	}
+	// Then try interpreted method dispatch
 	result, found := callMethod(nil, "Unwrap", MakeFromReflect(reflect.ValueOf(g.iface)))
 	if !found {
 		return nil
@@ -570,7 +578,25 @@ func ErrorValue(v Value) error {
 	}
 	typeName := isGigStruct(iface)
 	if typeName == "" {
-		return nil
+		// Not a gig struct — but might be a named primitive type implementing error.
+		// Check if it has an Error() method (e.g., type myError string).
+		errorerFunc, hasError := resolveErrorer(v)
+		if !hasError {
+			return nil
+		}
+		// Create a wrapper with the reflect type name as the type name
+		rv := reflect.ValueOf(iface)
+		wrapperTypeName := rv.Type().Name()
+		if wrapperTypeName == "" {
+			return nil
+		}
+		errFn := func() string { return errorerFunc() }
+		lazyErrorer := func() (func() string, bool) { return errFn, true }
+		return &gigStructWrapper{
+			iface:        iface,
+			typeName:     wrapperTypeName,
+			lazyErrorer:  lazyErrorer,
+		}
 	}
 	// Check if the interpreted type has an Error() method
 	errorerFunc, hasError := resolveErrorer(v)
