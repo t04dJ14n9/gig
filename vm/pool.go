@@ -12,7 +12,7 @@ import (
 
 // ResolveCompiledMethod finds a compiled method in the program's function table
 // and executes it with the given receiver.
-func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string, receiver value.Value) (value.Value, bool) {
+func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string, receiver value.Value, extraArgs ...value.Value) (value.Value, bool) {
 	rv, ok := receiver.ReflectValue()
 	if !ok {
 		// Fallback: try Interface() → reflect.ValueOf
@@ -71,7 +71,10 @@ func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string,
 			concrete.Set(rv)
 			methodReceiver = value.MakeFromReflect(concrete)
 		}
-		tempVM.callFunction(fn, []value.Value{methodReceiver}, nil)
+		callArgs := make([]value.Value, 0, 1+len(extraArgs))
+		callArgs = append(callArgs, methodReceiver)
+		callArgs = append(callArgs, extraArgs...)
+		tempVM.callFunction(fn, callArgs, nil)
 		// Side-channel method invocation: if the method body encounters a
 		// Go-level panic (e.g., reflect operations on mismatched types) that
 		// the VM's own panic protocol doesn't convert to an error, recover

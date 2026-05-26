@@ -83,8 +83,8 @@ func New(program *bytecode.CompiledProgram, initialGlobals []value.Value, opts .
 
 	// Register per-program method resolver for fmt.Stringer support.
 	// Uses program pointer as unique key. Thread-safe via sync.Map.
-	value.RegisterMethodResolver(r.progKey, func(methodName string, receiver value.Value) (value.Value, bool) {
-		return vm.ResolveCompiledMethod(program, methodName, receiver)
+	value.RegisterMethodResolver(r.progKey, func(methodName string, receiver value.Value, args ...value.Value) (value.Value, bool) {
+		return vm.ResolveCompiledMethod(program, methodName, receiver, args...)
 	})
 
 	return r

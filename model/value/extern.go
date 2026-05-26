@@ -141,35 +141,25 @@ func (g *gigStructWrapper) Error() string {
 	return fmt.Sprint(g.iface)
 }
 
-// Is implements errors.Is interface. Dispatches to the interpreted type's
-// Is(target error) bool method if present via the global method registry.
+// Is implements errors.Is interface. Delegates to the interpreted type's
+// Is(target error) bool method via the method resolver registry.
 func (g *gigStructWrapper) Is(target error) bool {
-	// Unwrap gigStructWrapper targets so the interpreted Is method
-	// receives the raw concrete value for type assertion.
-	actualTarget := target
+	// Unwrap gigStructWrapper targets to get the raw underlying value
+	var targetVal Value
 	if wrapper, ok := target.(*gigStructWrapper); ok {
-		if e, ok2 := wrapper.iface.(error); ok2 {
-			actualTarget = e
-		}
+		// Extract the raw underlying value from the wrapper
+		targetVal = MakeFromReflect(reflect.ValueOf(wrapper.iface))
+	} else {
+		targetVal = MakeFromReflect(reflect.ValueOf(target))
 	}
-	// Try calling the interpreted Is method via reflect on the underlying value
-	rv := reflect.ValueOf(g.iface)
-	method := rv.MethodByName("Is")
-	if method.IsValid() {
-		out := method.Call([]reflect.Value{reflect.ValueOf(actualTarget)})
-		if len(out) == 1 {
-			return out[0].Bool()
-		}
+	// Use the method resolver to call Is with the target
+	receiverVal := MakeFromReflect(reflect.ValueOf(g.iface))
+	result, found := callMethodWithArgs(nil, "Is", receiverVal, targetVal)
+	if !found {
+		return false
 	}
-	// Try pointer receiver
-	if rv.Kind() != reflect.Ptr && rv.CanAddr() {
-		method = rv.Addr().MethodByName("Is")
-		if method.IsValid() {
-			out := method.Call([]reflect.Value{reflect.ValueOf(actualTarget)})
-			if len(out) == 1 {
-				return out[0].Bool()
-			}
-		}
+	if result.Kind() == KindBool {
+		return result.Bool()
 	}
 	return false
 }

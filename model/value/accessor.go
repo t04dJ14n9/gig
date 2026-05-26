@@ -10,8 +10,9 @@ import (
 )
 
 // MethodResolverFunc is a callback for calling compiled methods on interpreted types.
-// It receives a method name and receiver value, and returns the result if found.
-type MethodResolverFunc func(methodName string, receiver Value) (Value, bool)
+// It receives a method name, receiver value, and optional extra arguments (for methods
+// like Is(target error) that need more than just the receiver). Returns the result if found.
+type MethodResolverFunc func(methodName string, receiver Value, args ...Value) (Value, bool)
 
 // methodResolverRegistry is a thread-safe global registry of per-program method resolvers.
 // This allows fmt DirectCall wrappers (which lack VM context) to resolve compiled methods
@@ -48,6 +49,30 @@ func callMethod(resolver MethodResolverFunc, methodName string, receiver Value) 
 			}
 		}
 		return true // continue
+	})
+	if found {
+		return result, true
+	}
+	return MakeNil(), false
+}
+
+// callMethodWithArgs calls a compiled method with extra arguments.
+// Used for methods like Is(target error) that need more than just the receiver.
+func callMethodWithArgs(resolver MethodResolverFunc, methodName string, receiver Value, args ...Value) (Value, bool) {
+	if resolver != nil {
+		return resolver(methodName, receiver, args...)
+	}
+	// Try all registered resolvers
+	var result Value
+	var found bool
+	methodResolverRegistry.Range(func(_, v any) bool {
+		if r, ok := v.(MethodResolverFunc); ok {
+			result, found = r(methodName, receiver, args...)
+			if found {
+				return false
+			}
+		}
+		return true
 	})
 	if found {
 		return result, true

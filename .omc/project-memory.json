@@ -18,8 +18,8 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "go build ./model/value/ 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
-    "testCommand": "go build ./model/value/ 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
+    "buildCommand": "go build ./model/value/ 2>&1 && go run /tmp/test_errors_is4.go 2>&1",
+    "testCommand": "go test -v -count=1 -timeout 60s -run \"TestDivergenceHunt\" ./tests/ 2>&1 | grep -E \"^--- FAIL:\" | head -20",
     "lintCommand": null,
     "devCommand": null,
     "scripts": {}
@@ -215,15 +215,15 @@
       "type": "directory"
     },
     {
-      "path": "model/value/value.go",
-      "accessCount": 28,
-      "lastAccessed": 1778743449351,
+      "path": "model/value/accessor.go",
+      "accessCount": 31,
+      "lastAccessed": 1779831513343,
       "type": "file"
     },
     {
-      "path": "model/value/accessor.go",
-      "accessCount": 24,
-      "lastAccessed": 1779823142402,
+      "path": "model/value/value.go",
+      "accessCount": 28,
+      "lastAccessed": 1778743449351,
       "type": "file"
     },
     {
@@ -258,8 +258,8 @@
     },
     {
       "path": "vm/pool.go",
-      "accessCount": 14,
-      "lastAccessed": 1779715008272,
+      "accessCount": 17,
+      "lastAccessed": 1779831422085,
       "type": "file"
     },
     {
@@ -287,16 +287,16 @@
       "type": "file"
     },
     {
+      "path": "runner/runner.go",
+      "accessCount": 13,
+      "lastAccessed": 1779831533185,
+      "type": "file"
+    },
+    {
       "path": "model/value",
       "accessCount": 11,
       "lastAccessed": 1778640612332,
       "type": "directory"
-    },
-    {
-      "path": "runner/runner.go",
-      "accessCount": 11,
-      "lastAccessed": 1779722175832,
-      "type": "file"
     },
     {
       "path": "vm/ops_dispatch.go",
