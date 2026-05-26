@@ -269,10 +269,9 @@ func isEmptyStruct(t types.Type) bool {
 }
 
 func constTypeToReflect(t types.Type) reflect.Type {
-	// Handle empty structs early (Named, Alias, and direct Struct types)
-	if isEmptyStruct(t) {
-		return reflect.TypeFor[struct{}]()
-	}
+	// Don't handle empty structs early — let them fall through to the
+	// normal path which uses typeToReflectInner, so named empty structs
+	// get a phantom field with the gig tag for type identification.
 
 	switch typ := t.Underlying().(type) {
 	case *types.Basic:

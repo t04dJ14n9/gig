@@ -18,8 +18,8 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "go build ./vm/ 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
-    "testCommand": "go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
+    "buildCommand": "go build ./model/value/ 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
+    "testCommand": "go test -v -run \"TestDivergenceHunt240|TestDivergenceHunt190\" ./tests/ 2>&1 | grep -E \"PASS|FAIL\" | head -20",
     "lintCommand": null,
     "devCommand": null,
     "scripts": {}
@@ -233,6 +233,12 @@
       "type": "file"
     },
     {
+      "path": "vm/typeconv.go",
+      "accessCount": 20,
+      "lastAccessed": 1779827790226,
+      "type": "directory"
+    },
+    {
       "path": "tests/known_issue_test.go",
       "accessCount": 19,
       "lastAccessed": 1779761815255,
@@ -249,12 +255,6 @@
       "accessCount": 18,
       "lastAccessed": 1779761845636,
       "type": "file"
-    },
-    {
-      "path": "vm/typeconv.go",
-      "accessCount": 14,
-      "lastAccessed": 1778743492501,
-      "type": "directory"
     },
     {
       "path": "vm/pool.go",

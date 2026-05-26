@@ -247,8 +247,16 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 			}
 		}
 		if len(fields) == 0 {
-			// Empty struct (struct{} or named empty struct) — return the real Go type directly.
-			// For named empty structs, the ReflectTypeNames registry handles identification.
+			if uniqueSuffix != "" {
+				// Named empty struct (e.g., type Empty struct{}) — add a phantom
+				// field with the gig tag so isGigStruct can extract the type name.
+				phantom := reflect.StructField{
+					Name: "GigType",
+					Type: reflect.TypeOf(struct{}{}),
+					Tag:  reflect.StructTag(`gig:"` + uniqueSuffix + `"`),
+				}
+				return reflect.StructOf([]reflect.StructField{phantom})
+			}
 			return reflect.TypeOf(struct{}{})
 		}
 		result := reflect.StructOf(fields)

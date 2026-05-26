@@ -223,10 +223,16 @@ func (g *gigStructWrapper) defaultGoString() string {
 	sb.WriteString(g.typeName)
 	sb.WriteByte('{')
 	rt := rv.Type()
+	first := true
 	for i := 0; i < rt.NumField(); i++ {
-		if i > 0 {
+		// Skip phantom gig type field
+		if rt.Field(i).Name == "GigType" {
+			continue
+		}
+		if !first {
 			sb.WriteString(", ")
 		}
+		first = false
 		sb.WriteString(rt.Field(i).Name)
 		sb.WriteByte(':')
 		fmt.Fprintf(&sb, "%#v", FmtWrap(MakeFromReflect(rv.Field(i))))
@@ -265,10 +271,15 @@ func (g *gigStructWrapper) Format(f fmt.State, verb rune) {
 				if rv.Kind() == reflect.Struct {
 					rt := rv.Type()
 					_, _ = fmt.Fprint(f, "{")
+					first := true
 					for i := 0; i < rt.NumField(); i++ {
-						if i > 0 {
+						if rt.Field(i).Name == "GigType" {
+							continue
+						}
+						if !first {
 							_, _ = fmt.Fprint(f, " ")
 						}
+						first = false
 						_, _ = fmt.Fprintf(f, "%v", rv.Field(i).Interface())
 					}
 					_, _ = fmt.Fprint(f, "}")
