@@ -422,7 +422,9 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 	} else {
 		iface := receiver.Interface()
 		if iface == nil {
-			v.push(value.MakeNil())
+			// Calling method on nil interface panics in Go
+			v.panicking = true
+			v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
 			return nil
 		}
 		rv = reflect.ValueOf(iface)
@@ -436,7 +438,9 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 	// For interface method dispatch: unwrap to concrete type
 	if rv.Kind() == reflect.Interface {
 		if rv.IsNil() {
-			v.push(value.MakeNil())
+			// Calling method on nil interface panics in Go
+			v.panicking = true
+			v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
 			return nil
 		}
 		concrete := rv.Elem()
@@ -444,15 +448,30 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 		args[0] = value.MakeFromReflect(rv)
 	}
 
-	// Nil pointer check for non-interface dispatch (e.g., free variables
-	// that lost the interface wrapper). In Go, calling any method on a
-	// nil *T through an interface panics because the runtime dereferences
-	// the pointer. When the value arrives here as a raw nil pointer (not
-	// wrapped in an interface), we must also panic to match Go semantics.
 	// Look up the method by name
 	method, found := findMethod(rv, methodInfo.MethodName, args)
 	if !found {
 		return v.callCompiledMethod(methodInfo.MethodName, methodInfo.ReceiverTypeName, args)
+	}
+
+	// For value-receiver methods on nil pointers: panic.
+	// In Go, calling a value-receiver method on a nil *T through an interface
+	// panics because Go must dereference the nil pointer to copy the value.
+	// Pointer-receiver methods handle nil themselves.
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		// Check if the method has a pointer receiver by looking at the method on *T
+		// If the method exists on *T but NOT on T, it's a pointer receiver
+		ptrType := rv.Type()
+		elemType := ptrType.Elem()
+		_, onPtr := ptrType.MethodByName(methodInfo.MethodName)
+		_, onElem := elemType.MethodByName(methodInfo.MethodName)
+		// If method is only on *T (pointer receiver), it handles nil itself
+		// If method is on T (value receiver), dereferencing nil panics
+		if onElem || !onPtr {
+			v.panicking = true
+			v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
+			return nil
+		}
 	}
 
 	// Build arguments (skip the receiver at args[0])
@@ -555,10 +574,15 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 
 	if matchIdx >= 0 {
 		fn := candidates[matchIdx]
-		if len(args) > 0 && shouldPanicOnNilValueReceiver(args[0], fn) {
-			v.panicking = true
-			v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
-			return nil
+		// For value-receiver methods on nil pointers through interface: panic.
+		// In Go, calling a value-receiver method on nil *T through an interface
+		// panics because Go must dereference the nil pointer to copy the value.
+		if len(args) > 0 && !fn.ReceiverIsPointer {
+			if rv, ok := args[0].ReflectValue(); ok && rv.Kind() == reflect.Ptr && rv.IsNil() {
+				v.panicking = true
+				v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
+				return nil
+			}
 		}
 		for _, arg := range args {
 			v.push(arg)
@@ -572,11 +596,17 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 }
 
 func shouldPanicOnNilValueReceiver(receiver value.Value, fn *bytecode.CompiledFunction) bool {
-	if fn == nil || !fn.HasReceiver || fn.ReceiverIsPointer {
+	if fn == nil || !fn.HasReceiver {
 		return false
 	}
 	rv, ok := receiver.ReflectValue()
-	return ok && rv.Kind() == reflect.Ptr && rv.IsNil()
+	if !ok || rv.Kind() != reflect.Ptr || !rv.IsNil() {
+		return false
+	}
+	// In Go, calling a value-receiver method on a nil pointer creates a zero
+	// value and calls the method - no panic. Pointer-receiver methods handle
+	// nil themselves (or panic in the method body if they don't check).
+	return false
 }
 
 // inferReceiverTypeName tries to extract a type name from a runtime value.Value receiver.

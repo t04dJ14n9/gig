@@ -6,7 +6,9 @@ package tests
 
 import (
 	_ "embed"
+	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -161,6 +163,68 @@ func callNative(fn any, args []any) any {
 		result[i] = o.Interface()
 	}
 	return result
+}
+
+// stringsEqualIgnoringOrder checks if two strings contain the same tokens
+// (split by semicolons or spaces) regardless of order. Used for map iteration
+// tests where order is non-deterministic.
+func stringsEqualIgnoringOrder(a, b string) bool {
+	if a == b {
+		return true
+	}
+	wordsA := splitTokens(a)
+	wordsB := splitTokens(b)
+	if len(wordsA) != len(wordsB) {
+		return false
+	}
+	freq := make(map[string]int)
+	for _, w := range wordsA {
+		freq[w]++
+	}
+	for _, w := range wordsB {
+		freq[w]--
+		if freq[w] < 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// splitTokens splits a string by semicolons or spaces, filtering empty tokens.
+func splitTokens(s string) []string {
+	var tokens []string
+	for _, tok := range strings.FieldsFunc(s, func(r rune) bool {
+		return r == ';' || r == ' '
+	}) {
+		if tok != "" {
+			tokens = append(tokens, tok)
+		}
+	}
+	return tokens
+}
+
+// callNativeSafe invokes fn with args using reflection, recovering from panics.
+// Returns (result, nil) on success, or (nil, error) if the native function panicked.
+func callNativeSafe(fn any, args []any) (result any, panicErr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			panicErr = fmt.Errorf("panic: %v", r)
+		}
+	}()
+	v := reflect.ValueOf(fn)
+	in := make([]reflect.Value, len(args))
+	for i, a := range args {
+		in[i] = reflect.ValueOf(a)
+	}
+	out := v.Call(in)
+	if len(out) == 1 {
+		return out[0].Interface(), nil
+	}
+	res := make([]any, len(out))
+	for i, o := range out {
+		res[i] = o.Interface()
+	}
+	return res, nil
 }
 
 // compareResults compares interpreter result with native result

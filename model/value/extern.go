@@ -45,7 +45,47 @@ var (
 	_ fmt.Formatter  = (*gigStructWrapper)(nil)
 	_ fmt.GoStringer = (*gigStructWrapper)(nil)
 	_ error          = (*gigStructWrapper)(nil)
+	_ fmt.Formatter  = (*sliceWrapper)(nil)
 )
+
+// sliceWrapper wraps a reflect.Value slice/array so that %#v formats each
+// element through FmtWrap, producing clean Go-syntax output for slices of
+// interpreted structs.
+type sliceWrapper struct {
+	slice reflect.Value
+}
+
+func (s *sliceWrapper) Format(f fmt.State, verb rune) {
+	if verb != 'v' || !f.Flag('#') {
+		fmt.Fprintf(f, "%"+string(verb), s.slice.Interface())
+		return
+	}
+	elemType := s.slice.Type().Elem()
+	typeName := elemType.Name()
+	if typeName == "" && s.slice.Len() > 0 {
+		typeName = isGigStruct(s.slice.Index(0).Interface())
+	}
+	if typeName == "" && elemType.Kind() == reflect.Ptr {
+		typeName = elemType.Elem().Name()
+		if typeName == "" && s.slice.Len() > 0 {
+			typeName = isGigStruct(s.slice.Index(0).Elem().Interface())
+		}
+		if typeName != "" {
+			typeName = "*" + typeName
+		}
+	}
+	if typeName == "" {
+		typeName = elemType.String()
+	}
+	fmt.Fprintf(f, "[]%s{", typeName)
+	for i := 0; i < s.slice.Len(); i++ {
+		if i > 0 {
+			fmt.Fprint(f, ", ")
+		}
+		fmt.Fprintf(f, "%#v", FmtWrap(MakeFromReflect(s.slice.Index(i))))
+	}
+	fmt.Fprint(f, "}")
+}
 
 // tryStringer / tryErrorer / tryGoStringer return (fn, ok) where fn is the
 // resolved method callable and ok indicates whether the interpreted type
@@ -101,6 +141,47 @@ func (g *gigStructWrapper) Error() string {
 	return fmt.Sprint(g.iface)
 }
 
+// Is implements errors.Is interface. Dispatches to the interpreted type's
+// Is(target error) bool method if present.
+func (g *gigStructWrapper) Is(target error) bool {
+	rv := reflect.ValueOf(g.iface)
+	method := rv.MethodByName("Is")
+	if !method.IsValid() {
+		// Try pointer receiver
+		if rv.Kind() != reflect.Ptr && rv.CanAddr() {
+			method = rv.Addr().MethodByName("Is")
+		}
+		if !method.IsValid() {
+			return false
+		}
+	}
+	out := method.Call([]reflect.Value{reflect.ValueOf(target)})
+	if len(out) == 1 {
+		return out[0].Bool()
+	}
+	return false
+}
+
+// Unwrap implements errors.Unwrap interface. Dispatches to the interpreted type's
+// Unwrap() error method if present.
+func (g *gigStructWrapper) Unwrap() error {
+	result, found := callMethod(nil, "Unwrap", MakeFromReflect(reflect.ValueOf(g.iface)))
+	if !found {
+		return nil
+	}
+	if result.IsNil() || !result.IsValid() {
+		return nil
+	}
+	iface := result.Interface()
+	if iface == nil {
+		return nil
+	}
+	if e, ok := iface.(error); ok {
+		return e
+	}
+	return nil
+}
+
 // GoString implements fmt.GoStringer. Dispatches to the interpreted
 // GoString() method if present; otherwise falls back to the default
 // Go-syntax representation produced by Format with the '#' flag.
@@ -140,7 +221,7 @@ func (g *gigStructWrapper) defaultGoString() string {
 		}
 		sb.WriteString(rt.Field(i).Name)
 		sb.WriteByte(':')
-		fmt.Fprintf(&sb, "%#v", rv.Field(i).Interface())
+		fmt.Fprintf(&sb, "%#v", FmtWrap(MakeFromReflect(rv.Field(i))))
 	}
 	sb.WriteByte('}')
 	return sb.String()
@@ -318,6 +399,21 @@ func FmtWrap(v Value) any {
 	iface := v.Interface()
 	if iface == nil {
 		return nil
+	}
+
+	// Handle typed nil pointers: return nil so %#v shows "<nil>" not "(*T)(nil)".
+	rv := reflect.ValueOf(iface)
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		return nil
+	}
+
+	// Handle slices/arrays of gig structs: wrap so %#v formats correctly.
+	if rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array {
+		elemType := rv.Type().Elem()
+		if elemType.Kind() == reflect.Struct || (elemType.Kind() == reflect.Ptr && elemType.Elem().Kind() == reflect.Struct) {
+			return &sliceWrapper{slice: rv}
+		}
+		return iface
 	}
 
 	typeName := isGigStruct(iface)
@@ -553,14 +649,24 @@ func GigErrorsAs(err error, target any) bool {
 			if gigAsMatchFrameSlot(err, elemType, vp) {
 				return true
 			}
-			unwrapper, ok := err.(interface{ Unwrap() error })
-			if !ok {
-				return false
-			}
+			// Try single-error unwrap
+		if unwrapper, ok := err.(interface{ Unwrap() error }); ok {
 			err = unwrapper.Unwrap()
 			if err == nil {
 				return false
 			}
+			continue
+		}
+		// Try multi-error unwrap (errors.Join)
+		if unwrapper, ok := err.(interface{ Unwrap() []error }); ok {
+			for _, e := range unwrapper.Unwrap() {
+				if GigErrorsAs(e, target) {
+					return true
+				}
+			}
+			return false
+		}
+		return false
 		}
 	}
 
@@ -578,15 +684,24 @@ func GigErrorsAs(err error, target any) bool {
 			return true
 		}
 
-		// Try unwrapping
-		unwrapper, ok := err.(interface{ Unwrap() error })
-		if !ok {
+		// Try single-error unwrap
+		if unwrapper, ok := err.(interface{ Unwrap() error }); ok {
+			err = unwrapper.Unwrap()
+			if err == nil {
+				return false
+			}
+			continue
+		}
+		// Try multi-error unwrap (errors.Join)
+		if unwrapper, ok := err.(interface{ Unwrap() []error }); ok {
+			for _, e := range unwrapper.Unwrap() {
+				if GigErrorsAs(e, target) {
+					return true
+				}
+			}
 			return false
 		}
-		err = unwrapper.Unwrap()
-		if err == nil {
-			return false
-		}
+		return false
 	}
 }
 
@@ -594,7 +709,13 @@ func GigErrorsAs(err error, target any) bool {
 // It handles both native Go types (via reflect.AssignableTo) and
 // interpreter-defined types (via gig type name matching).
 func gigAsMatchValue(err error, elemType reflect.Type, targetVal reflect.Value) bool {
+	if err == nil {
+		return false
+	}
 	errVal := reflect.ValueOf(err)
+	if !errVal.IsValid() {
+		return false
+	}
 	errType := errVal.Type()
 
 	// Direct type match: err's type is assignable to target element type

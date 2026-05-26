@@ -81,6 +81,12 @@ func convertReflectType(rt reflect.Type) types.Type {
 		// If it's a basic type alias, don't treat as named type - fall through to basic handling
 		// For interface types, don't wrap in Named - just return the interface directly
 		// (named interfaces in Go are still interface types, not Named types)
+			// Map Go's error interface to the universe error type.
+			if rt.Kind() == reflect.Interface && rt.NumMethod() == 1 && rt.Method(0).Name == "Error" {
+				if errType := types.Universe.Lookup("error"); errType != nil {
+					return errType.Type()
+				}
+			}
 		if !isBasicAlias && rt.Kind() != reflect.Interface {
 			// Create a placeholder named type to break recursion.
 			// Use rt.PkgPath() to attach the correct package, so the type checker
@@ -277,7 +283,6 @@ func convertFuncType(rt reflect.Type) *types.Signature {
 // For empty interfaces (any), returns types.NewInterfaceType(nil, nil).
 func convertInterfaceType(rt reflect.Type) *types.Interface {
 	if rt.NumMethod() == 0 {
-		// Empty interface (any)
 		return types.NewInterfaceType(nil, nil)
 	}
 

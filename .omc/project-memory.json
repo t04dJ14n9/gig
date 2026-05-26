@@ -1,0 +1,483 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1779809401158,
+  "projectRoot": "/Users/t04dj14n9/Code/gig",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Go",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "go.mod"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "go",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "go build ./vm/ 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
+    "testCommand": "go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs",
+      "examples",
+      "scripts",
+      "tests"
+    ],
+    "gitBranches": {
+      "defaultBranch": "feature/dev_youngjin",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "benchmarks": {
+      "path": "benchmarks",
+      "purpose": null,
+      "fileCount": 5,
+      "lastAccessed": 1779809401139,
+      "keyFiles": [
+        "bench_test.go",
+        "extreme_stress_test.go",
+        "go.mod",
+        "go.sum",
+        "stress_test.go"
+      ]
+    },
+    "cmd": {
+      "path": "cmd",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1779809401141,
+      "keyFiles": []
+    },
+    "compiler": {
+      "path": "compiler",
+      "purpose": null,
+      "fileCount": 15,
+      "lastAccessed": 1779809401141,
+      "keyFiles": [
+        "build.go",
+        "build_test.go",
+        "compile_ext.go",
+        "compile_func.go",
+        "compile_instr.go"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 41,
+      "lastAccessed": 1779809401141,
+      "keyFiles": [
+        "bugfix_report_2026-03-20.md",
+        "bugfixes-2026-03.md",
+        "bugfixes-defer-and-nil-slice.md",
+        "bugfixes-defer-and-nil-slice_CN.md",
+        "cli-guide.md"
+      ]
+    },
+    "examples": {
+      "path": "examples",
+      "purpose": "Example code",
+      "fileCount": 3,
+      "lastAccessed": 1779809401142,
+      "keyFiles": [
+        "README.md",
+        "README_CN.md"
+      ]
+    },
+    "importer": {
+      "path": "importer",
+      "purpose": null,
+      "fileCount": 6,
+      "lastAccessed": 1779809401142,
+      "keyFiles": [
+        "external.go",
+        "importer.go",
+        "importer_test.go",
+        "interfaces.go",
+        "register.go"
+      ]
+    },
+    "model": {
+      "path": "model",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1779809401142,
+      "keyFiles": []
+    },
+    "runner": {
+      "path": "runner",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1779809401142,
+      "keyFiles": [
+        "runner.go",
+        "runner_test.go"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 1,
+      "lastAccessed": 1779809401142,
+      "keyFiles": [
+        "run_stress_test.sh"
+      ]
+    },
+    "stdlib": {
+      "path": "stdlib",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1779809401142,
+      "keyFiles": [
+        "pkgs.go"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 21,
+      "lastAccessed": 1779809401142,
+      "keyFiles": [
+        "benchmark_test.go",
+        "compiler_integration_test.go",
+        "concurrency_test.go",
+        "concurrent_globals_comprehensive_test.go",
+        "concurrent_globals_known_issue_test.go"
+      ]
+    },
+    "vm": {
+      "path": "vm",
+      "purpose": null,
+      "fileCount": 25,
+      "lastAccessed": 1779809401142,
+      "keyFiles": [
+        "call.go",
+        "call_test.go",
+        "closure.go",
+        "constants.go",
+        "frame.go"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "vm/ops_convert.go",
+      "accessCount": 75,
+      "lastAccessed": 1779824761771,
+      "type": "file"
+    },
+    {
+      "path": "vm/call.go",
+      "accessCount": 53,
+      "lastAccessed": 1779822431256,
+      "type": "file"
+    },
+    {
+      "path": "vm/run.go",
+      "accessCount": 49,
+      "lastAccessed": 1779820346698,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 40,
+      "lastAccessed": 1778641221692,
+      "type": "directory"
+    },
+    {
+      "path": "tests/correctness_test.go",
+      "accessCount": 32,
+      "lastAccessed": 1779821677183,
+      "type": "file"
+    },
+    {
+      "path": "vm",
+      "accessCount": 31,
+      "lastAccessed": 1778640836829,
+      "type": "directory"
+    },
+    {
+      "path": "model/value/value.go",
+      "accessCount": 28,
+      "lastAccessed": 1778743449351,
+      "type": "file"
+    },
+    {
+      "path": "model/value/accessor.go",
+      "accessCount": 24,
+      "lastAccessed": 1779823142402,
+      "type": "file"
+    },
+    {
+      "path": "vm/ops_memory.go",
+      "accessCount": 20,
+      "lastAccessed": 1779816955377,
+      "type": "file"
+    },
+    {
+      "path": "tests/known_issue_test.go",
+      "accessCount": 19,
+      "lastAccessed": 1779761815255,
+      "type": "file"
+    },
+    {
+      "path": "compiler/compiler.go",
+      "accessCount": 18,
+      "lastAccessed": 1779715101792,
+      "type": "file"
+    },
+    {
+      "path": "gig.go",
+      "accessCount": 18,
+      "lastAccessed": 1779761845636,
+      "type": "file"
+    },
+    {
+      "path": "vm/typeconv.go",
+      "accessCount": 14,
+      "lastAccessed": 1778743492501,
+      "type": "directory"
+    },
+    {
+      "path": "vm/pool.go",
+      "accessCount": 14,
+      "lastAccessed": 1779715008272,
+      "type": "file"
+    },
+    {
+      "path": "gig_test.go",
+      "accessCount": 14,
+      "lastAccessed": 1779761857743,
+      "type": "file"
+    },
+    {
+      "path": "compiler",
+      "accessCount": 13,
+      "lastAccessed": 1778639394978,
+      "type": "directory"
+    },
+    {
+      "path": "vm/ops_container.go",
+      "accessCount": 13,
+      "lastAccessed": 1779819965842,
+      "type": "file"
+    },
+    {
+      "path": "vm/vm.go",
+      "accessCount": 12,
+      "lastAccessed": 1779722238155,
+      "type": "file"
+    },
+    {
+      "path": "model/value",
+      "accessCount": 11,
+      "lastAccessed": 1778640612332,
+      "type": "directory"
+    },
+    {
+      "path": "runner/runner.go",
+      "accessCount": 11,
+      "lastAccessed": 1779722175832,
+      "type": "file"
+    },
+    {
+      "path": "vm/ops_dispatch.go",
+      "accessCount": 10,
+      "lastAccessed": 1779822115962,
+      "type": "file"
+    },
+    {
+      "path": "model/bytecode/program.go",
+      "accessCount": 9,
+      "lastAccessed": 1779722031134,
+      "type": "file"
+    },
+    {
+      "path": "vm/shared_globals.go",
+      "accessCount": 9,
+      "lastAccessed": 1779722105854,
+      "type": "file"
+    },
+    {
+      "path": "compiler/compile_func.go",
+      "accessCount": 7,
+      "lastAccessed": 1778745650196,
+      "type": "file"
+    },
+    {
+      "path": "CLAUDE.md",
+      "accessCount": 7,
+      "lastAccessed": 1778752530805,
+      "type": "file"
+    },
+    {
+      "path": "importer/register.go",
+      "accessCount": 7,
+      "lastAccessed": 1779721273313,
+      "type": "file"
+    },
+    {
+      "path": "importer",
+      "accessCount": 6,
+      "lastAccessed": 1777791721995,
+      "type": "directory"
+    },
+    {
+      "path": "vm/constants.go",
+      "accessCount": 6,
+      "lastAccessed": 1778559688916,
+      "type": "file"
+    },
+    {
+      "path": "vm/goroutine.go",
+      "accessCount": 5,
+      "lastAccessed": 1777791671799,
+      "type": "file"
+    },
+    {
+      "path": "vm/stack.go",
+      "accessCount": 4,
+      "lastAccessed": 1778559688901,
+      "type": "file"
+    },
+    {
+      "path": "compiler/parser/parse.go",
+      "accessCount": 4,
+      "lastAccessed": 1778639399101,
+      "type": "file"
+    },
+    {
+      "path": "model/bytecode/function.go",
+      "accessCount": 4,
+      "lastAccessed": 1778743332256,
+      "type": "file"
+    },
+    {
+      "path": "vm/interfaces.go",
+      "accessCount": 4,
+      "lastAccessed": 1779722189958,
+      "type": "file"
+    },
+    {
+      "path": "model/value/container.go",
+      "accessCount": 4,
+      "lastAccessed": 1779723619720,
+      "type": "file"
+    },
+    {
+      "path": "runner",
+      "accessCount": 3,
+      "lastAccessed": 1777791560029,
+      "type": "directory"
+    },
+    {
+      "path": "vm/ops_control.go",
+      "accessCount": 3,
+      "lastAccessed": 1777791722047,
+      "type": "file"
+    },
+    {
+      "path": "vm/frame.go",
+      "accessCount": 3,
+      "lastAccessed": 1778559676536,
+      "type": "file"
+    },
+    {
+      "path": "vm/ops_call.go",
+      "accessCount": 3,
+      "lastAccessed": 1778743461461,
+      "type": "file"
+    },
+    {
+      "path": "compiler/interfaces.go",
+      "accessCount": 3,
+      "lastAccessed": 1778745640812,
+      "type": "file"
+    },
+    {
+      "path": "importer/importer.go",
+      "accessCount": 2,
+      "lastAccessed": 1777791146971,
+      "type": "file"
+    },
+    {
+      "path": "vm/vm_test.go",
+      "accessCount": 2,
+      "lastAccessed": 1778559682977,
+      "type": "file"
+    },
+    {
+      "path": "model/bytecode/opcode.go",
+      "accessCount": 2,
+      "lastAccessed": 1778567965731,
+      "type": "file"
+    },
+    {
+      "path": "importer/external.go",
+      "accessCount": 2,
+      "lastAccessed": 1779720790810,
+      "type": "file"
+    },
+    {
+      "path": "tests/fuzz_test.go",
+      "accessCount": 1,
+      "lastAccessed": 1777791075355,
+      "type": "file"
+    },
+    {
+      "path": "tests/stress_leak_test.go",
+      "accessCount": 1,
+      "lastAccessed": 1777791075408,
+      "type": "file"
+    },
+    {
+      "path": "tests/benchmark_test.go",
+      "accessCount": 1,
+      "lastAccessed": 1777791081755,
+      "type": "file"
+    },
+    {
+      "path": "importer/interfaces.go",
+      "accessCount": 1,
+      "lastAccessed": 1777791093204,
+      "type": "file"
+    },
+    {
+      "path": "docs/production-readiness.md",
+      "accessCount": 1,
+      "lastAccessed": 1777791110931,
+      "type": "file"
+    },
+    {
+      "path": "vm/closure.go",
+      "accessCount": 1,
+      "lastAccessed": 1777791700769,
+      "type": "file"
+    },
+    {
+      "path": "vm/call_test.go",
+      "accessCount": 1,
+      "lastAccessed": 1778559682927,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

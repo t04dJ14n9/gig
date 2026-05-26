@@ -3,9 +3,11 @@
 package vm
 
 import (
+	"go/types"
 	"reflect"
 	"sync"
 
+	"github.com/t04dJ14n9/gig/model/bytecode"
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
@@ -53,6 +55,27 @@ func (sg *SharedGlobals) InitZeroValues(zeroValues map[int]reflect.Value) {
 			g := sg.globals[idx]
 			if !g.IsValid() || g.IsNil() {
 				sg.globals[idx] = value.MakeFromReflect(zeroRV)
+			}
+		}
+	}
+}
+
+// InitGlobalTypes creates zero reflect.Values for nil/invalid globals
+// whose types were deferred to runtime (user-defined structs, anonymous
+// structs, etc. that can't be resolved at compile time).
+func (sg *SharedGlobals) InitGlobalTypes(globalTypes map[int]int, types []types.Type, prog *bytecode.CompiledProgram) {
+	if globalTypes == nil {
+		return
+	}
+	for idx, typeIdx := range globalTypes {
+		if idx >= len(sg.globals) || typeIdx >= len(types) {
+			continue
+		}
+		g := sg.globals[idx]
+		if !g.IsValid() || g.IsNil() {
+			t := types[typeIdx]
+			if rt := typeToReflect(t, prog); rt != nil {
+				sg.globals[idx] = value.MakeFromReflect(reflect.New(rt.Elem()))
 			}
 		}
 	}

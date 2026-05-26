@@ -10,6 +10,92 @@ import (
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
+// interfaceMethodNames returns the method names of an interface type.
+func interfaceMethodNames(iface *types.Interface) []string {
+	names := make([]string, iface.NumMethods())
+	for i := 0; i < iface.NumMethods(); i++ {
+		names[i] = iface.Method(i).Name()
+	}
+	return names
+}
+
+// typeMatchesKind checks if a compiled receiver type name corresponds to a
+// named type whose underlying kind matches the given value kind. This prevents
+// false positives when checking if a primitive value implements an interface.
+func typeMatchesKind(receiverTypeName string, k value.Kind, prog *bytecode.CompiledProgram) bool {
+	for _, typ := range prog.Types {
+		if named, ok := typ.(*types.Named); ok {
+			if named.Obj().Name() == receiverTypeName {
+				underlying := named.Underlying()
+				if basic, ok := underlying.(*types.Basic); ok {
+					switch basic.Kind() {
+					case types.String:
+						return k == value.KindString
+					case types.Int, types.Int8, types.Int16, types.Int32, types.Int64:
+						return k == value.KindInt
+					case types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
+						return k == value.KindUint
+					case types.Float32, types.Float64:
+						return k == value.KindFloat
+					case types.Bool:
+						return k == value.KindBool
+					}
+				}
+				return false
+			}
+		}
+	}
+	return false
+}
+
+// concreteImplementsInterface checks if a concrete reflect.Type implements an
+// interface by checking if the program's compiled methods contain all required
+// interface methods for that type name. Handles both named types and
+// reflect.StructOf types (which have empty names but may have gig tags).
+// For primitive types (string, int, etc.), checks if any compiled type with
+// the same underlying kind implements the interface (handles named primitive
+// types like MyString string).
+func concreteImplementsInterface(rt reflect.Type, iface *types.Interface, prog *bytecode.CompiledProgram) bool {
+	typeName := resolveTypeName(rt, prog)
+	if typeName == "" {
+		return false
+	}
+	required := interfaceMethodNames(iface)
+	if implementsInterface(typeName, required, prog) {
+		return true
+	}
+	// For basic types (string, int, etc.), check if any compiled type with
+	// the same underlying kind implements the interface. This handles named
+	// primitive types like "type MyString string" which lose their name
+	// when stored as KindString in the value system.
+	if rt.Kind() == reflect.String || rt.Kind() == reflect.Int || rt.Kind() == reflect.Float64 ||
+		rt.Kind() == reflect.Bool || rt.Kind() == reflect.Int32 || rt.Kind() == reflect.Uint8 {
+		for _, fn := range prog.MethodsByName[required[0]] {
+			if fn.ReceiverTypeName != "" && implementsInterface(fn.ReceiverTypeName, required, prog) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// implementsInterface checks if a type with the given name has all required methods.
+func implementsInterface(typeName string, required []string, prog *bytecode.CompiledProgram) bool {
+	for _, methodName := range required {
+		found := false
+		for _, fn := range prog.MethodsByName[methodName] {
+			if fn.ReceiverTypeName == typeName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
 // executeConvert handles type assertion, conversion, and change-type opcodes.
 func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx
 	switch op {
@@ -49,9 +135,23 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 						result = value.MakeNil()
 						assertionOk = false
 					} else if underlying.Type().AssignableTo(targetReflectType) {
-						// Successful assertion - create a value from the underlying
-						result = value.MakeFromReflect(underlying)
-						assertionOk = true
+						// Check: typeToReflect returns interface{} for custom interfaces.
+						// AssignableTo(interface{}) is always true, so we must verify the
+						// concrete type actually implements the target interface's methods.
+						if targetReflectType.NumMethod() == 0 {
+							if iface, isIface := targetType.Underlying().(*types.Interface); isIface && iface.NumMethods() > 0 {
+								assertionOk = concreteImplementsInterface(underlying.Type(), iface, v.program)
+							} else {
+								assertionOk = true
+							}
+						} else {
+							assertionOk = true
+						}
+						if assertionOk {
+							result = value.MakeFromReflect(underlying)
+						} else {
+							result = value.MakeFromReflect(reflect.Zero(targetReflectType))
+						}
 					} else {
 						// Failed assertion — return zero value of target type, not nil
 						result = value.MakeFromReflect(reflect.Zero(targetReflectType))
@@ -72,8 +172,23 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 				}
 				targetReflectType := typeToReflect(targetType, v.program)
 				if targetReflectType != nil && concreteRV.Type().AssignableTo(targetReflectType) {
-					result = value.MakeFromReflect(concreteRV)
-					assertionOk = true
+					// typeToReflect returns interface{} for custom interfaces.
+					// AssignableTo(interface{}) is always true, so verify the concrete
+					// type actually implements the target interface's methods.
+					if targetReflectType.NumMethod() == 0 {
+						if iface, isIface := targetType.Underlying().(*types.Interface); isIface && iface.NumMethods() > 0 {
+							assertionOk = concreteImplementsInterface(concreteRV.Type(), iface, v.program)
+						} else {
+							assertionOk = true
+						}
+					} else {
+						assertionOk = true
+					}
+					if assertionOk {
+						result = value.MakeFromReflect(concreteRV)
+					} else {
+						result = value.MakeNil()
+					}
 				} else if targetReflectType != nil && sameReflectKindFamily(concreteRV.Type(), targetReflectType) {
 					// Gig stores numeric values with internal types (int64 for int, float64 for float32, etc.).
 					// When these are stored in interface{}, the concrete type may differ from what Go
@@ -102,12 +217,32 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 			if assertionOk {
 				result = obj
 			} else {
-				// Failed assertion — return zero value of target type, not nil
-				targetReflectType := typeToReflect(targetType, v.program)
-				if targetReflectType != nil {
-					result = value.MakeFromReflect(reflect.Zero(targetReflectType))
-				} else {
-					result = value.MakeNil()
+				// If target is an interface, check if any compiled type with
+				// matching methods implements the interface. This handles named
+				// primitive types like "type MyString string" which lose their
+				// type name when stored as KindString.
+				if iface, isInterface := targetType.Underlying().(*types.Interface); isInterface && iface.NumMethods() > 0 {
+					requiredMethods := interfaceMethodNames(iface)
+					if len(requiredMethods) > 0 {
+						for _, fn := range v.program.MethodsByName[requiredMethods[0]] {
+							if fn.ReceiverTypeName != "" && implementsInterface(fn.ReceiverTypeName, requiredMethods, v.program) {
+								if typeMatchesKind(fn.ReceiverTypeName, obj.Kind(), v.program) {
+									assertionOk = true
+									result = obj
+									break
+								}
+							}
+						}
+					}
+				}
+				if !assertionOk {
+					// Failed assertion — return zero value of target type, not nil
+					targetReflectType := typeToReflect(targetType, v.program)
+					if targetReflectType != nil {
+						result = value.MakeFromReflect(reflect.Zero(targetReflectType))
+					} else {
+						result = value.MakeNil()
+					}
 				}
 			}
 		}
@@ -257,6 +392,21 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 		srcLocalIdx := frame.readUint16()
 		targetType := v.program.Types[typeIdx]
 		val := v.pop()
+
+		// Handle nil pointer dereference for value-receiver methods.
+		// When calling v.Method() on a nil *T where Method has a value receiver,
+		// Go creates a zero value of T. The SSA generates ChangeType(*T -> T).
+		if val.IsNil() || !val.IsValid() {
+			if named, ok := targetType.(*types.Named); ok {
+				if targetRT := typeToReflect(named, v.program); targetRT != nil {
+					v.push(value.MakeFromReflect(reflect.Zero(targetRT)))
+					break
+				}
+			}
+			v.push(val)
+			break
+		}
+		_ = srcLocalIdx // used below for slice aliasing
 
 		// Named-type conversion (e.g., []int -> sort.IntSlice).
 		if named, ok := targetType.(*types.Named); ok {

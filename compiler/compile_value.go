@@ -78,6 +78,16 @@ func (c *compiler) compileValue(v ssa.Value) {
 						c.globalZeroValues[globalIdx] = reflect.Zero(rt)
 					}
 				}
+				// Defer struct globals to runtime for zero-value creation.
+				if _, ok := c.globalZeroValues[globalIdx]; !ok {
+					switch elemType.Underlying().(type) {
+					case *types.Struct:
+						if c.program.GlobalTypes == nil {
+							c.program.GlobalTypes = make(map[int]int)
+						}
+						c.program.GlobalTypes[globalIdx] = int(c.addType(ptrType))
+					}
+				}
 			}
 
 			// For external variables, look up the variable pointer and dereference it

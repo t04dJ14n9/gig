@@ -478,7 +478,7 @@ func (v *vm) run() (value.Value, error) {
 			b := stack[sp]
 			sp--
 			a := stack[sp]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt && a.RawSize() == b.RawSize() {
 				stack[sp] = value.MakeBool(a.RawInt() == b.RawInt())
 			} else {
 				stack[sp] = value.MakeBool(a.Equal(b))
@@ -491,7 +491,7 @@ func (v *vm) run() (value.Value, error) {
 			b := stack[sp]
 			sp--
 			a := stack[sp]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt && a.RawSize() == b.RawSize() {
 				stack[sp] = value.MakeBool(a.RawInt() != b.RawInt())
 			} else {
 				stack[sp] = value.MakeBool(!a.Equal(b))

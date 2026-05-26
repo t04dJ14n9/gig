@@ -94,6 +94,15 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 		// Get address of a struct field: &struct.field
 		fieldIdx := frame.readUint16()
 		structPtr := v.pop()
+			// Unwrap *value.Value from OpGlobal slot pointer.
+		if structPtr.IsValid() && !structPtr.IsNil() {
+			if iface := structPtr.Interface(); iface != nil {
+				if vp, ok := iface.(*value.Value); ok {
+					structPtr = *vp
+				}
+			}
+		}
+
 		if rv, ok := structPtr.ReflectValue(); ok {
 			// Dereference pointer to get struct
 			s := rv
@@ -111,14 +120,26 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 				}
 			}
 			if s.Kind() == reflect.Struct {
-				field := s.Field(int(fieldIdx))
-				if field.CanAddr() {
-					// Use reflect.NewAt to get a settable pointer even for unexported fields.
-					// This allows the VM to mutate unexported struct fields (pointer-receiver methods).
-					fieldPtr := reflect.NewAt(field.Type(), value.UnsafeAddrOf(field))
-					v.push(value.MakeFromReflect(fieldPtr))
+				// If s is a value.Value struct (from OpGlobal slot pointer),
+				// extract the wrapped value before accessing fields.
+				if s.Type() == reflect.TypeOf(value.Value{}) {
+					if innerRV, ok2 := s.Interface().(value.Value).ReflectValue(); ok2 && innerRV.IsValid() {
+						s = innerRV
+						if s.Kind() == reflect.Ptr {
+							s = s.Elem()
+						}
+					}
+				}
+				if s.Kind() == reflect.Struct {
+					field := s.Field(int(fieldIdx))
+					if field.CanAddr() {
+						fieldPtr := reflect.NewAt(field.Type(), value.UnsafeAddrOf(field))
+						v.push(value.MakeFromReflect(fieldPtr))
+					} else {
+						v.push(value.MakeFromReflect(field))
+					}
 				} else {
-					v.push(value.MakeFromReflect(field))
+					v.push(value.MakeNil())
 				}
 			} else {
 				v.push(value.MakeNil())
@@ -131,6 +152,15 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 		// Get address of slice/array element: &slice[index]
 		index := v.pop()
 		container := v.pop()
+
+		// Unwrap *value.Value from OpGlobal slot pointer.
+		if container.IsValid() && !container.IsNil() {
+			if iface := container.Interface(); iface != nil {
+				if vp, ok := iface.(*value.Value); ok {
+					container = *vp
+				}
+			}
+		}
 		idx := int(index.Int())
 
 		// Native int slice: return *int64 pointer directly (avoids reflect)

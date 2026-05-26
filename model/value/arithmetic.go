@@ -298,7 +298,7 @@ func (v Value) Equal(other Value) bool {
 	case KindBool:
 		return a.num == b.num
 	case KindInt:
-		return a.num == b.num
+		return a.num == b.num && a.size == b.size
 	case KindUint:
 		return a.num == b.num
 	case KindFloat:

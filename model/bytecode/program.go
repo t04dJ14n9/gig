@@ -46,6 +46,13 @@ type CompiledProgram struct {
 	// Only populated for globals whose zero value is a non-nil struct/map/slice/chan.
 	GlobalZeroValues map[int]reflect.Value
 
+	// GlobalTypes stores the types.Type index for globals that need runtime
+	// zero-value initialization (e.g., user-defined structs, anonymous structs).
+	// Key: global index, Value: index into Types slice.
+	// When a global is nil/invalid at init time and not in GlobalZeroValues,
+	// the VM uses this to create a zero reflect.Value via typeToReflect.
+	GlobalTypes map[int]int
+
 	// Types is the type pool for runtime type operations.
 	Types []types.Type
 

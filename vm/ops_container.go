@@ -269,6 +269,22 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			break
 		}
 
+		// Handle []byte slicing
+		if container.Kind() == value.KindBytes {
+			if b, ok := container.Bytes(); ok {
+				high := int(highVal.Int())
+				if high == sliceEndSentinel {
+					high = len(b)
+				}
+				if maxVal.Kind() != value.KindNil && maxVal.Int() != sliceEndSentinel {
+					v.push(value.MakeBytes(b[low:high:int(maxVal.Int())]))
+				} else {
+					v.push(value.MakeBytes(b[low:high]))
+				}
+			}
+			break
+		}
+
 		// Handle string slicing specially
 		if container.Kind() == value.KindString {
 			high := int(highVal.Int())
@@ -452,6 +468,12 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 	case bytecode.OpCap:
 		obj := v.pop()
 		switch obj.Kind() {
+		case value.KindBytes:
+			if b, ok := obj.Bytes(); ok {
+				v.push(value.MakeInt(int64(cap(b))))
+			} else {
+				v.push(value.MakeInt(0))
+			}
 		case value.KindSlice, value.KindArray, value.KindChan:
 			v.push(value.MakeInt(int64(obj.Cap())))
 		case value.KindReflect:
@@ -559,6 +581,10 @@ func appendValue(slice, elem value.Value) value.Value {
 				if eb, ok := elem.Bytes(); ok {
 					return value.MakeBytes(append(b, eb...))
 				}
+			}
+			// If elem is a string (append(b, "str"...))
+			if elem.Kind() == value.KindString {
+				return value.MakeBytes(append(b, elem.String()...))
 			}
 			// Fallback: convert via interface
 			if v := elem.Interface(); v != nil {

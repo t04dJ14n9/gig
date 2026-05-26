@@ -78,6 +78,7 @@ func New(program *bytecode.CompiledProgram, initialGlobals []value.Value, opts .
 		r.shared = vm.NewSharedGlobals(initialGlobals, len(program.Globals))
 		r.shared.InitExternalVars(program.ExternalVarValues)
 		r.shared.InitZeroValues(program.GlobalZeroValues)
+		r.shared.InitGlobalTypes(program.GlobalTypes, program.Types, program)
 	}
 
 	// Register per-program method resolver for fmt.Stringer support.
