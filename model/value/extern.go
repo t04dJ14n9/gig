@@ -814,8 +814,16 @@ func gigAsMatchValue(err error, elemType reflect.Type, targetVal reflect.Value) 
 			}
 		}
 
-		// Case 2: target is an interface type (e.g., error)
+		// Case 2: target is an interface type (e.g., coder249)
 		if elemType.Kind() == reflect.Interface {
+			// Check if the UNDERLYING value implements the interface,
+			// not the gigStructWrapper itself
+			ifaceType := reflect.TypeOf(wrapper.iface)
+			if ifaceType.Implements(elemType) {
+				targetVal.Elem().Set(reflect.ValueOf(wrapper.iface))
+				return true
+			}
+			// Also check if the wrapper itself implements it (for error interface)
 			if errType.Implements(elemType) {
 				targetVal.Elem().Set(errVal)
 				return true
