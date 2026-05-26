@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"git add -A && git commit -m \\\"$(cat <<'EOF'\\nfix: empty struct type identity via phantom field, type switch interface matching\\n\\n- Add phantom GigType field to named empty structs (e.g., ...",
-  "error": "Exit code 1\n(eval):14: unmatched \"\n(eval):14: unmatched \"",
-  "timestamp": "2026-05-26T20:46:48.950Z",
+  "tool_input_preview": "{\"command\":\"git add -A && git commit -m \\\"$(cat <<'EOF'\\nfix: gigStructWrapper.Is dispatches via method registry, empty struct type identity, nil pointer fixes\\n\\n- gigStructWrapper.Is uses callMethod...",
+  "error": "Exit code 1\n[feature/dev_youngjin 7f6f492] fix: gigStructWrapper.Is dispatches via method registry, empty struct type identity, nil pointer fixes\n 2 files changed, 26 insertions(+), 14 deletions(-)\nOn branch feature/dev_youngjin\nYour branch is ahead of 'origin/feature/dev_youngjin' by 5 commits.\n  (use \"git push\" to publish your local commits)\n\nnothing to commit, working tree clean",
+  "timestamp": "2026-05-26T20:55:35.001Z",
   "retry_count": 1
 }
