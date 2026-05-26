@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"git add -A && git commit -m \\\"$(cat <<'EOF'\\nfix: gigStructWrapper.Is dispatches via method registry, empty struct type identity, nil pointer fixes\\n\\n- gigStructWrapper.Is uses callMethod...",
-  "error": "Exit code 1\n[feature/dev_youngjin 7f6f492] fix: gigStructWrapper.Is dispatches via method registry, empty struct type identity, nil pointer fixes\n 2 files changed, 26 insertions(+), 14 deletions(-)\nOn branch feature/dev_youngjin\nYour branch is ahead of 'origin/feature/dev_youngjin' by 5 commits.\n  (use \"git push\" to publish your local commits)\n\nnothing to commit, working tree clean",
-  "timestamp": "2026-05-26T20:55:35.001Z",
+  "tool_input_preview": "{\"command\":\"go test -v -count=1 -timeout 30s -run \\\"TestDivergenceHunt247/ErrorInterfaceAssignability\\\" ./tests/ 2>&1\",\"timeout\":60000,\"description\":\"Run with verbose output\"}",
+  "error": "Exit code 1\n=== RUN   TestDivergenceHunt247\n=== PAUSE TestDivergenceHunt247\n=== CONT  TestDivergenceHunt247\n=== RUN   TestDivergenceHunt247/ErrorInterfaceAssignability\n    divergence_hunt_test.go:1280: DIVERGENCE (error): gig panicked: panic: runtime error: invalid memory address or nil pointer dereference, native returned: custom\n--- FAIL: TestDivergenceHunt247 (0.00s)\n    --- FAIL: TestDivergenceHunt247/ErrorInterfaceAssignability (0.00s)\nFAIL\nFAIL\tgithub.com/t04dJ14n9/gig/tests\t0.226s\nFAIL",
+  "timestamp": "2026-05-26T22:12:33.111Z",
   "retry_count": 1
 }
