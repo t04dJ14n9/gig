@@ -142,22 +142,34 @@ func (g *gigStructWrapper) Error() string {
 }
 
 // Is implements errors.Is interface. Dispatches to the interpreted type's
-// Is(target error) bool method if present.
+// Is(target error) bool method if present via the global method registry.
 func (g *gigStructWrapper) Is(target error) bool {
-	rv := reflect.ValueOf(g.iface)
-	method := rv.MethodByName("Is")
-	if !method.IsValid() {
-		// Try pointer receiver
-		if rv.Kind() != reflect.Ptr && rv.CanAddr() {
-			method = rv.Addr().MethodByName("Is")
-		}
-		if !method.IsValid() {
-			return false
-		}
+	// Create a Value wrapping the underlying iface for method dispatch
+	receiverVal := MakeFromReflect(reflect.ValueOf(g.iface))
+	result, found := callMethod(nil, "Is", receiverVal)
+	if !found {
+		return false
 	}
-	out := method.Call([]reflect.Value{reflect.ValueOf(target)})
-	if len(out) == 1 {
-		return out[0].Bool()
+	// result is a Value wrapping the Is method function — call it with target
+	if result.Kind() == KindFunc {
+		// For compiled methods, callMethod returns the result directly
+		// Try calling through the resolver chain
+		isResult, isFound := callMethod(nil, "Is", receiverVal)
+		if isFound {
+			// The method was found but we need to call it with args
+			// Use reflect to call the underlying function
+			if rv, ok := isResult.ReflectValue(); ok && rv.Kind() == reflect.Func {
+				out := rv.Call([]reflect.Value{reflect.ValueOf(target)})
+				if len(out) == 1 {
+					return out[0].Bool()
+				}
+			}
+		}
+		return false
+	}
+	// callMethod may return the bool result directly if the resolver handled it
+	if result.Kind() == KindBool {
+		return result.Bool()
 	}
 	return false
 }

@@ -19,7 +19,7 @@
   },
   "build": {
     "buildCommand": "go build ./model/value/ 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
-    "testCommand": "go test -v -run \"TestDivergenceHunt240|TestDivergenceHunt190\" ./tests/ 2>&1 | grep -E \"PASS|FAIL\" | head -20",
+    "testCommand": "cp tests/divergence_hunt_test.go tests/divergence_hunt_test.go.tmp && python3 -c \"\ndata = open('tests/divergence_hunt_test.go').read()\ndata = data.replace('knownIssue: true', 'knownIssue: false')\ndata = data.replace('if tc.knownIssue {\\n\\t\\t\\tt.Skip(\\\"KNOWN ISSUE - pending fix\\\")\\n\\t\\t}', 'if false { _ = tc.knownIssue }')\ndata = data.replace('allKnown := true', 'allKnown := false //')\nopen('tests/divergence_hunt_test.go', 'w').write(data)\nprint('OK')\n\" && go test -v -count=1 -timeout 600s -run 'TestDivergenceHunt' ./tests/ 2>&1 > /tmp/audit_v3.txt; python3 -c \"\nwith open('/tmp/audit_v3.txt') as f: content = f.read()\ndiv = content.count('DIVERGENCE')\nbuild = content.count('Build error')\ntimeout = content.count('hung for')\nprint(f'Total: {div+build+timeout} (DIVERGENCE={div}, Build={build}, Timeout={timeout})')\n\" && mv tests/divergence_hunt_test.go.tmp tests/divergence_hunt_test.go",
     "lintCommand": null,
     "devCommand": null,
     "scripts": {}
