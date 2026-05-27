@@ -627,24 +627,21 @@ func canCallCompiledMethod(v *vm, fn *bytecode.CompiledFunction, args []value.Va
 	if fn == nil || !fn.HasReceiver || len(args) == 0 {
 		return true
 	}
-	rv, ok := args[0].ReflectValue()
-	if !ok || !rv.IsValid() {
-		return true // unknown receiver type, assume compatible
-	}
-	// For pointer receivers: receiver kind must be Ptr
+
+	// For pointer-receiver methods: the receiver must be a pointer
 	if fn.ReceiverIsPointer {
-		return rv.Kind() == reflect.Ptr
+		rv, ok := args[0].ReflectValue()
+		if ok && rv.IsValid() {
+			return rv.Kind() == reflect.Ptr
+		}
+		// For KindString/KindInt/etc with pointer receiver: not compatible
+		return false
 	}
-	// For value receivers with named string receiver types:
-	// the receiver must be a string (named string types are stored as strings)
-	if rv.Kind() == reflect.String && fn.ReceiverTypeName != "" {
-		return true
-	}
-	// For value receivers on structs: the receiver kind must be Struct or Ptr
-	if rv.Kind() == reflect.Struct || rv.Kind() == reflect.Ptr {
-		return true
-	}
-	return false
+
+	// For value-receiver methods: any receiver kind is potentially compatible.
+	// Named string types are stored as KindString (no reflect.Value),
+	// struct types are stored as KindReflect with reflect.Struct.
+	return true
 }
 func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram) string {
 	rv, ok := receiver.ReflectValue()
