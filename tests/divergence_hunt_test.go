@@ -2458,7 +2458,7 @@ func TestDivergenceHunt114(t *testing.T) {
 }
 func TestDivergenceHunt115(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt115Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"GlobalRead": {funcName: "GlobalRead", native: divergence_hunt115.GlobalRead, knownIssue: true}, "GlobalModify": {funcName: "GlobalModify", native: divergence_hunt115.GlobalModify}, "GlobalSliceRead": {funcName: "GlobalSliceRead", native: divergence_hunt115.GlobalSliceRead}, "GlobalSliceLen": {funcName: "GlobalSliceLen", native: divergence_hunt115.GlobalSliceLen}, "GlobalMapRead": {funcName: "GlobalMapRead", native: divergence_hunt115.GlobalMapRead}, "GlobalMapLen": {funcName: "GlobalMapLen", native: divergence_hunt115.GlobalMapLen}, "GlobalStringRead": {funcName: "GlobalStringRead", native: divergence_hunt115.GlobalStringRead}, "GlobalInitValues": {funcName: "GlobalInitValues", native: divergence_hunt115.GlobalInitValues, knownIssue: true},
+		"GlobalRead": {funcName: "GlobalRead", native: divergence_hunt115.GlobalRead}, "GlobalModify": {funcName: "GlobalModify", native: divergence_hunt115.GlobalModify}, "GlobalSliceRead": {funcName: "GlobalSliceRead", native: divergence_hunt115.GlobalSliceRead}, "GlobalSliceLen": {funcName: "GlobalSliceLen", native: divergence_hunt115.GlobalSliceLen}, "GlobalMapRead": {funcName: "GlobalMapRead", native: divergence_hunt115.GlobalMapRead}, "GlobalMapLen": {funcName: "GlobalMapLen", native: divergence_hunt115.GlobalMapLen}, "GlobalStringRead": {funcName: "GlobalStringRead", native: divergence_hunt115.GlobalStringRead}, "GlobalInitValues": {funcName: "GlobalInitValues", native: divergence_hunt115.GlobalInitValues},
 	}})
 }
 func TestDivergenceHunt116(t *testing.T) {
