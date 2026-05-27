@@ -495,6 +495,20 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 	case bytecode.OpCopy:
 		src := v.pop()
 		dst := v.pop()
+
+		// copy([]byte, string) — copy string bytes into byte slice
+		if dst.Kind() == value.KindBytes && src.Kind() == value.KindString {
+			db, ok := dst.Bytes()
+			if !ok {
+				v.push(value.MakeInt(0))
+				break
+			}
+			ss := src.String()
+			n := copy(db, ss)
+			v.push(value.MakeInt(int64(n)))
+			break
+		}
+
 		// Native int slice fast path
 		if ds, ok := dst.IntSlice(); ok {
 			if ss, ok2 := src.IntSlice(); ok2 {

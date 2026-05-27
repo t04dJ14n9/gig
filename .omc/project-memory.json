@@ -18,8 +18,8 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "go build ./model/value/ 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
-    "testCommand": "go build ./model/value/ 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
+    "buildCommand": "go build ./vm/ 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
+    "testCommand": "go test -v -count=1 -timeout 60s ./tests/ 2>&1 | grep \"FAIL\" | head -10",
     "lintCommand": null,
     "devCommand": null,
     "scripts": {}
@@ -186,8 +186,8 @@
     },
     {
       "path": "vm/call.go",
-      "accessCount": 54,
-      "lastAccessed": 1779834505789,
+      "accessCount": 57,
+      "lastAccessed": 1779853501641,
       "type": "file"
     },
     {
@@ -263,6 +263,12 @@
       "type": "file"
     },
     {
+      "path": "vm/ops_container.go",
+      "accessCount": 15,
+      "lastAccessed": 1779853078737,
+      "type": "file"
+    },
+    {
       "path": "gig_test.go",
       "accessCount": 14,
       "lastAccessed": 1779761857743,
@@ -273,12 +279,6 @@
       "accessCount": 13,
       "lastAccessed": 1778639394978,
       "type": "directory"
-    },
-    {
-      "path": "vm/ops_container.go",
-      "accessCount": 13,
-      "lastAccessed": 1779819965842,
-      "type": "file"
     },
     {
       "path": "vm/vm.go",

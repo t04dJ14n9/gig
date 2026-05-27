@@ -569,7 +569,18 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 		}
 	}
 	if matchIdx < 0 && len(candidates) > 0 {
-		matchIdx = 0
+		// Try each candidate; use the first one that doesn't crash.
+		// This handles named primitive types (e.g., type myError string)
+		// where the receiver type name can't be inferred from reflect.
+		for i, fn := range candidates {
+			if canCallCompiledMethod(v, fn, args) {
+				matchIdx = i
+				break
+			}
+		}
+		if matchIdx < 0 {
+			matchIdx = 0
+		}
 	}
 
 	if matchIdx >= 0 {
@@ -609,7 +620,23 @@ func shouldPanicOnNilValueReceiver(receiver value.Value, fn *bytecode.CompiledFu
 	return false
 }
 
-// inferReceiverTypeName tries to extract a type name from a runtime value.Value receiver.
+// canCallCompiledMethod checks if a compiled method can be called with the given args
+// by doing a dry-run type compatibility check on the first arg (receiver).
+func canCallCompiledMethod(v *vm, fn *bytecode.CompiledFunction, args []value.Value) bool {
+	if fn == nil || !fn.HasReceiver || len(args) == 0 {
+		return true
+	}
+	rv, ok := args[0].ReflectValue()
+	if !ok || !rv.IsValid() {
+		return true // unknown receiver type, assume compatible
+	}
+	// For pointer receivers: receiver kind must be Ptr
+	if fn.ReceiverIsPointer {
+		return rv.Kind() == reflect.Ptr
+	}
+	// For value receivers: receiver can be Ptr (will be dereferenced) or the value type
+	return true
+}
 func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram) string {
 	rv, ok := receiver.ReflectValue()
 	if !ok {
