@@ -147,7 +147,6 @@ func (g *gigStructWrapper) Is(target error) bool {
 	// Unwrap gigStructWrapper targets to get the raw underlying value
 	var targetVal Value
 	if wrapper, ok := target.(*gigStructWrapper); ok {
-		// Extract the raw underlying value from the wrapper
 		targetVal = MakeFromReflect(reflect.ValueOf(wrapper.iface))
 	} else {
 		targetVal = MakeFromReflect(reflect.ValueOf(target))
@@ -156,6 +155,12 @@ func (g *gigStructWrapper) Is(target error) bool {
 	receiverVal := MakeFromReflect(reflect.ValueOf(g.iface))
 	result, found := callMethodWithArgs(nil, "Is", receiverVal, targetVal)
 	if !found {
+		// No Is method — fall back to Error() string comparison
+		// This handles the common case where errors.Is compares
+		// wrapped errors that don't have custom Is methods.
+		if target != nil && g.Error() == target.Error() {
+			return true
+		}
 		return false
 	}
 	if result.Kind() == KindBool {
