@@ -765,6 +765,9 @@ func gigAsMatchValue(err error, elemType reflect.Type, targetVal reflect.Value) 
 
 	// If err is a *gigStructWrapper, try matching by interpreter type name
 	if wrapper, ok := err.(*gigStructWrapper); ok {
+		if wrapper.iface == nil {
+			return false
+		}
 		// Case 1: target is **StructType (errors.As(&ce) where ce is *CustomError)
 		if elemType.Kind() == reflect.Ptr {
 			ptrElemType := elemType.Elem()

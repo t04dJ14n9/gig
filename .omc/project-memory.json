@@ -18,8 +18,8 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "go build ./... 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
-    "testCommand": "git stash && go test -v -count=1 -timeout 30s -run \"TestDivergenceHunt247/ErrorInterfaceAssignability\" ./tests/ 2>&1 | tail -5 && git stash pop",
+    "buildCommand": "go build ./model/value/ 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
+    "testCommand": "go build ./model/value/ 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
     "lintCommand": null,
     "devCommand": null,
     "scripts": {}
