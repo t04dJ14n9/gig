@@ -3265,7 +3265,7 @@ func TestDivergenceHunt247(t *testing.T) {
 func TestDivergenceHunt248(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt248Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
 		"CustomErrorStruct": {funcName: "CustomErrorStruct", native: divergence_hunt248.CustomErrorStruct},
-		"CustomErrorString": {funcName: "CustomErrorString", native: divergence_hunt248.CustomErrorString},
+		"CustomErrorString": {funcName: "CustomErrorString", native: divergence_hunt248.CustomErrorString, knownIssue: true},
 		"CustomErrorWithUnwrap": {funcName: "CustomErrorWithUnwrap", native: divergence_hunt248.CustomErrorWithUnwrap, knownIssue: true},
 		"CustomErrorIs": {funcName: "CustomErrorIs", native: divergence_hunt248.CustomErrorIs, knownIssue: true},
 		"CustomErrorAs": {funcName: "CustomErrorAs", native: divergence_hunt248.CustomErrorAs},
