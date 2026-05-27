@@ -19,7 +19,7 @@
   },
   "build": {
     "buildCommand": "go build ./vm/ 2>&1 && go test -v -count=1 -timeout 30s -run \"TestDivergenceHunt248/CustomErrorString\" ./tests/ 2>&1 | grep -E \"PASS|FAIL|DIVERGENCE\"",
-    "testCommand": "mv tests/divergence_hunt_test.go.tmp tests/divergence_hunt_test.go 2>/dev/null\ngo test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
+    "testCommand": "git stash && go test -v -count=1 -timeout 30s -run \"TestDivergenceHunt259|TestDivergenceHunt248/CustomErrorHierarchy|TestDivergenceHunt249/ErrorsAsInterface|TestDivergenceHunt288/SelectWithMultipleReady|TestDivergenceHunt260\" ./tests/ 2>&1 | grep -E \"PASS|FAIL\" && git stash pop",
     "lintCommand": null,
     "devCommand": null,
     "scripts": {}
