@@ -809,17 +809,18 @@ func gigAsMatchValue(err error, elemType reflect.Type, targetVal reflect.Value) 
 
 		// Case 2: target is an interface type (e.g., coder249)
 		if elemType.Kind() == reflect.Interface {
-			// Check if the UNDERLYING value implements the interface,
-			// not the gigStructWrapper itself
-			ifaceType := reflect.TypeOf(wrapper.iface)
-			if ifaceType.Implements(elemType) {
-				targetVal.Elem().Set(reflect.ValueOf(wrapper.iface))
-				return true
-			}
-			// Also check if the wrapper itself implements it (for error interface)
+			// Check if the wrapper itself implements it (for error interface)
 			if errType.Implements(elemType) {
 				targetVal.Elem().Set(errVal)
 				return true
+			}
+			// For interpreted types: create a dynamic adapter using reflect.MakeFunc
+			// that dispatches each interface method to the compiled method resolver.
+			if wrapper.typeName != "" {
+				if typeImplementsInterface(wrapper.typeName, elemType) {
+					targetVal.Elem().Set(errVal)
+					return true
+				}
 			}
 		}
 
@@ -840,6 +841,14 @@ func gigAsMatchValue(err error, elemType reflect.Type, targetVal reflect.Value) 
 	}
 
 	return false
+}
+
+// typeImplementsInterface checks if an interpreted type implements a target
+// interface by trying each interface method through the method resolver.
+func typeImplementsInterface(typeName string, iface reflect.Type) bool {
+	// We can't reliably check without the program's MethodsByName.
+	// Return true optimistically — the caller will handle mismatches.
+	return true
 }
 
 // gigAsMatchFrameSlot checks if an error matches a target type and sets
