@@ -18,8 +18,8 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "go build ./model/value/ 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
-    "testCommand": "git stash && go test -v -count=1 -timeout 30s -run \"TestDivergenceHunt248/CustomErrorString|TestDivergenceHunt248/CustomErrorHierarchy\" ./tests/ 2>&1 | grep \"DIVERGENCE\\|PASS\\|FAIL\" && git stash pop",
+    "buildCommand": "go build ./vm/ 2>&1 && go test -v -count=1 -timeout 30s -run \"TestDivergenceHunt248/CustomErrorString\" ./tests/ 2>&1 | grep -E \"PASS|FAIL|DIVERGENCE\"",
+    "testCommand": "git stash && go test -v -count=1 -timeout 30s -run \"TestDivergenceHunt146/ErrorSpecificMethod|TestDivergenceHunt260\" ./tests/ 2>&1 | grep -E \"PASS|FAIL\" && git stash pop",
     "lintCommand": null,
     "devCommand": null,
     "scripts": {}
@@ -186,8 +186,8 @@
     },
     {
       "path": "vm/call.go",
-      "accessCount": 60,
-      "lastAccessed": 1779855580168,
+      "accessCount": 62,
+      "lastAccessed": 1779858382529,
       "type": "file"
     },
     {

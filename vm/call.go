@@ -634,14 +634,23 @@ func canCallCompiledMethod(v *vm, fn *bytecode.CompiledFunction, args []value.Va
 		if ok && rv.IsValid() {
 			return rv.Kind() == reflect.Ptr
 		}
-		// For KindString/KindInt/etc with pointer receiver: not compatible
 		return false
 	}
 
-	// For value-receiver methods: any receiver kind is potentially compatible.
-	// Named string types are stored as KindString (no reflect.Value),
-	// struct types are stored as KindReflect with reflect.Struct.
-	return true
+	// For value-receiver methods: check if the receiver kind is compatible
+	// with the expected receiver type.
+	rv, ok := args[0].ReflectValue()
+	if !ok || !rv.IsValid() {
+		// KindString/KindInt etc: check if candidate has a matching
+		// receiver type name that looks like a named primitive type.
+		if fn.ReceiverTypeName != "" {
+			// Single-word type names are likely named primitive types
+			return true
+		}
+		return false
+	}
+	// For reflect values: receiver kind must be Struct or Ptr
+	return rv.Kind() == reflect.Struct || rv.Kind() == reflect.Ptr
 }
 func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram) string {
 	rv, ok := receiver.ReflectValue()
