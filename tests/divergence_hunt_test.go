@@ -3265,13 +3265,13 @@ func TestDivergenceHunt247(t *testing.T) {
 func TestDivergenceHunt248(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt248Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
 		"CustomErrorStruct": {funcName: "CustomErrorStruct", native: divergence_hunt248.CustomErrorStruct},
-		"CustomErrorString": {funcName: "CustomErrorString", native: divergence_hunt248.CustomErrorString, knownIssue: true},
+		"CustomErrorString": {funcName: "CustomErrorString", native: divergence_hunt248.CustomErrorString},
 		"CustomErrorWithUnwrap": {funcName: "CustomErrorWithUnwrap", native: divergence_hunt248.CustomErrorWithUnwrap, knownIssue: true},
 		"CustomErrorIs": {funcName: "CustomErrorIs", native: divergence_hunt248.CustomErrorIs, knownIssue: true},
 		"CustomErrorAs": {funcName: "CustomErrorAs", native: divergence_hunt248.CustomErrorAs},
 		"CustomErrorHierarchy": {funcName: "CustomErrorHierarchy", native: divergence_hunt248.CustomErrorHierarchy, knownIssue: true},
 		"CustomErrorPointerValue": {funcName: "CustomErrorPointerValue", native: divergence_hunt248.CustomErrorPointerValue},
-		"CustomErrorNilPointer": {funcName: "CustomErrorNilPointer", native: divergence_hunt248.CustomErrorNilPointer, knownIssue: true},
+		"CustomErrorNilPointer": {funcName: "CustomErrorNilPointer", native: divergence_hunt248.CustomErrorNilPointer},
 		"CustomErrorComposite": {funcName: "CustomErrorComposite", native: divergence_hunt248.CustomErrorComposite},
 		"CustomErrorState": {funcName: "CustomErrorState", native: divergence_hunt248.CustomErrorState},
 	}})
@@ -3288,7 +3288,7 @@ func TestDivergenceHunt249(t *testing.T) {
 		"ErrorsAsNotMatching": {funcName: "ErrorsAsNotMatching", native: divergence_hunt249.ErrorsAsNotMatching, knownIssue: true},
 		"ErrorsIsSentinel": {funcName: "ErrorsIsSentinel", native: divergence_hunt249.ErrorsIsSentinel},
 		"ErrorsIsAndAsTogether": {funcName: "ErrorsIsAndAsTogether", native: divergence_hunt249.ErrorsIsAndAsTogether, knownIssue: true},
-		"ErrorsAsPointerValue": {funcName: "ErrorsAsPointerValue", native: divergence_hunt249.ErrorsAsPointerValue, knownIssue: true},
+		"ErrorsAsPointerValue": {funcName: "ErrorsAsPointerValue", native: divergence_hunt249.ErrorsAsPointerValue},
 	}})
 }
 func TestDivergenceHunt250(t *testing.T) {
