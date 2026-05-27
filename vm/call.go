@@ -622,6 +622,7 @@ func shouldPanicOnNilValueReceiver(receiver value.Value, fn *bytecode.CompiledFu
 
 // canCallCompiledMethod checks if a compiled method can be called with the given args
 // by doing a dry-run type compatibility check on the first arg (receiver).
+// Returns true if the method is likely compatible with the receiver type.
 func canCallCompiledMethod(v *vm, fn *bytecode.CompiledFunction, args []value.Value) bool {
 	if fn == nil || !fn.HasReceiver || len(args) == 0 {
 		return true
@@ -634,8 +635,16 @@ func canCallCompiledMethod(v *vm, fn *bytecode.CompiledFunction, args []value.Va
 	if fn.ReceiverIsPointer {
 		return rv.Kind() == reflect.Ptr
 	}
-	// For value receivers: receiver can be Ptr (will be dereferenced) or the value type
-	return true
+	// For value receivers with named string receiver types:
+	// the receiver must be a string (named string types are stored as strings)
+	if rv.Kind() == reflect.String && fn.ReceiverTypeName != "" {
+		return true
+	}
+	// For value receivers on structs: the receiver kind must be Struct or Ptr
+	if rv.Kind() == reflect.Struct || rv.Kind() == reflect.Ptr {
+		return true
+	}
+	return false
 }
 func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram) string {
 	rv, ok := receiver.ReflectValue()

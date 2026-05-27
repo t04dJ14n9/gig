@@ -19,7 +19,7 @@
   },
   "build": {
     "buildCommand": "go build ./vm/ 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
-    "testCommand": "go test -v -count=1 -timeout 60s ./tests/ 2>&1 | grep \"FAIL\" | head -10",
+    "testCommand": "git stash && go test -v -count=1 -timeout 30s -run \"TestDivergenceHunt217/OnceWithPanic|TestDivergenceHunt205/ReturnNilPointerInterface\" ./tests/ 2>&1 | grep -E \"PASS|FAIL\" && git stash pop",
     "lintCommand": null,
     "devCommand": null,
     "scripts": {}
@@ -186,8 +186,8 @@
     },
     {
       "path": "vm/call.go",
-      "accessCount": 57,
-      "lastAccessed": 1779853501641,
+      "accessCount": 59,
+      "lastAccessed": 1779854885856,
       "type": "file"
     },
     {
