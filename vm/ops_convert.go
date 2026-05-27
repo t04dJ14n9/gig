@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go/types"
 	"reflect"
+	"strings"
 
 	"github.com/t04dJ14n9/gig/model/bytecode"
 	"github.com/t04dJ14n9/gig/model/value"
@@ -48,35 +49,140 @@ func typeMatchesKind(receiverTypeName string, k value.Kind, prog *bytecode.Compi
 	return false
 }
 
-// concreteImplementsInterface checks if a concrete reflect.Type implements an
+// concreteImplementsInterface checks if a concrete reflect.Value implements an
 // interface by checking if the program's compiled methods contain all required
 // interface methods for that type name. Handles both named types and
 // reflect.StructOf types (which have empty names but may have gig tags).
 // For primitive types (string, int, etc.), checks if any compiled type with
 // the same underlying kind implements the interface (handles named primitive
 // types like MyString string).
-func concreteImplementsInterface(rt reflect.Type, iface *types.Interface, prog *bytecode.CompiledProgram) bool {
-	typeName := resolveTypeName(rt, prog)
-	if typeName == "" {
-		return false
-	}
+func concreteImplementsInterface(rv reflect.Value, iface *types.Interface, prog *bytecode.CompiledProgram) bool {
 	required := interfaceMethodNames(iface)
-	if implementsInterface(typeName, required, prog) {
+	if len(required) == 0 {
 		return true
 	}
-	// For basic types (string, int, etc.), check if any compiled type with
-	// the same underlying kind implements the interface. This handles named
-	// primitive types like "type MyString string" which lose their name
-	// when stored as KindString in the value system.
-	if rt.Kind() == reflect.String || rt.Kind() == reflect.Int || rt.Kind() == reflect.Float64 ||
-		rt.Kind() == reflect.Bool || rt.Kind() == reflect.Int32 || rt.Kind() == reflect.Uint8 {
+
+	// Check if this is a gigStructWrapper — if so, use the original type name
+	// to look up methods, since the wrapper only implements a few stdlib interfaces.
+	if wrapperTypeName := gigStructWrapperTypeName(rv); wrapperTypeName != "" {
+		shortName := wrapperTypeName
+		if dotIdx := strings.LastIndex(wrapperTypeName, "."); dotIdx >= 0 {
+			shortName = wrapperTypeName[dotIdx+1:]
+		}
 		for _, fn := range prog.MethodsByName[required[0]] {
-			if fn.ReceiverTypeName != "" && implementsInterface(fn.ReceiverTypeName, required, prog) {
-				return true
+			if fn.ReceiverTypeName != "" {
+				if fn.ReceiverTypeName == wrapperTypeName || fn.ReceiverTypeName == shortName ||
+					strings.HasSuffix(fn.ReceiverTypeName, "."+wrapperTypeName) {
+					if implementsInterface(fn.ReceiverTypeName, required, prog) {
+						return true
+					}
+				}
+			}
+		}
+		return false
+	}
+
+	rt := rv.Type()
+	typeName := resolveTypeName(rt, prog)
+	if typeName != "" {
+		if implementsInterface(typeName, required, prog) {
+			return true
+		}
+		// For basic types (string, int, etc.), check if any compiled type with
+		// the same underlying kind implements the interface. This handles named
+		// primitive types like "type MyString string" which lose their name
+		// when stored as KindString in the value system.
+		if rt.Kind() == reflect.String || rt.Kind() == reflect.Int || rt.Kind() == reflect.Float64 ||
+			rt.Kind() == reflect.Bool || rt.Kind() == reflect.Int32 || rt.Kind() == reflect.Uint8 {
+			for _, fn := range prog.MethodsByName[required[0]] {
+				if fn.ReceiverTypeName != "" && implementsInterface(fn.ReceiverTypeName, required, prog) {
+					return true
+				}
 			}
 		}
 	}
+	// For interpreter-defined structs (created via reflect.StructOf), methods aren't
+	// on the reflect type. But the gig struct tag encodes the original type name.
+	// Extract it and check compiled method tables.
+	if gigName := gigStructTagName(rt); gigName != "" {
+		// gigName is "pkg.Type" (short package name). ReceiverTypeName may be
+		// "full/import/path.Type" or just "Type" (for main/test packages).
+		// Try suffix match with ".TypeName" and bare "TypeName".
+		shortName := gigName
+		if dotIdx := strings.LastIndex(gigName, "."); dotIdx >= 0 {
+			shortName = gigName[dotIdx+1:]
+		}
+		for _, fn := range prog.MethodsByName[required[0]] {
+			if fn.ReceiverTypeName != "" {
+				if fn.ReceiverTypeName == gigName || fn.ReceiverTypeName == shortName ||
+					strings.HasSuffix(fn.ReceiverTypeName, "."+gigName) {
+					if implementsInterface(fn.ReceiverTypeName, required, prog) {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback: use reflect to check if the concrete type implements the interface.
+	// This handles internal types (e.g., *fmt.wrapError) whose type names aren't
+	// registered in the program's method tables.
+	// Only applies to struct/pointer types where reflect carries method info.
+	// Named primitive types (type MyString string) lose their methods in reflect,
+	// so they must go through the compiled method tables above.
+	if rt.Kind() == reflect.Struct || rt.Kind() == reflect.Ptr {
+		for _, methodName := range required {
+			if _, ok := rt.MethodByName(methodName); !ok {
+				if rt.Kind() != reflect.Ptr {
+					if _, ok := reflect.PointerTo(rt).MethodByName(methodName); !ok {
+						return false
+					}
+				} else {
+					return false
+				}
+			}
+		}
+		return true
+	}
 	return false
+}
+
+// gigStructWrapperTypeName checks if a reflect.Value is a *gigStructWrapper
+// and returns its typeName field value. Returns "" if not a wrapper.
+func gigStructWrapperTypeName(rv reflect.Value) string {
+	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+		return ""
+	}
+	elem := rv.Elem()
+	if elem.Kind() != reflect.Struct {
+		return ""
+	}
+	// Check for the typeName field which is unique to gigStructWrapper
+	field := elem.FieldByName("typeName")
+	if !field.IsValid() || field.Kind() != reflect.String {
+		return ""
+	}
+	return field.String()
+}
+
+// gigStructTagName extracts the type name from the gig struct tag on
+// interpreter-defined struct types. Returns "" if not a gig struct.
+func gigStructTagName(rt reflect.Type) string {
+	// Unwrap pointer
+	if rt.Kind() == reflect.Ptr {
+		rt = rt.Elem()
+	}
+	if rt.Kind() != reflect.Struct || rt.NumField() == 0 {
+		return ""
+	}
+	gigTag := rt.Field(0).Tag.Get("gig")
+	if gigTag == "" {
+		return ""
+	}
+	if strings.HasPrefix(gigTag, "#") {
+		return gigTag[1:]
+	}
+	return gigTag
 }
 
 // implementsInterface checks if a type with the given name has all required methods.
@@ -140,7 +246,7 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 						// concrete type actually implements the target interface's methods.
 						if targetReflectType.NumMethod() == 0 {
 							if iface, isIface := targetType.Underlying().(*types.Interface); isIface && iface.NumMethods() > 0 {
-								assertionOk = concreteImplementsInterface(underlying.Type(), iface, v.program)
+								assertionOk = concreteImplementsInterface(underlying, iface, v.program)
 							} else {
 								assertionOk = true
 							}
@@ -177,7 +283,7 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 					// type actually implements the target interface's methods.
 					if targetReflectType.NumMethod() == 0 {
 						if iface, isIface := targetType.Underlying().(*types.Interface); isIface && iface.NumMethods() > 0 {
-							assertionOk = concreteImplementsInterface(concreteRV.Type(), iface, v.program)
+							assertionOk = concreteImplementsInterface(concreteRV, iface, v.program)
 						} else {
 							assertionOk = true
 						}

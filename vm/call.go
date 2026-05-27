@@ -606,20 +606,6 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 	return nil
 }
 
-func shouldPanicOnNilValueReceiver(receiver value.Value, fn *bytecode.CompiledFunction) bool {
-	if fn == nil || !fn.HasReceiver {
-		return false
-	}
-	rv, ok := receiver.ReflectValue()
-	if !ok || rv.Kind() != reflect.Ptr || !rv.IsNil() {
-		return false
-	}
-	// In Go, calling a value-receiver method on a nil pointer creates a zero
-	// value and calls the method - no panic. Pointer-receiver methods handle
-	// nil themselves (or panic in the method body if they don't check).
-	return false
-}
-
 // canCallCompiledMethod checks if a compiled method can be called with the given args
 // by doing a dry-run type compatibility check on the first arg (receiver).
 // Returns true if the method is likely compatible with the receiver type.
@@ -638,20 +624,32 @@ func canCallCompiledMethod(v *vm, fn *bytecode.CompiledFunction, args []value.Va
 	}
 
 	// For value-receiver methods: check if the receiver kind is compatible
-	// with the expected receiver type.
 	rv, ok := args[0].ReflectValue()
-	if !ok || !rv.IsValid() {
-		// KindString/KindInt etc: check if candidate has a matching
-		// receiver type name that looks like a named primitive type.
-		if fn.ReceiverTypeName != "" {
-			// Single-word type names are likely named primitive types
-			return true
-		}
+	if ok && rv.IsValid() {
+		// For reflect values: receiver kind must be Struct or Ptr
+		return rv.Kind() == reflect.Struct || rv.Kind() == reflect.Ptr
+	}
+	// For KindString/KindInt etc: only accept candidates with non-empty ReceiverTypeName
+	if fn.ReceiverTypeName != "" {
+		return true
+	}
+	return false
+}
+
+func shouldPanicOnNilValueReceiver(receiver value.Value, fn *bytecode.CompiledFunction) bool {
+	if fn == nil || !fn.HasReceiver {
 		return false
 	}
-	// For reflect values: receiver kind must be Struct or Ptr
-	return rv.Kind() == reflect.Struct || rv.Kind() == reflect.Ptr
+	rv, ok := receiver.ReflectValue()
+	if !ok || rv.Kind() != reflect.Ptr || !rv.IsNil() {
+		return false
+	}
+	// In Go, calling a value-receiver method on a nil pointer creates a zero
+	// value and calls the method - no panic. Pointer-receiver methods handle
+	// nil themselves (or panic in the method body if they don't check).
+	return false
 }
+
 func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram) string {
 	rv, ok := receiver.ReflectValue()
 	if !ok {
