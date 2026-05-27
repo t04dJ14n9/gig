@@ -19,7 +19,7 @@
   },
   "build": {
     "buildCommand": "go build ./model/value/ 2>&1 && go test -count=1 -timeout 300s ./... 2>&1 | grep -E \"^(ok|FAIL)\"",
-    "testCommand": "git stash && go test -v -count=1 -timeout 30s -run \"TestDivergenceHunt260|TestDivergenceHunt146/ErrorSpecificMethod\" ./tests/ 2>&1 | grep -E \"PASS|FAIL\" && git stash pop",
+    "testCommand": "git stash && go test -v -count=1 -timeout 30s -run \"TestDivergenceHunt248/CustomErrorString|TestDivergenceHunt248/CustomErrorHierarchy\" ./tests/ 2>&1 | grep \"DIVERGENCE\\|PASS\\|FAIL\" && git stash pop",
     "lintCommand": null,
     "devCommand": null,
     "scripts": {}
