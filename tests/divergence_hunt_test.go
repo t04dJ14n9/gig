@@ -3365,15 +3365,15 @@ func TestDivergenceHunt260(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt260Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
 		"InitOrderDependency": {funcName: "InitOrderDependency", native: divergence_hunt260.InitOrderDependency},
 		"InitOrderReverse": {funcName: "InitOrderReverse", native: divergence_hunt260.InitOrderReverse},
-		"InitWithFunctionCall": {funcName: "InitWithFunctionCall", native: divergence_hunt260.InitWithFunctionCall, knownIssue: true},
-		"InitWithExpression": {funcName: "InitWithExpression", native: divergence_hunt260.InitWithExpression, knownIssue: true},
-		"InitWithStringConcat": {funcName: "InitWithStringConcat", native: divergence_hunt260.InitWithStringConcat, knownIssue: true},
-		"InitWithSliceLiteral": {funcName: "InitWithSliceLiteral", native: divergence_hunt260.InitWithSliceLiteral, knownIssue: true},
-		"InitWithMapLiteral": {funcName: "InitWithMapLiteral", native: divergence_hunt260.InitWithMapLiteral, knownIssue: true},
-		"InitWithStructLiteral": {funcName: "InitWithStructLiteral", native: divergence_hunt260.InitWithStructLiteral, knownIssue: true},
-		"InitWithArrayLiteral": {funcName: "InitWithArrayLiteral", native: divergence_hunt260.InitWithArrayLiteral, knownIssue: true},
-		"InitMixedTypes": {funcName: "InitMixedTypes", native: divergence_hunt260.InitMixedTypes, knownIssue: true},
-		"InitChainDependency": {funcName: "InitChainDependency", native: divergence_hunt260.InitChainDependency, knownIssue: true},
+				"InitWithFunctionCall": {funcName: "InitWithFunctionCall", native: divergence_hunt260.InitWithFunctionCall},
+				"InitWithExpression": {funcName: "InitWithExpression", native: divergence_hunt260.InitWithExpression},
+				"InitWithStringConcat": {funcName: "InitWithStringConcat", native: divergence_hunt260.InitWithStringConcat},
+				"InitWithSliceLiteral": {funcName: "InitWithSliceLiteral", native: divergence_hunt260.InitWithSliceLiteral},
+				"InitWithMapLiteral": {funcName: "InitWithMapLiteral", native: divergence_hunt260.InitWithMapLiteral},
+				"InitWithStructLiteral": {funcName: "InitWithStructLiteral", native: divergence_hunt260.InitWithStructLiteral},
+				"InitWithArrayLiteral": {funcName: "InitWithArrayLiteral", native: divergence_hunt260.InitWithArrayLiteral},
+				"InitMixedTypes": {funcName: "InitMixedTypes", native: divergence_hunt260.InitMixedTypes},
+				"InitChainDependency": {funcName: "InitChainDependency", native: divergence_hunt260.InitChainDependency},
 	}})
 }
 func TestDivergenceHunt261(t *testing.T) {
