@@ -2700,7 +2700,7 @@ func TestDivergenceHunt162(t *testing.T) {
 		"NonNilPointerReceiver": {funcName: "NonNilPointerReceiver", native: divergence_hunt162.NonNilPointerReceiver},
 		"NilMixedReceiverValueMethod": {funcName: "NilMixedReceiverValueMethod", native: divergence_hunt162.NilMixedReceiverValueMethod, knownIssue: true},
 		"NilMixedReceiverPointerMethod": {funcName: "NilMixedReceiverPointerMethod", native: divergence_hunt162.NilMixedReceiverPointerMethod},
-		"InterfaceWithNilConcrete": {funcName: "InterfaceWithNilConcrete", native: divergence_hunt162.InterfaceWithNilConcrete, knownIssue: true},
+		"InterfaceWithNilConcrete": {funcName: "InterfaceWithNilConcrete", native: divergence_hunt162.InterfaceWithNilConcrete},
 		"NilInterfaceCall": {funcName: "NilInterfaceCall", native: divergence_hunt162.NilInterfaceCall, knownIssue: true},
 		"NestedNilReceiver": {funcName: "NestedNilReceiver", native: divergence_hunt162.NestedNilReceiver, knownIssue: true},
 		"SliceOfInterfacesWithNil": {funcName: "SliceOfInterfacesWithNil", native: divergence_hunt162.SliceOfInterfacesWithNil},
