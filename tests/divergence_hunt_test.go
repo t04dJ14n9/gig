@@ -3219,10 +3219,10 @@ func TestDivergenceHunt240(t *testing.T) {
 		"GoStringerStruct":           {funcName: "GoStringerStruct", native: divergence_hunt240.GoStringerStruct},
 		"GoStringerWithColor":        {funcName: "GoStringerWithColor", native: divergence_hunt240.GoStringerWithColor},
 		"GoStringerVsStringer":       {funcName: "GoStringerVsStringer", native: divergence_hunt240.GoStringerVsStringer},
-		"GoStringerInSlice":          {funcName: "GoStringerInSlice", native: divergence_hunt240.GoStringerInSlice, knownIssue: true},
-		"GoStringerNilCheck":         {funcName: "GoStringerNilCheck", native: divergence_hunt240.GoStringerNilCheck, knownIssue: true},
+		"GoStringerInSlice":          {funcName: "GoStringerInSlice", native: divergence_hunt240.GoStringerInSlice},
+		"GoStringerNilCheck":         {funcName: "GoStringerNilCheck", native: divergence_hunt240.GoStringerNilCheck},
 		"GoStringerEmptyStruct":      {funcName: "GoStringerEmptyStruct", native: divergence_hunt240.GoStringerEmptyStruct, knownIssue: true},
-		"GoStringerNestedStruct":     {funcName: "GoStringerNestedStruct", native: divergence_hunt240.GoStringerNestedStruct, knownIssue: true},
+		"GoStringerNestedStruct":     {funcName: "GoStringerNestedStruct", native: divergence_hunt240.GoStringerNestedStruct},
 		"GoStringerWithPointer":      {funcName: "GoStringerWithPointer", native: divergence_hunt240.GoStringerWithPointer},
 		"GoStringerFormatComparison": {funcName: "GoStringerFormatComparison", native: divergence_hunt240.GoStringerFormatComparison},
 	}})

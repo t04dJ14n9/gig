@@ -247,8 +247,8 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 			}
 		}
 		if len(fields) == 0 {
-			// Empty struct (struct{} or named empty struct) — return the real Go type directly.
-			// For named empty structs, the ReflectTypeNames registry handles identification.
+			// Empty struct — return the real Go type directly.
+			// Named empty structs rely on the ReflectTypeNames registry for identification.
 			return reflect.TypeOf(struct{}{})
 		}
 		result := reflect.StructOf(fields)
