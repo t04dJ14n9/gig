@@ -31,6 +31,7 @@ func NewCompiler(lookup PackageLookup, allowUnsafeTypePass bool) Compiler {
 		types:               make([]types.Type, 0),
 		globals:             make(map[string]int),
 		globalZeroValues:    make(map[int]reflect.Value),
+		globalElemTypes:     make(map[int]types.Type),
 		externalVarValues:   make(map[int]any),
 		funcs:               make(map[string]*bytecode.CompiledFunction),
 		funcIndex:           make(map[*ssa.Function]int),
@@ -64,6 +65,10 @@ type compiler struct {
 	// globalZeroValues maps global index to its zero reflect.Value.
 	// Resolved at compile time for external named struct types (e.g., sync.Mutex).
 	globalZeroValues map[int]reflect.Value
+
+	// globalElemTypes maps global index to the element type (T from *T).
+	// Used by the VM to compute zero values for anonymous structs, arrays, etc.
+	globalElemTypes map[int]types.Type
 
 	// externalVarValues stores external variable values indexed by global index.
 	// These are resolved at compile time and used to initialize globals in the VM.
@@ -200,6 +205,7 @@ func (c *compiler) Compile(mainPkg *ssa.Package) (*bytecode.CompiledProgram, err
 	c.program.Types = c.types
 	c.program.Globals = c.globals
 	c.program.GlobalZeroValues = c.globalZeroValues
+	c.program.GlobalElemTypes = c.globalElemTypes
 	c.program.ExternalVarValues = c.externalVarValues
 	c.program.TypeResolver = c.lookup
 

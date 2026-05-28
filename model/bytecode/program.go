@@ -46,6 +46,12 @@ type CompiledProgram struct {
 	// Only populated for globals whose zero value is a non-nil struct/map/slice/chan.
 	GlobalZeroValues map[int]reflect.Value
 
+	// GlobalElemTypes maps global variable index to its element type (types.Type).
+	// SSA globals have type *T; this stores T. Used by the VM to compute zero
+	// reflect.Values at startup for globals not handled by GlobalZeroValues
+	// (e.g., anonymous structs, arrays).
+	GlobalElemTypes map[int]types.Type
+
 	// Types is the type pool for runtime type operations.
 	Types []types.Type
 

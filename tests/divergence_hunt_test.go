@@ -3215,9 +3215,9 @@ func TestDivergenceHunt240(t *testing.T) {
 		// GoString() dispatch via %#v requires side-channel method invocation that
 		// currently panics on methods touching struct receiver fields (known deep
 		// bug in the method-resolution path). Cases that don't depend on it pass.
-		"GoStringerBasic":            {funcName: "GoStringerBasic", native: divergence_hunt240.GoStringerBasic, knownIssue: true},
-		"GoStringerStruct":           {funcName: "GoStringerStruct", native: divergence_hunt240.GoStringerStruct, knownIssue: true},
-		"GoStringerWithColor":        {funcName: "GoStringerWithColor", native: divergence_hunt240.GoStringerWithColor, knownIssue: true},
+		"GoStringerBasic":            {funcName: "GoStringerBasic", native: divergence_hunt240.GoStringerBasic},
+		"GoStringerStruct":           {funcName: "GoStringerStruct", native: divergence_hunt240.GoStringerStruct},
+		"GoStringerWithColor":        {funcName: "GoStringerWithColor", native: divergence_hunt240.GoStringerWithColor},
 		"GoStringerVsStringer":       {funcName: "GoStringerVsStringer", native: divergence_hunt240.GoStringerVsStringer},
 		"GoStringerInSlice":          {funcName: "GoStringerInSlice", native: divergence_hunt240.GoStringerInSlice, knownIssue: true},
 		"GoStringerNilCheck":         {funcName: "GoStringerNilCheck", native: divergence_hunt240.GoStringerNilCheck, knownIssue: true},
@@ -3293,17 +3293,17 @@ func TestDivergenceHunt249(t *testing.T) {
 }
 func TestDivergenceHunt250(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt250Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"JoinTwoErrors": {funcName: "JoinTwoErrors", native: divergence_hunt250.JoinTwoErrors, knownIssue: true},
-		"JoinMultipleErrors": {funcName: "JoinMultipleErrors", native: divergence_hunt250.JoinMultipleErrors, knownIssue: true},
-		"JoinWithNilErrors": {funcName: "JoinWithNilErrors", native: divergence_hunt250.JoinWithNilErrors, knownIssue: true},
-		"JoinAllNilErrors": {funcName: "JoinAllNilErrors", native: divergence_hunt250.JoinAllNilErrors, knownIssue: true},
-		"JoinErrorsIs": {funcName: "JoinErrorsIs", native: divergence_hunt250.JoinErrorsIs, knownIssue: true},
+		"JoinTwoErrors": {funcName: "JoinTwoErrors", native: divergence_hunt250.JoinTwoErrors},
+		"JoinMultipleErrors": {funcName: "JoinMultipleErrors", native: divergence_hunt250.JoinMultipleErrors},
+		"JoinWithNilErrors": {funcName: "JoinWithNilErrors", native: divergence_hunt250.JoinWithNilErrors},
+		"JoinAllNilErrors": {funcName: "JoinAllNilErrors", native: divergence_hunt250.JoinAllNilErrors},
+		"JoinErrorsIs": {funcName: "JoinErrorsIs", native: divergence_hunt250.JoinErrorsIs},
 		"JoinErrorsAs": {funcName: "JoinErrorsAs", native: divergence_hunt250.JoinErrorsAs, knownIssue: true},
-		"CollectErrorsAccumulates": {funcName: "CollectErrorsAccumulates", native: divergence_hunt250.CollectErrorsAccumulates, knownIssue: true},
-		"FirstNonNilError": {funcName: "FirstNonNilError", native: divergence_hunt250.FirstNonNilError, knownIssue: true},
-		"CombineErrorsInLoop": {funcName: "CombineErrorsInLoop", native: divergence_hunt250.CombineErrorsInLoop, knownIssue: true},
-		"ErrorSliceToJoined": {funcName: "ErrorSliceToJoined", native: divergence_hunt250.ErrorSliceToJoined, knownIssue: true},
-		"ProcessMultipleErrors": {funcName: "ProcessMultipleErrors", native: divergence_hunt250.ProcessMultipleErrors, knownIssue: true},
+		"CollectErrorsAccumulates": {funcName: "CollectErrorsAccumulates", native: divergence_hunt250.CollectErrorsAccumulates},
+		"FirstNonNilError": {funcName: "FirstNonNilError", native: divergence_hunt250.FirstNonNilError},
+		"CombineErrorsInLoop": {funcName: "CombineErrorsInLoop", native: divergence_hunt250.CombineErrorsInLoop},
+		"ErrorSliceToJoined": {funcName: "ErrorSliceToJoined", native: divergence_hunt250.ErrorSliceToJoined},
+		"ProcessMultipleErrors": {funcName: "ProcessMultipleErrors", native: divergence_hunt250.ProcessMultipleErrors},
 	}})
 }
 func TestDivergenceHunt251(t *testing.T) {
@@ -3348,23 +3348,23 @@ func TestDivergenceHunt258(t *testing.T) {
 }
 func TestDivergenceHunt259(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt259Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"InitOrder": {funcName: "InitOrder", native: divergence_hunt259.InitOrder, knownIssue: true},
-		"InitWithVariable": {funcName: "InitWithVariable", native: divergence_hunt259.InitWithVariable, knownIssue: true},
-		"InitWithMap": {funcName: "InitWithMap", native: divergence_hunt259.InitWithMap, knownIssue: true},
-		"InitWithSlice": {funcName: "InitWithSlice", native: divergence_hunt259.InitWithSlice, knownIssue: true},
-		"InitWithStruct": {funcName: "InitWithStruct", native: divergence_hunt259.InitWithStruct, knownIssue: true},
-		"InitMultipleVars": {funcName: "InitMultipleVars", native: divergence_hunt259.InitMultipleVars, knownIssue: true},
-		"InitComplexSetup": {funcName: "InitComplexSetup", native: divergence_hunt259.InitComplexSetup, knownIssue: true},
-		"InitCounter": {funcName: "InitCounter", native: divergence_hunt259.InitCounter, knownIssue: true},
-		"InitWithArray": {funcName: "InitWithArray", native: divergence_hunt259.InitWithArray, knownIssue: true},
-		"InitConditional": {funcName: "InitConditional", native: divergence_hunt259.InitConditional, knownIssue: true},
-		"InitLoop": {funcName: "InitLoop", native: divergence_hunt259.InitLoop, knownIssue: true},
+		"InitOrder": {funcName: "InitOrder", native: divergence_hunt259.InitOrder},
+		"InitWithVariable": {funcName: "InitWithVariable", native: divergence_hunt259.InitWithVariable},
+		"InitWithMap": {funcName: "InitWithMap", native: divergence_hunt259.InitWithMap},
+		"InitWithSlice": {funcName: "InitWithSlice", native: divergence_hunt259.InitWithSlice},
+		"InitWithStruct": {funcName: "InitWithStruct", native: divergence_hunt259.InitWithStruct},
+		"InitMultipleVars": {funcName: "InitMultipleVars", native: divergence_hunt259.InitMultipleVars},
+		"InitComplexSetup": {funcName: "InitComplexSetup", native: divergence_hunt259.InitComplexSetup},
+		"InitCounter": {funcName: "InitCounter", native: divergence_hunt259.InitCounter},
+		"InitWithArray": {funcName: "InitWithArray", native: divergence_hunt259.InitWithArray},
+		"InitConditional": {funcName: "InitConditional", native: divergence_hunt259.InitConditional},
+		"InitLoop": {funcName: "InitLoop", native: divergence_hunt259.InitLoop},
 	}})
 }
 func TestDivergenceHunt260(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt260Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"InitOrderDependency": {funcName: "InitOrderDependency", native: divergence_hunt260.InitOrderDependency, knownIssue: true},
-		"InitOrderReverse": {funcName: "InitOrderReverse", native: divergence_hunt260.InitOrderReverse, knownIssue: true},
+		"InitOrderDependency": {funcName: "InitOrderDependency", native: divergence_hunt260.InitOrderDependency},
+		"InitOrderReverse": {funcName: "InitOrderReverse", native: divergence_hunt260.InitOrderReverse},
 		"InitWithFunctionCall": {funcName: "InitWithFunctionCall", native: divergence_hunt260.InitWithFunctionCall, knownIssue: true},
 		"InitWithExpression": {funcName: "InitWithExpression", native: divergence_hunt260.InitWithExpression, knownIssue: true},
 		"InitWithStringConcat": {funcName: "InitWithStringConcat", native: divergence_hunt260.InitWithStringConcat, knownIssue: true},

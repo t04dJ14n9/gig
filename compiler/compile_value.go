@@ -73,10 +73,26 @@ func (c *compiler) compileValue(v ssa.Value) {
 							}
 						}
 					}
+					// For user-defined named types with struct/array underlying,
+					// store elem type so the VM can compute the zero value at startup.
+					if _, exists := c.globalZeroValues[globalIdx]; !exists {
+						switch t.Underlying().(type) {
+						case *types.Struct:
+							c.globalElemTypes[globalIdx] = elemType
+						case *types.Array:
+							c.globalElemTypes[globalIdx] = elemType
+						}
+					}
 				case *types.Basic:
 					if rt, ok := bytecode.BasicKindToReflectType[t.Kind()]; ok {
 						c.globalZeroValues[globalIdx] = reflect.Zero(rt)
 					}
+				case *types.Struct:
+					// Anonymous structs need field access support.
+					c.globalElemTypes[globalIdx] = elemType
+				case *types.Array:
+					// Fixed-size arrays need index access support.
+					c.globalElemTypes[globalIdx] = elemType
 				}
 			}
 

@@ -62,6 +62,18 @@ func convertReflectType(rt reflect.Type) types.Type {
 		return cached.(types.Type)
 	}
 
+	// Map well-known universe interfaces to their named types.
+	// Without this, reflect sees "error" as an anonymous interface{Error() string}
+	// which doesn't match the named "error" type from Go's universe scope.
+	// This causes type check failures like: cannot use []error as []interface{Error() string}.
+	if rt.Kind() == reflect.Interface && rt.PkgPath() == "" {
+		if obj := types.Universe.Lookup(rt.Name()); obj != nil {
+			t := obj.Type()
+			typeCache.Store(rt, t)
+			return t
+		}
+	}
+
 	// For named types, handle specially to support self-referential types.
 	// Named types include types like "time.Duration" which has Kind() == reflect.Int64
 	// but has a distinct name. We must preserve the named type, not collapse to the

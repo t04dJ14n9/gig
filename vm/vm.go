@@ -58,6 +58,7 @@ package vm
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/t04dJ14n9/gig/model/bytecode"
 	"github.com/t04dJ14n9/gig/model/value"
@@ -166,6 +167,23 @@ func newVM(program *bytecode.CompiledProgram, initialGlobals []value.Value, goro
 			g := globals[idx]
 			if !g.IsValid() || g.IsNil() {
 				globals[idx] = value.MakeFromReflect(zeroRV)
+			}
+		}
+	}
+
+	// For globals with element types but no pre-computed zero values (anonymous
+	// structs, arrays, user-defined named types), compute the zero value using
+	// typeToReflect. This must run AFTER GlobalZeroValues so it doesn't override
+	// pre-computed values for external types like sync.Mutex.
+	for idx, elemType := range program.GlobalElemTypes {
+		if idx < len(globals) {
+			g := globals[idx]
+			if !g.IsValid() || g.IsNil() {
+				if _, hasZero := program.GlobalZeroValues[idx]; !hasZero {
+					if rt := typeToReflect(elemType, program); rt != nil {
+						globals[idx] = value.MakeFromReflect(reflect.New(rt))
+					}
+				}
 			}
 		}
 	}
