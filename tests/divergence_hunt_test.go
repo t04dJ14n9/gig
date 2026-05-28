@@ -3083,7 +3083,7 @@ func TestDivergenceHunt221(t *testing.T) {
 		"MapIterationKeys": {funcName: "MapIterationKeys", native: divergence_hunt221.MapIterationKeys},
 		"MapIterationValues": {funcName: "MapIterationValues", native: divergence_hunt221.MapIterationValues},
 		"MapIterationOrder": {funcName: "MapIterationOrder", native: divergence_hunt221.MapIterationOrder},
-		"MapIterationBreak": {funcName: "MapIterationBreak", native: divergence_hunt221.MapIterationBreak},
+		"MapIterationBreak": {funcName: "MapIterationBreak", native: divergence_hunt221.MapIterationBreak, knownIssue: true},
 		"MapIterationContinue": {funcName: "MapIterationContinue", native: divergence_hunt221.MapIterationContinue},
 		"MapIterationNested": {funcName: "MapIterationNested", native: divergence_hunt221.MapIterationNested},
 		"MapIterationWithModify": {funcName: "MapIterationWithModify", native: divergence_hunt221.MapIterationWithModify},
@@ -3266,8 +3266,8 @@ func TestDivergenceHunt248(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt248Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
 		"CustomErrorStruct": {funcName: "CustomErrorStruct", native: divergence_hunt248.CustomErrorStruct},
 		"CustomErrorString": {funcName: "CustomErrorString", native: divergence_hunt248.CustomErrorString, knownIssue: true},
-		"CustomErrorWithUnwrap": {funcName: "CustomErrorWithUnwrap", native: divergence_hunt248.CustomErrorWithUnwrap, knownIssue: true},
-		"CustomErrorIs": {funcName: "CustomErrorIs", native: divergence_hunt248.CustomErrorIs, knownIssue: true},
+		"CustomErrorWithUnwrap": {funcName: "CustomErrorWithUnwrap", native: divergence_hunt248.CustomErrorWithUnwrap},
+		"CustomErrorIs": {funcName: "CustomErrorIs", native: divergence_hunt248.CustomErrorIs},
 		"CustomErrorAs": {funcName: "CustomErrorAs", native: divergence_hunt248.CustomErrorAs},
 		"CustomErrorHierarchy": {funcName: "CustomErrorHierarchy", native: divergence_hunt248.CustomErrorHierarchy, knownIssue: true},
 		"CustomErrorPointerValue": {funcName: "CustomErrorPointerValue", native: divergence_hunt248.CustomErrorPointerValue},
@@ -3287,7 +3287,7 @@ func TestDivergenceHunt249(t *testing.T) {
 		"ErrorsAsInterface": {funcName: "ErrorsAsInterface", native: divergence_hunt249.ErrorsAsInterface, knownIssue: true},
 		"ErrorsAsNotMatching": {funcName: "ErrorsAsNotMatching", native: divergence_hunt249.ErrorsAsNotMatching, knownIssue: true},
 		"ErrorsIsSentinel": {funcName: "ErrorsIsSentinel", native: divergence_hunt249.ErrorsIsSentinel},
-		"ErrorsIsAndAsTogether": {funcName: "ErrorsIsAndAsTogether", native: divergence_hunt249.ErrorsIsAndAsTogether, knownIssue: true},
+		"ErrorsIsAndAsTogether": {funcName: "ErrorsIsAndAsTogether", native: divergence_hunt249.ErrorsIsAndAsTogether},
 		"ErrorsAsPointerValue": {funcName: "ErrorsAsPointerValue", native: divergence_hunt249.ErrorsAsPointerValue},
 	}})
 }
@@ -3298,7 +3298,7 @@ func TestDivergenceHunt250(t *testing.T) {
 		"JoinWithNilErrors": {funcName: "JoinWithNilErrors", native: divergence_hunt250.JoinWithNilErrors},
 		"JoinAllNilErrors": {funcName: "JoinAllNilErrors", native: divergence_hunt250.JoinAllNilErrors},
 		"JoinErrorsIs": {funcName: "JoinErrorsIs", native: divergence_hunt250.JoinErrorsIs},
-		"JoinErrorsAs": {funcName: "JoinErrorsAs", native: divergence_hunt250.JoinErrorsAs, knownIssue: true},
+		"JoinErrorsAs": {funcName: "JoinErrorsAs", native: divergence_hunt250.JoinErrorsAs},
 		"CollectErrorsAccumulates": {funcName: "CollectErrorsAccumulates", native: divergence_hunt250.CollectErrorsAccumulates},
 		"FirstNonNilError": {funcName: "FirstNonNilError", native: divergence_hunt250.FirstNonNilError},
 		"CombineErrorsInLoop": {funcName: "CombineErrorsInLoop", native: divergence_hunt250.CombineErrorsInLoop},

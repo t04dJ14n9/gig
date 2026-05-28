@@ -85,6 +85,9 @@ func New(program *bytecode.CompiledProgram, initialGlobals []value.Value, opts .
 	value.RegisterMethodResolver(r.progKey, func(methodName string, receiver value.Value) (value.Value, bool) {
 		return vm.ResolveCompiledMethod(program, methodName, receiver)
 	})
+	value.RegisterMethodWithArgsResolver(r.progKey, func(methodName string, receiver value.Value, args []value.Value) (value.Value, bool) {
+		return vm.ResolveCompiledMethodWithArgs(program, methodName, receiver, args)
+	})
 
 	return r
 }

@@ -95,6 +95,71 @@ func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string,
 	return value.MakeNil(), false
 }
 
+// ResolveCompiledMethodWithArgs resolves and calls a compiled method with extra arguments.
+// Used for methods like Is(error) bool that need parameters beyond the receiver.
+func ResolveCompiledMethodWithArgs(program *bytecode.CompiledProgram, methodName string, receiver value.Value, args []value.Value) (value.Value, bool) {
+	rv, ok := receiver.ReflectValue()
+	if !ok {
+		iface := receiver.Interface()
+		if iface == nil {
+			return value.MakeNil(), false
+		}
+		rv = reflect.ValueOf(iface)
+	}
+	for rv.Kind() == reflect.Interface && !rv.IsNil() {
+		rv = rv.Elem()
+	}
+
+	receiverTypeName := ""
+	if rv.Kind() == reflect.Ptr {
+		elemType := rv.Type().Elem()
+		if elemType.Kind() == reflect.Struct {
+			receiverTypeName = program.LookupTypeName(elemType)
+		}
+	} else if rv.Kind() == reflect.Struct {
+		receiverTypeName = program.LookupTypeName(rv.Type())
+	}
+	if receiverTypeName == "" {
+		receiverTypeName = pkgPathTypeName(rv.Type())
+	}
+	if receiverTypeName == "" {
+		return value.MakeNil(), false
+	}
+
+	for _, fn := range program.MethodsByName[methodName] {
+		if fn.ReceiverTypeName != receiverTypeName {
+			continue
+		}
+		tempVM := newTempVM(program, make([]value.Value, len(program.Globals)), nil, nil, context.Background(), nil)
+		methodReceiver := receiver
+		if rv.IsValid() {
+			concrete := reflect.New(rv.Type()).Elem()
+			concrete.Set(rv)
+			methodReceiver = value.MakeFromReflect(concrete)
+		}
+		// Pass receiver + extra args
+		callArgs := make([]value.Value, 0, 1+len(args))
+		callArgs = append(callArgs, methodReceiver)
+		callArgs = append(callArgs, args...)
+		tempVM.callFunction(fn, callArgs, nil)
+		var result value.Value
+		var err error
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("side-channel method %q panicked: %v", methodName, r)
+				}
+			}()
+			result, err = tempVM.run()
+		}()
+		if err != nil {
+			return value.MakeNil(), false
+		}
+		return result, true
+	}
+	return value.MakeNil(), false
+}
+
 // VMPool is a lock-free pool of VMs for a given program using sync.Pool.
 // This provides better performance under high concurrency compared to mutex-based pools.
 type VMPool struct {

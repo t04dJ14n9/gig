@@ -549,19 +549,7 @@ func GigErrorsAs(err error, target any) bool {
 			return false
 		}
 		elemType := slotRV.Type() // The target type (e.g., *myError)
-		for {
-			if gigAsMatchFrameSlot(err, elemType, vp) {
-				return true
-			}
-			unwrapper, ok := err.(interface{ Unwrap() error })
-			if !ok {
-				return false
-			}
-			err = unwrapper.Unwrap()
-			if err == nil {
-				return false
-			}
-		}
+		return gigAsWalkFrameSlot(err, elemType, vp)
 	}
 
 	targetVal := reflect.ValueOf(target)
@@ -572,13 +560,53 @@ func GigErrorsAs(err error, target any) bool {
 
 	elemType := targetType.Elem()
 
+	return gigAsWalkValue(err, elemType, targetVal)
+}
+
+// gigAsWalkValue walks the error chain (including multi-unwrap from errors.Join)
+// and returns true if any error matches the target type.
+func gigAsWalkValue(err error, elemType reflect.Type, targetVal reflect.Value) bool {
 	for {
-		// Try matching the current error against the target
 		if gigAsMatchValue(err, elemType, targetVal) {
 			return true
 		}
+		// Multi-unwrap (errors.Join)
+		if x, ok := err.(interface{ Unwrap() []error }); ok {
+			for _, e := range x.Unwrap() {
+				if e != nil && gigAsWalkValue(e, elemType, targetVal) {
+					return true
+				}
+			}
+			return false
+		}
+		// Single unwrap
+		unwrapper, ok := err.(interface{ Unwrap() error })
+		if !ok {
+			return false
+		}
+		err = unwrapper.Unwrap()
+		if err == nil {
+			return false
+		}
+	}
+}
 
-		// Try unwrapping
+// gigAsWalkFrameSlot walks the error chain for the frame-slot path.
+func gigAsWalkFrameSlot(err error, targetType reflect.Type, slot *Value) bool {
+	for {
+		if gigAsMatchFrameSlot(err, targetType, slot) {
+			return true
+		}
+		// Multi-unwrap (errors.Join)
+		if x, ok := err.(interface{ Unwrap() []error }); ok {
+			for _, e := range x.Unwrap() {
+				if e != nil && gigAsWalkFrameSlot(e, targetType, slot) {
+					return true
+				}
+			}
+			return false
+		}
+		// Single unwrap
 		unwrapper, ok := err.(interface{ Unwrap() error })
 		if !ok {
 			return false
@@ -789,4 +817,112 @@ func SprintfExtern(format string, args ...any) string {
 		i++
 	}
 	return result.String()
+}
+
+// GigErrorsIs implements errors.Is semantics for interpreter-defined types.
+// It replicates the standard library algorithm but uses gig's method resolution
+// to invoke custom Is(error) bool and Unwrap() error methods on gig types.
+func GigErrorsIs(errVal Value, targetVal Value) bool {
+	err := ErrorValue(errVal)
+	target := ErrorValue(targetVal)
+	if err == nil && target == nil {
+		return true
+	}
+	if err == nil || target == nil {
+		return err == target
+	}
+
+	for {
+		// Direct comparison — also handles gigStructWrapper by comparing underlying values
+		if err == target {
+			return true
+		}
+		if gigErrorsEqual(err, target) {
+			return true
+		}
+
+		// Check custom Is() method on gig types
+		if _, ok := err.(*gigStructWrapper); ok {
+			// Try to call Is(target) via compiled method
+			if result, found := callMethodWithArgs("Is", errVal, []Value{targetVal}); found {
+				if result.Kind() == KindBool && result.Bool() {
+					return true
+				}
+			}
+		} else if x, ok := err.(interface{ Is(error) bool }); ok {
+			if x.Is(target) {
+				return true
+			}
+		}
+
+		// Unwrap
+		if _, ok := err.(*gigStructWrapper); ok {
+			unwrapResult, found := callMethod(nil, "Unwrap", errVal)
+			if !found {
+				return false
+			}
+			unwrapped := ErrorValue(unwrapResult)
+			if unwrapped == nil {
+				return false
+			}
+			err = unwrapped
+			errVal = unwrapResult
+		} else if x, ok := err.(interface{ Unwrap() []error }); ok {
+			// Multi-unwrap (errors.Join): recursively check each wrapped error
+			for _, e := range x.Unwrap() {
+				if e != nil && GigErrorsIs(FromInterface(e), targetVal) {
+					return true
+				}
+			}
+			return false
+		} else if x, ok := err.(interface{ Unwrap() error }); ok {
+			err = x.Unwrap()
+			if err == nil {
+				return false
+			}
+			errVal = FromInterface(err)
+		} else {
+			return false
+		}
+	}
+}
+
+// gigErrorsEqual compares two errors for equality, handling gigStructWrapper.
+// Two gigStructWrappers are equal if they wrap the same type and underlying value.
+func gigErrorsEqual(a, b error) bool {
+	wa, aIsGig := a.(*gigStructWrapper)
+	wb, bIsGig := b.(*gigStructWrapper)
+	if aIsGig && bIsGig {
+		return wa.typeName == wb.typeName && reflect.DeepEqual(wa.iface, wb.iface)
+	}
+	return false
+}
+
+// GigErrorsUnwrap implements errors.Unwrap for interpreter-defined types.
+// If the error is a gig type with an Unwrap() method, invokes it via the
+// compiled method resolver. Otherwise delegates to standard errors.Unwrap.
+func GigErrorsUnwrap(errVal Value) Value {
+	err := ErrorValue(errVal)
+	if err == nil {
+		return MakeNil()
+	}
+
+	// For gig types, use compiled method resolution
+	if _, ok := err.(*gigStructWrapper); ok {
+		result, found := callMethod(nil, "Unwrap", errVal)
+		if found {
+			return result
+		}
+		return MakeNil()
+	}
+
+	// For native Go errors, use standard unwrap
+	if x, ok := err.(interface{ Unwrap() error }); ok {
+		unwrapped := x.Unwrap()
+		if unwrapped == nil {
+			return MakeNil()
+		}
+		return FromInterface(unwrapped)
+	}
+	return MakeNil()
 }
