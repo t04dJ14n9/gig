@@ -36,6 +36,10 @@ func (v *vm) mustReflectValue(val value.Value) reflect.Value {
 	return reflect.Value{}
 }
 
+func (v *vm) valueForReflectSet(val value.Value, target reflect.Type) reflect.Value {
+	return value.ReflectValueForSet(val, target)
+}
+
 // executeContainer handles slice, map, channel creation, index, append,
 // copy, delete, range, len, and cap opcodes.
 func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx,unparam // frame: uniform dispatch signature
@@ -237,7 +241,7 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 				switch rv.Kind() {
 				case reflect.Slice, reflect.Array:
 					idx := int(key.Int())
-					rv.Index(idx).Set(val.ToReflectValue(rv.Type().Elem()))
+					rv.Index(idx).Set(v.valueForReflectSet(val, rv.Type().Elem()))
 				case reflect.Map:
 					// For OpSetIndex, nil value means set to typed nil (not delete)
 					container.SetMapIndexWithDelete(key, val, false)
@@ -690,7 +694,9 @@ func appendToReflectSlice(rv reflect.Value, elem value.Value) value.Value {
 
 	// SSA-packed variadic slice spread
 	if elemRV, ok := elem.ReflectValue(); ok && elemRV.Kind() == reflect.Slice {
-		return value.MakeFromReflect(reflect.AppendSlice(rv, elemRV))
+		if elemRV.Type().AssignableTo(rv.Type()) {
+			return value.MakeFromReflect(reflect.AppendSlice(rv, elemRV))
+		}
 	}
 
 	return value.MakeFromReflect(reflect.Append(rv, elem.ToReflectValue(sliceElemType)))

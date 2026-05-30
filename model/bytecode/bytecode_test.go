@@ -145,6 +145,7 @@ func TestOpCodeString(t *testing.T) {
 		{OpChangeType, "CHANGETYPE"},
 		{OpClosure, "CLOSURE"},
 		{OpGoCall, "GOCALL"},
+		{OpGoCallExternal, "GOCALLEXTERNAL"},
 		{OpGoCallIndirect, "GOCALLINDIRECT"},
 		{OpSend, "SEND"},
 		{OpRecv, "RECV"},

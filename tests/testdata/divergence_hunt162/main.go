@@ -1,6 +1,9 @@
 package divergence_hunt162
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 // ============================================================================
 // Round 162: Interface method calls with nil receivers
@@ -150,8 +153,15 @@ func MapWithNilValues() string {
 		"b": nil,
 		"c": &PointerReceiver{Name: "charlie"},
 	}
+	keys := make([]string, 0, len(items))
+	for k := range items {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	result := ""
-	for k, v := range items {
+	for _, k := range keys {
+		v := items[k]
 		if v == nil {
 			result += fmt.Sprintf("%s=nil ", k)
 		} else {

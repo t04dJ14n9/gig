@@ -62,7 +62,8 @@ func MapIterationOrder() string {
 func MapIterationBreak() string {
 	m := map[string]int{"a": 1, "b": 2, "c": 3, "d": 4, "e": 5}
 	count := 0
-	for _, v := range m {
+	for _, k := range []string{"a", "b", "c", "d", "e"} {
+		v := m[k]
 		count += v
 		if count >= 6 {
 			break

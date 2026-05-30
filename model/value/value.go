@@ -155,6 +155,36 @@ type Value struct {
 	obj  any   // string, complex128, reflect.Value, native Go composites, or nil for primitives
 }
 
+// InterpretedInterfaceValue preserves the dynamic type of a script-defined
+// named value stored in an interface{}.
+type InterpretedInterfaceValue struct {
+	Value     Value
+	TypeName  string
+	IsPointer bool
+}
+
+// MakeInterpretedInterface creates an interface value carrying interpreter
+// dynamic type metadata.
+func MakeInterpretedInterface(val Value, typeName string, isPointer bool) Value {
+	return Value{
+		kind: KindInterface,
+		obj: &InterpretedInterfaceValue{
+			Value:     val,
+			TypeName:  typeName,
+			IsPointer: isPointer,
+		},
+	}
+}
+
+// InterpretedInterface returns interpreter dynamic type metadata, if present.
+func (v Value) InterpretedInterface() (*InterpretedInterfaceValue, bool) {
+	if v.kind != KindInterface {
+		return nil, false
+	}
+	dyn, ok := v.obj.(*InterpretedInterfaceValue)
+	return dyn, ok
+}
+
 // Kind returns the kind of the value.
 func (v Value) Kind() Kind { return v.kind }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/t04dJ14n9/gig/model/bytecode"
 	"github.com/t04dJ14n9/gig/model/value"
@@ -20,6 +19,17 @@ type interpretedInterfaceAdapter struct {
 	shared         *SharedGlobals
 	ctx            context.Context
 	goroutines     *GoroutineTracker
+}
+
+type interpretedErrorAdapter struct {
+	program          *bytecode.CompiledProgram
+	receiver         value.Value
+	receiverTypeName string
+	globals          []value.Value
+	initialGlobals   []value.Value
+	shared           *SharedGlobals
+	ctx              context.Context
+	goroutines       *GoroutineTracker
 }
 
 func newInterpretedInterfaceAdapter(
@@ -44,17 +54,42 @@ func newInterpretedInterfaceAdapter(
 	}
 }
 
+func newInterpretedErrorAdapter(
+	program *bytecode.CompiledProgram,
+	receiver value.Value,
+	receiverTypeName string,
+	globals []value.Value,
+	initialGlobals []value.Value,
+	shared *SharedGlobals,
+	ctx context.Context,
+	goroutines *GoroutineTracker,
+) *interpretedErrorAdapter {
+	return &interpretedErrorAdapter{
+		program:          program,
+		receiver:         receiver,
+		receiverTypeName: receiverTypeName,
+		globals:          globals,
+		initialGlobals:   initialGlobals,
+		shared:           shared,
+		ctx:              ctx,
+		goroutines:       goroutines,
+	}
+}
+
+func (a *interpretedErrorAdapter) Error() string {
+	result, ok := callInterfaceMethodValue(a.program, "Error", a.receiverTypeName, a.receiver, nil, a.globals, a.initialGlobals, a.shared, a.ctx, a.goroutines)
+	if !ok {
+		return ""
+	}
+	return result.String()
+}
+
 func (a *interpretedInterfaceAdapter) Len() int {
 	result := a.call("Len")
 	return int(result.Int())
 }
 
 func (a *interpretedInterfaceAdapter) Less(i, j int) bool {
-	if a.receiverTypeName == "Reverse" || strings.HasSuffix(a.receiverTypeName, ".Reverse") {
-		if result, ok := callEmbeddedInterfaceMethod(a.receiver, "Less", value.MakeInt(int64(j)), value.MakeInt(int64(i))); ok {
-			return result.Bool()
-		}
-	}
 	result := a.call("Less", value.MakeInt(int64(i)), value.MakeInt(int64(j)))
 	return result.Bool()
 }
@@ -101,39 +136,35 @@ func callCompiledMethodValue(program *bytecode.CompiledProgram, methodName, rece
 		return value.MakeNil(), false
 	}
 
-	for _, fn := range program.MethodsByName[methodName] {
-		if receiverTypeName != "" && fn.ReceiverTypeName != receiverTypeName {
-			continue
-		}
-		if shouldPanicOnNilValueReceiver(receiver, fn) {
-			return value.MakeNil(), false
-		}
-
-		methodReceiver := receiverForCompiledMethod(methodName, receiver)
-		callArgs := make([]value.Value, 0, len(args)+1)
-		callArgs = append(callArgs, methodReceiver)
-		callArgs = append(callArgs, args...)
-
-		tempVM := newTempVM(program, globals, initialGlobals, shared, ctx, goroutines)
-		tempVM.callFunction(fn, callArgs, nil)
-
-		var result value.Value
-		var err error
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					err = fmt.Errorf("compiled method %q panicked: %v", methodName, r)
-				}
-			}()
-			result, err = tempVM.run()
-		}()
-		if err != nil {
-			continue
-		}
-		return result, true
+	fn, methodReceiver, ok := selectCompiledMethodCandidate(program, methodName, receiverTypeName, receiver)
+	if !ok {
+		return value.MakeNil(), false
+	}
+	if shouldPanicOnNilValueReceiver(receiver, fn) {
+		return value.MakeNil(), false
 	}
 
-	return value.MakeNil(), false
+	callArgs := make([]value.Value, 0, len(args)+1)
+	callArgs = append(callArgs, methodReceiver)
+	callArgs = append(callArgs, args...)
+
+	tempVM := newTempVM(program, globals, initialGlobals, shared, ctx, goroutines)
+	tempVM.callFunction(fn, callArgs, nil)
+
+	var result value.Value
+	var err error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("compiled method %q panicked: %v", methodName, r)
+			}
+		}()
+		result, err = tempVM.run()
+	}()
+	if err != nil {
+		return value.MakeNil(), false
+	}
+	return result, true
 }
 
 // newTempVM creates a standalone VM for executing compiled methods from adapter
@@ -164,6 +195,10 @@ func newTempVM(program *bytecode.CompiledProgram, globals, initialGlobals []valu
 }
 
 func receiverForCompiledMethod(methodName string, receiver value.Value) value.Value {
+	if dyn, ok := receiver.InterpretedInterface(); ok {
+		return dyn.Value
+	}
+
 	rv, ok := receiver.ReflectValue()
 	if !ok || !rv.IsValid() || rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return receiver

@@ -60,6 +60,10 @@ type CompiledProgram struct {
 	// The value is a pointer to the external variable (e.g., &time.UTC).
 	ExternalVarValues map[int]any
 
+	// AllowUnsafeTypePass disables third-party boundary checks for callers that
+	// explicitly opted into unsafe external type passing at build time.
+	AllowUnsafeTypePass bool
+
 	// TypeResolver resolves external types at runtime.
 	// Used by the VM's typeToReflect to look up real reflect.Type for named types.
 	TypeResolver TypeResolver
@@ -127,6 +131,12 @@ func (p *CompiledProgram) LookupTypeName(rt reflect.Type) string {
 // afterwards. Because it lives on CompiledProgram (which is read-only after
 // compilation), all VMs sharing the same program can access it without locks.
 type ResolvedCall struct {
+	// PkgPath is the Go import path for the package that owns the function.
+	PkgPath string
+
+	// FuncName is the exported function name used for diagnostics.
+	FuncName string
+
 	// DirectCall is the fast-path wrapper. Nil means use reflect.
 	DirectCall func(args []value.Value) value.Value
 
@@ -167,6 +177,8 @@ func ResolveConstant(c any) *ResolvedCall {
 	switch info := c.(type) {
 	case *external.ExternalFuncInfo:
 		rc := &ResolvedCall{
+			PkgPath:    info.PkgPath,
+			FuncName:   info.FuncName,
 			DirectCall: info.DirectCall,
 			IsVariadic: info.IsVariadic,
 			NumIn:      info.NumIn,

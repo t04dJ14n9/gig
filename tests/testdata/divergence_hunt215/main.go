@@ -125,13 +125,12 @@ func DirectionalChannelInStruct() string {
 
 	p := Pipe{In: ch1, Out: ch2}
 	p.In <- 42
-	ch1 <- 42
-	<-ch1
+	inVal := <-ch1
 
 	ch2 <- 99
-	val := <-p.Out
+	outVal := <-p.Out
 
-	return fmt.Sprintf("struct directional: %d", val)
+	return fmt.Sprintf("struct directional: %d:%d", inVal, outVal)
 }
 
 func CloseSendOnlyChannel() string {

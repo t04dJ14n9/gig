@@ -247,14 +247,23 @@ func (v *vm) executeControl(op bytecode.OpCode, frame *Frame) error { //nolint:g
 
 			// Handle external info (OpDeferExternal for interface methods)
 			if d.externalInfo != nil {
-				if methodInfo, ok := d.externalInfo.(*external.ExternalMethodInfo); ok {
-					if err := v.callExternalMethod(methodInfo, d.args); err != nil {
+				switch info := d.externalInfo.(type) {
+				case *external.ExternalMethodInfo:
+					if err := v.callExternalMethod(info, d.args); err != nil {
 						// Propagate error
 						return err
 					}
 					// Pop the result (deferred calls should not return values)
-					if methodInfo.DirectCall == nil {
+					if info.DirectCall == nil {
 						// Reflection call may push a result
+						_ = v.pop()
+					}
+				case *external.ExternalFuncInfo:
+					before := v.sp
+					if err := v.callResolvedExternal(bytecode.ResolveConstant(info), d.args); err != nil {
+						return err
+					}
+					if v.sp > before {
 						_ = v.pop()
 					}
 				}

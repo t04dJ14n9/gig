@@ -185,6 +185,14 @@ func (v Value) Interface() any {
 			return complex64(c)
 		}
 		return c
+	case KindInterface:
+		if dyn, ok := v.InterpretedInterface(); ok {
+			return dyn.Value.Interface()
+		}
+		if rv, ok := v.obj.(reflect.Value); ok {
+			return rv.Interface()
+		}
+		return v.obj
 	case KindFunc:
 		return v.obj
 	case KindBytes:
@@ -311,7 +319,7 @@ func (v Value) toReflectSlice(typ reflect.Type) reflect.Value {
 		target := reflect.MakeSlice(typ, len(s), cap(s))
 		elemType := typ.Elem()
 		for i, elem := range s {
-			target.Index(i).Set(elem.ToReflectValue(elemType))
+			target.Index(i).Set(ReflectValueForSet(elem, elemType))
 		}
 		return target
 	}
@@ -348,6 +356,27 @@ func (v Value) toReflectReflect(typ reflect.Type) reflect.Value {
 	return reflect.ValueOf(v.obj)
 }
 
+func ReflectValueForSet(v Value, target reflect.Type) reflect.Value {
+	rv := v.ToReflectValue(target)
+	if rv.IsValid() && rv.Type().AssignableTo(target) {
+		return rv
+	}
+	if isFmtStringerReflectType(target) {
+		wrapped := FmtWrap(v)
+		if wrapped != nil {
+			wrappedRV := reflect.ValueOf(wrapped)
+			if wrappedRV.IsValid() && wrappedRV.Type().AssignableTo(target) {
+				return wrappedRV
+			}
+		}
+	}
+	return rv
+}
+
+func isFmtStringerReflectType(t reflect.Type) bool {
+	return t != nil && t.Kind() == reflect.Interface && t.PkgPath() == "fmt" && t.Name() == "Stringer"
+}
+
 func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 	switch v.kind {
 	case KindNil:
@@ -368,6 +397,14 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 		return rv
 	case KindComplex:
 		return reflect.ValueOf(v.obj.(complex128))
+	case KindInterface:
+		if dyn, ok := v.InterpretedInterface(); ok {
+			return dyn.Value.ToReflectValue(typ)
+		}
+		if rv, ok := v.obj.(reflect.Value); ok {
+			return rv
+		}
+		return reflect.ValueOf(v.obj)
 	case KindFunc:
 		return v.toReflectFunc(typ)
 	case KindBytes:

@@ -368,6 +368,11 @@ const (
 	// Stack: [... args] -> [...]
 	OpGoCall
 
+	// OpGoCallExternal starts a new goroutine with an external function or method call.
+	// Operands: [func_idx:2, num_args:1]
+	// Stack: [... args] -> [...]
+	OpGoCallExternal
+
 	// OpGoCallIndirect starts a new goroutine with a closure call.
 	// Operands: [num_args:1]
 	// Stack: [... closure args...] -> [...]
@@ -704,13 +709,14 @@ func buildOperandWidthTable() [256]int {
 	t[OpCallExternal] = 3   // func_idx(2) + num_args(1)
 	t[OpCallIndirect] = 1   // num_args(1)
 	t[OpGoCall] = 3         // func_idx(2) + num_args(1)
+	t[OpGoCallExternal] = 3 // func_idx(2) + num_args(1)
 	t[OpGoCallIndirect] = 1 // num_args(1)
 	t[OpSelect] = 2         // meta_idx(2)
 	t[OpPack] = 2           // count(2)
 	t[OpNew] = 2
 	t[OpMakeInterface] = 4 // iface_type_idx(2) + concrete_type_idx(2)
-	t[OpPrint] = 1   // count(1)
-	t[OpPrintln] = 1 // count(1)
+	t[OpPrint] = 1         // count(1)
+	t[OpPrintln] = 1       // count(1)
 
 	// Superinstruction operand widths
 	t[OpAddLocalLocal] = 4             // local_a(2) + local_b(2)
@@ -808,6 +814,7 @@ func init() { //nolint:gochecknoinits,decorder // table init placed after var de
 	opNameTable[OpFree] = "FREE"
 	opNameTable[OpGlobal] = "GLOBAL"
 	opNameTable[OpGoCall] = "GOCALL"
+	opNameTable[OpGoCallExternal] = "GOCALLEXTERNAL"
 	opNameTable[OpGoCallIndirect] = "GOCALLINDIRECT"
 	opNameTable[OpGreater] = "GREATER"
 	opNameTable[OpGreaterEq] = "GREATEREQ"

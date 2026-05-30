@@ -22,6 +22,7 @@ func RWMutexBasic() string {
 
 func RWMutexMultipleReaders() string {
 	var mu sync.RWMutex
+	var countMu sync.Mutex
 	count := 0
 
 	var wg sync.WaitGroup
@@ -30,7 +31,9 @@ func RWMutexMultipleReaders() string {
 		go func() {
 			defer wg.Done()
 			mu.RLock()
+			countMu.Lock()
 			count++
+			countMu.Unlock()
 			mu.RUnlock()
 		}()
 	}

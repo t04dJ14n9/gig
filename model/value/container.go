@@ -142,14 +142,14 @@ func (v Value) SetIndex(i int, val Value) {
 	if rv, ok := v.obj.(reflect.Value); ok {
 		elemType := rv.Type().Elem()
 		if elemType.Kind() == reflect.Func {
-			rv.Index(i).Set(val.ToReflectValue(elemType))
+			rv.Index(i).Set(ReflectValueForSet(val, elemType))
 			return
 		}
 		if elemType == reflect.TypeOf(Value{}) {
 			rv.Index(i).Set(reflect.ValueOf(val))
 			return
 		}
-		rv.Index(i).Set(val.ToReflectValue(elemType))
+		rv.Index(i).Set(ReflectValueForSet(val, elemType))
 		return
 	}
 	if slice, ok := v.obj.([]Value); ok {
@@ -221,7 +221,7 @@ func (v Value) SetField(i int, val Value) {
 			}
 		}
 
-		field.Set(val.ToReflectValue(fieldType))
+		field.Set(ReflectValueForSet(val, fieldType))
 		return
 	}
 	panic("invalid reflect.Value in SetField()")
@@ -268,7 +268,7 @@ func (v Value) SetElem(val Value) {
 			// Handle pointer case
 			elemType := rv.Type().Elem()
 			if elemType.Kind() == reflect.Func {
-				rv.Elem().Set(val.ToReflectValue(elemType))
+				rv.Elem().Set(ReflectValueForSet(val, elemType))
 				return
 			}
 			if elemType.Name() == "Value" && elemType.PkgPath() == "github.com/t04dJ14n9/gig/model/value" {
@@ -306,7 +306,7 @@ func (v Value) SetElem(val Value) {
 						return
 					}
 				}
-				valRV := val.ToReflectValue(elemType)
+				valRV := ReflectValueForSet(val, elemType)
 				if !valRV.Type().AssignableTo(elemType) {
 					// Handle slice conversion: []*T -> []interface{} for cyclic struct fields
 					if elemType.Kind() == reflect.Slice && valRV.Kind() == reflect.Slice {
@@ -332,7 +332,7 @@ func (v Value) SetElem(val Value) {
 		}
 		if kind == reflect.Interface {
 			// For interface, just set the underlying value
-			rv.Set(val.ToReflectValue(rv.Type()))
+			rv.Set(ReflectValueForSet(val, rv.Type()))
 			return
 		}
 		if kind == reflect.Struct {

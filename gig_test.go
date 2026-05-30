@@ -233,6 +233,98 @@ func Safe() int {
 	}
 }
 
+func TestProgramRunRejectsBadVariadicArgumentType(t *testing.T) {
+	source := `
+package main
+
+func Sum(nums ...int) int {
+	total := 0
+	for _, n := range nums {
+		total += n
+	}
+	return total
+}
+`
+	prog, err := Build(source)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	defer prog.Close()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Run panicked for bad variadic argument: %v", r)
+		}
+	}()
+
+	_, err = prog.Run("Sum", "not an int")
+	if err == nil {
+		t.Fatal("expected Run to reject bad variadic argument type")
+	}
+
+	_, err = prog.Run("Sum", nil)
+	if err == nil {
+		t.Fatal("expected Run to reject nil variadic argument for non-nilable element type")
+	}
+}
+
+func TestProgramRunRejectsBadFixedArgumentType(t *testing.T) {
+	source := `
+package main
+
+func Echo(n int) int {
+	return n
+}
+`
+	prog, err := Build(source)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	defer prog.Close()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Run panicked for bad fixed argument: %v", r)
+		}
+	}()
+
+	_, err = prog.Run("Echo", "not an int")
+	if err == nil {
+		t.Fatal("expected Run to reject bad fixed argument type")
+	}
+
+	_, err = prog.Run("Echo", nil)
+	if err == nil {
+		t.Fatal("expected Run to reject nil fixed argument for non-nilable parameter type")
+	}
+}
+
+func TestFmtSprintfVariadicSpread(t *testing.T) {
+	source := `
+package main
+
+import "fmt"
+
+func Format() string {
+	args := []any{"go", 3}
+	return fmt.Sprintf("%s:%d", args...)
+}
+`
+	prog, err := Build(source)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	defer prog.Close()
+
+	got, err := prog.Run("Format")
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if got != "go:3" {
+		t.Fatalf("Format() = %q, want %q", got, "go:3")
+	}
+}
+
 // TestSafetyNet_RuntimePanicReturnsError verifies that a Go-level runtime panic
 // is caught by the VM safety net and returned as an error instead of crashing
 // the host process. We use panic() with WithAllowPanic to test the safety net

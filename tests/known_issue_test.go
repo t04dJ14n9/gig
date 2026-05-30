@@ -14,16 +14,15 @@ import (
 )
 
 //go:embed testdata/known_issues/main.go
-var knownIssuesSrc string
+var resolvedIssuesSrc string
 
-type KnownIssue struct {
+type resolvedIssue struct {
 	funcName string
 	native   func() any
 	issue    string
-	panics   bool
 }
 
-func runKnownIssueTest(t *testing.T, prog *gig.Program, name string, tc KnownIssue) {
+func runResolvedIssueTest(t *testing.T, prog *gig.Program, name string, tc resolvedIssue) {
 	t.Helper()
 	t.Run(name, func(t *testing.T) {
 		nativeResult := tc.native()
@@ -44,26 +43,26 @@ func runKnownIssueTest(t *testing.T, prog *gig.Program, name string, tc KnownIss
 		}()
 
 		if panicked {
-			t.Errorf("BUG (panic): %s\n  interpreter panicked: %v\n  native returned:      %v (%T)",
+			t.Errorf("REGRESSION (panic): %s\n  interpreter panicked: %v\n  native returned:      %v (%T)",
 				tc.issue, panicVal, nativeResult, nativeResult)
 			return
 		}
 
 		if interpErr != nil {
-			t.Errorf("BUG (error): %s\n  interpreter error: %v\n  native returned:   %v (%T)",
+			t.Errorf("REGRESSION (error): %s\n  interpreter error: %v\n  native returned:   %v (%T)",
 				tc.issue, interpErr, nativeResult, nativeResult)
 			return
 		}
 
 		if !reflect.DeepEqual(interpResult, nativeResult) {
-			t.Errorf("BUG (mismatch): %s\n  interpreter returned: %v (%T)\n  native returned:      %v (%T)",
+			t.Errorf("REGRESSION (mismatch): %s\n  interpreter returned: %v (%T)\n  native returned:      %v (%T)",
 				tc.issue, interpResult, interpResult, nativeResult, nativeResult)
 		}
 	})
 }
 
-func TestKnownIssues(t *testing.T) {
-	issues := map[string]KnownIssue{
+func TestResolvedIssues(t *testing.T) {
+	issues := map[string]resolvedIssue{
 		"InterfaceWithNilConcrete": {
 			funcName: "InterfaceWithNilConcrete",
 			native: func() any {
@@ -93,7 +92,7 @@ func TestKnownIssues(t *testing.T) {
 			},
 			issue: "sort.Sort with custom sort.Interface fails (reflection can't see methods)",
 		},
-			"SortReverse": {
+		"SortReverse": {
 			funcName: "SortReverse",
 			native: func() any {
 				nums := []int{3, 1, 4, 1, 5, 9, 2, 6}
@@ -101,6 +100,15 @@ func TestKnownIssues(t *testing.T) {
 				return fmt.Sprintf("%v", nums)
 			},
 			issue: "sort.Reverse wrapper fails (reflection can't see embedded interface methods)",
+		},
+		"SortEmbeddedInterfaceDescending": {
+			funcName: "SortEmbeddedInterfaceDescending",
+			native: func() any {
+				nums := []int{3, 1, 4, 1, 5, 9, 2, 6}
+				sort.Sort(known_issues.Descending{Interface: sort.IntSlice(nums)})
+				return fmt.Sprintf("%v", nums)
+			},
+			issue: "embedded sort.Interface wrappers must dispatch compiled Less regardless of receiver type name",
 		},
 		"HeapInit": {
 			funcName: "HeapInit",
@@ -134,16 +142,16 @@ func TestKnownIssues(t *testing.T) {
 	}
 
 	if len(issues) == 0 {
-		t.Log("No known issues")
+		t.Log("No resolved issues")
 		return
 	}
 
-	prog, err := gig.Build(knownIssuesSrc, gig.WithAllowPanic())
+	prog, err := gig.Build(resolvedIssuesSrc, gig.WithAllowPanic())
 	if err != nil {
 		t.Fatalf("Build error: %v", err)
 	}
 
 	for name, tc := range issues {
-		runKnownIssueTest(t, prog, name, tc)
+		runResolvedIssueTest(t, prog, name, tc)
 	}
 }

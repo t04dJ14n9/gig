@@ -311,6 +311,13 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 				break
 			}
 		}
+		if rv, ok := ptr.ReflectValue(); ok && rv.Kind() == reflect.Ptr && !rv.IsNil() {
+			elem := rv.Elem()
+			if elem.IsValid() && elem.CanSet() && elem.Kind() == reflect.Interface {
+				elem.Set(v.valueForReflectSet(val, elem.Type()))
+				break
+			}
+		}
 		ptr.SetElem(val)
 
 	case bytecode.OpNew:

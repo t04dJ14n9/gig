@@ -68,7 +68,7 @@ func direct_unicode_utf16_Decode(args []value.Value) value.Value {
 func direct_unicode_utf16_DecodeRune(args []value.Value) value.Value {
 	a0 := int32(args[0].Int())
 	a1 := int32(args[1].Int())
-	return value.MakeInt(int64(unicode_utf16.DecodeRune(a0, a1)))
+	return value.MakeInt32(unicode_utf16.DecodeRune(a0, a1))
 }
 
 func direct_unicode_utf16_Encode(args []value.Value) value.Value {
@@ -95,7 +95,7 @@ func direct_unicode_utf16_Encode(args []value.Value) value.Value {
 func direct_unicode_utf16_EncodeRune(args []value.Value) value.Value {
 	a0 := int32(args[0].Int())
 	r0, r1 := unicode_utf16.EncodeRune(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1))})
+	return value.MakeValueSlice([]value.Value{value.MakeInt32(r0), value.MakeInt32(r1)})
 }
 
 func direct_unicode_utf16_IsSurrogate(args []value.Value) value.Value {

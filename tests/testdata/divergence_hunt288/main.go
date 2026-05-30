@@ -83,7 +83,10 @@ func ChannelOfString() string {
 
 // ChannelOfStruct tests channel of struct type
 func ChannelOfStruct() string {
-	type Msg struct{ Code int; Text string }
+	type Msg struct {
+		Code int
+		Text string
+	}
 	ch := make(chan Msg, 1)
 	ch <- Msg{Code: 200, Text: "OK"}
 	v := <-ch
@@ -99,9 +102,9 @@ func SelectWithMultipleReady() string {
 	// Both ready, select picks one (non-deterministic, but one will be picked)
 	select {
 	case v := <-ch1:
-		return fmt.Sprintf("ch1:%d", v)
+		return fmt.Sprintf("ready:%t", v == 1)
 	case v := <-ch2:
-		return fmt.Sprintf("ch2:%d", v)
+		return fmt.Sprintf("ready:%t", v == 2)
 	}
 }
 

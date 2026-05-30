@@ -13,6 +13,7 @@ package value
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 )
 
@@ -32,11 +33,15 @@ import (
 // This avoids eagerly invoking the interpreter for methods that may never be
 // needed (and whose invocation in a side-channel VM may fail).
 type gigStructWrapper struct {
-	iface          any                     // the underlying struct value (clean, no phantom fields)
-	typeName       string                  // qualified type name from gig tag (e.g., "pkg.Type")
+	iface          any    // the underlying struct value (clean, no phantom fields)
+	typeName       string // qualified type name from gig tag (e.g., "pkg.Type")
 	lazyStringer   func() (func() string, bool)
 	lazyErrorer    func() (func() string, bool)
 	lazyGoStringer func() (func() string, bool)
+}
+
+func isGigPhantomField(field reflect.StructField) bool {
+	return field.Name == "gigType" && field.PkgPath == "gig/internal" && field.Tag.Get("gig") != ""
 }
 
 // Ensure gigStructWrapper implements the relevant interfaces.
@@ -134,10 +139,15 @@ func (g *gigStructWrapper) defaultGoString() string {
 	sb.WriteString(g.typeName)
 	sb.WriteByte('{')
 	rt := rv.Type()
+	visible := 0
 	for i := 0; i < rt.NumField(); i++ {
-		if i > 0 {
+		if isGigPhantomField(rt.Field(i)) {
+			continue
+		}
+		if visible > 0 {
 			sb.WriteString(", ")
 		}
+		visible++
 		sb.WriteString(rt.Field(i).Name)
 		sb.WriteByte(':')
 		fieldVal := rv.Field(i).Interface()
@@ -168,10 +178,15 @@ func goStringValue(v any) string {
 			sb.WriteString(typeName)
 			sb.WriteByte('{')
 			rt := rv.Type()
+			visible := 0
 			for i := 0; i < rt.NumField(); i++ {
-				if i > 0 {
+				if isGigPhantomField(rt.Field(i)) {
+					continue
+				}
+				if visible > 0 {
 					sb.WriteString(", ")
 				}
+				visible++
 				sb.WriteString(rt.Field(i).Name)
 				sb.WriteByte(':')
 				sb.WriteString(goStringValue(rv.Field(i).Interface()))
@@ -204,26 +219,46 @@ func goStringValue(v any) string {
 	return fmt.Sprintf("%#v", v)
 }
 
-// gigSliceFormatter handles fmt formatting for slices of gig structs.
-// It renders %#v with proper type names and delegates GoString() on elements.
-type gigSliceFormatter struct {
-	rv           reflect.Value
-	elemTypeName string
+// gigSequenceFormatter handles fmt formatting for slices/arrays containing gig
+// structs. Native fmt would see anonymous reflect.StructOf elements with no
+// methods, so we format elements through FmtWrap recursively.
+type gigSequenceFormatter struct {
+	rv reflect.Value
 }
 
-func (s *gigSliceFormatter) Format(f fmt.State, verb rune) {
+func (s *gigSequenceFormatter) Format(f fmt.State, verb rune) {
 	if verb == 'v' && f.Flag('#') {
 		_, _ = fmt.Fprint(f, s.GoString())
 		return
 	}
-	// For other verbs, delegate to default formatting
+	if verb == 'v' && !f.Flag('+') {
+		_, _ = fmt.Fprint(f, formatSequencePlain(s.rv))
+		return
+	}
 	_, _ = fmt.Fprintf(f, fmt.FormatString(f, verb), s.rv.Interface())
 }
 
-func (s *gigSliceFormatter) GoString() string {
+func (s *gigSequenceFormatter) GoString() string {
+	elemTypeName := ""
+	if s.rv.Len() > 0 {
+		elemTypeName = isGigStruct(s.rv.Index(0).Interface())
+	}
+	if elemTypeName == "" && s.rv.Type().Elem().Kind() == reflect.Struct {
+		elemTypeName = extractGigTagFromType(s.rv.Type().Elem())
+	}
+	if elemTypeName == "" {
+		return fmt.Sprintf("%#v", s.rv.Interface())
+	}
+
 	var sb strings.Builder
-	sb.WriteString("[]")
-	sb.WriteString(s.elemTypeName)
+	if s.rv.Kind() == reflect.Array {
+		sb.WriteByte('[')
+		sb.WriteString(fmt.Sprint(s.rv.Len()))
+		sb.WriteByte(']')
+	} else {
+		sb.WriteString("[]")
+	}
+	sb.WriteString(elemTypeName)
 	sb.WriteByte('{')
 	for i := 0; i < s.rv.Len(); i++ {
 		if i > 0 {
@@ -240,6 +275,79 @@ func (s *gigSliceFormatter) GoString() string {
 	}
 	sb.WriteByte('}')
 	return sb.String()
+}
+
+type gigMapFormatter struct {
+	rv reflect.Value
+}
+
+func (m *gigMapFormatter) Format(f fmt.State, verb rune) {
+	if verb == 'v' && !f.Flag('#') && !f.Flag('+') {
+		_, _ = fmt.Fprint(f, formatMapPlain(m.rv))
+		return
+	}
+	_, _ = fmt.Fprintf(f, fmt.FormatString(f, verb), m.rv.Interface())
+}
+
+func formatReflectPlain(rv reflect.Value) string {
+	if !rv.IsValid() {
+		return "<nil>"
+	}
+	return fmt.Sprint(wrapFmtReflect(rv))
+}
+
+func formatSequencePlain(rv reflect.Value) string {
+	if !rv.IsValid() {
+		return "[]"
+	}
+	var sb strings.Builder
+	sb.WriteByte('[')
+	for i := 0; i < rv.Len(); i++ {
+		if i > 0 {
+			sb.WriteByte(' ')
+		}
+		sb.WriteString(formatReflectPlain(rv.Index(i)))
+	}
+	sb.WriteByte(']')
+	return sb.String()
+}
+
+func formatMapPlain(rv reflect.Value) string {
+	if !rv.IsValid() {
+		return "map[]"
+	}
+	keys := rv.MapKeys()
+	sort.Slice(keys, func(i, j int) bool {
+		return fmt.Sprint(wrapFmtReflect(keys[i])) < fmt.Sprint(wrapFmtReflect(keys[j]))
+	})
+
+	var sb strings.Builder
+	sb.WriteString("map[")
+	for i, key := range keys {
+		if i > 0 {
+			sb.WriteByte(' ')
+		}
+		sb.WriteString(formatReflectPlain(key))
+		sb.WriteByte(':')
+		sb.WriteString(formatReflectPlain(rv.MapIndex(key)))
+	}
+	sb.WriteByte(']')
+	return sb.String()
+}
+
+func wrapFmtReflect(rv reflect.Value) (out any) {
+	defer func() {
+		if recover() != nil {
+			out = fmt.Sprint(rv)
+		}
+	}()
+	if !rv.IsValid() {
+		return nil
+	}
+	if !rv.CanInterface() {
+		return fmt.Sprint(rv)
+	}
+	return FmtWrap(MakeFromReflect(rv))
 }
 
 func (g *gigStructWrapper) Format(f fmt.State, verb rune) {
@@ -272,11 +380,16 @@ func (g *gigStructWrapper) Format(f fmt.State, verb rune) {
 				if rv.Kind() == reflect.Struct {
 					rt := rv.Type()
 					_, _ = fmt.Fprint(f, "{")
+					visible := 0
 					for i := 0; i < rt.NumField(); i++ {
-						if i > 0 {
+						if isGigPhantomField(rt.Field(i)) {
+							continue
+						}
+						if visible > 0 {
 							_, _ = fmt.Fprint(f, " ")
 						}
-						_, _ = fmt.Fprintf(f, "%v", rv.Field(i).Interface())
+						visible++
+						_, _ = fmt.Fprint(f, formatReflectPlain(rv.Field(i)))
 					}
 					_, _ = fmt.Fprint(f, "}")
 					return
@@ -309,11 +422,16 @@ func (g *gigStructWrapper) Format(f fmt.State, verb rune) {
 			}
 			rt := rv.Type()
 			_, _ = fmt.Fprint(f, "{")
+			visible := 0
 			for i := 0; i < rt.NumField(); i++ {
-				if i > 0 {
+				if isGigPhantomField(rt.Field(i)) {
+					continue
+				}
+				if visible > 0 {
 					_, _ = fmt.Fprint(f, " ")
 				}
-				_, _ = fmt.Fprintf(f, "%s:%v", rt.Field(i).Name, rv.Field(i).Interface())
+				visible++
+				_, _ = fmt.Fprintf(f, "%s:%s", rt.Field(i).Name, formatReflectPlain(rv.Field(i)))
 			}
 			_, _ = fmt.Fprint(f, "}")
 			return
@@ -418,26 +536,30 @@ func FmtWrap(v Value) any {
 
 	typeName := isGigStruct(iface)
 	if typeName == "" {
-		// Check if it's a slice of gig structs
 		rv := reflect.ValueOf(iface)
-		if rv.Kind() == reflect.Slice && rv.Len() > 0 {
-			if elemName := isGigStruct(rv.Index(0).Interface()); elemName != "" {
-				return &gigSliceFormatter{rv: rv, elemTypeName: elemName}
-			}
+		if shouldFormatSequence(rv) {
+			return &gigSequenceFormatter{rv: rv}
+		}
+		if shouldFormatMap(rv) {
+			return &gigMapFormatter{rv: rv}
 		}
 		return iface
 	}
 
+	return makeGigStructWrapper(v, iface, typeName)
+}
+
+func makeGigStructWrapper(v Value, iface any, typeName string) any {
 	captured := v
 
 	// Lazy resolvers — each is called at most once by the wrapper, and only
 	// when the corresponding fmt verb triggers its interface.
 	var (
-		stringerFunc   func() string
-		stringerResolved bool
-		errorerFunc    func() string
-		errorerResolved bool
-		gostringerFunc func() string
+		stringerFunc       func() string
+		stringerResolved   bool
+		errorerFunc        func() string
+		errorerResolved    bool
+		gostringerFunc     func() string
 		gostringerResolved bool
 	)
 	lazyStringer := func() (func() string, bool) {
@@ -469,6 +591,73 @@ func FmtWrap(v Value) any {
 		lazyStringer:   lazyStringer,
 		lazyErrorer:    lazyErrorer,
 		lazyGoStringer: lazyGoStringer,
+	}
+}
+
+func shouldFormatSequence(rv reflect.Value) bool {
+	if !rv.IsValid() || (rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array) {
+		return false
+	}
+	if rv.Kind() == reflect.Slice && rv.Type().Elem().Kind() == reflect.Uint8 {
+		return false
+	}
+	if typeContainsGigStruct(rv.Type().Elem()) {
+		return true
+	}
+	for i := 0; i < rv.Len(); i++ {
+		if shouldWrapReflectValue(rv.Index(i)) {
+			return true
+		}
+	}
+	return false
+}
+
+func shouldFormatMap(rv reflect.Value) bool {
+	if !rv.IsValid() || rv.Kind() != reflect.Map {
+		return false
+	}
+	if typeContainsGigStruct(rv.Type().Key()) || typeContainsGigStruct(rv.Type().Elem()) {
+		return true
+	}
+	for _, key := range rv.MapKeys() {
+		if shouldWrapReflectValue(key) || shouldWrapReflectValue(rv.MapIndex(key)) {
+			return true
+		}
+	}
+	return false
+}
+
+func shouldWrapReflectValue(rv reflect.Value) bool {
+	if !rv.IsValid() {
+		return false
+	}
+	if rv.Kind() == reflect.Interface && !rv.IsNil() {
+		rv = rv.Elem()
+	}
+	if rv.CanInterface() && isGigStruct(rv.Interface()) != "" {
+		return true
+	}
+	return typeContainsGigStruct(rv.Type())
+}
+
+func typeContainsGigStruct(t reflect.Type) bool {
+	if t == nil {
+		return false
+	}
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	switch t.Kind() {
+	case reflect.Struct:
+		return extractGigTagFromType(t) != ""
+	case reflect.Slice, reflect.Array:
+		return typeContainsGigStruct(t.Elem())
+	case reflect.Map:
+		return typeContainsGigStruct(t.Key()) || typeContainsGigStruct(t.Elem())
+	case reflect.Interface:
+		return false
+	default:
+		return false
 	}
 }
 
@@ -638,6 +827,9 @@ func GigErrorsAs(err error, target any) bool {
 	if target == nil {
 		panic("errors: target cannot be nil")
 	}
+	if err == nil {
+		return false
+	}
 
 	// Handle *Value frame slot pointers from OpAddr.
 	// The frame slot holds the interpreted value; we need to match against
@@ -727,6 +919,11 @@ func gigAsWalkFrameSlot(err error, targetType reflect.Type, slot *Value) bool {
 func gigAsMatchValue(err error, elemType reflect.Type, targetVal reflect.Value) bool {
 	errVal := reflect.ValueOf(err)
 	errType := errVal.Type()
+
+	if wrapper, ok := err.(*gigStructWrapper); ok && elemType.Kind() == reflect.Interface && elemType.NumMethod() == 0 {
+		targetVal.Elem().Set(reflect.ValueOf(wrapper.iface))
+		return true
+	}
 
 	// Direct type match: err's type is assignable to target element type
 	if errType.AssignableTo(elemType) {

@@ -1,5 +1,13 @@
 # External Call Architecture: A General Approach
 
+> Historical design note: this document describes an earlier proposal for a
+> general external-value reconstruction layer. The current implemented boundary
+> model is documented in [`type-boundary-safety.md`](type-boundary-safety.md):
+> compile-time rejection for script-defined values crossing into third-party
+> calls, registered interface proxies for explicit host interfaces, runtime
+> backstops for hidden values, and `WithAllowUnsafeTypePass()` as an escape
+> hatch.
+
 ## Problem Statement
 
 When interpreted Go code calls external Go functions (stdlib, third-party), values must cross the interpreter→Go boundary. Currently this boundary is handled by a patchwork of per-function wrappers (`ErrorValue`, `FmtWrap`, `GigErrorsAs`, `SprintfExtern`, etc.). Each new function that inspects types or calls methods on interpreted values requires a new wrapper. This document proposes a general approach that eliminates per-function custom logic.

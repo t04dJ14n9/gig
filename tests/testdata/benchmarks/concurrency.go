@@ -12,6 +12,20 @@ func Defer() int {
 	return sum
 }
 
+func PanicRecover() int {
+	sum := 0
+	for j := 0; j < 10; j++ {
+		func() {
+			defer func() { recover() }()
+			if j == 5 {
+				panic("test")
+			}
+			sum += j
+		}()
+	}
+	return sum
+}
+
 func Select() int {
 	ch := make(chan int, 1)
 	sum := 0

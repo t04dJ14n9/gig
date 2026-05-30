@@ -275,7 +275,7 @@ func isEmptyStruct(t types.Type) bool {
 func constTypeToReflect(t types.Type) reflect.Type {
 	// Handle empty structs early (Named, Alias, and direct Struct types)
 	if isEmptyStruct(t) {
-		return reflect.TypeFor[struct{}]()
+		return emptyStructReflectType(t)
 	}
 
 	switch typ := t.Underlying().(type) {
@@ -310,6 +310,28 @@ func constTypeToReflect(t types.Type) reflect.Type {
 		return buildFuncType(typ)
 	}
 	return nil
+}
+
+func emptyStructReflectType(t types.Type) reflect.Type {
+	named, ok := t.(*types.Named)
+	if !ok {
+		return reflect.TypeFor[struct{}]()
+	}
+	obj := named.Obj()
+	if obj == nil {
+		return reflect.TypeFor[struct{}]()
+	}
+	typeName := obj.Name()
+	qualName := "#" + typeName
+	if pkg := obj.Pkg(); pkg != nil {
+		qualName = "#" + pkg.Name() + "." + typeName
+	}
+	return reflect.StructOf([]reflect.StructField{{
+		Name:    "gigType",
+		Type:    reflect.TypeFor[struct{}](),
+		PkgPath: "gig/internal",
+		Tag:     reflect.StructTag(`gig:"` + qualName + `"`),
+	}})
 }
 
 // chanDirection returns the reflect.ChanDir for a types.Chan.
@@ -433,7 +455,7 @@ func (c *compiler) compileMakeChan(i *ssa.MakeChan) {
 // compileMakeInterface compiles a MakeInterface instruction.
 func (c *compiler) compileMakeInterface(i *ssa.MakeInterface) {
 	resultIdx := c.symbolTable.AllocLocal(i)
-	ifaceTypeIdx := c.addType(i.Type())     // interface type (e.g., error)
+	ifaceTypeIdx := c.addType(i.Type())      // interface type (e.g., error)
 	concreteTypeIdx := c.addType(i.X.Type()) // concrete type (e.g., *MyError3)
 	c.compileValue(i.X)
 	// Emit: OpMakeInterface, ifaceTypeIdx_hi, ifaceTypeIdx_lo, concreteTypeIdx_hi, concreteTypeIdx_lo
@@ -669,6 +691,7 @@ func (c *compiler) compileDefer(i *ssa.Defer) {
 		c.compileDeferMakeClosure(i, val)
 	default:
 		// Other cases: compile the callable, then push args
+		c.validateExternalFuncValueBoundary(i.Call.Value, i.Call.Args)
 		c.compileValue(i.Call.Value)
 		c.compileDeferCallArgs(i.Call.Args)
 		c.emit(bytecode.OpDeferIndirect, uint16(len(i.Call.Args)))
@@ -711,25 +734,25 @@ func (c *compiler) compileDeferFunction(i *ssa.Defer, val *ssa.Function) {
 		return
 	}
 
+	c.validateExternalFuncValueBoundary(i.Call.Value, i.Call.Args)
+
 	// External method wrapper (not in funcIndex)
 	if val.Signature.Recv() != nil {
 		c.compileDeferCallArgs(i.Call.Args)
-		methodName := extractMethodName(val.Name())
-		methodInfo := &external.ExternalMethodInfo{MethodName: methodName}
-		if c.lookup != nil {
-			typeName := extractReceiverTypeName(val.Signature.Recv().Type())
-			if typeName != "" {
-				if dc, ok := c.lookup.LookupMethodDirectCall(typeName, methodName); ok {
-					methodInfo.DirectCall = dc
-				}
-			}
-		}
+		methodInfo := c.lookupExternalMethodInfo(val)
 		funcIdx := c.addConstant(methodInfo)
 		c.emitCallOp(bytecode.OpDeferExternal, uint16(funcIdx), len(i.Call.Args))
 		return
 	}
 
 	// External package function
+	if extFuncInfo := c.lookupExternalFuncInfo(val); extFuncInfo != nil {
+		c.compileDeferCallArgs(i.Call.Args)
+		funcIdx := c.addConstant(extFuncInfo)
+		c.emitCallOp(bytecode.OpDeferExternal, uint16(funcIdx), len(i.Call.Args))
+		return
+	}
+
 	c.compileValue(i.Call.Value)
 	c.compileDeferCallArgs(i.Call.Args)
 	c.emit(bytecode.OpDeferIndirect, uint16(len(i.Call.Args)))
@@ -793,12 +816,30 @@ func (c *compiler) compileGo(i *ssa.Go) {
 			return
 		}
 
-		// External function/method wrapper (not in funcIndex).
-		// Fall through to OpGoCallIndirect path which handles external callables.
+		c.validateExternalFuncValueBoundary(i.Call.Value, i.Call.Args)
+
+		if fn.Signature.Recv() != nil {
+			methodInfo := c.lookupExternalMethodInfo(fn)
+			for _, arg := range i.Call.Args {
+				c.compileValue(arg)
+			}
+			funcIdx := c.addConstant(methodInfo)
+			c.emitCallOp(bytecode.OpGoCallExternal, uint16(funcIdx), len(i.Call.Args))
+			return
+		}
+		if extFuncInfo := c.lookupExternalFuncInfo(fn); extFuncInfo != nil {
+			for _, arg := range i.Call.Args {
+				c.compileValue(arg)
+			}
+			funcIdx := c.addConstant(extFuncInfo)
+			c.emitCallOp(bytecode.OpGoCallExternal, uint16(funcIdx), len(i.Call.Args))
+			return
+		}
 	}
 
 	// Indirect call (closure or MakeClosure result): push callee FIRST,
 	// then args. OpGoCallIndirect pops args first, then callee.
+	c.validateExternalFuncValueBoundary(i.Call.Value, i.Call.Args)
 	c.compileValue(i.Call.Value)
 
 	for _, arg := range i.Call.Args {

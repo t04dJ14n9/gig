@@ -386,15 +386,24 @@ Gig enforces security by banning certain imports:
 
 ## Known Limitations
 
-- **Third-party reflection**: Interpreter-synthesized structs expose methods via `gigStructWrapper`, which only covers `fmt.Stringer`, `error`, `fmt.Formatter`, and `fmt.GoStringer`. Third-party libraries that inspect `reflect.Type` or assert other interfaces (e.g., `json.Marshaler`) may not recognize interpreter types. Stdlib packages like `encoding/json` work natively (via struct tags), and `errors.As` is handled via `GigErrorsAs`.
+- **Third-party reflection boundary**: By default, script-defined types cannot be passed to third-party functions as `any`, concrete parameters, or unproxied interfaces. This is enforced at compile time where possible and at runtime when a value, nested container element, or interpreted function value is hidden behind an interface. Passing a script-defined type to a third-party interface is allowed only when `gig gen` or manual registration provides an interface proxy for that host interface. Interpreted callbacks are allowed for concrete `func` parameters only when their result types cannot carry erased interface values.
 
   ```go
-  // ✅ Works: stdlib uses fmt.Stringer / struct tags
+  // ✅ Works: stdlib uses adapters / struct tags
   fmt.Println(myStruct)           // calls String()
   json.Marshal(myStruct)          // uses struct tags
 
-  // ❌ Doesn't work: third-party asserts non-standard interfaces
-  var jm json.Marshaler = myStruct  // compile error: gigStructWrapper doesn't implement json.Marshaler
+  // ✅ Works only when the third-party interface has a registered proxy
+  thirdparty.AcceptCallback(myStruct)
+
+  // ✅ Works: concrete callback result has no interface boundary
+  thirdparty.AcceptFunc(func(v int) int { return v + 1 })
+
+  // ❌ Rejected: third-party any/unproxied interface boundary
+  thirdparty.Record(any(myStruct))
+
+  // ❌ Rejected: callback can return script values through any
+  thirdparty.AcceptFactory(func() any { return myStruct })
   ```
 
 - **`errors.As` with struct pointer targets**: `errors.As(err, &ce)` where `ce` is a struct pointer type cannot match. Interpreter-generated struct types (`reflect.StructOf`) have different `reflect.Type` identities than native named Go types, and wrapping args in `interface{}` loses runtime type info, preventing reflection from assigning the interpreter type to a native pointer target.

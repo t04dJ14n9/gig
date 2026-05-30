@@ -594,6 +594,7 @@ var complexTests = map[string]testCase{
 	"VariadicBasicCheck":       {complexSrc, "VariadicBasicCheck", nil, complex.VariadicBasicCheck},
 	"VariadicEmpty":            {complexSrc, "VariadicEmpty", nil, complex.VariadicEmpty},
 	"VariadicWithRegularCheck": {complexSrc, "VariadicWithRegularCheck", nil, complex.VariadicWithRegularCheck},
+	"VariadicWithRegular":      {complexSrc, "VariadicWithRegular", []any{100, 1, 2, 3}, complex.VariadicWithRegular},
 	"VariadicSpread":           {complexSrc, "VariadicSpread", nil, complex.VariadicSpread},
 	"VariadicOneArg":           {complexSrc, "VariadicOneArg", nil, complex.VariadicOneArg},
 }
@@ -782,7 +783,10 @@ var functionsTests = map[string]testCase{
 	"FibRecN":    {functionsSrc, "FibRecN", []any{15}, functions.FibRecN},
 	"IsEvenN":    {functionsSrc, "IsEvenN", []any{10}, functions.IsEvenN},
 	"IsOddN":     {functionsSrc, "IsOddN", []any{7}, functions.IsOddN},
-	// Variadic with args - skip for now (interpreter variadic handling from outside needs work)
+	"SumVariadicEmpty": {functionsSrc, "SumVariadic", nil, functions.SumVariadic},
+	"SumVariadic":      {functionsSrc, "SumVariadic", []any{1, 2, 3}, functions.SumVariadic},
+	"JoinVariadic":     {functionsSrc, "JoinVariadic", []any{"a", "b", "c"}, functions.JoinVariadic},
+	"CountAnyVariadic": {functionsSrc, "CountAnyVariadic", []any{"a", 1, true}, functions.CountAnyVariadic},
 
 	// Multi-return value tests - these functions THEMSELVES return multiple values
 	"ThreeReturnValues":               {functionsSrc, "ThreeReturnValues", nil, functions.ThreeReturnValues},

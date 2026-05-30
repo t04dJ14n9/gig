@@ -212,6 +212,27 @@ func TestEqual(t *testing.T) {
 	}
 }
 
+func TestEqualDistinguishesNumericRuntimeTypes(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b Value
+	}{
+		{"int and int32", MakeInt(42), MakeInt32(42)},
+		{"int8 and int16", MakeInt8(1), MakeInt16(1)},
+		{"uint and uint32", MakeUint(42), MakeUint32(42)},
+		{"float32 and float64", MakeFloat32(1), MakeFloat(1)},
+		{"complex64 and complex128", MakeComplex64(1, 2), MakeComplex(1, 2)},
+	}
+	for _, tt := range tests {
+		if tt.a.Equal(tt.b) {
+			t.Fatalf("%s: Equal returned true for distinct runtime numeric types", tt.name)
+		}
+		if tt.b.Equal(tt.a) {
+			t.Fatalf("%s: reverse Equal returned true for distinct runtime numeric types", tt.name)
+		}
+	}
+}
+
 func TestCmp(t *testing.T) {
 	if MakeInt(1).Cmp(MakeInt(2)) >= 0 {
 		t.Error("1 should be < 2")

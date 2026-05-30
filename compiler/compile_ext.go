@@ -2,6 +2,7 @@
 package compiler
 
 import (
+	"fmt"
 	"go/types"
 	"reflect"
 	"strings"
@@ -26,6 +27,28 @@ func extractMethodName(ssaName string) string {
 		}
 	}
 	return name
+}
+
+func methodOwnerPkgPath(fn *ssa.Function) string {
+	if fn == nil || fn.Signature == nil {
+		return ""
+	}
+	if fn.Pkg != nil && fn.Pkg.Pkg != nil {
+		return fn.Pkg.Pkg.Path()
+	}
+	recv := fn.Signature.Recv()
+	if recv == nil {
+		return ""
+	}
+	recvType := recv.Type()
+	if ptr, ok := recvType.(*types.Pointer); ok {
+		recvType = ptr.Elem()
+	}
+	named, ok := recvType.(*types.Named)
+	if !ok || named.Obj() == nil || named.Obj().Pkg() == nil {
+		return ""
+	}
+	return named.Obj().Pkg().Path()
 }
 
 // compileExternalFuncValue compiles an external function reference as a value
@@ -53,19 +76,58 @@ func (c *compiler) compileExternalFuncValue(fn *ssa.Function) {
 	c.emit(bytecode.OpConst, uint16(funcIdx))
 }
 
+func (c *compiler) lookupExternalFuncInfo(fn *ssa.Function) *external.ExternalFuncInfo {
+	if fn == nil || fn.Pkg == nil || fn.Pkg.Pkg == nil || c.lookup == nil {
+		return nil
+	}
+	pkgPath := fn.Pkg.Pkg.Path()
+	fnVal, directCall, ok := c.lookup.LookupExternalFunc(pkgPath, fn.Name())
+	if !ok {
+		return nil
+	}
+	info := &external.ExternalFuncInfo{
+		PkgPath:    pkgPath,
+		FuncName:   fn.Name(),
+		Func:       fnVal,
+		DirectCall: directCall,
+	}
+	if fnVal != nil {
+		if rv := reflect.ValueOf(fnVal); rv.Kind() == reflect.Func {
+			rt := rv.Type()
+			info.IsVariadic = rt.IsVariadic()
+			info.NumIn = rt.NumIn()
+		}
+	}
+	return info
+}
+
+func (c *compiler) lookupExternalMethodInfo(fn *ssa.Function) *external.ExternalMethodInfo {
+	if fn == nil || fn.Signature == nil || fn.Signature.Recv() == nil {
+		return nil
+	}
+	methodName := extractMethodName(fn.Name())
+	info := &external.ExternalMethodInfo{
+		PkgPath:    methodOwnerPkgPath(fn),
+		MethodName: methodName,
+		FuncName:   methodName,
+	}
+	if c.lookup != nil {
+		typeName := extractReceiverTypeName(fn.Signature.Recv().Type())
+		if typeName != "" {
+			if dc, ok := c.lookup.LookupMethodDirectCall(typeName, methodName); ok {
+				info.DirectCall = dc
+			}
+		}
+	}
+	return info
+}
+
 // compileExternalStaticCall compiles a call to an external package function.
 // It uses the injected PackageLookup to resolve the function, avoiding direct importer dependency.
 func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resultIdx int) {
 	// Validate: reject user-defined types flowing into third-party packages.
-	if !c.allowUnsafeTypePass && fn.Pkg != nil && fn.Pkg.Pkg != nil {
-		pkgPath := fn.Pkg.Pkg.Path()
-		argTypes := make([]types.Type, len(i.Call.Args))
-		for idx, arg := range i.Call.Args {
-			argTypes[idx] = arg.Type()
-		}
-		if err := validateExternalCallArgs(pkgPath, fn.Name(), argTypes); err != nil {
-			c.addError(err)
-		}
+	if origin, ok := c.externalFuncOriginForFunction(fn); ok {
+		c.validateExternalFuncBoundary(origin, i.Call.Args)
 	}
 
 	for _, arg := range i.Call.Args {
@@ -74,22 +136,7 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 
 	sig := fn.Signature
 	if sig.Recv() != nil {
-		methodName := extractMethodName(fn.Name())
-
-		methodInfo := &external.ExternalMethodInfo{
-			MethodName: methodName,
-		}
-
-		// Try to resolve method DirectCall at compile time
-		if c.lookup != nil {
-			typeName := extractReceiverTypeName(sig.Recv().Type())
-			if typeName != "" {
-				if dc, ok := c.lookup.LookupMethodDirectCall(typeName, methodName); ok {
-					methodInfo.DirectCall = dc
-				}
-			}
-		}
-
+		methodInfo := c.lookupExternalMethodInfo(fn)
 		funcIdx := c.addConstant(methodInfo)
 		numArgs := len(i.Call.Args)
 		c.emitCallOp(bytecode.OpCallExternal, funcIdx, numArgs)
@@ -98,38 +145,22 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 	}
 
 	// Use injected PackageLookup instead of direct importer access
-	var extFuncInfo *external.ExternalFuncInfo
-	if fn.Pkg != nil && c.lookup != nil {
-		pkgPath := fn.Pkg.Pkg.Path()
-		if fnVal, directCall, ok := c.lookup.LookupExternalFunc(pkgPath, fn.Name()); ok {
-			extFuncInfo = &external.ExternalFuncInfo{
-				Func:       fnVal,
-				DirectCall: directCall,
-			}
-			// Pre-compute reflect metadata so the VM avoids reflect.Type queries.
-			if fnVal != nil {
-				if rv := reflect.ValueOf(fnVal); rv.Kind() == reflect.Func {
-					rt := rv.Type()
-					extFuncInfo.IsVariadic = rt.IsVariadic()
-					extFuncInfo.NumIn = rt.NumIn()
-				}
-			}
-		}
-	}
-
+	extFuncInfo := c.lookupExternalFuncInfo(fn)
 	if extFuncInfo == nil {
-		extFuncInfo = &external.ExternalFuncInfo{
-			Func:       fn,
-			DirectCall: nil,
+		pkgPath := ""
+		if fn.Pkg != nil && fn.Pkg.Pkg != nil {
+			pkgPath = fn.Pkg.Pkg.Path()
 		}
-		// Pre-compute reflect metadata for the SSA function fallback.
-		if fn != nil {
-			if rv := reflect.ValueOf(fn); rv.Kind() == reflect.Func {
-				rt := rv.Type()
-				extFuncInfo.IsVariadic = rt.IsVariadic()
-				extFuncInfo.NumIn = rt.NumIn()
-			}
+		if fn.Name() == "init" && pkgPath != "" && pkgPath != "main" && pkgPath != "command-line-arguments" {
+			// Imported binary packages are registered after their Go init functions
+			// have already run. SSA still includes init stubs for import ordering;
+			// treating those as external reflect calls produces invalid call entries.
+			return
 		}
+		c.addError(fmt.Errorf("unresolved external function %s.%s", pkgPath, fn.Name()))
+		c.emit(bytecode.OpNil)
+		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+		return
 	}
 
 	funcIdx := c.addConstant(extFuncInfo)
@@ -138,9 +169,82 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
 
+func externalBoundaryArgType(arg ssa.Value) types.Type {
+	switch v := arg.(type) {
+	case *ssa.MakeInterface:
+		return externalBoundaryArgType(v.X)
+	case *ssa.ChangeInterface:
+		return externalBoundaryArgType(v.X)
+	case *ssa.Convert:
+		return externalBoundaryArgType(v.X)
+	default:
+		return arg.Type()
+	}
+}
+
+func callTargetType(sig *types.Signature, argIndex int) types.Type {
+	if sig == nil || sig.Params() == nil || argIndex < 0 {
+		return nil
+	}
+	if sig.Recv() != nil {
+		if argIndex == 0 {
+			return sig.Recv().Type()
+		}
+		return callParamTargetType(sig, argIndex-1)
+	}
+	return callParamTargetType(sig, argIndex)
+}
+
+func callParamTargetType(sig *types.Signature, argIndex int) types.Type {
+	if sig == nil || sig.Params() == nil || argIndex < 0 {
+		return nil
+	}
+	params := sig.Params()
+	if argIndex < params.Len() {
+		return params.At(argIndex).Type()
+	}
+	if sig.Variadic() && params.Len() > 0 {
+		return params.At(params.Len() - 1).Type()
+	}
+	return nil
+}
+
+func (c *compiler) externalTargetAllowsInterfaceProxy(sig *types.Signature, argIndex int) bool {
+	return c.externalTargetHasInterfaceProxy(callTargetType(sig, argIndex))
+}
+
+func (c *compiler) externalTargetHasInterfaceProxy(t types.Type) bool {
+	if t == nil {
+		return false
+	}
+	iface, ok := t.Underlying().(*types.Interface)
+	if !ok || iface.NumMethods() == 0 {
+		return false
+	}
+	if c.lookup == nil {
+		return false
+	}
+	nameLookup, hasNameLookup := c.lookup.(interface {
+		LookupInterfaceProxy(string, string) (*external.InterfaceProxyInfo, bool)
+	})
+	if hasNameLookup {
+		if named, ok := t.(*types.Named); ok {
+			obj := named.Obj()
+			if obj != nil && obj.Pkg() != nil {
+				if _, ok := nameLookup.LookupInterfaceProxy(obj.Pkg().Path(), obj.Name()); ok {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 // compileIndirectCall compiles an indirect call (closure or function value).
 func (c *compiler) compileIndirectCall(i *ssa.Call) {
 	resultIdx := c.symbolTable.AllocLocal(i)
+
+	c.validateExternalFuncValueBoundary(i.Call.Value, i.Call.Args)
 
 	c.compileValue(i.Call.Value)
 
@@ -151,6 +255,31 @@ func (c *compiler) compileIndirectCall(i *ssa.Call) {
 	numArgs := len(i.Call.Args)
 	c.emit(bytecode.OpCallIndirect, uint16(numArgs))
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+}
+
+func (c *compiler) validateExternalFuncValueBoundary(callee ssa.Value, args []ssa.Value) {
+	if c.allowUnsafeTypePass {
+		return
+	}
+	for _, origin := range c.externalFuncOrigins(callee) {
+		c.validateExternalFuncBoundary(origin, args)
+	}
+}
+
+func (c *compiler) validateExternalFuncBoundary(origin externalFuncOrigin, args []ssa.Value) {
+	if c.allowUnsafeTypePass {
+		return
+	}
+	callArgs := make([]externalCallArg, len(args))
+	for idx, arg := range args {
+		callArgs[idx] = externalCallArg{
+			SourceType:          externalBoundaryArgType(arg),
+			AllowInterfaceProxy: c.externalTargetAllowsInterfaceProxy(origin.Sig, idx),
+		}
+	}
+	if err := validateExternalCallBoundary(origin.PkgPath, origin.FuncName, callArgs); err != nil {
+		c.addError(err)
+	}
 }
 
 // extractReceiverTypeName extracts the package-path-qualified type name from a receiver type.

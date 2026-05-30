@@ -191,6 +191,12 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 				Type:      ft,
 				Anonymous: f.Anonymous(),
 			}
+			if sf.Anonymous && sf.Type.Kind() == reflect.Interface && sf.Type.NumMethod() > 0 {
+				// reflect.StructOf cannot synthesize anonymous interface fields with methods.
+				// Keep the named field usable (e.g. r.Interface.Less) and let the VM's
+				// type information handle method promotion.
+				sf.Anonymous = false
+			}
 			// For unexported fields, we must set PkgPath (required by reflect.StructOf).
 			// reflect.StructOf does NOT support anonymous unexported fields (it panics
 			// with "is anonymous but has PkgPath set" or "is unexported but missing PkgPath").
@@ -204,6 +210,7 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 				hasUnexported = true
 				if sf.Anonymous {
 					sf.Anonymous = false
+					sf.Tag = reflect.StructTag(`gig_embed:"1"`)
 				}
 				// For unexported fields, use the bare type suffix
 				// (e.g., "#TypeName") to maintain type identity stability.
@@ -223,7 +230,11 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 				}
 			}
 			if tag := tt.Tag(i); tag != "" {
-				sf.Tag = reflect.StructTag(tag)
+				if sf.Tag == "" {
+					sf.Tag = reflect.StructTag(tag)
+				} else {
+					sf.Tag += " " + reflect.StructTag(tag)
+				}
 			}
 			fields = append(fields, sf)
 		}
@@ -247,8 +258,15 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 			}
 		}
 		if len(fields) == 0 {
-			// Empty struct — return the real Go type directly.
-			// Named empty structs rely on the ReflectTypeNames registry for identification.
+			if uniqueSuffix != "" {
+				return reflect.StructOf([]reflect.StructField{{
+					Name:    "gigType",
+					Type:    reflect.TypeOf(struct{}{}),
+					PkgPath: "gig/internal",
+					Tag:     reflect.StructTag(`gig:"` + uniqueSuffix + `"`),
+				}})
+			}
+			// Anonymous empty struct — return the real Go type directly.
 			return reflect.TypeOf(struct{}{})
 		}
 		result := reflect.StructOf(fields)

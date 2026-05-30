@@ -90,10 +90,8 @@ func convertReflectType(rt reflect.Type) types.Type {
 		if bt := bytecode.BasicTypeFromReflectKind(rt.Kind()); bt != nil && bt.Name() == rt.Name() {
 			isBasicAlias = true
 		}
-		// If it's a basic type alias, don't treat as named type - fall through to basic handling
-		// For interface types, don't wrap in Named - just return the interface directly
-		// (named interfaces in Go are still interface types, not Named types)
-		if !isBasicAlias && rt.Kind() != reflect.Interface {
+		// If it's a basic type alias, don't treat as named type - fall through to basic handling.
+		if !isBasicAlias {
 			// Create a placeholder named type to break recursion.
 			// Use rt.PkgPath() to attach the correct package, so the type checker
 			// and compiler can distinguish types with the same name from different
@@ -107,8 +105,12 @@ func convertReflectType(rt reflect.Type) types.Type {
 			underlying := convertReflectTypeForUnderlying(rt)
 			named.SetUnderlying(underlying)
 
-			// Add methods from reflect.Type to the Named type
-			addMethodsToNamed(named, rt)
+			// Add methods from reflect.Type to concrete named types. Named interfaces
+			// get their method set from the underlying interface; adding the same
+			// methods to the Named type would duplicate them.
+			if rt.Kind() != reflect.Interface {
+				addMethodsToNamed(named, rt)
+			}
 
 			return named
 		}
@@ -214,7 +216,7 @@ func convertReflectTypeForUnderlying(rt reflect.Type) types.Type {
 	case reflect.Func:
 		return convertFuncType(rt)
 	case reflect.Interface:
-		return convertInterfaceType(rt)
+		return convertInterfaceTypeNoCache(rt)
 	case reflect.Chan:
 		elem := convertReflectType(rt.Elem())
 		var dir types.ChanDir
@@ -288,6 +290,14 @@ func convertFuncType(rt reflect.Type) *types.Signature {
 // convertInterfaceType converts a reflect.Interface type to a types.Interface.
 // For empty interfaces (any), returns types.NewInterfaceType(nil, nil).
 func convertInterfaceType(rt reflect.Type) *types.Interface {
+	return convertInterfaceTypeWithCache(rt, true)
+}
+
+func convertInterfaceTypeNoCache(rt reflect.Type) *types.Interface {
+	return convertInterfaceTypeWithCache(rt, false)
+}
+
+func convertInterfaceTypeWithCache(rt reflect.Type, cache bool) *types.Interface {
 	if rt.NumMethod() == 0 {
 		// Empty interface (any)
 		return types.NewInterfaceType(nil, nil)
@@ -295,7 +305,9 @@ func convertInterfaceType(rt reflect.Type) *types.Interface {
 
 	// Create a placeholder interface and cache it first to break recursion
 	iface := types.NewInterfaceType(nil, nil)
-	typeCache.Store(rt, iface)
+	if cache {
+		typeCache.Store(rt, iface)
+	}
 
 	var methods []*types.Func
 	for i := 0; i < rt.NumMethod(); i++ {
@@ -308,7 +320,9 @@ func convertInterfaceType(rt reflect.Type) *types.Interface {
 	// Note: types.NewInterfaceType creates a complete interface, so we need to
 	// create a new one with the methods
 	result := types.NewInterfaceType(methods, nil)
-	typeCache.Store(rt, result)
+	if cache {
+		typeCache.Store(rt, result)
+	}
 	return result
 }
 

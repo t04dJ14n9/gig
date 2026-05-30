@@ -20,6 +20,7 @@ go.work
 # IDE
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
 
@@ -29,6 +30,7 @@ Thumbs.db
 
 # Temporary files
 /tmp/
+.codegraph/
 
 .codebuddy
 

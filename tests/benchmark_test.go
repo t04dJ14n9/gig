@@ -139,16 +139,44 @@ var benchmarksSrc = getBenchmarksSrc()
 // Benchmark Helpers
 // ============================================================================
 
+func TestPreviouslySkippedBenchmarksRun(t *testing.T) {
+	prog, err := gig.Build(benchmarksSrc, gig.WithAllowPanic())
+	if err != nil {
+		t.Fatalf("Build error: %v", err)
+	}
+	defer prog.Close()
+
+	tests := map[string]func() int{
+		"PanicRecover":   benchmarks.PanicRecover,
+		"StringsBuilder": benchmarks.StringsBuilder,
+		"MathBig":        benchmarks.MathBig,
+	}
+	for name, native := range tests {
+		t.Run(name, func(t *testing.T) {
+			result, err := prog.Run(name)
+			if err != nil {
+				t.Fatalf("Run(%s): %v", name, err)
+			}
+			if got, want := int(toInt64(result)), native(); got != want {
+				t.Fatalf("Run(%s) = %d, want %d", name, got, want)
+			}
+		})
+	}
+}
+
 // benchGig builds the embedded benchmark source and runs the named function.
 func benchGig(b *testing.B, funcName string) {
 	b.Helper()
-	prog, err := gig.Build(benchmarksSrc)
+	prog, err := gig.Build(benchmarksSrc, gig.WithAllowPanic())
 	if err != nil {
 		b.Fatalf("Build error: %v", err)
 	}
+	b.Cleanup(prog.Close)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = prog.Run(funcName)
+		if _, err := prog.Run(funcName); err != nil {
+			b.Fatalf("Run(%s): %v", funcName, err)
+		}
 	}
 }
 
@@ -403,11 +431,13 @@ func BenchmarkNative_CallOverhead(b *testing.B) {
 
 func BenchmarkGig_BuildAndRun(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		prog, err := gig.Build(benchmarksSrc)
+		prog, err := gig.Build(benchmarksSrc, gig.WithAllowPanic())
 		if err != nil {
 			b.Fatal(err)
 		}
-		_, _ = prog.Run("ArithmeticSum")
+		if _, err := prog.Run("ArithmeticSum"); err != nil {
+			b.Fatalf("Run(ArithmeticSum): %v", err)
+		}
 	}
 }
 
@@ -486,8 +516,7 @@ func BenchmarkNative_Defer(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_PanicRecover(b *testing.B) {
-	// Skip - gig doesn't support panic/recover yet
-	b.Skip("panic/recover not supported")
+	benchGig(b, "PanicRecover")
 }
 
 func BenchmarkNative_PanicRecover(b *testing.B) {
@@ -575,8 +604,7 @@ func BenchmarkNative_SortInts(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_StringsBuilder(b *testing.B) {
-	// Skip - causes stack overflow in typeToReflect
-	b.Skip("strings.Builder causes stack overflow")
+	benchGig(b, "StringsBuilder")
 }
 
 func BenchmarkNative_StringsBuilder(b *testing.B) {
@@ -595,8 +623,7 @@ func BenchmarkNative_StringsBuilder(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_MathBig(b *testing.B) {
-	// Skip - math/big not registered
-	b.Skip("math/big not registered")
+	benchGig(b, "MathBig")
 }
 
 func BenchmarkNative_MathBig(b *testing.B) {

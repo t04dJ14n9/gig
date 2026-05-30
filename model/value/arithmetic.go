@@ -232,6 +232,24 @@ func unwrapForComparison(v Value) Value {
 	return MakeFromReflect(rv)
 }
 
+func normalizedEqualitySize(kind Kind, size Size) Size {
+	switch kind {
+	case KindInt, KindUint:
+		if size == Size0 {
+			return SizePtr
+		}
+	case KindFloat, KindComplex:
+		if size == Size0 {
+			return Size64
+		}
+	}
+	return size
+}
+
+func sameNumericEqualityType(a, b Value) bool {
+	return normalizedEqualitySize(a.kind, a.size) == normalizedEqualitySize(b.kind, b.size)
+}
+
 // Equal returns v == other.
 func (v Value) Equal(other Value) bool {
 	// Unwrap interface/reflect values for comparison.
@@ -256,6 +274,9 @@ func (v Value) Equal(other Value) bool {
 	// e.g., var p *T = nil; var e error = p; e == nil → false
 	isInterfaceNil := func(val Value) (bool, bool) {
 		if val.kind == KindInterface {
+			if _, ok := val.InterpretedInterface(); ok {
+				return true, false
+			}
 			if rv, ok := val.obj.(reflect.Value); ok && rv.Kind() == reflect.Interface {
 				return true, rv.IsNil()
 			}
@@ -279,6 +300,14 @@ func (v Value) Equal(other Value) bool {
 		}
 	}
 
+	if dynA, ok := a.InterpretedInterface(); ok {
+		dynB, ok := b.InterpretedInterface()
+		return ok && dynA.TypeName == dynB.TypeName && dynA.Value.Equal(dynB.Value)
+	}
+	if _, ok := b.InterpretedInterface(); ok {
+		return false
+	}
+
 	if a.kind == KindReflect || a.kind == KindInterface {
 		a = unwrapForComparison(a)
 	}
@@ -298,15 +327,15 @@ func (v Value) Equal(other Value) bool {
 	case KindBool:
 		return a.num == b.num
 	case KindInt:
-		return a.num == b.num
+		return sameNumericEqualityType(a, b) && a.num == b.num
 	case KindUint:
-		return a.num == b.num
+		return sameNumericEqualityType(a, b) && a.num == b.num
 	case KindFloat:
-		return a.Float() == b.Float()
+		return sameNumericEqualityType(a, b) && a.Float() == b.Float()
 	case KindString:
 		return a.obj.(string) == b.obj.(string)
 	case KindComplex:
-		return a.obj.(complex128) == b.obj.(complex128)
+		return sameNumericEqualityType(a, b) && a.obj.(complex128) == b.obj.(complex128)
 	default:
 		// For pointer types, compare by identity (address), not by value.
 		// Go's == on pointers checks whether they point to the same location.

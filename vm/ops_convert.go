@@ -7,8 +7,14 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/external"
 	"github.com/t04dJ14n9/gig/model/value"
 )
+
+type interfaceProxyLookup interface {
+	LookupInterfaceProxy(pkgPath, typeName string) (*external.InterfaceProxyInfo, bool)
+	LookupInterfaceProxyByType(ifaceType reflect.Type) (*external.InterfaceProxyInfo, bool)
+}
 
 // executeConvert handles type assertion, conversion, and change-type opcodes.
 func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx
@@ -30,6 +36,12 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 			// Any value can be asserted to interface{}, including nil
 			result = obj
 			assertionOk = true
+			v.pushCommaOk(result, assertionOk)
+			break
+		}
+
+		if dyn, ok := obj.InterpretedInterface(); ok {
+			result, assertionOk = v.assertInterpretedInterfaceValue(dyn, targetType, obj)
 			v.pushCommaOk(result, assertionOk)
 			break
 		}
@@ -308,6 +320,26 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 			break
 		}
 
+		if iface, ok := targetType.Underlying().(*types.Interface); ok && iface.NumMethods() > 0 {
+			if typeName := namedTypeName(concreteType); typeName != "" && shouldPreserveInterpretedNamedType(concreteType, v.program) {
+				interfaceValue := val
+				if (val.IsNil() || !val.IsValid()) && isPointerType(concreteType) {
+					if concreteRT := typeToReflect(concreteType, v.program); concreteRT != nil {
+						interfaceValue = value.MakeFromReflect(reflect.Zero(concreteRT))
+					}
+				}
+				dyn := &value.InterpretedInterfaceValue{
+					Value:     interfaceValue,
+					TypeName:  typeName,
+					IsPointer: isPointerType(concreteType),
+				}
+				if v.interpretedTypeSatisfiesInterface(dyn, iface) {
+					v.push(value.MakeInterpretedInterface(interfaceValue, dyn.TypeName, dyn.IsPointer))
+					break
+				}
+			}
+		}
+
 		// Get the interface's reflect.Type
 		ifaceRT := typeToReflect(targetType, v.program)
 		if ifaceRT == nil {
@@ -344,6 +376,10 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 		// For empty interface (interface{}), wrapping is only needed for typed nil values.
 		// For non-nil concrete values, the existing value is already correct.
 		if ifaceRT.NumMethod() == 0 && !val.IsNil() && val.IsValid() {
+			if typeName := namedTypeName(concreteType); typeName != "" && shouldPreserveInterpretedNamedType(concreteType, v.program) {
+				v.push(value.MakeInterpretedInterface(val, typeName, isPointerType(concreteType)))
+				break
+			}
 			v.push(val)
 			break
 		}
@@ -377,18 +413,167 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 	return nil
 }
 
-func (v *vm) makeInterpretedInterfaceAdapter(targetType, concreteType types.Type, receiver value.Value) (*interpretedInterfaceAdapter, bool) {
-	if !isHostCallbackInterface(targetType) {
-		return nil, false
+func (v *vm) assertInterpretedInterfaceValue(dyn *value.InterpretedInterfaceValue, targetType types.Type, original value.Value) (value.Value, bool) {
+	if iface, ok := targetType.Underlying().(*types.Interface); ok {
+		if iface.NumMethods() == 0 {
+			return original, true
+		}
+		if v.interpretedTypeSatisfiesInterface(dyn, iface) {
+			return original, true
+		}
+		return zeroValueForType(targetType, v.program), false
 	}
+
+	if targetName := namedTypeName(targetType); targetName == dyn.TypeName && isPointerType(targetType) == dyn.IsPointer {
+		if dyn.IsPointer {
+			return dyn.Value, true
+		}
+		if kindMatchesType(dyn.Value.Kind(), dyn.Value.RawSize(), targetType) {
+			return dyn.Value, true
+		}
+	}
+
+	return zeroValueForType(targetType, v.program), false
+}
+
+func (v *vm) interpretedTypeSatisfiesInterface(dyn *value.InterpretedInterfaceValue, iface *types.Interface) bool {
+	if dyn == nil || iface == nil || v == nil || v.program == nil {
+		return false
+	}
+	for i := 0; i < iface.NumMethods(); i++ {
+		methodName := iface.Method(i).Name()
+		found := false
+		for _, fn := range v.program.MethodsByName[methodName] {
+			if fn.ReceiverTypeName == dyn.TypeName && (!fn.ReceiverIsPointer || dyn.IsPointer) {
+				found = true
+				break
+			}
+			if !fn.ReceiverIsPointer || dyn.IsPointer {
+				if _, ok := receiverForCompiledMethodTarget(methodName, dyn.Value, fn, v.program); ok {
+					found = true
+					break
+				}
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
+func zeroValueForType(t types.Type, program *bytecode.CompiledProgram) value.Value {
+	if rt := typeToReflect(t, program); rt != nil {
+		return value.MakeFromReflect(reflect.Zero(rt))
+	}
+	return value.MakeNil()
+}
+
+func shouldPreserveInterpretedNamedType(t types.Type, program *bytecode.CompiledProgram) bool {
+	typeName := namedTypeName(t)
+	if typeName == "" {
+		return false
+	}
+	rt := typeToReflect(t, program)
+	return rt == nil || rt.Name() != typeName
+}
+
+func isPointerType(t types.Type) bool {
+	_, ok := t.(*types.Pointer)
+	return ok
+}
+
+func (v *vm) makeInterpretedInterfaceAdapter(targetType, concreteType types.Type, receiver value.Value) (any, bool) {
 	receiverTypeName := namedTypeName(concreteType)
 	if receiverTypeName == "" {
+		return nil, false
+	}
+
+	if info, ok := v.lookupRegisteredInterfaceProxy(targetType); ok {
+		call := func(methodName string, args ...value.Value) (value.Value, bool) {
+			return callInterfaceMethodValue(
+				v.program, methodName, receiverTypeName, receiver, args,
+				v.getGlobals(), v.initialGlobals, v.shared, v.ctx, v.goroutines,
+			)
+		}
+		if proxy, ok := info.Factory(receiver, receiverTypeName, call); ok {
+			return proxy, true
+		}
+	}
+
+	if isErrorInterface(targetType) && !isStructLikeType(concreteType) {
+		return newInterpretedErrorAdapter(
+			v.program, receiver, receiverTypeName,
+			v.getGlobals(), v.initialGlobals, v.shared, v.ctx, v.goroutines,
+		), true
+	}
+
+	if !isHostCallbackInterface(targetType) {
 		return nil, false
 	}
 	return newInterpretedInterfaceAdapter(
 		v.program, receiver, receiverTypeName,
 		v.getGlobals(), v.initialGlobals, v.shared, v.ctx, v.goroutines,
 	), true
+}
+
+func (v *vm) lookupRegisteredInterfaceProxy(targetType types.Type) (*external.InterfaceProxyInfo, bool) {
+	if v == nil || v.program == nil || v.program.TypeResolver == nil {
+		return nil, false
+	}
+	lookup, ok := v.program.TypeResolver.(interfaceProxyLookup)
+	if !ok {
+		return nil, false
+	}
+	if named, ok := targetType.(*types.Named); ok {
+		obj := named.Obj()
+		if obj != nil && obj.Pkg() != nil {
+			if info, ok := lookup.LookupInterfaceProxy(obj.Pkg().Path(), obj.Name()); ok {
+				return info, true
+			}
+		}
+	}
+	if ifaceRT := typeToReflect(targetType, v.program); ifaceRT != nil {
+		if info, ok := lookup.LookupInterfaceProxyByType(ifaceRT); ok {
+			return info, true
+		}
+	}
+	return nil, false
+}
+
+func isErrorInterface(t types.Type) bool {
+	if named, ok := t.(*types.Named); ok {
+		obj := named.Obj()
+		return obj != nil && obj.Pkg() == nil && obj.Name() == "error"
+	}
+	if iface, ok := t.Underlying().(*types.Interface); ok && iface.NumMethods() == 1 {
+		method := iface.Method(0)
+		sig, ok := method.Type().(*types.Signature)
+		return ok &&
+			method.Name() == "Error" &&
+			sig.Params().Len() == 0 &&
+			sig.Results().Len() == 1 &&
+			types.Identical(sig.Results().At(0).Type(), types.Typ[types.String])
+	}
+	return false
+}
+
+func isStructLikeType(t types.Type) bool {
+	for {
+		if t == nil {
+			return false
+		}
+		switch tt := t.(type) {
+		case *types.Named:
+			_, ok := tt.Underlying().(*types.Struct)
+			return ok
+		case *types.Pointer:
+			t = tt.Elem()
+		default:
+			_, ok := tt.Underlying().(*types.Struct)
+			return ok
+		}
+	}
 }
 
 // isHostCallbackInterface checks whether the target type is sort.Interface or

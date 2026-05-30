@@ -22,35 +22,40 @@ code can call real Go functions.
 ## fmt Wrapper Architecture
 
 The `fmt` package requires special handling because interpreter-synthesized structs
-contain a hidden `_gig_id` sentinel field (used for type identity). Without
-intervention, `fmt.Sprintf("%v", myStruct)` would leak `_gig_id` in output and
-`%T` would report the wrong type name.
+are backed by `reflect.StructOf` types that do not carry Go named-type identity
+or methods. Without intervention, `fmt.Sprintf("%T", myStruct)` would report an
+anonymous struct type and `fmt.Stringer`/`fmt.GoStringer` methods defined in the
+script would be invisible to Go's `fmt` package.
 
 ### How It Works
 
-1. **`sanitizeArgForFmt()`** - Every `fmt.*` DirectCall wrapper passes args
-   through this function. It detects interpreter structs (by `_gig_id` field) and
-   wraps them in `gigStructFormatter`.
+1. **`value.FmtWrap()`** - Generated `fmt.*` DirectCall wrappers pass interface
+   and variadic args through this function. It detects interpreter structs by
+   their registered `reflect.Type` name or `gig` struct tag and wraps them in
+   `gigStructWrapper`.
 
-2. **`gigStructFormatter`** - Implements `fmt.Formatter` and `fmt.Stringer`:
-   - `%v` / `%s`: Prints struct fields (excluding `_gig_id`), or calls `String()`
-     if the interpreted type implements it
+2. **`gigStructWrapper`** - Implements `fmt.Formatter`, `fmt.Stringer`, and
+   `fmt.GoStringer`:
+   - `%v` / `%s`: Prints struct fields, or calls `String()` if the interpreted
+     type implements it
    - `%#v`: Detailed format with field names
-   - `%T`: Reports the correct type name (extracted from `_gig_id.PkgPath`)
+   - `%T`: Reports the interpreter type name from the wrapper metadata
 
-3. **`sprintfWithTypeAwareness()`** - Standard `fmt.Sprintf` bypasses
+3. **`value.SprintfExtern()`** - Standard `fmt.Sprintf` bypasses
    `fmt.Formatter` for `%T`. This function manually parses the format string and
-   substitutes the correct type name for `gigStructFormatter` args.
+   substitutes the correct type name for `gigStructWrapper` args.
 
-4. **`fmt.Stringer` support** - When sanitizing, `value.CallMethod()` checks if the
-   interpreted type has a compiled `String()` method and attaches it as a callback.
+4. **Method-aware formatting** - `FmtWrap` resolves `String()`, `Error()`, and
+   `GoString()` lazily through the VM method resolver only when `fmt` asks for
+   the corresponding interface.
 
 ### Known Limitations
 
 - **Reflect-based structs** (created via `reflect.StructOf` by the interpreter)
-  must always be sanitized before passing to `fmt`.
-- **`%T` format verb** requires the `sprintfWithTypeAwareness` slow path.
-- **`fmt.GoStringer`** interface is not currently supported on interpreted types.
+  must always be wrapped before passing to `fmt`.
+- **`%T` format verb** requires the `value.SprintfExtern` slow path.
+- **Interface method dispatch** works only through the registered wrapper/proxy
+  paths. Plain third-party interface parameters remain rejected by default.
 
 ## Safe External Libraries
 
@@ -149,11 +154,13 @@ These are disabled in `stdlib/pkgs.go` to maintain sandbox isolation.
 1. **Keep `stdlib/pkgs.go` minimal** - Only import packages that interpreted code
    actually needs. Each import increases startup time and memory.
 
-2. **Test thoroughly** - Run `go test ./tests/` to verify all 710+ thirdparty
-   library integration tests pass before deploying.
+2. **Test thoroughly** - Run `go test ./...` in the root module and in nested
+   modules such as `cmd/gig`, `tests/thirdparty_external`, `examples/*`, and
+   `benchmarks` before deploying.
 
-3. **Be cautious with `reflect.StructOf` types** - These require the `_gig_id`
-   sentinel and fmt wrapper. Real Go types (registered via `AddType`) do not.
+3. **Keep third-party boundaries explicit** - Script-defined types are rejected
+   at third-party calls unless they are passed through a registered interface
+   proxy or the host deliberately opts into `WithAllowUnsafeTypePass()`.
 
 4. **Method dispatch** - The `MethodResolverFunc` registry uses `sync.Map` with
    program pointer keys. Clean up programs properly to avoid memory leaks.

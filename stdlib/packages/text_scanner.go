@@ -75,12 +75,12 @@ func direct_method_text_scanner_Scanner_Init(args []value.Value) value.Value {
 
 func direct_method_text_scanner_Scanner_Next(args []value.Value) value.Value {
 	recv := args[0].Interface().(*text_scanner.Scanner)
-	return value.MakeInt(int64(recv.Next()))
+	return value.MakeInt32(recv.Next())
 }
 
 func direct_method_text_scanner_Scanner_Peek(args []value.Value) value.Value {
 	recv := args[0].Interface().(*text_scanner.Scanner)
-	return value.MakeInt(int64(recv.Peek()))
+	return value.MakeInt32(recv.Peek())
 }
 
 func direct_method_text_scanner_Scanner_Pos(args []value.Value) value.Value {
@@ -90,7 +90,7 @@ func direct_method_text_scanner_Scanner_Pos(args []value.Value) value.Value {
 
 func direct_method_text_scanner_Scanner_Scan(args []value.Value) value.Value {
 	recv := args[0].Interface().(*text_scanner.Scanner)
-	return value.MakeInt(int64(recv.Scan()))
+	return value.MakeInt32(recv.Scan())
 }
 
 func direct_method_text_scanner_Scanner_TokenText(args []value.Value) value.Value {

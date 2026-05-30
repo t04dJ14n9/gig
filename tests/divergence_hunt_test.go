@@ -8,110 +8,14 @@ import (
 	"context"
 	_ "embed"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/t04dJ14n9/gig"
 	_ "github.com/t04dJ14n9/gig/stdlib/packages"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt1"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt2"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt3"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt4"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt5"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt6"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt7"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt8"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt9"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt10"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt11"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt12"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt13"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt14"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt15"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt16"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt17"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt18"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt19"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt20"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt21"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt22"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt23"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt24"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt25"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt26"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt27"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt28"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt29"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt30"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt31"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt32"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt33"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt34"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt35"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt36"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt37"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt38"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt39"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt40"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt41"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt42"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt43"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt44"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt45"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt46"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt47"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt48"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt49"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt50"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt51"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt52"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt53"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt54"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt55"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt56"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt57"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt58"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt59"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt60"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt61"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt62"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt63"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt64"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt65"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt66"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt67"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt68"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt69"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt70"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt71"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt72"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt73"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt74"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt75"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt76"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt77"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt78"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt79"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt80"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt81"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt82"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt83"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt84"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt85"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt86"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt87"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt88"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt89"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt90"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt91"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt92"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt93"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt94"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt95"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt96"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt97"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt98"
-	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt99"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt100"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt101"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt102"
@@ -122,6 +26,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt107"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt108"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt109"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt11"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt110"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt111"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt112"
@@ -132,6 +37,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt117"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt118"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt119"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt12"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt120"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt121"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt122"
@@ -142,6 +48,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt127"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt128"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt129"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt13"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt130"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt131"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt132"
@@ -152,6 +59,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt137"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt138"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt139"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt14"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt140"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt141"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt142"
@@ -162,6 +70,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt147"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt148"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt149"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt15"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt150"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt151"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt152"
@@ -172,6 +81,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt157"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt158"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt159"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt16"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt160"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt161"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt162"
@@ -182,6 +92,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt167"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt168"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt169"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt17"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt170"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt171"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt172"
@@ -192,6 +103,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt177"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt178"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt179"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt18"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt180"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt181"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt182"
@@ -202,6 +114,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt187"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt188"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt189"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt19"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt190"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt191"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt192"
@@ -212,6 +125,8 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt197"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt198"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt199"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt2"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt20"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt200"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt201"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt202"
@@ -222,6 +137,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt207"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt208"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt209"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt21"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt210"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt211"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt212"
@@ -232,6 +148,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt217"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt218"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt219"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt22"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt220"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt221"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt222"
@@ -242,6 +159,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt227"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt228"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt229"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt23"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt230"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt231"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt232"
@@ -252,6 +170,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt237"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt238"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt239"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt24"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt240"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt241"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt242"
@@ -262,6 +181,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt247"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt248"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt249"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt25"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt250"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt251"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt252"
@@ -272,6 +192,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt257"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt258"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt259"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt26"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt260"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt261"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt262"
@@ -282,6 +203,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt267"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt268"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt269"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt27"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt270"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt271"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt272"
@@ -292,6 +214,7 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt277"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt278"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt279"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt28"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt280"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt281"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt282"
@@ -302,7 +225,85 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt287"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt288"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt289"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt29"
 	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt290"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt3"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt30"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt31"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt32"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt33"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt34"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt35"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt36"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt37"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt38"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt39"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt4"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt40"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt41"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt42"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt43"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt44"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt45"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt46"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt47"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt48"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt49"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt5"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt50"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt51"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt52"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt53"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt54"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt55"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt56"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt57"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt58"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt59"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt6"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt60"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt61"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt62"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt63"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt64"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt65"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt66"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt67"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt68"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt69"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt7"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt70"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt71"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt72"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt73"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt74"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt75"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt76"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt77"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt78"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt79"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt8"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt80"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt81"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt82"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt83"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt84"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt85"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt86"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt87"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt88"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt89"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt9"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt90"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt91"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt92"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt93"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt94"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt95"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt96"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt97"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt98"
+	"github.com/t04dJ14n9/gig/tests/testdata/divergence_hunt99"
 )
 
 //go:embed testdata/divergence_hunt1/main.go
@@ -784,6 +785,7 @@ var divergenceHunt159Src string
 
 //go:embed testdata/divergence_hunt160/main.go
 var divergenceHunt160Src string
+
 //go:embed testdata/divergence_hunt161/main.go
 var divergenceHunt161Src string
 
@@ -1181,7 +1183,6 @@ type divergenceTestCase struct {
 	funcName    string
 	args        []any
 	native      any  // native function, called via reflection
-	knownIssue  bool // if true, test is skipped (known bug tracked for fixing)
 }
 
 // divergenceTestSet is a set of divergence test cases sharing one source file.
@@ -1198,12 +1199,65 @@ type divergenceTestSet struct {
 // When that happens we fail the sub-test fast instead of hanging the whole suite.
 const perTestTimeout = 8 * time.Second
 
+type divergenceRunResult struct {
+	val      any
+	err      error
+	panicked bool
+	panicVal any
+	timedOut bool
+}
+
+func isTopLevelPanicError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.HasPrefix(msg, "panic: ") || strings.HasPrefix(msg, "runtime panic: ")
+}
+
+func typedNilKind(v any) (reflect.Kind, bool) {
+	if v == nil {
+		return reflect.Invalid, false
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return rv.Kind(), rv.IsNil()
+	default:
+		return reflect.Invalid, false
+	}
+}
+
+func divergenceValuesEqual(interp, native any) bool {
+	if reflect.DeepEqual(interp, native) {
+		return true
+	}
+
+	if interpKind, interpNil := typedNilKind(interp); interpNil {
+		nativeKind, nativeNil := typedNilKind(native)
+		return nativeNil && interpKind == nativeKind
+	}
+
+	interpSlice, interpOK := interp.([]any)
+	nativeSlice, nativeOK := native.([]any)
+	if interpOK && nativeOK && len(interpSlice) == len(nativeSlice) {
+		for i := range interpSlice {
+			if !divergenceValuesEqual(interpSlice[i], nativeSlice[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
+	return false
+}
+
 // runProgramWithWatchdog calls prog.Run with a watchdog goroutine so a hung
 // interpreter call fails the sub-test within perTestTimeout instead of blocking
 // the whole go test run. The underlying goroutine is leaked on timeout (we can't
 // force-kill a goroutine stuck in native code) but the test process is short-lived
 // so it's acceptable.
-func runProgramWithWatchdog(prog *gig.Program, funcName string, args ...any) (any, error, bool) {
+func runProgramWithWatchdog(prog *gig.Program, funcName string, args ...any) divergenceRunResult {
 	type result struct {
 		val any
 		err error
@@ -1217,9 +1271,44 @@ func runProgramWithWatchdog(prog *gig.Program, funcName string, args ...any) (an
 	}()
 	select {
 	case r := <-ch:
-		return r.val, r.err, false
+		return divergenceRunResult{
+			val:      r.val,
+			err:      r.err,
+			panicked: isTopLevelPanicError(r.err),
+			panicVal: r.err,
+		}
 	case <-ctx.Done():
-		return nil, nil, true
+		return divergenceRunResult{timedOut: true}
+	}
+}
+
+func runNativeWithWatchdog(fn any, args []any) divergenceRunResult {
+	type result struct {
+		val      any
+		panicked bool
+		panicVal any
+	}
+	ch := make(chan result, 1)
+	go func() {
+		var r result
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				r.panicked = true
+				r.panicVal = recovered
+			}
+			ch <- r
+		}()
+		r.val = callNative(fn, args)
+	}()
+	select {
+	case r := <-ch:
+		return divergenceRunResult{
+			val:      r.val,
+			panicked: r.panicked,
+			panicVal: r.panicVal,
+		}
+	case <-time.After(perTestTimeout):
+		return divergenceRunResult{timedOut: true}
 	}
 }
 
@@ -1228,23 +1317,6 @@ func runProgramWithWatchdog(prog *gig.Program, funcName string, args ...any) (an
 func runDivergenceTestSet(t *testing.T, set divergenceTestSet) {
 	t.Helper()
 	t.Parallel()
-	// If every test in the set is marked knownIssue, skip the entire set so
-	// that a Build error from the side effect of multiple init() or similar
-	// doesn't fail the test before sub-test skip flags are honored.
-	if len(set.tests) > 0 {
-		allKnown := true
-		for _, tc := range set.tests {
-			if !tc.knownIssue {
-				allKnown = false
-				break
-			}
-		}
-		if allKnown {
-			t.Skip("All tests in this set are marked knownIssue — skipping Build to avoid init-time panics")
-			return
-		}
-	}
-
 	prog, err := gig.Build(set.src, set.buildOpts...)
 	if err != nil {
 		t.Fatalf("Build error: %v", err)
@@ -1253,18 +1325,10 @@ func runDivergenceTestSet(t *testing.T, set divergenceTestSet) {
 
 	for name, tc := range set.tests {
 		t.Run(name, func(t *testing.T) {
-			if tc.knownIssue {
-				t.Skip("KNOWN ISSUE - pending fix")
-			}
-
 			// Run interpreter with per-test watchdog
-			interpResult, interpErr, timedOut := runProgramWithWatchdog(prog, tc.funcName, tc.args...)
-			if timedOut {
+			interp := runProgramWithWatchdog(prog, tc.funcName, tc.args...)
+			if interp.timedOut {
 				t.Errorf("DIVERGENCE (timeout): interpreter hung for >%s running %s", perTestTimeout, tc.funcName)
-				return
-			}
-			if interpErr != nil {
-				t.Errorf("DIVERGENCE (error): %v", interpErr)
 				return
 			}
 
@@ -1272,12 +1336,29 @@ func runDivergenceTestSet(t *testing.T, set divergenceTestSet) {
 			if tc.native == nil {
 				t.Fatalf("native function is nil for %s", name)
 			}
-			nativeResult := callNative(tc.native, tc.args)
+			native := runNativeWithWatchdog(tc.native, tc.args)
+			if native.timedOut {
+				t.Errorf("DIVERGENCE (timeout): native hung for >%s running %s", perTestTimeout, tc.funcName)
+				return
+			}
+
+			if interp.panicked || native.panicked {
+				if interp.panicked != native.panicked {
+					t.Errorf("DIVERGENCE (panic): interp panicked=%v (%v), native panicked=%v (%v)",
+						interp.panicked, interp.panicVal, native.panicked, native.panicVal)
+				}
+				return
+			}
+
+			if interp.err != nil {
+				t.Errorf("DIVERGENCE (error): %v", interp.err)
+				return
+			}
 
 			// Compare
-			if !reflect.DeepEqual(interpResult, nativeResult) {
+			if !divergenceValuesEqual(interp.val, native.val) {
 				t.Errorf("DIVERGENCE (mismatch): interp=%v (%T), native=%v (%T)",
-					interpResult, interpResult, nativeResult, nativeResult)
+					interp.val, interp.val, native.val, native.val)
 			}
 		})
 	}
@@ -2457,8 +2538,21 @@ func TestDivergenceHunt114(t *testing.T) {
 	}})
 }
 func TestDivergenceHunt115(t *testing.T) {
+	nativeInt := func(fn func() int) func() int {
+		return func() int {
+			divergence_hunt115.ResetForTest()
+			return fn()
+		}
+	}
+	nativeString := func(fn func() string) func() string {
+		return func() string {
+			divergence_hunt115.ResetForTest()
+			return fn()
+		}
+	}
+
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt115Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"GlobalRead": {funcName: "GlobalRead", native: divergence_hunt115.GlobalRead}, "GlobalModify": {funcName: "GlobalModify", native: divergence_hunt115.GlobalModify}, "GlobalSliceRead": {funcName: "GlobalSliceRead", native: divergence_hunt115.GlobalSliceRead}, "GlobalSliceLen": {funcName: "GlobalSliceLen", native: divergence_hunt115.GlobalSliceLen}, "GlobalMapRead": {funcName: "GlobalMapRead", native: divergence_hunt115.GlobalMapRead}, "GlobalMapLen": {funcName: "GlobalMapLen", native: divergence_hunt115.GlobalMapLen}, "GlobalStringRead": {funcName: "GlobalStringRead", native: divergence_hunt115.GlobalStringRead}, "GlobalInitValues": {funcName: "GlobalInitValues", native: divergence_hunt115.GlobalInitValues},
+		"GlobalRead": {funcName: "GlobalRead", native: nativeInt(divergence_hunt115.GlobalRead)}, "GlobalModify": {funcName: "GlobalModify", native: nativeInt(divergence_hunt115.GlobalModify)}, "GlobalSliceRead": {funcName: "GlobalSliceRead", native: nativeString(divergence_hunt115.GlobalSliceRead)}, "GlobalSliceLen": {funcName: "GlobalSliceLen", native: nativeInt(divergence_hunt115.GlobalSliceLen)}, "GlobalMapRead": {funcName: "GlobalMapRead", native: nativeString(divergence_hunt115.GlobalMapRead)}, "GlobalMapLen": {funcName: "GlobalMapLen", native: nativeInt(divergence_hunt115.GlobalMapLen)}, "GlobalStringRead": {funcName: "GlobalStringRead", native: nativeString(divergence_hunt115.GlobalStringRead)}, "GlobalInitValues": {funcName: "GlobalInitValues", native: nativeString(divergence_hunt115.GlobalInitValues)},
 	}})
 }
 func TestDivergenceHunt116(t *testing.T) {
@@ -2694,17 +2788,17 @@ func TestDivergenceHunt161(t *testing.T) {
 }
 func TestDivergenceHunt162(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt162Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"NilValueReceiver": {funcName: "NilValueReceiver", native: divergence_hunt162.NilValueReceiver, knownIssue: true},
+		"NilValueReceiver":              {funcName: "NilValueReceiver", native: divergence_hunt162.NilValueReceiver},
 		"NilPointerReceiverSafe": {funcName: "NilPointerReceiverSafe", native: divergence_hunt162.NilPointerReceiverSafe},
 		"NonNilValueReceiver": {funcName: "NonNilValueReceiver", native: divergence_hunt162.NonNilValueReceiver},
 		"NonNilPointerReceiver": {funcName: "NonNilPointerReceiver", native: divergence_hunt162.NonNilPointerReceiver},
-		"NilMixedReceiverValueMethod": {funcName: "NilMixedReceiverValueMethod", native: divergence_hunt162.NilMixedReceiverValueMethod, knownIssue: true},
+		"NilMixedReceiverValueMethod":   {funcName: "NilMixedReceiverValueMethod", native: divergence_hunt162.NilMixedReceiverValueMethod},
 		"NilMixedReceiverPointerMethod": {funcName: "NilMixedReceiverPointerMethod", native: divergence_hunt162.NilMixedReceiverPointerMethod},
 		"InterfaceWithNilConcrete": {funcName: "InterfaceWithNilConcrete", native: divergence_hunt162.InterfaceWithNilConcrete},
-		"NilInterfaceCall": {funcName: "NilInterfaceCall", native: divergence_hunt162.NilInterfaceCall, knownIssue: true},
-		"NestedNilReceiver": {funcName: "NestedNilReceiver", native: divergence_hunt162.NestedNilReceiver, knownIssue: true},
+		"NilInterfaceCall":              {funcName: "NilInterfaceCall", native: divergence_hunt162.NilInterfaceCall},
+		"NestedNilReceiver":             {funcName: "NestedNilReceiver", native: divergence_hunt162.NestedNilReceiver},
 		"SliceOfInterfacesWithNil": {funcName: "SliceOfInterfacesWithNil", native: divergence_hunt162.SliceOfInterfacesWithNil},
-		"MapWithNilValues": {funcName: "MapWithNilValues", native: divergence_hunt162.MapWithNilValues, knownIssue: true},
+		"MapWithNilValues":              {funcName: "MapWithNilValues", native: divergence_hunt162.MapWithNilValues},
 	}})
 }
 func TestDivergenceHunt163(t *testing.T) {
@@ -2721,8 +2815,8 @@ func TestDivergenceHunt164(t *testing.T) {
 		"MethodSetDifference": {funcName: "MethodSetDifference", native: divergence_hunt164.MethodSetDifference},
 		"InterfaceSatisfactionValue": {funcName: "InterfaceSatisfactionValue", native: divergence_hunt164.InterfaceSatisfactionValue},
 		"InterfaceSatisfactionPointer": {funcName: "InterfaceSatisfactionPointer", native: divergence_hunt164.InterfaceSatisfactionPointer},
-		"NilPointerReceiverWithValueMethod": {funcName: "NilPointerReceiverWithValueMethod", native: divergence_hunt164.NilPointerReceiverWithValueMethod, knownIssue: true},
-		"NilPointerReceiverWithPointerMethod": {funcName: "NilPointerReceiverWithPointerMethod", native: divergence_hunt164.NilPointerReceiverWithPointerMethod, knownIssue: true},
+		"NilPointerReceiverWithValueMethod":   {funcName: "NilPointerReceiverWithValueMethod", native: divergence_hunt164.NilPointerReceiverWithValueMethod},
+		"NilPointerReceiverWithPointerMethod": {funcName: "NilPointerReceiverWithPointerMethod", native: divergence_hunt164.NilPointerReceiverWithPointerMethod},
 		"AssignmentToInterface": {funcName: "AssignmentToInterface", native: divergence_hunt164.AssignmentToInterface},
 		"SliceOfStructsWithMethods": {funcName: "SliceOfStructsWithMethods", native: divergence_hunt164.SliceOfStructsWithMethods},
 		"MapOfStructsWithMethods": {funcName: "MapOfStructsWithMethods", native: divergence_hunt164.MapOfStructsWithMethods},
@@ -2874,7 +2968,7 @@ func TestDivergenceHunt189(t *testing.T) {
 }
 func TestDivergenceHunt190(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt190Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"BasicTypeSwitch": {funcName: "BasicTypeSwitch", native: divergence_hunt190.BasicTypeSwitch}, "TypeSwitchString": {funcName: "TypeSwitchString", native: divergence_hunt190.TypeSwitchString}, "TypeSwitchMultipleTypes": {funcName: "TypeSwitchMultipleTypes", native: divergence_hunt190.TypeSwitchMultipleTypes}, "TypeSwitchBool": {funcName: "TypeSwitchBool", native: divergence_hunt190.TypeSwitchBool}, "TypeSwitchSlice": {funcName: "TypeSwitchSlice", native: divergence_hunt190.TypeSwitchSlice}, "TypeSwitchMap": {funcName: "TypeSwitchMap", native: divergence_hunt190.TypeSwitchMap}, "TypeSwitchNil": {funcName: "TypeSwitchNil", native: divergence_hunt190.TypeSwitchNil}, "TypeSwitchPointer": {funcName: "TypeSwitchPointer", native: divergence_hunt190.TypeSwitchPointer}, "TypeSwitchInterface": {funcName: "TypeSwitchInterface", native: divergence_hunt190.TypeSwitchInterface, knownIssue: true}, "TypeSwitchDefault": {funcName: "TypeSwitchDefault", native: divergence_hunt190.TypeSwitchDefault}, "TypeSwitchFunction": {funcName: "TypeSwitchFunction", native: divergence_hunt190.TypeSwitchFunction},
+		"BasicTypeSwitch": {funcName: "BasicTypeSwitch", native: divergence_hunt190.BasicTypeSwitch}, "TypeSwitchString": {funcName: "TypeSwitchString", native: divergence_hunt190.TypeSwitchString}, "TypeSwitchMultipleTypes": {funcName: "TypeSwitchMultipleTypes", native: divergence_hunt190.TypeSwitchMultipleTypes}, "TypeSwitchBool": {funcName: "TypeSwitchBool", native: divergence_hunt190.TypeSwitchBool}, "TypeSwitchSlice": {funcName: "TypeSwitchSlice", native: divergence_hunt190.TypeSwitchSlice}, "TypeSwitchMap": {funcName: "TypeSwitchMap", native: divergence_hunt190.TypeSwitchMap}, "TypeSwitchNil": {funcName: "TypeSwitchNil", native: divergence_hunt190.TypeSwitchNil}, "TypeSwitchPointer": {funcName: "TypeSwitchPointer", native: divergence_hunt190.TypeSwitchPointer}, "TypeSwitchInterface": {funcName: "TypeSwitchInterface", native: divergence_hunt190.TypeSwitchInterface}, "TypeSwitchDefault": {funcName: "TypeSwitchDefault", native: divergence_hunt190.TypeSwitchDefault}, "TypeSwitchFunction": {funcName: "TypeSwitchFunction", native: divergence_hunt190.TypeSwitchFunction},
 	}})
 }
 func TestDivergenceHunt191(t *testing.T) {
@@ -2942,7 +3036,7 @@ func TestDivergenceHunt200(t *testing.T) {
 		"InterfaceMethodSet": {funcName: "InterfaceMethodSet", native: divergence_hunt200.InterfaceMethodSet},
 		"InterfaceEmbedding": {funcName: "InterfaceEmbedding", native: divergence_hunt200.InterfaceEmbedding},
 		"InterfaceAssignmentCompatibility": {funcName: "InterfaceAssignmentCompatibility", native: divergence_hunt200.InterfaceAssignmentCompatibility},
-		"InterfaceComparisonWithDifferentTypes": {funcName: "InterfaceComparisonWithDifferentTypes", native: divergence_hunt200.InterfaceComparisonWithDifferentTypes, knownIssue: true},
+		"InterfaceComparisonWithDifferentTypes": {funcName: "InterfaceComparisonWithDifferentTypes", native: divergence_hunt200.InterfaceComparisonWithDifferentTypes},
 		"InterfacePointerReceiver": {funcName: "InterfacePointerReceiver", native: divergence_hunt200.InterfacePointerReceiver},
 		"InterfaceValueReceiver": {funcName: "InterfaceValueReceiver", native: divergence_hunt200.InterfaceValueReceiver},
 	}})
@@ -2988,7 +3082,7 @@ func TestDivergenceHunt205(t *testing.T) {
 		"InterfaceTypeWithNil": {funcName: "InterfaceTypeWithNil", native: divergence_hunt205.InterfaceTypeWithNil},
 		"CompareNilInterfaces": {funcName: "CompareNilInterfaces", native: divergence_hunt205.CompareNilInterfaces},
 		"ReturnNilInterface": {funcName: "ReturnNilInterface", native: divergence_hunt205.ReturnNilInterface},
-		"ReturnNilPointerInterface": {funcName: "ReturnNilPointerInterface", native: divergence_hunt205.ReturnNilPointerInterface, knownIssue: true},
+		"ReturnNilPointerInterface": {funcName: "ReturnNilPointerInterface", native: divergence_hunt205.ReturnNilPointerInterface},
 		"NilReturnComparison": {funcName: "NilReturnComparison", native: divergence_hunt205.NilReturnComparison},
 	}})
 }
@@ -2998,7 +3092,7 @@ func TestDivergenceHunt206(t *testing.T) {
 		"TypeAssertionFail": {funcName: "TypeAssertionFail", native: divergence_hunt206.TypeAssertionFail},
 		"TypeAssertionPanic": {funcName: "TypeAssertionPanic", native: divergence_hunt206.TypeAssertionPanic},
 		"TypeSwitchWithInterface": {funcName: "TypeSwitchWithInterface", native: divergence_hunt206.TypeSwitchWithInterface},
-		"NestedInterfaceAssertion": {funcName: "NestedInterfaceAssertion", native: divergence_hunt206.NestedInterfaceAssertion, knownIssue: true},
+		"NestedInterfaceAssertion": {funcName: "NestedInterfaceAssertion", native: divergence_hunt206.NestedInterfaceAssertion},
 		"InterfaceToConcrete": {funcName: "InterfaceToConcrete", native: divergence_hunt206.InterfaceToConcrete},
 		"PointerTypeAssertion": {funcName: "PointerTypeAssertion", native: divergence_hunt206.PointerTypeAssertion},
 		"NilInterfaceAssertion": {funcName: "NilInterfaceAssertion", native: divergence_hunt206.NilInterfaceAssertion},
@@ -3033,7 +3127,7 @@ func TestDivergenceHunt211(t *testing.T) {
 }
 func TestDivergenceHunt212(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt212Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"RangeOverClosedChannel": {funcName: "RangeOverClosedChannel", native: divergence_hunt212.RangeOverClosedChannel}, "RangeOverEmptyClosedChannel": {funcName: "RangeOverEmptyClosedChannel", native: divergence_hunt212.RangeOverEmptyClosedChannel}, "CloseChannelReceiveValues": {funcName: "CloseChannelReceiveValues", native: divergence_hunt212.CloseChannelReceiveValues}, "CloseChannelWithGoroutine": {funcName: "CloseChannelWithGoroutine", knownIssue: true, native: divergence_hunt212.CloseChannelWithGoroutine}, "DoubleClosePanic": {funcName: "DoubleClosePanic", native: divergence_hunt212.DoubleClosePanic}, "CloseNilChannelPanic": {funcName: "CloseNilChannelPanic", native: divergence_hunt212.CloseNilChannelPanic}, "RangeWithBreak": {funcName: "RangeWithBreak", native: divergence_hunt212.RangeWithBreak}, "RangeStringChannel": {funcName: "RangeStringChannel", native: divergence_hunt212.RangeStringChannel}, "RangeStructChannel": {funcName: "RangeStructChannel", native: divergence_hunt212.RangeStructChannel}, "PartialReceiveThenRange": {funcName: "PartialReceiveThenRange", native: divergence_hunt212.PartialReceiveThenRange}, "CloseSentinelPattern": {funcName: "CloseSentinelPattern", knownIssue: true, native: divergence_hunt212.CloseSentinelPattern},
+		"RangeOverClosedChannel": {funcName: "RangeOverClosedChannel", native: divergence_hunt212.RangeOverClosedChannel}, "RangeOverEmptyClosedChannel": {funcName: "RangeOverEmptyClosedChannel", native: divergence_hunt212.RangeOverEmptyClosedChannel}, "CloseChannelReceiveValues": {funcName: "CloseChannelReceiveValues", native: divergence_hunt212.CloseChannelReceiveValues}, "CloseChannelWithGoroutine": {funcName: "CloseChannelWithGoroutine", native: divergence_hunt212.CloseChannelWithGoroutine}, "DoubleClosePanic": {funcName: "DoubleClosePanic", native: divergence_hunt212.DoubleClosePanic}, "CloseNilChannelPanic": {funcName: "CloseNilChannelPanic", native: divergence_hunt212.CloseNilChannelPanic}, "RangeWithBreak": {funcName: "RangeWithBreak", native: divergence_hunt212.RangeWithBreak}, "RangeStringChannel": {funcName: "RangeStringChannel", native: divergence_hunt212.RangeStringChannel}, "RangeStructChannel": {funcName: "RangeStructChannel", native: divergence_hunt212.RangeStructChannel}, "PartialReceiveThenRange": {funcName: "PartialReceiveThenRange", native: divergence_hunt212.PartialReceiveThenRange}, "CloseSentinelPattern": {funcName: "CloseSentinelPattern", native: divergence_hunt212.CloseSentinelPattern},
 	}})
 }
 func TestDivergenceHunt213(t *testing.T) {
@@ -3048,7 +3142,7 @@ func TestDivergenceHunt214(t *testing.T) {
 }
 func TestDivergenceHunt215(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt215Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"SendOnlyChannel": {funcName: "SendOnlyChannel", native: divergence_hunt215.SendOnlyChannel}, "ReceiveOnlyChannel": {funcName: "ReceiveOnlyChannel", native: divergence_hunt215.ReceiveOnlyChannel}, "BidirectionalAsSendOnly": {funcName: "BidirectionalAsSendOnly", native: divergence_hunt215.BidirectionalAsSendOnly}, "BidirectionalAsReceiveOnly": {funcName: "BidirectionalAsReceiveOnly", native: divergence_hunt215.BidirectionalAsReceiveOnly}, "DirectionConversion": {funcName: "DirectionConversion", native: divergence_hunt215.DirectionConversion}, "FunctionWithDirectionalChannels": {funcName: "FunctionWithDirectionalChannels", native: divergence_hunt215.FunctionWithDirectionalChannels}, "PipelinePattern": {funcName: "PipelinePattern", native: divergence_hunt215.PipelinePattern}, "CannotReceiveFromSendOnly": {funcName: "CannotReceiveFromSendOnly", native: divergence_hunt215.CannotReceiveFromSendOnly}, "CannotSendToReceiveOnly": {funcName: "CannotSendToReceiveOnly", native: divergence_hunt215.CannotSendToReceiveOnly}, "DirectionalChannelInStruct": {funcName: "DirectionalChannelInStruct", knownIssue: true, native: divergence_hunt215.DirectionalChannelInStruct}, "CloseSendOnlyChannel": {funcName: "CloseSendOnlyChannel", native: divergence_hunt215.CloseSendOnlyChannel},
+		"SendOnlyChannel": {funcName: "SendOnlyChannel", native: divergence_hunt215.SendOnlyChannel}, "ReceiveOnlyChannel": {funcName: "ReceiveOnlyChannel", native: divergence_hunt215.ReceiveOnlyChannel}, "BidirectionalAsSendOnly": {funcName: "BidirectionalAsSendOnly", native: divergence_hunt215.BidirectionalAsSendOnly}, "BidirectionalAsReceiveOnly": {funcName: "BidirectionalAsReceiveOnly", native: divergence_hunt215.BidirectionalAsReceiveOnly}, "DirectionConversion": {funcName: "DirectionConversion", native: divergence_hunt215.DirectionConversion}, "FunctionWithDirectionalChannels": {funcName: "FunctionWithDirectionalChannels", native: divergence_hunt215.FunctionWithDirectionalChannels}, "PipelinePattern": {funcName: "PipelinePattern", native: divergence_hunt215.PipelinePattern}, "CannotReceiveFromSendOnly": {funcName: "CannotReceiveFromSendOnly", native: divergence_hunt215.CannotReceiveFromSendOnly}, "CannotSendToReceiveOnly": {funcName: "CannotSendToReceiveOnly", native: divergence_hunt215.CannotSendToReceiveOnly}, "DirectionalChannelInStruct": {funcName: "DirectionalChannelInStruct", native: divergence_hunt215.DirectionalChannelInStruct}, "CloseSendOnlyChannel": {funcName: "CloseSendOnlyChannel", native: divergence_hunt215.CloseSendOnlyChannel},
 	}})
 }
 func TestDivergenceHunt216(t *testing.T) {
@@ -3058,12 +3152,12 @@ func TestDivergenceHunt216(t *testing.T) {
 }
 func TestDivergenceHunt217(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt217Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"OnceBasic": {funcName: "OnceBasic", native: divergence_hunt217.OnceBasic}, "OnceWithGoroutines": {funcName: "OnceWithGoroutines", native: divergence_hunt217.OnceWithGoroutines}, "OnceWithDataInitialization": {funcName: "OnceWithDataInitialization", native: divergence_hunt217.OnceWithDataInitialization}, "OnceWithPanic": {funcName: "OnceWithPanic", native: divergence_hunt217.OnceWithPanic, knownIssue: true}, "OncePerInstance": {funcName: "OncePerInstance", native: divergence_hunt217.OncePerInstance}, "OnceWithComplexInitialization": {funcName: "OnceWithComplexInitialization", native: divergence_hunt217.OnceWithComplexInitialization}, "MultipleOnceVariables": {funcName: "MultipleOnceVariables", native: divergence_hunt217.MultipleOnceVariables}, "OnceWithMutexCombo": {funcName: "OnceWithMutexCombo", native: divergence_hunt217.OnceWithMutexCombo}, "OnceInStructSlice": {funcName: "OnceInStructSlice", native: divergence_hunt217.OnceInStructSlice}, "OnceWithLazyLoading": {funcName: "OnceWithLazyLoading", native: divergence_hunt217.OnceWithLazyLoading}, "OnceWithChannelClose": {funcName: "OnceWithChannelClose", native: divergence_hunt217.OnceWithChannelClose},
+		"OnceBasic": {funcName: "OnceBasic", native: divergence_hunt217.OnceBasic}, "OnceWithGoroutines": {funcName: "OnceWithGoroutines", native: divergence_hunt217.OnceWithGoroutines}, "OnceWithDataInitialization": {funcName: "OnceWithDataInitialization", native: divergence_hunt217.OnceWithDataInitialization}, "OnceWithPanic": {funcName: "OnceWithPanic", native: divergence_hunt217.OnceWithPanic}, "OncePerInstance": {funcName: "OncePerInstance", native: divergence_hunt217.OncePerInstance}, "OnceWithComplexInitialization": {funcName: "OnceWithComplexInitialization", native: divergence_hunt217.OnceWithComplexInitialization}, "MultipleOnceVariables": {funcName: "MultipleOnceVariables", native: divergence_hunt217.MultipleOnceVariables}, "OnceWithMutexCombo": {funcName: "OnceWithMutexCombo", native: divergence_hunt217.OnceWithMutexCombo}, "OnceInStructSlice": {funcName: "OnceInStructSlice", native: divergence_hunt217.OnceInStructSlice}, "OnceWithLazyLoading": {funcName: "OnceWithLazyLoading", native: divergence_hunt217.OnceWithLazyLoading}, "OnceWithChannelClose": {funcName: "OnceWithChannelClose", native: divergence_hunt217.OnceWithChannelClose},
 	}})
 }
 func TestDivergenceHunt218(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt218Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"SyncMapBasic": {funcName: "SyncMapBasic", native: divergence_hunt218.SyncMapBasic}, "SyncMapLoadOrStore": {funcName: "SyncMapLoadOrStore", native: divergence_hunt218.SyncMapLoadOrStore}, "SyncMapDelete": {funcName: "SyncMapDelete", native: divergence_hunt218.SyncMapDelete}, "SyncMapRange": {funcName: "SyncMapRange", native: divergence_hunt218.SyncMapRange, knownIssue: true}, "SyncMapRangeEarlyExit": {funcName: "SyncMapRangeEarlyExit", native: divergence_hunt218.SyncMapRangeEarlyExit}, "SyncMapLoadAndDelete": {funcName: "SyncMapLoadAndDelete", native: divergence_hunt218.SyncMapLoadAndDelete}, "SyncMapSwap": {funcName: "SyncMapSwap", native: divergence_hunt218.SyncMapSwap}, "SyncMapCompareAndSwap": {funcName: "SyncMapCompareAndSwap", native: divergence_hunt218.SyncMapCompareAndSwap}, "SyncMapCompareAndDelete": {funcName: "SyncMapCompareAndDelete", native: divergence_hunt218.SyncMapCompareAndDelete}, "SyncMapWithGoroutines": {funcName: "SyncMapWithGoroutines", native: divergence_hunt218.SyncMapWithGoroutines}, "SyncMapTypeSafety": {funcName: "SyncMapTypeSafety", native: divergence_hunt218.SyncMapTypeSafety},
+		"SyncMapBasic": {funcName: "SyncMapBasic", native: divergence_hunt218.SyncMapBasic}, "SyncMapLoadOrStore": {funcName: "SyncMapLoadOrStore", native: divergence_hunt218.SyncMapLoadOrStore}, "SyncMapDelete": {funcName: "SyncMapDelete", native: divergence_hunt218.SyncMapDelete}, "SyncMapRange": {funcName: "SyncMapRange", native: divergence_hunt218.SyncMapRange}, "SyncMapRangeEarlyExit": {funcName: "SyncMapRangeEarlyExit", native: divergence_hunt218.SyncMapRangeEarlyExit}, "SyncMapLoadAndDelete": {funcName: "SyncMapLoadAndDelete", native: divergence_hunt218.SyncMapLoadAndDelete}, "SyncMapSwap": {funcName: "SyncMapSwap", native: divergence_hunt218.SyncMapSwap}, "SyncMapCompareAndSwap": {funcName: "SyncMapCompareAndSwap", native: divergence_hunt218.SyncMapCompareAndSwap}, "SyncMapCompareAndDelete": {funcName: "SyncMapCompareAndDelete", native: divergence_hunt218.SyncMapCompareAndDelete}, "SyncMapWithGoroutines": {funcName: "SyncMapWithGoroutines", native: divergence_hunt218.SyncMapWithGoroutines}, "SyncMapTypeSafety": {funcName: "SyncMapTypeSafety", native: divergence_hunt218.SyncMapTypeSafety},
 	}})
 }
 func TestDivergenceHunt219(t *testing.T) {
@@ -3073,7 +3167,7 @@ func TestDivergenceHunt219(t *testing.T) {
 }
 func TestDivergenceHunt220(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt220Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"RWMutexBasic": {funcName: "RWMutexBasic", native: divergence_hunt220.RWMutexBasic}, "RWMutexMultipleReaders": {funcName: "RWMutexMultipleReaders", native: divergence_hunt220.RWMutexMultipleReaders, knownIssue: true}, "RWMutexWriterExclusion": {funcName: "RWMutexWriterExclusion", native: divergence_hunt220.RWMutexWriterExclusion}, "RWMutexDeferredUnlock": {funcName: "RWMutexDeferredUnlock", native: divergence_hunt220.RWMutexDeferredUnlock}, "RWMutexDeferredRUnlock": {funcName: "RWMutexDeferredRUnlock", native: divergence_hunt220.RWMutexDeferredRUnlock}, "RWMutexPromote": {funcName: "RWMutexPromote", native: divergence_hunt220.RWMutexPromote}, "RWMutexNestedReadLock": {funcName: "RWMutexNestedReadLock", native: divergence_hunt220.RWMutexNestedReadLock}, "RWMutexWithWaitGroup": {funcName: "RWMutexWithWaitGroup", native: divergence_hunt220.RWMutexWithWaitGroup}, "RWMutexTryLock": {funcName: "RWMutexTryLock", native: divergence_hunt220.RWMutexTryLock}, "RWMutexTryRLock": {funcName: "RWMutexTryRLock", native: divergence_hunt220.RWMutexTryRLock}, "RWMutexInStruct": {funcName: "RWMutexInStruct", native: divergence_hunt220.RWMutexInStruct}, "RWMutexReadPrefer": {funcName: "RWMutexReadPrefer", native: divergence_hunt220.RWMutexReadPrefer},
+		"RWMutexBasic": {funcName: "RWMutexBasic", native: divergence_hunt220.RWMutexBasic}, "RWMutexMultipleReaders": {funcName: "RWMutexMultipleReaders", native: divergence_hunt220.RWMutexMultipleReaders}, "RWMutexWriterExclusion": {funcName: "RWMutexWriterExclusion", native: divergence_hunt220.RWMutexWriterExclusion}, "RWMutexDeferredUnlock": {funcName: "RWMutexDeferredUnlock", native: divergence_hunt220.RWMutexDeferredUnlock}, "RWMutexDeferredRUnlock": {funcName: "RWMutexDeferredRUnlock", native: divergence_hunt220.RWMutexDeferredRUnlock}, "RWMutexPromote": {funcName: "RWMutexPromote", native: divergence_hunt220.RWMutexPromote}, "RWMutexNestedReadLock": {funcName: "RWMutexNestedReadLock", native: divergence_hunt220.RWMutexNestedReadLock}, "RWMutexWithWaitGroup": {funcName: "RWMutexWithWaitGroup", native: divergence_hunt220.RWMutexWithWaitGroup}, "RWMutexTryLock": {funcName: "RWMutexTryLock", native: divergence_hunt220.RWMutexTryLock}, "RWMutexTryRLock": {funcName: "RWMutexTryRLock", native: divergence_hunt220.RWMutexTryRLock}, "RWMutexInStruct": {funcName: "RWMutexInStruct", native: divergence_hunt220.RWMutexInStruct}, "RWMutexReadPrefer": {funcName: "RWMutexReadPrefer", native: divergence_hunt220.RWMutexReadPrefer},
 	}})
 }
 func TestDivergenceHunt221(t *testing.T) {
@@ -3083,7 +3177,7 @@ func TestDivergenceHunt221(t *testing.T) {
 		"MapIterationKeys": {funcName: "MapIterationKeys", native: divergence_hunt221.MapIterationKeys},
 		"MapIterationValues": {funcName: "MapIterationValues", native: divergence_hunt221.MapIterationValues},
 		"MapIterationOrder": {funcName: "MapIterationOrder", native: divergence_hunt221.MapIterationOrder},
-		"MapIterationBreak": {funcName: "MapIterationBreak", native: divergence_hunt221.MapIterationBreak, knownIssue: true},
+		"MapIterationBreak":      {funcName: "MapIterationBreak", native: divergence_hunt221.MapIterationBreak},
 		"MapIterationContinue": {funcName: "MapIterationContinue", native: divergence_hunt221.MapIterationContinue},
 		"MapIterationNested": {funcName: "MapIterationNested", native: divergence_hunt221.MapIterationNested},
 		"MapIterationWithModify": {funcName: "MapIterationWithModify", native: divergence_hunt221.MapIterationWithModify},
@@ -3221,7 +3315,7 @@ func TestDivergenceHunt240(t *testing.T) {
 		"GoStringerVsStringer":       {funcName: "GoStringerVsStringer", native: divergence_hunt240.GoStringerVsStringer},
 		"GoStringerInSlice":          {funcName: "GoStringerInSlice", native: divergence_hunt240.GoStringerInSlice},
 		"GoStringerNilCheck":         {funcName: "GoStringerNilCheck", native: divergence_hunt240.GoStringerNilCheck},
-		"GoStringerEmptyStruct":      {funcName: "GoStringerEmptyStruct", native: divergence_hunt240.GoStringerEmptyStruct, knownIssue: true},
+		"GoStringerEmptyStruct":      {funcName: "GoStringerEmptyStruct", native: divergence_hunt240.GoStringerEmptyStruct},
 		"GoStringerNestedStruct":     {funcName: "GoStringerNestedStruct", native: divergence_hunt240.GoStringerNestedStruct},
 		"GoStringerWithPointer":      {funcName: "GoStringerWithPointer", native: divergence_hunt240.GoStringerWithPointer},
 		"GoStringerFormatComparison": {funcName: "GoStringerFormatComparison", native: divergence_hunt240.GoStringerFormatComparison},
@@ -3259,17 +3353,17 @@ func TestDivergenceHunt246(t *testing.T) {
 }
 func TestDivergenceHunt247(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt247Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"ErrorInterfaceBasic": {funcName: "ErrorInterfaceBasic", native: divergence_hunt247.ErrorInterfaceBasic}, "ErrorInterfaceNil": {funcName: "ErrorInterfaceNil", native: divergence_hunt247.ErrorInterfaceNil}, "ErrorInterfacePointerNil": {funcName: "ErrorInterfacePointerNil", native: divergence_hunt247.ErrorInterfacePointerNil}, "ErrorInterfaceAssignability": {funcName: "ErrorInterfaceAssignability", native: divergence_hunt247.ErrorInterfaceAssignability, knownIssue: true}, "ErrorInterfaceMethodSet": {funcName: "ErrorInterfaceMethodSet", native: divergence_hunt247.ErrorInterfaceMethodSet}, "ErrorInterfaceAssertion": {funcName: "ErrorInterfaceAssertion", native: divergence_hunt247.ErrorInterfaceAssertion}, "ErrorInterfaceEmptyString": {funcName: "ErrorInterfaceEmptyString", native: divergence_hunt247.ErrorInterfaceEmptyString}, "ErrorInterfaceComparison": {funcName: "ErrorInterfaceComparison", native: divergence_hunt247.ErrorInterfaceComparison}, "ErrorInterfaceSlice": {funcName: "ErrorInterfaceSlice", native: divergence_hunt247.ErrorInterfaceSlice}, "ErrorInterfaceMap": {funcName: "ErrorInterfaceMap", native: divergence_hunt247.ErrorInterfaceMap}, "ErrorInterfaceFunction": {funcName: "ErrorInterfaceFunction", native: divergence_hunt247.ErrorInterfaceFunction},
+		"ErrorInterfaceBasic": {funcName: "ErrorInterfaceBasic", native: divergence_hunt247.ErrorInterfaceBasic}, "ErrorInterfaceNil": {funcName: "ErrorInterfaceNil", native: divergence_hunt247.ErrorInterfaceNil}, "ErrorInterfacePointerNil": {funcName: "ErrorInterfacePointerNil", native: divergence_hunt247.ErrorInterfacePointerNil}, "ErrorInterfaceAssignability": {funcName: "ErrorInterfaceAssignability", native: divergence_hunt247.ErrorInterfaceAssignability}, "ErrorInterfaceMethodSet": {funcName: "ErrorInterfaceMethodSet", native: divergence_hunt247.ErrorInterfaceMethodSet}, "ErrorInterfaceAssertion": {funcName: "ErrorInterfaceAssertion", native: divergence_hunt247.ErrorInterfaceAssertion}, "ErrorInterfaceEmptyString": {funcName: "ErrorInterfaceEmptyString", native: divergence_hunt247.ErrorInterfaceEmptyString}, "ErrorInterfaceComparison": {funcName: "ErrorInterfaceComparison", native: divergence_hunt247.ErrorInterfaceComparison}, "ErrorInterfaceSlice": {funcName: "ErrorInterfaceSlice", native: divergence_hunt247.ErrorInterfaceSlice}, "ErrorInterfaceMap": {funcName: "ErrorInterfaceMap", native: divergence_hunt247.ErrorInterfaceMap}, "ErrorInterfaceFunction": {funcName: "ErrorInterfaceFunction", native: divergence_hunt247.ErrorInterfaceFunction},
 	}})
 }
 func TestDivergenceHunt248(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt248Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
 		"CustomErrorStruct": {funcName: "CustomErrorStruct", native: divergence_hunt248.CustomErrorStruct},
-		"CustomErrorString": {funcName: "CustomErrorString", native: divergence_hunt248.CustomErrorString, knownIssue: true},
+		"CustomErrorString":       {funcName: "CustomErrorString", native: divergence_hunt248.CustomErrorString},
 		"CustomErrorWithUnwrap": {funcName: "CustomErrorWithUnwrap", native: divergence_hunt248.CustomErrorWithUnwrap},
 		"CustomErrorIs": {funcName: "CustomErrorIs", native: divergence_hunt248.CustomErrorIs},
 		"CustomErrorAs": {funcName: "CustomErrorAs", native: divergence_hunt248.CustomErrorAs},
-		"CustomErrorHierarchy": {funcName: "CustomErrorHierarchy", native: divergence_hunt248.CustomErrorHierarchy, knownIssue: true},
+		"CustomErrorHierarchy":    {funcName: "CustomErrorHierarchy", native: divergence_hunt248.CustomErrorHierarchy},
 		"CustomErrorPointerValue": {funcName: "CustomErrorPointerValue", native: divergence_hunt248.CustomErrorPointerValue},
 		"CustomErrorNilPointer": {funcName: "CustomErrorNilPointer", native: divergence_hunt248.CustomErrorNilPointer},
 		"CustomErrorComposite": {funcName: "CustomErrorComposite", native: divergence_hunt248.CustomErrorComposite},
@@ -3284,8 +3378,8 @@ func TestDivergenceHunt249(t *testing.T) {
 		"ErrorsIsNilTarget": {funcName: "ErrorsIsNilTarget", native: divergence_hunt249.ErrorsIsNilTarget},
 		"ErrorsAsBasic": {funcName: "ErrorsAsBasic", native: divergence_hunt249.ErrorsAsBasic},
 		"ErrorsAsWrapped": {funcName: "ErrorsAsWrapped", native: divergence_hunt249.ErrorsAsWrapped},
-		"ErrorsAsInterface": {funcName: "ErrorsAsInterface", native: divergence_hunt249.ErrorsAsInterface, knownIssue: true},
-		"ErrorsAsNotMatching": {funcName: "ErrorsAsNotMatching", native: divergence_hunt249.ErrorsAsNotMatching, knownIssue: true},
+		"ErrorsAsInterface":     {funcName: "ErrorsAsInterface", native: divergence_hunt249.ErrorsAsInterface},
+		"ErrorsAsNotMatching":   {funcName: "ErrorsAsNotMatching", native: divergence_hunt249.ErrorsAsNotMatching},
 		"ErrorsIsSentinel": {funcName: "ErrorsIsSentinel", native: divergence_hunt249.ErrorsIsSentinel},
 		"ErrorsIsAndAsTogether": {funcName: "ErrorsIsAndAsTogether", native: divergence_hunt249.ErrorsIsAndAsTogether},
 		"ErrorsAsPointerValue": {funcName: "ErrorsAsPointerValue", native: divergence_hunt249.ErrorsAsPointerValue},
@@ -3328,7 +3422,7 @@ func TestDivergenceHunt254(t *testing.T) {
 }
 func TestDivergenceHunt255(t *testing.T) {
 	runDivergenceTestSet(t, divergenceTestSet{src: divergenceHunt255Src, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}, tests: map[string]divergenceTestCase{
-		"ShadowSimple": {funcName: "ShadowSimple", native: divergence_hunt255.ShadowSimple}, "ShadowInLoop": {funcName: "ShadowInLoop", native: divergence_hunt255.ShadowInLoop}, "ShadowIfStatement": {funcName: "ShadowIfStatement", native: divergence_hunt255.ShadowIfStatement}, "ShadowSwitchStatement": {funcName: "ShadowSwitchStatement", native: divergence_hunt255.ShadowSwitchStatement}, "ShadowForRange": {funcName: "ShadowForRange", native: divergence_hunt255.ShadowForRange}, "ShadowMultipleScopes": {funcName: "ShadowMultipleScopes", native: divergence_hunt255.ShadowMultipleScopes}, "ShadowFunctionParam": {funcName: "ShadowFunctionParam", native: divergence_hunt255.ShadowFunctionParam, knownIssue: true}, "ShadowWithShortDecl": {funcName: "ShadowWithShortDecl", native: divergence_hunt255.ShadowWithShortDecl}, "ShadowGlobal": {funcName: "ShadowGlobal", native: divergence_hunt255.ShadowGlobal}, "ShadowSameType": {funcName: "ShadowSameType", native: divergence_hunt255.ShadowSameType}, "ShadowDifferentType": {funcName: "ShadowDifferentType", native: divergence_hunt255.ShadowDifferentType},
+		"ShadowSimple": {funcName: "ShadowSimple", native: divergence_hunt255.ShadowSimple}, "ShadowInLoop": {funcName: "ShadowInLoop", native: divergence_hunt255.ShadowInLoop}, "ShadowIfStatement": {funcName: "ShadowIfStatement", native: divergence_hunt255.ShadowIfStatement}, "ShadowSwitchStatement": {funcName: "ShadowSwitchStatement", native: divergence_hunt255.ShadowSwitchStatement}, "ShadowForRange": {funcName: "ShadowForRange", native: divergence_hunt255.ShadowForRange}, "ShadowMultipleScopes": {funcName: "ShadowMultipleScopes", native: divergence_hunt255.ShadowMultipleScopes}, "ShadowFunctionParam": {funcName: "ShadowFunctionParam", args: []any{5}, native: divergence_hunt255.ShadowFunctionParam}, "ShadowWithShortDecl": {funcName: "ShadowWithShortDecl", native: divergence_hunt255.ShadowWithShortDecl}, "ShadowGlobal": {funcName: "ShadowGlobal", native: divergence_hunt255.ShadowGlobal}, "ShadowSameType": {funcName: "ShadowSameType", native: divergence_hunt255.ShadowSameType}, "ShadowDifferentType": {funcName: "ShadowDifferentType", native: divergence_hunt255.ShadowDifferentType},
 	}})
 }
 func TestDivergenceHunt256(t *testing.T) {
@@ -3785,7 +3879,7 @@ func TestDivergenceHunt288(t *testing.T) {
 		"SendOnClosedChannelPanics":  {funcName: "SendOnClosedChannelPanics", native: divergence_hunt288.SendOnClosedChannelPanics},
 		"ChannelOfString":            {funcName: "ChannelOfString", native: divergence_hunt288.ChannelOfString},
 		"ChannelOfStruct":            {funcName: "ChannelOfStruct", native: divergence_hunt288.ChannelOfStruct},
-		"SelectWithMultipleReady":    {funcName: "SelectWithMultipleReady", native: divergence_hunt288.SelectWithMultipleReady, knownIssue: true},
+		"SelectWithMultipleReady":    {funcName: "SelectWithMultipleReady", native: divergence_hunt288.SelectWithMultipleReady},
 		"BidirectionalChannelAsSend": {funcName: "BidirectionalChannelAsSend", native: divergence_hunt288.BidirectionalChannelAsSend},
 	}})
 }
