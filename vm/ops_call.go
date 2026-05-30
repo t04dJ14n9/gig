@@ -3,6 +3,7 @@ package vm
 
 import (
 	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/external"
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
@@ -86,6 +87,47 @@ func (v *vm) executeCall(op bytecode.OpCode, frame *Frame) error { //nolint:gocy
 
 				// Run the child VM (ignore return value - goroutine result is discarded)
 				_, _ = childVM.run()
+			}); err != nil {
+				return err
+			}
+		}
+
+	case bytecode.OpGoCallExternal:
+		funcIdx := frame.readUint16()
+		numArgs := frame.readByte()
+
+		args := make([]value.Value, numArgs)
+		for i := int(numArgs) - 1; i >= 0; i-- {
+			args[i] = v.pop()
+		}
+
+		if int(funcIdx) >= len(v.program.Constants) {
+			return nil
+		}
+
+		switch info := v.program.Constants[funcIdx].(type) {
+		case *external.ExternalMethodInfo:
+			if err := v.validateExternalMethodBoundary(info, args); err != nil {
+				return err
+			}
+			childVM := v.newChildVM()
+			capturedInfo := info
+			capturedArgs := args
+			if err := v.goroutines.Start(func() {
+				_ = childVM.callExternalMethod(capturedInfo, capturedArgs)
+			}); err != nil {
+				return err
+			}
+		case *external.ExternalFuncInfo:
+			rc := bytecode.ResolveConstant(info)
+			if err := v.validateExternalBoundary(rc, args); err != nil {
+				return err
+			}
+			childVM := v.newChildVM()
+			capturedRC := rc
+			capturedArgs := args
+			if err := v.goroutines.Start(func() {
+				_ = childVM.callResolvedExternal(capturedRC, capturedArgs)
 			}); err != nil {
 				return err
 			}

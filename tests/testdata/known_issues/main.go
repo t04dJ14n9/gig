@@ -11,11 +11,10 @@ import (
 )
 
 // ============================================================================
-// Known issues test data.
+// Resolved issue regression test data.
 //
-// This file contains test cases for known interpreter bugs/limitations.
-// When a bug is fixed, remove its function from here and promote to a
-// passing test (e.g. in divergence_hunt_test.go or correctness_test.go).
+// This file contains test cases for interpreter bugs and limitations that are
+// now expected to behave like native Go.
 // ============================================================================
 
 // --- Category 1: Interface with nil concrete type ---
@@ -37,7 +36,6 @@ func (p *PointerReceiver) String() string {
 
 // InterfaceWithNilConcrete tests interface holding nil concrete type.
 // In Go, an interface holding a nil pointer is NOT nil (it has a type but no value).
-// The interpreter incorrectly treats the interface as nil.
 func InterfaceWithNilConcrete() any {
 	var p *PointerReceiver
 	var s Stringer = p
@@ -48,7 +46,6 @@ func InterfaceWithNilConcrete() any {
 }
 
 // NilInterfaceCall tests calling method on nil interface.
-// Should recover from panic, but interpreter panics differently.
 func NilInterfaceCall() any {
 	var s Stringer
 	defer func() {
@@ -75,7 +72,6 @@ func NestedNilReceiver() (result any) {
 // --- Category 2: Three-index slicing ---
 
 // ThreeIndexByteSlice tests three-index slicing on byte slice.
-// b[0:5:11] should give len=5, cap=11, but interpreter returns len=0, cap=0.
 func ThreeIndexByteSlice() any {
 	b := []byte("hello world")
 	b2 := b[0:5:11]
@@ -91,8 +87,6 @@ func (s ByLength) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s ByLength) Less(i, j int) bool { return len(s[i]) < len(s[j]) }
 
 // SortByLength tests sort.Sort with custom sort.Interface.
-// sort.Sort uses reflection to check interface implementation.
-// Interpreter's type wrapping doesn't expose methods to reflection.
 func SortByLength() any {
 	words := []string{"apple", "pie", "banana", "kiwi"}
 	sort.Sort(ByLength(words))
@@ -137,6 +131,22 @@ func (r Reverse) Less(i, j int) bool {
 func SortReverse() any {
 	nums := []int{3, 1, 4, 1, 5, 9, 2, 6}
 	sort.Sort(Reverse{sort.IntSlice(nums)})
+	return fmt.Sprintf("%v", nums)
+}
+
+// Descending wraps sort.Interface like Reverse but deliberately uses a different
+// type name so adapter dispatch cannot depend on a hard-coded receiver name.
+type Descending struct {
+	sort.Interface
+}
+
+func (d Descending) Less(i, j int) bool {
+	return d.Interface.Less(j, i)
+}
+
+func SortEmbeddedInterfaceDescending() any {
+	nums := []int{3, 1, 4, 1, 5, 9, 2, 6}
+	sort.Sort(Descending{sort.IntSlice(nums)})
 	return fmt.Sprintf("%v", nums)
 }
 
@@ -233,7 +243,6 @@ func ErrorsIsAndAsTogether() any {
 // --- Category 6: io.MultiWriter callback ---
 
 // MultiWriterTest tests io.MultiWriter.
-// io.MultiWriter uses interface callbacks that interpreter cannot dispatch.
 func MultiWriterTest() any {
 	buf1 := &strings.Builder{}
 	buf2 := &strings.Builder{}
@@ -245,7 +254,6 @@ func MultiWriterTest() any {
 // --- Category 7: Sync primitives ---
 
 // SyncMapRange tests sync.Map.Range callback.
-// sync.Map.Range takes a callback function that interpreter cannot dispatch.
 func SyncMapRange() any {
 	var m sync.Map
 	m.Store("a", 1)

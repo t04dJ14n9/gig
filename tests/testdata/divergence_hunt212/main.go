@@ -44,7 +44,7 @@ func CloseChannelReceiveValues() string {
 
 func CloseChannelWithGoroutine() string {
 	ch := make(chan string)
-	result := make(chan string)
+	result := make(chan string, 3)
 
 	go func() {
 		for val := range ch {
@@ -155,16 +155,12 @@ func PartialReceiveThenRange() string {
 
 func CloseSentinelPattern() string {
 	ch := make(chan int)
-	done := make(chan struct{})
 
 	go func() {
 		ch <- 1
 		ch <- 2
-		close(done)
+		close(ch)
 	}()
-
-	<-done
-	close(ch)
 
 	result := ""
 	for val := range ch {

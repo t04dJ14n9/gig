@@ -80,6 +80,33 @@ func TestRejectUserTypeToThirdParty(t *testing.T) {
 		nil,
 	)
 
+	userInt := types.NewNamed(
+		types.NewTypeName(0, userPkg, "MyInt", nil),
+		types.Typ[types.Int],
+		nil,
+	)
+
+	structWithUserField := types.NewStruct(
+		[]*types.Var{types.NewVar(0, nil, "Field", userInt)},
+		[]string{""},
+	)
+
+	funcWithUserParam := types.NewSignatureType(
+		nil,
+		nil,
+		nil,
+		types.NewTuple(types.NewVar(0, nil, "v", userInt)),
+		nil,
+		false,
+	)
+
+	ifaceWithUserParam := types.NewInterfaceType(
+		[]*types.Func{
+			types.NewFunc(0, nil, "Use", funcWithUserParam),
+		},
+		nil,
+	).Complete()
+
 	sortPkg := types.NewPackage("sort", "sort")
 	sortType := types.NewNamed(
 		types.NewTypeName(0, sortPkg, "IntSlice", nil),
@@ -99,6 +126,10 @@ func TestRejectUserTypeToThirdParty(t *testing.T) {
 		{"primitive to third-party is allowed", "github.com/foo/bar", []types.Type{types.Typ[types.Int]}, false},
 		{"slice of user type to third-party is rejected", "github.com/foo/bar", []types.Type{types.NewSlice(userType)}, true},
 		{"pointer to user type to third-party is rejected", "github.com/foo/bar", []types.Type{types.NewPointer(userType)}, true},
+		{"struct field containing user type to third-party is rejected", "github.com/foo/bar", []types.Type{structWithUserField}, true},
+		{"function parameter containing user type to third-party is rejected", "github.com/foo/bar", []types.Type{funcWithUserParam}, true},
+		{"interface method containing user type to third-party is rejected", "github.com/foo/bar", []types.Type{ifaceWithUserParam}, true},
+		{"chan of user type to third-party is rejected", "github.com/foo/bar", []types.Type{types.NewChan(types.SendRecv, userInt)}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

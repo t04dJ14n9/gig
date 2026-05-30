@@ -96,7 +96,13 @@ func (c *Closure) Execute(args []reflect.Value, outTypes []reflect.Type) []refle
 	}
 	// Call the closure function with its captured free variables
 	closureVM.callFunction(c.Fn, valArgs, c.FreeVars)
-	result, _ := closureVM.run()
+	result, err := closureVM.run()
+	if err != nil {
+		if closureVM.lastPanicVal.IsValid() {
+			panic(closureVM.lastPanicVal.Interface())
+		}
+		panic(err)
+	}
 	// Return the result as reflect.Value
 	if result.Kind() == value.KindNil {
 		return []reflect.Value{}

@@ -3,9 +3,11 @@ package vm
 import (
 	"go/types"
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/t04dJ14n9/gig/model/bytecode"
+	"github.com/t04dJ14n9/gig/model/external"
 )
 
 // ---------------------------------------------------------------------------
@@ -211,6 +213,45 @@ func TestTypeToReflectStruct(t *testing.T) {
 	}
 	if rt.NumField() != 2 {
 		t.Errorf("typeToReflect(struct).NumField() = %d, want 2", rt.NumField())
+	}
+}
+
+func TestTypeToReflectDemotesAnonymousInterfaceWithMethods(t *testing.T) {
+	ifaceRT := reflect.TypeOf((*sort.Interface)(nil)).Elem()
+	prog := &bytecode.CompiledProgram{
+		TypeResolver: interfaceProxyTestResolver{
+			info: &external.InterfaceProxyInfo{
+				PkgPath:       "sort",
+				Name:          "Interface",
+				InterfaceType: ifaceRT,
+			},
+		},
+	}
+
+	sortPkg := types.NewPackage("sort", "sort")
+	intType := types.Typ[types.Int]
+	boolType := types.Typ[types.Bool]
+	iface := types.NewInterfaceType([]*types.Func{
+		types.NewFunc(0, sortPkg, "Len", types.NewSignatureType(nil, nil, nil, nil, types.NewTuple(types.NewVar(0, nil, "", intType)), false)),
+		types.NewFunc(0, sortPkg, "Less", types.NewSignatureType(nil, nil, nil, types.NewTuple(types.NewVar(0, nil, "", intType), types.NewVar(0, nil, "", intType)), types.NewTuple(types.NewVar(0, nil, "", boolType)), false)),
+		types.NewFunc(0, sortPkg, "Swap", types.NewSignatureType(nil, nil, nil, types.NewTuple(types.NewVar(0, nil, "", intType), types.NewVar(0, nil, "", intType)), nil, false)),
+	}, nil)
+	iface.Complete()
+	namedIface := types.NewNamed(types.NewTypeName(0, sortPkg, "Interface", nil), iface, nil)
+	structType := types.NewStruct([]*types.Var{
+		types.NewField(0, nil, "Interface", namedIface, true),
+	}, nil)
+
+	rt := typeToReflect(structType, prog)
+	if rt == nil {
+		t.Fatal("typeToReflect(struct{sort.Interface}) returned nil")
+	}
+	field := rt.Field(0)
+	if field.Anonymous {
+		t.Fatal("embedded interface field with methods stayed anonymous")
+	}
+	if field.Type != ifaceRT {
+		t.Fatalf("field type = %v, want %v", field.Type, ifaceRT)
 	}
 }
 

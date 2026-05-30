@@ -120,6 +120,44 @@ func TestRunnerRunFunctionNotFound(t *testing.T) {
 	}
 }
 
+func TestRunnerRunRejectsWrongArity(t *testing.T) {
+	prog := buildTestProgram("compute", 42)
+	prog.Functions["two"] = &bytecode.CompiledFunction{
+		Name: "two",
+		Instructions: []byte{
+			byte(bytecode.OpConst), 0, 0,
+			byte(bytecode.OpReturnVal),
+		},
+		NumLocals: 2,
+		NumParams: 2,
+		MaxStack:  1,
+	}
+	prog.Functions["variadic"] = &bytecode.CompiledFunction{
+		Name: "variadic",
+		Instructions: []byte{
+			byte(bytecode.OpConst), 0, 0,
+			byte(bytecode.OpReturnVal),
+		},
+		NumLocals:  2,
+		NumParams:  2,
+		IsVariadic: true,
+		MaxStack:   1,
+	}
+
+	r := New(prog, nil)
+	defer r.Close()
+
+	if _, err := r.Run("compute", 1); err == nil {
+		t.Fatal("expected error for extra argument to non-variadic function")
+	}
+	if _, err := r.Run("two", 1); err == nil {
+		t.Fatal("expected error for missing argument to non-variadic function")
+	}
+	if _, err := r.Run("variadic"); err == nil {
+		t.Fatal("expected error for missing fixed argument to variadic function")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Runner.RunWithContext
 // ---------------------------------------------------------------------------

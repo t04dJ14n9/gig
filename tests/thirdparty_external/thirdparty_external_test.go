@@ -82,6 +82,9 @@ var deepcopySrc string
 //go:embed testdata/mergo_source.go
 var mergoSrc string
 
+//go:embed testdata/mergo_map_source.go
+var mergoMapSrc string
+
 //go:embed testdata/jsoniter_source.go
 var jsoniterSrc string
 
@@ -160,6 +163,20 @@ func runSourceSet(t *testing.T, set sourceSet) {
 				t.Fatalf("%s: got %v (%T), want %v (%T)", tc.funcName, got, got, tc.want, tc.want)
 			}
 		})
+	}
+}
+
+func assertBuildRejectsScriptStructBoundary(t *testing.T, src string) {
+	t.Helper()
+	_, err := gig.Build(src)
+	if err == nil {
+		t.Fatal("Build succeeded; expected third-party boundary rejection for script-defined struct")
+	}
+	msg := err.Error()
+	for _, want := range []string{"cannot pass interpreter-defined type", "third-party function"} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("Build error %q does not contain %q", msg, want)
+		}
 	}
 }
 
@@ -279,13 +296,7 @@ func TestThirdpartyExternal_JWT(t *testing.T) {
 // --- mapstructure ---
 
 func TestThirdpartyExternal_Mapstructure(t *testing.T) {
-	runSourceSet(t, sourceSet{
-		src: mapstructureSrc,
-		cases: map[string]caseItem{
-			"decode name": {funcName: "MapstructureDecode", args: []any{map[string]any{"Name": "Alice", "Age": 30}}, want: "Alice"},
-			"weak decode": {funcName: "MapstructureWeakDecode", args: []any{map[string]any{"Port": "8080"}}, want: 8080},
-		},
-	})
+	assertBuildRejectsScriptStructBoundary(t, mapstructureSrc)
 }
 
 // --- validator ---
@@ -344,57 +355,13 @@ func TestThirdpartyExternal_Zap(t *testing.T) {
 // --- toml ---
 
 func TestThirdpartyExternal_Toml(t *testing.T) {
-	runSourceSet(t, sourceSet{
-		src: tomlSrc,
-		cases: map[string]caseItem{
-			"unmarshal": {funcName: "TomlUnmarshal", args: nil, want: "hello"},
-		},
-	})
-
-	// TomlMarshal returns a string containing the TOML — just check it contains "Name"
-	prog, err := gig.Build(tomlSrc)
-	if err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
-	got, err := prog.Run("TomlMarshal")
-	if err != nil {
-		t.Fatalf("Run TomlMarshal failed: %v", err)
-	}
-	s, ok := got.(string)
-	if !ok {
-		t.Fatalf("TomlMarshal: expected string, got %T", got)
-	}
-	if !strings.Contains(s, "Name") {
-		t.Fatalf("TomlMarshal: expected TOML containing 'Name', got %q", s)
-	}
+	assertBuildRejectsScriptStructBoundary(t, tomlSrc)
 }
 
 // --- yaml ---
 
 func TestThirdpartyExternal_Yaml(t *testing.T) {
-	runSourceSet(t, sourceSet{
-		src: yamlSrc,
-		cases: map[string]caseItem{
-			"unmarshal": {funcName: "YamlUnmarshal", args: nil, want: "Alice"},
-		},
-	})
-
-	// YamlMarshal returns a string containing "name:" — just check it
-	prog, err := gig.Build(yamlSrc)
-	if err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
-	got, err := prog.Run("YamlMarshal")
-	if err != nil {
-		t.Fatalf("Run YamlMarshal failed: %v", err)
-	}
-	s, ok := got.(string)
-	if !ok {
-		t.Fatalf("YamlMarshal: expected string, got %T", got)
-	}
-	if !strings.Contains(s, "name:") {
-		t.Fatalf("YamlMarshal: expected YAML containing 'name:', got %q", s)
-	}
+	assertBuildRejectsScriptStructBoundary(t, yamlSrc)
 }
 
 // --- cron ---
@@ -597,12 +564,11 @@ func TestThirdpartyExternal_Deepcopy(t *testing.T) {
 // --- mergo ---
 
 func TestThirdpartyExternal_Mergo(t *testing.T) {
+	assertBuildRejectsScriptStructBoundary(t, mergoSrc)
 	runSourceSet(t, sourceSet{
-		src: mergoSrc,
+		src: mergoMapSrc,
 		cases: map[string]caseItem{
-			"merge":             {funcName: "MergoMerge", args: nil, want: "Alice"},
-			"merge override":    {funcName: "MergoMergeWithOverride", args: nil, want: "Bob"},
-			"map":               {funcName: "MergoMap", args: nil, want: "3"},
+			"map": {funcName: "MergoMap", args: nil, want: "3"},
 		},
 	})
 }

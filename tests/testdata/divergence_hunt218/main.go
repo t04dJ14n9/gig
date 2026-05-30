@@ -2,6 +2,7 @@ package divergence_hunt218
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -42,10 +43,15 @@ func SyncMapRange() string {
 	m.Store("c", 3)
 
 	result := ""
+	entries := []string{}
 	m.Range(func(key, value interface{}) bool {
-		result += fmt.Sprintf("%v=%v;", key, value)
+		entries = append(entries, fmt.Sprintf("%v=%v;", key, value))
 		return true
 	})
+	sort.Strings(entries)
+	for _, entry := range entries {
+		result += entry
+	}
 
 	return result
 }

@@ -80,7 +80,7 @@ func (it *iterator) next() (key, val value.Value, ok bool) {
 				}
 				r, size := utf8.DecodeRuneInString(s[it.index:])
 				key = value.MakeInt(int64(it.index))
-				val = value.MakeInt(int64(r))
+				val = value.MakeInt32(r)
 				it.index += size
 				return key, val, true
 			case reflect.Slice, reflect.Array:

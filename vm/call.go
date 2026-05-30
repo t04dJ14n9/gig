@@ -3,6 +3,7 @@
 package vm
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -265,11 +266,24 @@ func (v *vm) callExternal(funcIdx, numArgs int) error {
 
 	// Direct array lookup into pre-resolved table (no locks!)
 	rc := v.externCall(funcIdx)
+	if rc == nil {
+		return fmt.Errorf("unresolved external call at constant index %d", funcIdx)
+	}
+	return v.callResolvedExternal(rc, args)
+}
+
+func (v *vm) callResolvedExternal(rc *bytecode.ResolvedCall, args []value.Value) error {
+	if rc == nil {
+		return fmt.Errorf("unresolved external call")
+	}
+	if err := v.validateExternalBoundary(rc, args); err != nil {
+		return err
+	}
 
 	// Fast path: DirectCall available
 	if rc.DirectCall != nil {
-		if rc.IsVariadic && numArgs == rc.NumIn {
-			args = unpackVariadicArgs(args, numArgs)
+		if rc.IsVariadic && len(args) == rc.NumIn {
+			args = unpackVariadicArgs(args, len(args))
 		}
 		if rc.FnType != nil {
 			convertClosureArgs(args, rc.FnType)
@@ -293,6 +307,212 @@ func (v *vm) externCall(funcIdx int) *bytecode.ResolvedCall {
 	}
 	// Fallback: resolve from constant pool (rare — only if pre-resolution missed it)
 	return resolveConstantFallback(v.program, funcIdx)
+}
+
+func (v *vm) validateExternalBoundary(rc *bytecode.ResolvedCall, args []value.Value) error {
+	if rc == nil || v.program.AllowUnsafeTypePass || isStdlibExternalPath(rc.PkgPath) {
+		return nil
+	}
+	for i, arg := range args {
+		targetType := externalBoundaryReflectArgType(rc.FnType, i)
+		if typeName, ok := v.interpreterDefinedBoundaryType(arg, targetType); ok {
+			return fmt.Errorf(
+				"cannot pass interpreter-defined type %q to third-party function %s.%s (argument %d): "+
+					"value crossed the boundary through an interface. "+
+					"Use primitive types, slices, maps, types from registered packages, or a registered interface proxy instead",
+				typeName, rc.PkgPath, rc.FuncName, i+1,
+			)
+		}
+	}
+	return nil
+}
+
+func externalBoundaryReflectArgType(fnType reflect.Type, argIndex int) reflect.Type {
+	if fnType == nil || fnType.Kind() != reflect.Func || argIndex < 0 {
+		return nil
+	}
+	numIn := fnType.NumIn()
+	if argIndex < numIn {
+		if fnType.IsVariadic() && argIndex == numIn-1 {
+			return fnType.In(argIndex).Elem()
+		}
+		return fnType.In(argIndex)
+	}
+	if fnType.IsVariadic() && numIn > 0 {
+		return fnType.In(numIn - 1).Elem()
+	}
+	return nil
+}
+
+func (v *vm) interpreterDefinedBoundaryType(arg value.Value, targetType reflect.Type) (string, bool) {
+	if dyn, ok := arg.InterpretedInterface(); ok {
+		if dyn.TypeName != "" {
+			return dyn.TypeName, true
+		}
+		return "<unknown>", true
+	}
+	if arg.Kind() == value.KindFunc {
+		closure, ok := arg.RawObj().(*Closure)
+		if !ok {
+			return "", false
+		}
+		if canPassInterpretedFuncToThirdParty(targetType) {
+			return "", false
+		}
+		if closure.Fn != nil && closure.Fn.Name != "" {
+			return "func " + closure.Fn.Name, true
+		}
+		return "func", true
+	}
+	if rv, ok := arg.ReflectValue(); ok {
+		return v.interpreterDefinedReflectValueType(rv, make(map[reflect.Type]bool), 0)
+	}
+	return "", false
+}
+
+func canPassInterpretedFuncToThirdParty(targetType reflect.Type) bool {
+	if targetType == nil || targetType.Kind() != reflect.Func {
+		return false
+	}
+	for i := 0; i < targetType.NumOut(); i++ {
+		if reflectTypeContainsInterface(targetType.Out(i), make(map[reflect.Type]bool)) {
+			return false
+		}
+	}
+	return true
+}
+
+func reflectTypeContainsInterface(rt reflect.Type, seen map[reflect.Type]bool) bool {
+	if rt == nil || seen[rt] {
+		return false
+	}
+	seen[rt] = true
+
+	switch rt.Kind() {
+	case reflect.Interface:
+		return true
+	case reflect.Ptr, reflect.Slice, reflect.Array, reflect.Chan:
+		return reflectTypeContainsInterface(rt.Elem(), seen)
+	case reflect.Map:
+		return reflectTypeContainsInterface(rt.Key(), seen) || reflectTypeContainsInterface(rt.Elem(), seen)
+	case reflect.Struct:
+		for i := 0; i < rt.NumField(); i++ {
+			if reflectTypeContainsInterface(rt.Field(i).Type, seen) {
+				return true
+			}
+		}
+	case reflect.Func:
+		for i := 0; i < rt.NumOut(); i++ {
+			if reflectTypeContainsInterface(rt.Out(i), seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+const maxBoundaryValidationDepth = 64
+
+func (v *vm) interpreterDefinedReflectValueType(rv reflect.Value, seen map[reflect.Type]bool, depth int) (string, bool) {
+	if !rv.IsValid() {
+		return "", false
+	}
+	if depth > maxBoundaryValidationDepth {
+		return "<unknown>", true
+	}
+	if typeName, ok := v.interpreterDefinedReflectType(rv.Type(), seen); ok {
+		return typeName, true
+	}
+
+	switch rv.Kind() {
+	case reflect.Interface:
+		if rv.IsNil() {
+			return "", false
+		}
+		return v.interpreterDefinedReflectValueType(rv.Elem(), seen, depth+1)
+	case reflect.Ptr:
+		if rv.IsNil() {
+			return "", false
+		}
+		return v.interpreterDefinedReflectValueType(rv.Elem(), seen, depth+1)
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < rv.Len(); i++ {
+			if typeName, ok := v.interpreterDefinedReflectValueType(rv.Index(i), seen, depth+1); ok {
+				return typeName, true
+			}
+		}
+	case reflect.Map:
+		iter := rv.MapRange()
+		for iter.Next() {
+			if typeName, ok := v.interpreterDefinedReflectValueType(iter.Key(), seen, depth+1); ok {
+				return typeName, true
+			}
+			if typeName, ok := v.interpreterDefinedReflectValueType(iter.Value(), seen, depth+1); ok {
+				return typeName, true
+			}
+		}
+	case reflect.Struct:
+		for i := 0; i < rv.NumField(); i++ {
+			if typeName, ok := v.interpreterDefinedReflectValueType(rv.Field(i), seen, depth+1); ok {
+				return typeName, true
+			}
+		}
+	}
+
+	return "", false
+}
+
+func (v *vm) interpreterDefinedReflectType(rt reflect.Type, seen map[reflect.Type]bool) (string, bool) {
+	if rt == nil || seen[rt] {
+		return "", false
+	}
+	seen[rt] = true
+
+	if typeName := resolveTypeName(rt, v.program); typeName != "" && isInterpreterSynthesizedReflectType(rt, v.program) {
+		return typeName, true
+	}
+
+	switch rt.Kind() {
+	case reflect.Ptr, reflect.Slice, reflect.Array, reflect.Chan:
+		return v.interpreterDefinedReflectType(rt.Elem(), seen)
+	case reflect.Map:
+		if typeName, ok := v.interpreterDefinedReflectType(rt.Key(), seen); ok {
+			return typeName, true
+		}
+		return v.interpreterDefinedReflectType(rt.Elem(), seen)
+	case reflect.Struct:
+		for i := 0; i < rt.NumField(); i++ {
+			if typeName, ok := v.interpreterDefinedReflectType(rt.Field(i).Type, seen); ok {
+				return typeName, true
+			}
+		}
+	}
+
+	return "", false
+}
+
+func isInterpreterSynthesizedReflectType(rt reflect.Type, prog *bytecode.CompiledProgram) bool {
+	if rt == nil {
+		return false
+	}
+	if prog != nil {
+		if name := prog.LookupTypeName(rt); name != "" {
+			return true
+		}
+	}
+	return pkgPathTypeName(rt) != ""
+}
+
+func isStdlibExternalPath(path string) bool {
+	if path == "" || path == "command-line-arguments" || path == "main" {
+		return true
+	}
+	firstSlash := strings.IndexByte(path, '/')
+	firstSegment := path
+	if firstSlash >= 0 {
+		firstSegment = path[:firstSlash]
+	}
+	return !strings.ContainsRune(firstSegment, '.')
 }
 
 // resolveConstantFallback resolves a constant pool entry on-the-fly.
@@ -369,9 +589,11 @@ func buildReflectArgs(args []value.Value, fnType reflect.Type) []reflect.Value {
 // callExternalReflect executes an external function using reflect.Call.
 // This is the slow path when no DirectCall wrapper is available.
 func (v *vm) callExternalReflect(rc *bytecode.ResolvedCall, args []value.Value) error {
+	if rc == nil {
+		return fmt.Errorf("unresolved external call")
+	}
 	if !rc.Fn.IsValid() || rc.Fn.Kind() != reflect.Func {
-		v.push(value.MakeNil())
-		return nil
+		return fmt.Errorf("invalid external function: missing reflect.Func")
 	}
 
 	in := buildReflectArgs(args, rc.FnType)
@@ -402,6 +624,10 @@ func (v *vm) callExternalMethod(methodInfo *external.ExternalMethodInfo, args []
 		}
 	}
 
+	if err := v.validateExternalMethodBoundary(methodInfo, args); err != nil {
+		return err
+	}
+
 	// Fast path: DirectCall wrapper resolved at compile time
 	if methodInfo.DirectCall != nil {
 		convertClosureArgsForMethod(methodInfo.MethodName, args)
@@ -413,6 +639,85 @@ func (v *vm) callExternalMethod(methodInfo *external.ExternalMethodInfo, args []
 	return v.callExternalMethodReflect(methodInfo, args)
 }
 
+func (v *vm) validateExternalMethodBoundary(methodInfo *external.ExternalMethodInfo, args []value.Value) error {
+	if methodInfo == nil || v.program.AllowUnsafeTypePass || isStdlibExternalPath(methodInfo.PkgPath) {
+		return nil
+	}
+	if len(args) == 0 {
+		return nil
+	}
+	methodType := reflectMethodTypeForBoundary(args[0], methodInfo.MethodName)
+	for i, arg := range args[1:] {
+		targetType := externalBoundaryReflectArgType(methodType, i)
+		if typeName, ok := v.interpreterDefinedBoundaryType(arg, targetType); ok {
+			funcName := methodInfo.FuncName
+			if funcName == "" {
+				funcName = methodInfo.MethodName
+			}
+			return fmt.Errorf(
+				"cannot pass interpreter-defined type %q to third-party function %s.%s (argument %d): "+
+					"value crossed the boundary through an interface. "+
+					"Use primitive types, slices, maps, types from registered packages, or a registered interface proxy instead",
+				typeName, methodInfo.PkgPath, funcName, i+1,
+			)
+		}
+	}
+	return nil
+}
+
+func reflectMethodTypeForBoundary(receiver value.Value, methodName string) reflect.Type {
+	rv, ok := receiver.ReflectValue()
+	if !ok {
+		iface := receiver.Interface()
+		if iface == nil {
+			return nil
+		}
+		rv = reflect.ValueOf(iface)
+	}
+	if !rv.IsValid() {
+		return nil
+	}
+	if rv.Kind() == reflect.Interface {
+		if rv.IsNil() {
+			return nil
+		}
+		rv = rv.Elem()
+	}
+	if method := rv.MethodByName(methodName); method.IsValid() {
+		return method.Type()
+	}
+	if rv.CanAddr() {
+		if method := rv.Addr().MethodByName(methodName); method.IsValid() {
+			return method.Type()
+		}
+	}
+	if !rv.CanAddr() && rv.Kind() == reflect.Struct {
+		addrCopy := reflect.New(rv.Type()).Elem()
+		addrCopy.Set(rv)
+		if method := addrCopy.Addr().MethodByName(methodName); method.IsValid() {
+			return method.Type()
+		}
+	}
+	if rv.Kind() == reflect.Struct {
+		for i := 0; i < rv.NumField(); i++ {
+			field := rv.Field(i)
+			if field.Kind() != reflect.Interface || field.IsNil() {
+				continue
+			}
+			concrete := field.Elem()
+			if method := concrete.MethodByName(methodName); method.IsValid() {
+				return method.Type()
+			}
+			if concrete.CanAddr() {
+				if method := concrete.Addr().MethodByName(methodName); method.IsValid() {
+					return method.Type()
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // callExternalMethodReflect dispatches a method call using reflection.
 func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, args []value.Value) error {
 	receiver := args[0]
@@ -422,7 +727,6 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 	} else {
 		iface := receiver.Interface()
 		if iface == nil {
-			// Calling method on nil interface panics in Go
 			v.panicking = true
 			v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
 			return nil
@@ -438,7 +742,6 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 	// For interface method dispatch: unwrap to concrete type
 	if rv.Kind() == reflect.Interface {
 		if rv.IsNil() {
-			// Calling method on nil interface panics in Go
 			v.panicking = true
 			v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
 			return nil
@@ -448,30 +751,15 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 		args[0] = value.MakeFromReflect(rv)
 	}
 
+	// Nil pointer check for non-interface dispatch (e.g., free variables
+	// that lost the interface wrapper). In Go, calling any method on a
+	// nil *T through an interface panics because the runtime dereferences
+	// the pointer. When the value arrives here as a raw nil pointer (not
+	// wrapped in an interface), we must also panic to match Go semantics.
 	// Look up the method by name
 	method, found := findMethod(rv, methodInfo.MethodName, args)
 	if !found {
 		return v.callCompiledMethod(methodInfo.MethodName, methodInfo.ReceiverTypeName, args)
-	}
-
-	// For value-receiver methods on nil pointers: panic.
-	// In Go, calling a value-receiver method on a nil *T through an interface
-	// panics because Go must dereference the nil pointer to copy the value.
-	// Pointer-receiver methods handle nil themselves.
-	if rv.Kind() == reflect.Ptr && rv.IsNil() {
-		// Check if the method has a pointer receiver by looking at the method on *T
-		// If the method exists on *T but NOT on T, it's a pointer receiver
-		ptrType := rv.Type()
-		elemType := ptrType.Elem()
-		_, onPtr := ptrType.MethodByName(methodInfo.MethodName)
-		_, onElem := elemType.MethodByName(methodInfo.MethodName)
-		// If method is only on *T (pointer receiver), it handles nil itself
-		// If method is on T (value receiver), dereferencing nil panics
-		if onElem || !onPtr {
-			v.panicking = true
-			v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
-			return nil
-		}
 	}
 
 	// Build arguments (skip the receiver at args[0])
@@ -546,111 +834,171 @@ func findMethod(rv reflect.Value, methodName string, args []value.Value) (reflec
 // given name and calls it. This is the fallback path for invoke (interface method)
 // calls when reflection-based MethodByName fails.
 func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args []value.Value) error {
-	candidates := v.program.MethodsByName[methodName]
-
-	// Try to find a matching candidate by receiver type name, then by inferred type.
-	matchIdx := -1
-	if receiverTypeName != "" {
-		for i, fn := range candidates {
-			if fn.ReceiverTypeName == receiverTypeName {
-				matchIdx = i
-				break
-			}
-		}
-	}
-	if matchIdx < 0 && len(args) > 0 {
-		if concreteTypeName := inferReceiverTypeName(args[0], v.program); concreteTypeName != "" {
-			for i, fn := range candidates {
-				if fn.ReceiverTypeName == concreteTypeName {
-					matchIdx = i
-					break
-				}
-			}
-		}
-	}
-	if matchIdx < 0 && len(candidates) > 0 {
-		// Try each candidate; use the first one that doesn't crash.
-		// This handles named primitive types (e.g., type myError string)
-		// where the receiver type name can't be inferred from reflect.
-		for i, fn := range candidates {
-			if canCallCompiledMethod(v, fn, args) {
-				matchIdx = i
-				break
-			}
-		}
-		if matchIdx < 0 {
-			matchIdx = 0
-		}
-	}
-
-	if matchIdx >= 0 {
-		fn := candidates[matchIdx]
-		// For value-receiver methods on nil pointers through interface: panic.
-		// In Go, calling a value-receiver method on nil *T through an interface
-		// panics because Go must dereference the nil pointer to copy the value.
-		if len(args) > 0 && !fn.ReceiverIsPointer {
-			if rv, ok := args[0].ReflectValue(); ok && rv.Kind() == reflect.Ptr && rv.IsNil() {
+	if len(args) > 0 {
+		if fn, methodReceiver, ok := selectCompiledMethodCandidate(v.program, methodName, receiverTypeName, args[0]); ok {
+			if len(args) > 0 && shouldPanicOnNilValueReceiver(args[0], fn) {
 				v.panicking = true
 				v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
 				return nil
 			}
+			for i, arg := range args {
+				if i == 0 {
+					arg = methodReceiver
+				}
+				v.push(arg)
+			}
+			v.callCompiledFunction(fn.FuncIdx, len(args))
+			return nil
 		}
-		for _, arg := range args {
-			v.push(arg)
-		}
-		v.callCompiledFunction(fn.FuncIdx, len(args))
-		return nil
 	}
 
 	v.push(value.MakeNil())
 	return nil
 }
 
-// canCallCompiledMethod checks if a compiled method can be called with the given args
-// by doing a dry-run type compatibility check on the first arg (receiver).
-// Returns true if the method is likely compatible with the receiver type.
-func canCallCompiledMethod(v *vm, fn *bytecode.CompiledFunction, args []value.Value) bool {
-	if fn == nil || !fn.HasReceiver || len(args) == 0 {
-		return true
-	}
+const (
+	compiledMethodNoMatch = iota
+	compiledMethodEmbeddedMatch
+	compiledMethodExactMatch
+)
 
-	// For pointer-receiver methods: the receiver must be a pointer
-	if fn.ReceiverIsPointer {
-		rv, ok := args[0].ReflectValue()
-		if ok && rv.IsValid() {
-			return rv.Kind() == reflect.Ptr
+func selectCompiledMethodCandidate(program *bytecode.CompiledProgram, methodName, receiverTypeName string, receiver value.Value) (*bytecode.CompiledFunction, value.Value, bool) {
+	if program == nil {
+		return nil, value.MakeNil(), false
+	}
+	var bestFn *bytecode.CompiledFunction
+	var bestReceiver value.Value
+	bestScore := compiledMethodNoMatch
+	for _, fn := range program.MethodsByName[methodName] {
+		methodReceiver, score := receiverForCompiledMethodCandidate(methodName, receiverTypeName, receiver, fn, program)
+		if score <= bestScore {
+			continue
 		}
-		return false
+		bestFn = fn
+		bestReceiver = methodReceiver
+		bestScore = score
+		if score == compiledMethodExactMatch {
+			break
+		}
 	}
-
-	// For value-receiver methods: check if the receiver kind is compatible
-	rv, ok := args[0].ReflectValue()
-	if ok && rv.IsValid() {
-		// For reflect values: receiver kind must be Struct or Ptr
-		return rv.Kind() == reflect.Struct || rv.Kind() == reflect.Ptr
-	}
-	// For KindString/KindInt etc: only accept candidates with non-empty ReceiverTypeName
-	if fn.ReceiverTypeName != "" {
-		return true
-	}
-	return false
+	return bestFn, bestReceiver, bestScore != compiledMethodNoMatch
 }
 
 func shouldPanicOnNilValueReceiver(receiver value.Value, fn *bytecode.CompiledFunction) bool {
-	if fn == nil || !fn.HasReceiver {
+	if fn == nil || !fn.HasReceiver || fn.ReceiverIsPointer {
 		return false
 	}
 	rv, ok := receiver.ReflectValue()
-	if !ok || rv.Kind() != reflect.Ptr || !rv.IsNil() {
-		return false
-	}
-	// In Go, calling a value-receiver method on a nil pointer creates a zero
-	// value and calls the method - no panic. Pointer-receiver methods handle
-	// nil themselves (or panic in the method body if they don't check).
-	return false
+	return ok && rv.Kind() == reflect.Ptr && rv.IsNil()
 }
 
+func receiverForCompiledMethodTarget(methodName string, receiver value.Value, fn *bytecode.CompiledFunction, prog *bytecode.CompiledProgram) (value.Value, bool) {
+	methodReceiver, score := receiverForCompiledMethodCandidate(methodName, "", receiver, fn, prog)
+	return methodReceiver, score != compiledMethodNoMatch
+}
+
+func receiverForCompiledMethodCandidate(methodName, receiverTypeName string, receiver value.Value, fn *bytecode.CompiledFunction, prog *bytecode.CompiledProgram) (value.Value, int) {
+	normalized := receiverForCompiledMethod(methodName, receiver)
+	if fn == nil {
+		return normalized, compiledMethodExactMatch
+	}
+	if fn.ReceiverTypeName == "" {
+		return normalized, compiledMethodNoMatch
+	}
+	if receiverTypeName != "" && fn.ReceiverTypeName == receiverTypeName {
+		return normalized, compiledMethodExactMatch
+	}
+	if dyn, ok := receiver.InterpretedInterface(); ok {
+		if dyn.TypeName == fn.ReceiverTypeName {
+			if fn.ReceiverIsPointer && !dyn.IsPointer {
+				return normalized, compiledMethodNoMatch
+			}
+			return normalized, compiledMethodExactMatch
+		}
+		if embedded, ok := embeddedReceiverForCompiledMethod(normalized, fn, prog); ok {
+			return embedded, compiledMethodEmbeddedMatch
+		}
+		return normalized, compiledMethodNoMatch
+	}
+	if inferReceiverTypeName(normalized, prog) == fn.ReceiverTypeName {
+		return normalized, compiledMethodExactMatch
+	}
+	if embedded, ok := embeddedReceiverForCompiledMethod(normalized, fn, prog); ok {
+		return embedded, compiledMethodEmbeddedMatch
+	}
+	return normalized, compiledMethodNoMatch
+}
+
+func embeddedReceiverForCompiledMethod(receiver value.Value, fn *bytecode.CompiledFunction, prog *bytecode.CompiledProgram) (value.Value, bool) {
+	rv, ok := receiver.ReflectValue()
+	if !ok {
+		iface := receiver.Interface()
+		if iface == nil {
+			return value.MakeNil(), false
+		}
+		rv = reflect.ValueOf(iface)
+	}
+	for rv.Kind() == reflect.Interface && !rv.IsNil() {
+		rv = rv.Elem()
+	}
+	if !rv.IsValid() {
+		return value.MakeNil(), false
+	}
+	if rv.Kind() == reflect.Ptr {
+		if rv.IsNil() {
+			return value.MakeNil(), false
+		}
+		rv = rv.Elem()
+	}
+	if rv.Kind() != reflect.Struct {
+		return value.MakeNil(), false
+	}
+	return embeddedReceiverFromStruct(rv, fn, prog)
+}
+
+func embeddedReceiverFromStruct(structVal reflect.Value, fn *bytecode.CompiledFunction, prog *bytecode.CompiledProgram) (value.Value, bool) {
+	structType := structVal.Type()
+	for i := 0; i < structVal.NumField(); i++ {
+		structField := structType.Field(i)
+		if !structField.Anonymous && structField.Tag.Get("gig_embed") != "1" {
+			continue
+		}
+		field := structVal.Field(i)
+		fieldType := structField.Type
+		baseType := fieldType
+		if baseType.Kind() == reflect.Ptr {
+			baseType = baseType.Elem()
+		}
+		if resolveTypeName(baseType, prog) != fn.ReceiverTypeName {
+			continue
+		}
+		if fn.ReceiverIsPointer {
+			if field.Kind() == reflect.Ptr {
+				return value.MakeFromReflect(field), true
+			}
+			if field.CanAddr() {
+				return value.MakeFromReflect(field.Addr()), true
+			}
+			ptr := reflect.New(field.Type())
+			ptr.Elem().Set(field)
+			return value.MakeFromReflect(ptr), true
+		}
+		if field.Kind() == reflect.Ptr {
+			if field.IsNil() {
+				return value.MakeNil(), false
+			}
+			return value.MakeFromReflect(field.Elem()), true
+		}
+		return value.MakeFromReflect(field), true
+	}
+	return value.MakeNil(), false
+}
+
+// inferReceiverTypeName tries to extract a type name from a runtime value.Value receiver.
 func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram) string {
+	if dyn, ok := receiver.InterpretedInterface(); ok {
+		return dyn.TypeName
+	}
 	rv, ok := receiver.ReflectValue()
 	if !ok {
 		return ""

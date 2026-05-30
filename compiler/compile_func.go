@@ -73,11 +73,19 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 		Name:         fn.Name(),
 		Instructions: make([]byte, 0),
 		NumParams:    len(fn.Params),
+		ParamTypes:   make([]types.Type, len(fn.Params)),
 		FuncIdx:      c.funcIndex[fn],
+	}
+	for i, param := range fn.Params {
+		cf.ParamTypes[i] = param.Type()
 	}
 
 	// Populate method dispatch metadata from SSA signature.
 	sig := fn.Signature
+	cf.IsVariadic = sig.Variadic()
+	if cf.IsVariadic && sig.Params().Len() > 0 {
+		cf.VariadicParamType = sig.Params().At(sig.Params().Len() - 1).Type()
+	}
 	if sig.Recv() != nil {
 		cf.HasReceiver = true
 		cf.ReceiverTypeName = extractReceiverShortName(sig.Recv().Type())

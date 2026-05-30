@@ -10,9 +10,12 @@ import (
 )
 
 // MethodResolverFunc is a callback for calling compiled methods on interpreted types.
-// It receives a method name, receiver value, and optional extra arguments (for methods
-// like Is(target error) that need more than just the receiver). Returns the result if found.
-type MethodResolverFunc func(methodName string, receiver Value, args ...Value) (Value, bool)
+// It receives a method name and receiver value, and returns the result if found.
+type MethodResolverFunc func(methodName string, receiver Value) (Value, bool)
+
+// MethodWithArgsResolverFunc is like MethodResolverFunc but supports passing arguments.
+// Used for methods like Is(error) bool that require parameters beyond the receiver.
+type MethodWithArgsResolverFunc func(methodName string, receiver Value, args []Value) (Value, bool)
 
 // methodResolverRegistry is a thread-safe global registry of per-program method resolvers.
 // This allows fmt DirectCall wrappers (which lack VM context) to resolve compiled methods
@@ -20,15 +23,24 @@ type MethodResolverFunc func(methodName string, receiver Value, args ...Value) (
 // on cleanup. Using sync.Map eliminates the data race that the old single-global approach had.
 var methodResolverRegistry sync.Map // map[uintptr]MethodResolverFunc
 
+// methodWithArgsResolverRegistry stores resolvers that support argument passing.
+var methodWithArgsResolverRegistry sync.Map // map[uintptr]MethodWithArgsResolverFunc
+
 // RegisterMethodResolver registers a method resolver for a program identified by key.
 // The key should be a unique identifier per program (e.g., uintptr of program pointer).
 func RegisterMethodResolver(key uintptr, resolver MethodResolverFunc) {
 	methodResolverRegistry.Store(key, resolver)
 }
 
+// RegisterMethodWithArgsResolver registers a method-with-args resolver for a program.
+func RegisterMethodWithArgsResolver(key uintptr, resolver MethodWithArgsResolverFunc) {
+	methodWithArgsResolverRegistry.Store(key, resolver)
+}
+
 // UnregisterMethodResolver removes a method resolver for the given program key.
 func UnregisterMethodResolver(key uintptr) {
 	methodResolverRegistry.Delete(key)
+	methodWithArgsResolverRegistry.Delete(key)
 }
 
 // callMethod attempts to call a compiled method on the receiver using the given resolver.
@@ -56,18 +68,14 @@ func callMethod(resolver MethodResolverFunc, methodName string, receiver Value) 
 	return MakeNil(), false
 }
 
-// callMethodWithArgs calls a compiled method with extra arguments.
-// Used for methods like Is(target error) that need more than just the receiver.
-func callMethodWithArgs(resolver MethodResolverFunc, methodName string, receiver Value, args ...Value) (Value, bool) {
-	if resolver != nil {
-		return resolver(methodName, receiver, args...)
-	}
-	// Try all registered resolvers
+// callMethodWithArgs calls a compiled method with additional arguments beyond the receiver.
+// Used for methods like Is(error) bool that require parameters.
+func callMethodWithArgs(methodName string, receiver Value, args []Value) (Value, bool) {
 	var result Value
 	var found bool
-	methodResolverRegistry.Range(func(_, v any) bool {
-		if r, ok := v.(MethodResolverFunc); ok {
-			result, found = r(methodName, receiver, args...)
+	methodWithArgsResolverRegistry.Range(func(_, v any) bool {
+		if r, ok := v.(MethodWithArgsResolverFunc); ok {
+			result, found = r(methodName, receiver, args)
 			if found {
 				return false
 			}
@@ -177,6 +185,14 @@ func (v Value) Interface() any {
 			return complex64(c)
 		}
 		return c
+	case KindInterface:
+		if dyn, ok := v.InterpretedInterface(); ok {
+			return dyn.Value.Interface()
+		}
+		if rv, ok := v.obj.(reflect.Value); ok {
+			return rv.Interface()
+		}
+		return v.obj
 	case KindFunc:
 		return v.obj
 	case KindBytes:
@@ -303,7 +319,7 @@ func (v Value) toReflectSlice(typ reflect.Type) reflect.Value {
 		target := reflect.MakeSlice(typ, len(s), cap(s))
 		elemType := typ.Elem()
 		for i, elem := range s {
-			target.Index(i).Set(elem.ToReflectValue(elemType))
+			target.Index(i).Set(ReflectValueForSet(elem, elemType))
 		}
 		return target
 	}
@@ -340,6 +356,27 @@ func (v Value) toReflectReflect(typ reflect.Type) reflect.Value {
 	return reflect.ValueOf(v.obj)
 }
 
+func ReflectValueForSet(v Value, target reflect.Type) reflect.Value {
+	rv := v.ToReflectValue(target)
+	if rv.IsValid() && rv.Type().AssignableTo(target) {
+		return rv
+	}
+	if isFmtStringerReflectType(target) {
+		wrapped := FmtWrap(v)
+		if wrapped != nil {
+			wrappedRV := reflect.ValueOf(wrapped)
+			if wrappedRV.IsValid() && wrappedRV.Type().AssignableTo(target) {
+				return wrappedRV
+			}
+		}
+	}
+	return rv
+}
+
+func isFmtStringerReflectType(t reflect.Type) bool {
+	return t != nil && t.Kind() == reflect.Interface && t.PkgPath() == "fmt" && t.Name() == "Stringer"
+}
+
 func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 	switch v.kind {
 	case KindNil:
@@ -360,6 +397,14 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 		return rv
 	case KindComplex:
 		return reflect.ValueOf(v.obj.(complex128))
+	case KindInterface:
+		if dyn, ok := v.InterpretedInterface(); ok {
+			return dyn.Value.ToReflectValue(typ)
+		}
+		if rv, ok := v.obj.(reflect.Value); ok {
+			return rv
+		}
+		return reflect.ValueOf(v.obj)
 	case KindFunc:
 		return v.toReflectFunc(typ)
 	case KindBytes:

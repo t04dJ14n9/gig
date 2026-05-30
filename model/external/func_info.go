@@ -10,6 +10,12 @@ import "github.com/t04dJ14n9/gig/model/value"
 // ExternalFuncInfo contains pre-resolved external function info for fast calls.
 // This allows the VM to bypass reflection when calling external functions.
 type ExternalFuncInfo struct {
+	// PkgPath is the Go import path for the package that owns Func.
+	PkgPath string
+
+	// FuncName is the exported function name used for diagnostics.
+	FuncName string
+
 	// Func is the actual function value.
 	Func any
 

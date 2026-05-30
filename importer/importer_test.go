@@ -2,10 +2,13 @@ package importer
 
 import (
 	"fmt"
+	"go/types"
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/t04dJ14n9/gig/model/external"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 // ---------------------------------------------------------------------------
@@ -157,6 +160,92 @@ func TestAddType(t *testing.T) {
 	}
 }
 
+func TestAddInterfaceProxy(t *testing.T) {
+	reg := NewRegistry()
+	pkg := reg.RegisterPackage("sort", "sort")
+	ifaceType := reflect.TypeOf((*sort.Interface)(nil)).Elem()
+	factory := func(value.Value, string, external.InterfaceMethodCaller) (any, bool) {
+		return sort.IntSlice{}, true
+	}
+
+	pkg.AddInterfaceProxy("Interface", ifaceType, []string{"Len", "Less", "Swap"}, factory)
+
+	byName, ok := reg.LookupInterfaceProxy("sort", "Interface")
+	if !ok {
+		t.Fatal("LookupInterfaceProxy returned false")
+	}
+	if byName.InterfaceType != ifaceType {
+		t.Fatalf("InterfaceType = %v, want %v", byName.InterfaceType, ifaceType)
+	}
+
+	byType, ok := reg.LookupInterfaceProxyByType(ifaceType)
+	if !ok {
+		t.Fatal("LookupInterfaceProxyByType returned false")
+	}
+	if byType.Factory == nil {
+		t.Fatal("Factory is nil")
+	}
+
+	namedIface, ok := convertReflectType(ifaceType).(*types.Named)
+	if !ok {
+		t.Fatalf("convertReflectType(%v) = %T, want *types.Named", ifaceType, convertReflectType(ifaceType))
+	}
+	iface, ok := namedIface.Underlying().(*types.Interface)
+	if !ok {
+		t.Fatalf("underlying = %T, want *types.Interface", namedIface.Underlying())
+	}
+	byMethods, ok := reg.LookupInterfaceProxyByInterface(iface)
+	if !ok {
+		t.Fatal("LookupInterfaceProxyByInterface returned false")
+	}
+	if byMethods.InterfaceType != ifaceType {
+		t.Fatalf("method lookup InterfaceType = %v, want %v", byMethods.InterfaceType, ifaceType)
+	}
+
+	mismatch := types.NewInterfaceType([]*types.Func{
+		types.NewFunc(0, nil, "Len", types.NewSignatureType(nil, nil, nil, nil, types.NewTuple(types.NewVar(0, nil, "", types.Typ[types.Int])), false)),
+		types.NewFunc(0, nil, "Less", types.NewSignatureType(nil, nil, nil,
+			types.NewTuple(types.NewVar(0, nil, "", types.Typ[types.String]), types.NewVar(0, nil, "", types.Typ[types.String])),
+			types.NewTuple(types.NewVar(0, nil, "", types.Typ[types.Bool])),
+			false,
+		)),
+		types.NewFunc(0, nil, "Swap", types.NewSignatureType(nil, nil, nil,
+			types.NewTuple(types.NewVar(0, nil, "", types.Typ[types.Int]), types.NewVar(0, nil, "", types.Typ[types.Int])),
+			nil,
+			false,
+		)),
+	}, nil).Complete()
+	if _, ok := reg.LookupInterfaceProxyByInterface(mismatch); ok {
+		t.Fatal("LookupInterfaceProxyByInterface matched interface with mismatched method signature")
+	}
+}
+
+type importerNamedInterface interface {
+	String() string
+}
+
+func TestConvertReflectNamedInterfacePreservesName(t *testing.T) {
+	rt := reflect.TypeOf((*importerNamedInterface)(nil)).Elem()
+	typ, ok := convertReflectType(rt).(*types.Named)
+	if !ok {
+		t.Fatalf("convertReflectType(%v) = %T, want *types.Named", rt, convertReflectType(rt))
+	}
+	obj := typ.Obj()
+	if obj == nil || obj.Name() != "importerNamedInterface" {
+		t.Fatalf("converted type object = %v, want importerNamedInterface", obj)
+	}
+	if obj.Pkg() == nil || obj.Pkg().Path() != rt.PkgPath() {
+		t.Fatalf("converted type package = %v, want %q", obj.Pkg(), rt.PkgPath())
+	}
+	iface, ok := typ.Underlying().(*types.Interface)
+	if !ok {
+		t.Fatalf("underlying = %T, want *types.Interface", typ.Underlying())
+	}
+	if iface.NumMethods() != 1 {
+		t.Fatalf("underlying method count = %d, want 1", iface.NumMethods())
+	}
+}
+
 // TestAddTypeNil verifies that nil types are silently skipped.
 func TestAddTypeNil(t *testing.T) {
 	pkg := RegisterPackage("test/niltypepkg", "niltypepkg")
@@ -177,7 +266,7 @@ func TestSetGetExternalType(t *testing.T) {
 	pkg.AddFunction("Sprintf", fmt.Sprintf, "", nil)
 	obj := pkg.Objects["Sprintf"]
 	if obj.Type == nil {
-		t.Skip("no types.Type available for test")
+		t.Fatal("Sprintf should have a types.Type")
 	}
 
 	rt := reflect.TypeOf(fmt.Sprintf)

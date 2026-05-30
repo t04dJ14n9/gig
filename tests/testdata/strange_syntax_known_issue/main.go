@@ -1,11 +1,7 @@
 package strange_syntax_known_issue
 
-// This file contains test cases that are known to fail due to interpreter limitations.
-// These tests are isolated so they don't cause the main test suite to fail.
-//
-// ARCHITECTURAL LIMITATIONS:
-// 1. Self-referential structs with slice fields need special handling for type conversion
-// 2. Defer calling external type methods directly doesn't work, must use closure wrapper
+// This file contains regression tests for interpreter limitations that have
+// been fixed. The directory name is historical.
 //
 // Note: encoding/xml and encoding/gob have been dropped from gig.
 // Use encoding/json for serialization instead.
@@ -16,11 +12,7 @@ import (
 )
 
 // ============================================================================
-// KNOWN ISSUE #1: Tree With Parent Reference (Self-referential struct with slices)
-// LIMITATION: Self-referential structs with slice fields of self-referential types
-// require special type conversion logic. The field type becomes []interface{}
-// during cycle breaking, but slice literals are created as []*struct.
-// WORKAROUND: Use only pointer fields for self-references, avoid slices of self-referential types.
+// RESOLVED ISSUE #1: Tree With Parent Reference (self-referential struct with slices)
 // ============================================================================
 
 func TreeWithParentRef() int {
@@ -46,10 +38,7 @@ func TreeWithParentRef() int {
 }
 
 // ============================================================================
-// KNOWN ISSUE #2: Defer with External Type Methods
-// LIMITATION: defer encoder.Close() doesn't work correctly for external types.
-// The defer statement captures the method call but execution may be incomplete.
-// WORKAROUND: Use a closure wrapper: defer func() { encoder.Close() }()
+// RESOLVED ISSUE #2: Defer with External Type Methods
 // ============================================================================
 
 func CombinedDeferWithIO() int {
@@ -57,7 +46,7 @@ func CombinedDeferWithIO() int {
 
 	_ = func() int {
 		encoder := base64.NewEncoder(base64.StdEncoding, &buf)
-		defer encoder.Close() // This doesn't work correctly
+		defer encoder.Close()
 
 		encoder.Write([]byte("test"))
 
@@ -65,7 +54,7 @@ func CombinedDeferWithIO() int {
 		return buf.Len()
 	}()
 
-	// After close, flush should be complete but isn't
+	// After close, flush should be complete.
 	decoded, _ := base64.StdEncoding.DecodeString(buf.String())
 
 	if string(decoded) == "test" {

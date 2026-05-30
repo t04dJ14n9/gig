@@ -2,6 +2,7 @@
 package compiler
 
 import (
+	"go/constant"
 	"go/token"
 	"go/types"
 
@@ -246,6 +247,7 @@ func (c *compiler) compileCall(i *ssa.Call) {
 
 	if fn, ok := i.Call.Value.(*ssa.Function); ok {
 		if _, known := c.funcIndex[fn]; known {
+			c.validateExternalFuncValueBoundary(fn, i.Call.Args)
 			for _, arg := range i.Call.Args {
 				c.compileValue(arg)
 			}
@@ -307,12 +309,7 @@ func (c *compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, re
 
 	switch name {
 	case "append":
-		for i, arg := range args {
-			c.compileValue(arg)
-			if i > 0 {
-				c.emit(bytecode.OpAppend)
-			}
-		}
+		c.compileAppendBuiltin(args)
 	case "delete":
 		c.compileValue(args[0])
 		c.compileValue(args[1])
@@ -355,6 +352,90 @@ func (c *compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, re
 	}
 
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+}
+
+func (c *compiler) compileAppendBuiltin(args []ssa.Value) {
+	if len(args) == 0 {
+		c.emit(bytecode.OpNil)
+		return
+	}
+	c.compileValue(args[0])
+
+	if len(args) == 2 && !isNilConst(args[0]) {
+		if packed, ok := packedVarargsValues(args[1]); ok {
+			for _, arg := range packed {
+				c.compileValue(arg)
+				c.emit(bytecode.OpAppend)
+			}
+			return
+		}
+	}
+
+	for _, arg := range args[1:] {
+		c.compileValue(arg)
+		c.emit(bytecode.OpAppend)
+	}
+}
+
+func isNilConst(v ssa.Value) bool {
+	c, ok := v.(*ssa.Const)
+	return ok && c.Value == nil
+}
+
+func packedVarargsValues(v ssa.Value) ([]ssa.Value, bool) {
+	slice, ok := v.(*ssa.Slice)
+	if !ok || slice.Low != nil || slice.High != nil || slice.Max != nil {
+		return nil, false
+	}
+	alloc, ok := slice.X.(*ssa.Alloc)
+	if !ok || alloc.Comment != "varargs" {
+		return nil, false
+	}
+	ptr, ok := alloc.Type().Underlying().(*types.Pointer)
+	if !ok {
+		return nil, false
+	}
+	arr, ok := ptr.Elem().Underlying().(*types.Array)
+	if !ok || arr.Len() < 0 {
+		return nil, false
+	}
+
+	values := make([]ssa.Value, int(arr.Len()))
+	refs := alloc.Referrers()
+	if refs == nil {
+		return nil, false
+	}
+	for _, ref := range *refs {
+		indexAddr, ok := ref.(*ssa.IndexAddr)
+		if !ok || indexAddr.X != alloc {
+			continue
+		}
+		idxConst, ok := indexAddr.Index.(*ssa.Const)
+		if !ok || idxConst.Value == nil {
+			continue
+		}
+		idx, exact := constant.Int64Val(idxConst.Value)
+		if !exact || idx < 0 || idx >= int64(len(values)) {
+			continue
+		}
+		indexRefs := indexAddr.Referrers()
+		if indexRefs == nil {
+			continue
+		}
+		for _, indexRef := range *indexRefs {
+			store, ok := indexRef.(*ssa.Store)
+			if ok && store.Addr == indexAddr {
+				values[idx] = store.Val
+				break
+			}
+		}
+	}
+	for _, val := range values {
+		if val == nil {
+			return nil, false
+		}
+	}
+	return values, true
 }
 
 // compileMakeBuiltin compiles the make builtin.

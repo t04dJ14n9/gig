@@ -411,15 +411,24 @@ Gig 通过禁止某些导入来强制安全性：
 
 ## 已知限制
 
-- **第三方库反射和接口断言受限**：解释器合成的结构体通过 `gigStructWrapper` 暴露 `fmt.Stringer`、`error`、`fmt.Formatter`、`fmt.GoStringer`。第三方库若依赖原生命名类型的 `reflect.Type`，或断言其他接口（如 `json.Marshaler`），可能无法识别解释器类型。`encoding/json` 等标准库可基于 struct tag 工作，`errors.As` 通过 `GigErrorsAs` 适配常见接口目标。
+- **第三方库反射边界**：默认情况下，脚本里定义的类型不能作为 `any`、具体类型参数或未代理接口传给第三方函数。能静态判断的情况会在编译期拒绝；当值、嵌套容器元素或解释器函数值被藏在 interface 里时，会在进入第三方代码前于运行期拒绝。只有当 `gig gen` 或手动注册为目标宿主接口提供 interface proxy 时，脚本类型才可以传给第三方接口参数。解释器回调只允许传给具体 `func` 参数，并且其返回类型不能携带擦除的 interface 值。
 
   ```go
-  // ✅ 可行：标准库通过 fmt.Stringer / struct tag 工作
+  // ✅ 可行：标准库通过适配器 / struct tag 工作
   fmt.Println(myStruct)           // 调用 String()
   json.Marshal(myStruct)          // 使用 struct tag
 
-  // ❌ 不可行：第三方库通过反射断言非标准接口
-  var jm json.Marshaler = myStruct  // 编译错误：gigStructWrapper 未实现 json.Marshaler
+  // ✅ 仅当第三方接口有注册 proxy 时可行
+  thirdparty.AcceptCallback(myStruct)
+
+  // ✅ 可行：具体回调返回值没有 interface 边界
+  thirdparty.AcceptFunc(func(v int) int { return v + 1 })
+
+  // ❌ 会被拒绝：第三方 any / 未代理接口边界
+  thirdparty.Record(any(myStruct))
+
+  // ❌ 会被拒绝：回调可能通过 any 返回脚本值
+  thirdparty.AcceptFactory(func() any { return myStruct })
   ```
 
 - **`errors.As` 的结构体指针目标仍有注意事项**：接口目标可以匹配，结构体指针目标依赖解释器类型和原生命名类型的 `reflect.Type` 是否可赋值。跨边界传递时仍可能因为 `reflect.StructOf` 类型身份不同而无法设置目标值。

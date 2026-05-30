@@ -46,7 +46,7 @@ func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) (retErr error) {
 		return v.executeMemory(op, frame)
 
 	// Closures & goroutines
-	case bytecode.OpClosure, bytecode.OpGoCall, bytecode.OpGoCallIndirect,
+	case bytecode.OpClosure, bytecode.OpGoCall, bytecode.OpGoCallExternal, bytecode.OpGoCallIndirect,
 		bytecode.OpPack, bytecode.OpUnpack:
 		return v.executeCall(op, frame)
 

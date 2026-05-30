@@ -94,8 +94,8 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 		// Get address of a struct field: &struct.field
 		fieldIdx := frame.readUint16()
 		structPtr := v.pop()
-			// Unwrap *value.Value from OpGlobal slot pointer.
-		if structPtr.IsValid() && !structPtr.IsNil() {
+		// Unwrap *value.Value from OpGlobal slot pointer.
+		if structPtr.IsValid() && !structPtr.IsNil() && structPtr.CanInterface() {
 			if iface := structPtr.Interface(); iface != nil {
 				if vp, ok := iface.(*value.Value); ok {
 					structPtr = *vp
@@ -107,7 +107,27 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 			// Dereference pointer to get struct
 			s := rv
 			if s.Kind() == reflect.Ptr {
-				s = s.Elem()
+				// Check if this is a *value.Value (pointer to a global slot).
+				// If so, unwrap it to get the underlying reflect.Value stored
+				// inside the value.Value, which is the actual struct pointer.
+				if s.CanInterface() {
+					if vp, ok2 := s.Interface().(*value.Value); ok2 {
+						// Dereference *value.Value to get the Value
+						if innerRV, ok3 := vp.ReflectValue(); ok3 {
+							s = innerRV
+							if s.Kind() == reflect.Ptr {
+								s = s.Elem()
+							}
+						} else {
+							v.push(value.MakeNil())
+							break
+						}
+					} else {
+						s = s.Elem()
+					}
+				} else {
+					s = s.Elem()
+				}
 			}
 			// For self-referencing struct types, the recursive pointer field is
 			// stored as interface{} by typeToReflect. When we later access fields
@@ -154,7 +174,7 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 		container := v.pop()
 
 		// Unwrap *value.Value from OpGlobal slot pointer.
-		if container.IsValid() && !container.IsNil() {
+		if container.IsValid() && !container.IsNil() && container.CanInterface() {
 			if iface := container.Interface(); iface != nil {
 				if vp, ok := iface.(*value.Value); ok {
 					container = *vp
@@ -196,7 +216,24 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 		if rv, ok := container.ReflectValue(); ok {
 			// Dereference pointer if needed
 			if rv.Kind() == reflect.Ptr {
-				rv = rv.Elem()
+				// Check if this is a *value.Value (pointer to a global slot).
+				if rv.CanInterface() {
+					if vp, ok2 := rv.Interface().(*value.Value); ok2 {
+						if innerRV, ok3 := vp.ReflectValue(); ok3 {
+							rv = innerRV
+							if rv.Kind() == reflect.Ptr {
+								rv = rv.Elem()
+							}
+						} else {
+							v.push(value.MakeNil())
+							break
+						}
+					} else {
+						rv = rv.Elem()
+					}
+				} else {
+					rv = rv.Elem()
+				}
 			}
 			// Handle []value.Value slices (used for function slices)
 			if rv.Kind() == reflect.Slice && rv.Type().Elem() == reflect.TypeOf(value.Value{}) {
@@ -224,7 +261,7 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 	case bytecode.OpDeref:
 		ptr := v.pop()
 		// Fast path: GlobalRef from shared-mode OpGlobal — use locked read.
-		if ptr.Kind() == value.KindReflect || ptr.Kind() == value.KindInterface {
+		if (ptr.Kind() == value.KindReflect || ptr.Kind() == value.KindInterface) && ptr.CanInterface() {
 			if iface := ptr.Interface(); iface != nil {
 				if ref, ok := iface.(*GlobalRef); ok {
 					v.push(ref.Load())
@@ -298,9 +335,18 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 			panic("runtime error: invalid memory address or nil pointer dereference")
 		}
 		// Fast path: GlobalRef from shared-mode OpGlobal — use locked write.
-		if iface := ptr.Interface(); iface != nil {
-			if ref, ok := iface.(*GlobalRef); ok {
-				ref.Store(val)
+		if ptr.CanInterface() {
+			if iface := ptr.Interface(); iface != nil {
+				if ref, ok := iface.(*GlobalRef); ok {
+					ref.Store(val)
+					break
+				}
+			}
+		}
+		if rv, ok := ptr.ReflectValue(); ok && rv.Kind() == reflect.Ptr && !rv.IsNil() {
+			elem := rv.Elem()
+			if elem.IsValid() && elem.CanSet() && elem.Kind() == reflect.Interface {
+				elem.Set(v.valueForReflectSet(val, elem.Type()))
 				break
 			}
 		}

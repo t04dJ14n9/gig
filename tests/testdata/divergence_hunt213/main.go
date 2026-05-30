@@ -44,19 +44,21 @@ func BufferedChannelBlocking() string {
 
 func UnbufferedChannelSynchronization() string {
 	ch := make(chan string)
+	done := make(chan struct{})
 	result := ""
 
 	go func() {
 		result += "receiver started;"
 		val := <-ch
 		result += fmt.Sprintf("received %s;", val)
+		done <- struct{}{}
 	}()
 
 	result += "sender waiting;"
 	ch <- "hello"
+	<-done
 	result += "sender done"
 
-	time.Sleep(10 * time.Millisecond)
 	return result
 }
 

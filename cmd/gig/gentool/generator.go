@@ -198,13 +198,17 @@ func PackageImport(path string, outDir string, pkgName string) error {
 
 	// Generate method DirectCall wrappers for each type
 	var allMethodDCs []*methodDirectCallInfo
+	var interfaceProxies []*interfaceProxyInfo
 	for _, ti := range typeNames {
 		named, ok := ti.Obj.Type().(*types.Named)
 		if !ok {
 			continue
 		}
-		// Skip interfaces — methods are dispatched via the implementing type
 		if _, isIface := named.Underlying().(*types.Interface); isIface {
+			if proxy := generateInterfaceProxy(named, pkgRef, ti.Name); proxy != nil {
+				interfaceProxies = append(interfaceProxies, proxy)
+				collectInterfaceProxyImports(named, path, crossPkgImports)
+			}
 			continue
 		}
 		methodDCs := generateMethodDirectCalls(named, pkgRef, ti.Name)
@@ -251,6 +255,12 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	b.WriteString("\t\"github.com/t04dJ14n9/gig/importer\"\n")
 	if hasDirectCalls {
 		b.WriteString("\t\"github.com/t04dJ14n9/gig/model/value\"\n")
+	}
+	if len(interfaceProxies) > 0 {
+		if !hasDirectCalls {
+			b.WriteString("\t\"github.com/t04dJ14n9/gig/model/value\"\n")
+		}
+		b.WriteString("\t\"github.com/t04dJ14n9/gig/model/external\"\n")
 	}
 	b.WriteString(")\n\n")
 
@@ -303,6 +313,19 @@ func PackageImport(path string, outDir string, pkgName string) error {
 		b.WriteString("\n")
 	}
 
+	if len(interfaceProxies) > 0 {
+		b.WriteString("\t// Interface Proxies\n")
+		for _, proxy := range interfaceProxies {
+			methods := make([]string, 0, len(proxy.RequiredMethods))
+			for _, method := range proxy.RequiredMethods {
+				methods = append(methods, fmt.Sprintf("%q", method))
+			}
+			b.WriteString(fmt.Sprintf("\tpkg.AddInterfaceProxy(%q, %s, []string{%s}, %s)\n",
+				proxy.TypeName, proxy.InterfaceTypeExpr, strings.Join(methods, ", "), proxy.FactoryName))
+		}
+		b.WriteString("\n")
+	}
+
 	// Method DirectCall registrations
 	if len(allMethodDCs) > 0 {
 		b.WriteString("\t// Method DirectCalls\n")
@@ -325,6 +348,11 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	// Method DirectCall wrapper functions
 	for _, mdc := range allMethodDCs {
 		b.WriteString(mdc.Code)
+		b.WriteString("\n")
+	}
+
+	for _, proxy := range interfaceProxies {
+		b.WriteString(proxy.Code)
 		b.WriteString("\n")
 	}
 

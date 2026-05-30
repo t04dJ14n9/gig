@@ -58,6 +58,12 @@ func wrapBasicReturn(bt *types.Basic, goExpr string) string {
 		// VM boundary.  MakeUint uses SizePtr (returns uint via Interface()),
 		// while MakeUint64 uses Size64 (returns uint64 via Interface()).
 		switch kind {
+		case types.Uint8:
+			return fmt.Sprintf("value.MakeUint8(%s)", goExpr)
+		case types.Uint16:
+			return fmt.Sprintf("value.MakeUint16(%s)", goExpr)
+		case types.Uint32:
+			return fmt.Sprintf("value.MakeUint32(%s)", goExpr)
 		case types.Uint64:
 			return fmt.Sprintf("value.MakeUint64(%s)", goExpr)
 		default:
@@ -68,12 +74,21 @@ func wrapBasicReturn(bt *types.Basic, goExpr string) string {
 		// VM boundary.  MakeInt uses SizePtr (returns int via Interface()),
 		// while MakeInt64 uses Size64 (returns int64 via Interface()).
 		switch kind {
+		case types.Int8:
+			return fmt.Sprintf("value.MakeInt8(%s)", goExpr)
+		case types.Int16:
+			return fmt.Sprintf("value.MakeInt16(%s)", goExpr)
+		case types.Int32:
+			return fmt.Sprintf("value.MakeInt32(%s)", goExpr)
 		case types.Int64:
 			return fmt.Sprintf("value.MakeInt64(%s)", goExpr)
 		default:
 			return fmt.Sprintf("value.MakeInt(int64(%s))", goExpr)
 		}
 	case info&types.IsFloat != 0:
+		if kind == types.Float32 {
+			return fmt.Sprintf("value.MakeFloat32(%s)", goExpr)
+		}
 		return fmt.Sprintf("value.MakeFloat(float64(%s))", goExpr)
 	case info&types.IsComplex != 0:
 		return fmt.Sprintf("value.FromInterface(%s)", goExpr)

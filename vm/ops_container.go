@@ -36,6 +36,10 @@ func (v *vm) mustReflectValue(val value.Value) reflect.Value {
 	return reflect.Value{}
 }
 
+func (v *vm) valueForReflectSet(val value.Value, target reflect.Type) reflect.Value {
+	return value.ReflectValueForSet(val, target)
+}
+
 // executeContainer handles slice, map, channel creation, index, append,
 // copy, delete, range, len, and cap opcodes.
 func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx,unparam // frame: uniform dispatch signature
@@ -237,7 +241,7 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 				switch rv.Kind() {
 				case reflect.Slice, reflect.Array:
 					idx := int(key.Int())
-					rv.Index(idx).Set(val.ToReflectValue(rv.Type().Elem()))
+					rv.Index(idx).Set(v.valueForReflectSet(val, rv.Type().Elem()))
 				case reflect.Map:
 					// For OpSetIndex, nil value means set to typed nil (not delete)
 					container.SetMapIndexWithDelete(key, val, false)
@@ -269,7 +273,17 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			break
 		}
 
-		// Handle []byte slicing
+		// Handle string slicing specially
+		if container.Kind() == value.KindString {
+			high := int(highVal.Int())
+			if high == sliceEndSentinel {
+				high = len(container.String())
+			}
+			v.push(value.MakeString(container.String()[low:high]))
+			break
+		}
+
+		// Native []byte slice fast path
 		if container.Kind() == value.KindBytes {
 			if b, ok := container.Bytes(); ok {
 				high := int(highVal.Int())
@@ -281,18 +295,8 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 				} else {
 					v.push(value.MakeBytes(b[low:high]))
 				}
+				break
 			}
-			break
-		}
-
-		// Handle string slicing specially
-		if container.Kind() == value.KindString {
-			high := int(highVal.Int())
-			if high == sliceEndSentinel {
-				high = len(container.String())
-			}
-			v.push(value.MakeString(container.String()[low:high]))
-			break
 		}
 
 		// Native []int64 slice fast path
@@ -468,14 +472,14 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 	case bytecode.OpCap:
 		obj := v.pop()
 		switch obj.Kind() {
+		case value.KindSlice, value.KindArray, value.KindChan:
+			v.push(value.MakeInt(int64(obj.Cap())))
 		case value.KindBytes:
 			if b, ok := obj.Bytes(); ok {
 				v.push(value.MakeInt(int64(cap(b))))
 			} else {
 				v.push(value.MakeInt(0))
 			}
-		case value.KindSlice, value.KindArray, value.KindChan:
-			v.push(value.MakeInt(int64(obj.Cap())))
 		case value.KindReflect:
 			rv := v.mustReflectValue(obj)
 			if rv.IsValid() {
@@ -495,20 +499,22 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 	case bytecode.OpCopy:
 		src := v.pop()
 		dst := v.pop()
-
-		// copy([]byte, string) — copy string bytes into byte slice
-		if dst.Kind() == value.KindBytes && src.Kind() == value.KindString {
-			db, ok := dst.Bytes()
-			if !ok {
-				v.push(value.MakeInt(0))
-				break
+		// Native []byte copy fast path (handles copy([]byte, string))
+		if dst.Kind() == value.KindBytes {
+			if db, ok := dst.Bytes(); ok {
+				if src.Kind() == value.KindString {
+					ss := src.String()
+					n := copy(db, ss)
+					v.push(value.MakeInt(int64(n)))
+					break
+				}
+				if sb, ok2 := src.Bytes(); ok2 {
+					n := copy(db, sb)
+					v.push(value.MakeInt(int64(n)))
+					break
+				}
 			}
-			ss := src.String()
-			n := copy(db, ss)
-			v.push(value.MakeInt(int64(n)))
-			break
 		}
-
 		// Native int slice fast path
 		if ds, ok := dst.IntSlice(); ok {
 			if ss, ok2 := src.IntSlice(); ok2 {
@@ -688,7 +694,9 @@ func appendToReflectSlice(rv reflect.Value, elem value.Value) value.Value {
 
 	// SSA-packed variadic slice spread
 	if elemRV, ok := elem.ReflectValue(); ok && elemRV.Kind() == reflect.Slice {
-		return value.MakeFromReflect(reflect.AppendSlice(rv, elemRV))
+		if elemRV.Type().AssignableTo(rv.Type()) {
+			return value.MakeFromReflect(reflect.AppendSlice(rv, elemRV))
+		}
 	}
 
 	return value.MakeFromReflect(reflect.Append(rv, elem.ToReflectValue(sliceElemType)))

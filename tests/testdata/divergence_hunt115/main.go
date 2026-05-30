@@ -20,6 +20,13 @@ func init() {
 	GlobalCounter += 5
 }
 
+func ResetForTest() {
+	GlobalCounter = 15
+	GlobalSlice = []int{1, 2, 3}
+	GlobalMap = map[string]int{"a": 1, "b": 2}
+	GlobalString = "hello"
+}
+
 func GlobalRead() int {
 	return GlobalCounter
 }

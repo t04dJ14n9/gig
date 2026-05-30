@@ -122,8 +122,19 @@ will see incorrect type information, causing silent data corruption or panics.
   `sort.Interface`, `heap.Interface`, `fmt.Stringer`, `error`, etc.)
 - Primitive types, slices, maps → any function
 - External registered types (`sort.IntSlice`, `time.Time`) → any function
+- Custom types → third-party interface parameters only when the target interface
+  has a generated or manually registered interface proxy
+- Interpreted functions → third-party concrete `func` parameters only when the
+  callback result types cannot carry erased interface values
 
-**Escape hatch**: `gig.WithAllowUnsafeTypePass()` disables the compile-time check.
+**What's rejected**: custom script types passed to third-party `any`, concrete
+types, unproxied interface parameters, function values hidden behind `any`, or
+callbacks whose results contain interface types.
+
+Values hidden behind interface variables, including nested container elements
+and interpreted function values, are also checked at runtime before entering
+third-party code. **Escape hatch**:
+`gig.WithAllowUnsafeTypePass()` disables both compile-time and runtime checks.
 
 ### Performance Notes
 
@@ -142,7 +153,7 @@ Tests live in `tests/` with test data in `tests/testdata/` (44 test case directo
 - `tests/benchmark_test.go` — performance benchmarks
 - `tests/stress_leak_test.go` — memory leak and concurrency stress tests
 - `tests/fuzz_test.go` — fuzzing tests
-- `tests/known_issue_test.go` — known issues and regressions
+- `tests/known_issue_test.go` — resolved issue regressions
 - `gig_test.go` — public API tests
 
 Cross-interpreter benchmarks (vs Yaegi, GopherLua) live in `benchmarks/`.

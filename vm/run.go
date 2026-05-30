@@ -53,9 +53,16 @@ func (v *vm) runDefersDuringPanic(frame *Frame) bool {
 		// Handle external method defers (OpDeferExternal, e.g. defer mu.Unlock())
 		// These must run during panic recovery, just like in Go.
 		if d.externalInfo != nil {
-			if methodInfo, ok := d.externalInfo.(*external.ExternalMethodInfo); ok {
-				_ = v.callExternalMethod(methodInfo, d.args)
-				if methodInfo.DirectCall == nil {
+			switch info := d.externalInfo.(type) {
+			case *external.ExternalMethodInfo:
+				_ = v.callExternalMethod(info, d.args)
+				if info.DirectCall == nil {
+					_ = v.pop()
+				}
+			case *external.ExternalFuncInfo:
+				before := v.sp
+				_ = v.callResolvedExternal(bytecode.ResolveConstant(info), d.args)
+				if v.sp > before {
 					_ = v.pop()
 				}
 			}
@@ -1272,7 +1279,28 @@ func (v *vm) run() (value.Value, error) {
 			numArgs := int(frame.readByte())
 			prevFP := v.fp
 			v.sp = sp
-			if err := v.callExternal(int(funcIdx), numArgs); err != nil {
+			var callErr error
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						v.panicking = true
+						v.panicVal = value.FromInterface(r)
+					}
+				}()
+				callErr = v.callExternal(int(funcIdx), numArgs)
+			}()
+			if callErr != nil {
+				return value.MakeNil(), callErr
+			}
+			if v.panicking {
+				sp = v.sp
+				stack = v.stack
+				if v.fp > 0 {
+					loadFrame()
+				}
+				continue
+			}
+			if err := v.checkCtx(); err != nil {
 				return value.MakeNil(), err
 			}
 			sp = v.sp
@@ -1311,49 +1339,49 @@ func (v *vm) run() (value.Value, error) {
 				sp = v.sp
 				stack = v.stack
 				loadFrame()
-		} else if rv, ok := callee.ReflectValue(); ok && rv.Kind() == reflect.Func {
-			// Nil function call: trigger VM panic so guest recover() can catch it
-			if rv.IsNil() {
-				v.sp = sp
-				v.panicking = true
-				v.panicVal = value.FromInterface("invalid memory address or nil pointer dereference")
-				continue
-			}
-			// Reflect-based function call with panic safety:
-			// catch Go-level panics from external code and convert to VM panics
-			// so guest recover() can catch them.
-			in := make([]reflect.Value, numArgs)
-			fnType := rv.Type()
-			for i := 0; i < numArgs; i++ {
-				if i < fnType.NumIn() {
-					in[i] = args[i].ToReflectValue(fnType.In(i))
+			} else if rv, ok := callee.ReflectValue(); ok && rv.Kind() == reflect.Func {
+				// Nil function call: trigger VM panic so guest recover() can catch it
+				if rv.IsNil() {
+					v.sp = sp
+					v.panicking = true
+					v.panicVal = value.FromInterface("invalid memory address or nil pointer dereference")
+					continue
 				}
-			}
-			var out []reflect.Value
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						v.sp = sp
-						v.panicking = true
-						v.panicVal = value.FromInterface(r)
+				// Reflect-based function call with panic safety:
+				// catch Go-level panics from external code and convert to VM panics
+				// so guest recover() can catch them.
+				in := make([]reflect.Value, numArgs)
+				fnType := rv.Type()
+				for i := 0; i < numArgs; i++ {
+					if i < fnType.NumIn() {
+						in[i] = args[i].ToReflectValue(fnType.In(i))
 					}
+				}
+				var out []reflect.Value
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							v.sp = sp
+							v.panicking = true
+							v.panicVal = value.FromInterface(r)
+						}
+					}()
+					out = rv.Call(in)
 				}()
-				out = rv.Call(in)
-			}()
-			if v.panicking {
-				continue
-			}
-			if len(out) == 0 {
-				stack[sp] = value.MakeNil()
+				if v.panicking {
+					continue
+				}
+				if len(out) == 0 {
+					stack[sp] = value.MakeNil()
+				} else {
+					stack[sp] = value.MakeFromReflect(out[0])
+				}
+				sp++
 			} else {
-				stack[sp] = value.MakeFromReflect(out[0])
+				stack[sp] = value.MakeNil()
+				sp++
 			}
-			sp++
-		} else {
-			stack[sp] = value.MakeNil()
-			sp++
-		}
-		continue
+			continue
 
 		default:
 			// Fall through to executeOp for all other opcodes

@@ -402,44 +402,44 @@ func direct_unicode_IsUpper(args []value.Value) value.Value {
 
 func direct_unicode_SimpleFold(args []value.Value) value.Value {
 	a0 := int32(args[0].Int())
-	return value.MakeInt(int64(unicode.SimpleFold(a0)))
+	return value.MakeInt32(unicode.SimpleFold(a0))
 }
 
 func direct_unicode_To(args []value.Value) value.Value {
 	a0 := int(args[0].Int())
 	a1 := int32(args[1].Int())
-	return value.MakeInt(int64(unicode.To(a0, a1)))
+	return value.MakeInt32(unicode.To(a0, a1))
 }
 
 func direct_unicode_ToLower(args []value.Value) value.Value {
 	a0 := int32(args[0].Int())
-	return value.MakeInt(int64(unicode.ToLower(a0)))
+	return value.MakeInt32(unicode.ToLower(a0))
 }
 
 func direct_unicode_ToTitle(args []value.Value) value.Value {
 	a0 := int32(args[0].Int())
-	return value.MakeInt(int64(unicode.ToTitle(a0)))
+	return value.MakeInt32(unicode.ToTitle(a0))
 }
 
 func direct_unicode_ToUpper(args []value.Value) value.Value {
 	a0 := int32(args[0].Int())
-	return value.MakeInt(int64(unicode.ToUpper(a0)))
+	return value.MakeInt32(unicode.ToUpper(a0))
 }
 
 func direct_method_unicode_SpecialCase_ToLower(args []value.Value) value.Value {
 	recv := args[0].Interface().(unicode.SpecialCase)
 	a0 := int32(args[1].Int())
-	return value.MakeInt(int64(recv.ToLower(a0)))
+	return value.MakeInt32(recv.ToLower(a0))
 }
 
 func direct_method_unicode_SpecialCase_ToTitle(args []value.Value) value.Value {
 	recv := args[0].Interface().(unicode.SpecialCase)
 	a0 := int32(args[1].Int())
-	return value.MakeInt(int64(recv.ToTitle(a0)))
+	return value.MakeInt32(recv.ToTitle(a0))
 }
 
 func direct_method_unicode_SpecialCase_ToUpper(args []value.Value) value.Value {
 	recv := args[0].Interface().(unicode.SpecialCase)
 	a0 := int32(args[1].Int())
-	return value.MakeInt(int64(recv.ToUpper(a0)))
+	return value.MakeInt32(recv.ToUpper(a0))
 }

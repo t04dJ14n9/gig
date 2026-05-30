@@ -48,11 +48,9 @@ func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string,
 		return value.MakeNil(), false
 	}
 
-	// Search the compiled function table for a method with matching name and receiver type
-	for _, fn := range program.MethodsByName[methodName] {
-		if fn.ReceiverTypeName != receiverTypeName {
-			continue
-		}
+	// Search the compiled function table for the best method match. Exact
+	// receiver methods must win over promoted embedded methods.
+	if fn, methodReceiver, ok := selectCompiledMethodCandidate(program, methodName, receiverTypeName, receiver); ok {
 		// Found the method! Execute it with a temporary VM.
 		tempVM := newTempVM(program, make([]value.Value, len(program.Globals)), nil, nil, context.Background(), nil)
 		// Note: tempVM does not have initialGlobals since resolveCompiledMethod
@@ -63,10 +61,10 @@ func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string,
 		// a clean, concretely-typed value. Without this, a receiver that lives
 		// inside an interface{} box causes reflect.Set panics when the method
 		// body accesses fields on it.
-		methodReceiver := receiver
 		// Use the already-unwrapped rv (not receiver.ReflectValue()) to avoid
-		// re-wrapping an interface{} layer.
-		if rv.IsValid() {
+		// re-wrapping an interface{} layer. Do not replace a receiver that was
+		// rebound to an embedded field for a promoted method.
+		if rv.IsValid() && fn.ReceiverTypeName == receiverTypeName {
 			concrete := reflect.New(rv.Type()).Elem()
 			concrete.Set(rv)
 			methodReceiver = value.MakeFromReflect(concrete)
@@ -80,6 +78,67 @@ func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string,
 		// the VM's own panic protocol doesn't convert to an error, recover
 		// so the caller gets (nil, false) and can fall back to the default
 		// formatting instead of crashing.
+		var result value.Value
+		var err error
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("side-channel method %q panicked: %v", methodName, r)
+				}
+			}()
+			result, err = tempVM.run()
+		}()
+		if err != nil {
+			return value.MakeNil(), false
+		}
+		return result, true
+	}
+	return value.MakeNil(), false
+}
+
+// ResolveCompiledMethodWithArgs resolves and calls a compiled method with extra arguments.
+// Used for methods like Is(error) bool that need parameters beyond the receiver.
+func ResolveCompiledMethodWithArgs(program *bytecode.CompiledProgram, methodName string, receiver value.Value, args []value.Value) (value.Value, bool) {
+	rv, ok := receiver.ReflectValue()
+	if !ok {
+		iface := receiver.Interface()
+		if iface == nil {
+			return value.MakeNil(), false
+		}
+		rv = reflect.ValueOf(iface)
+	}
+	for rv.Kind() == reflect.Interface && !rv.IsNil() {
+		rv = rv.Elem()
+	}
+
+	receiverTypeName := ""
+	if rv.Kind() == reflect.Ptr {
+		elemType := rv.Type().Elem()
+		if elemType.Kind() == reflect.Struct {
+			receiverTypeName = program.LookupTypeName(elemType)
+		}
+	} else if rv.Kind() == reflect.Struct {
+		receiverTypeName = program.LookupTypeName(rv.Type())
+	}
+	if receiverTypeName == "" {
+		receiverTypeName = pkgPathTypeName(rv.Type())
+	}
+	if receiverTypeName == "" {
+		return value.MakeNil(), false
+	}
+
+	if fn, methodReceiver, ok := selectCompiledMethodCandidate(program, methodName, receiverTypeName, receiver); ok {
+		tempVM := newTempVM(program, make([]value.Value, len(program.Globals)), nil, nil, context.Background(), nil)
+		if rv.IsValid() && fn.ReceiverTypeName == receiverTypeName {
+			concrete := reflect.New(rv.Type()).Elem()
+			concrete.Set(rv)
+			methodReceiver = value.MakeFromReflect(concrete)
+		}
+		// Pass receiver + extra args
+		callArgs := make([]value.Value, 0, 1+len(args))
+		callArgs = append(callArgs, methodReceiver)
+		callArgs = append(callArgs, args...)
+		tempVM.callFunction(fn, callArgs, nil)
 		var result value.Value
 		var err error
 		func() {

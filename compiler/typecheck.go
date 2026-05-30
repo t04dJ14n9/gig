@@ -63,21 +63,72 @@ func isUserDefinedNamedType(t types.Type) bool {
 // named type. This catches nested cases like []MyStruct, map[string]MyStruct,
 // *MyStruct, [][]MyStruct, etc.
 func containsUserDefinedType(t types.Type) bool {
+	return containsUserDefinedTypeSeen(t, make(map[types.Type]bool))
+}
+
+func containsUserDefinedTypeSeen(t types.Type, seen map[types.Type]bool) bool {
 	if t == nil {
 		return false
 	}
+	if seen[t] {
+		return false
+	}
+	seen[t] = true
+
 	if isUserDefinedNamedType(t) {
 		return true
 	}
+	if typeParam, ok := t.(*types.TypeParam); ok {
+		return containsUserDefinedTypeSeen(typeParam.Constraint(), seen)
+	}
+
 	switch tt := t.Underlying().(type) {
 	case *types.Slice:
-		return containsUserDefinedType(tt.Elem())
+		return containsUserDefinedTypeSeen(tt.Elem(), seen)
 	case *types.Map:
-		return containsUserDefinedType(tt.Key()) || containsUserDefinedType(tt.Elem())
+		return containsUserDefinedTypeSeen(tt.Key(), seen) || containsUserDefinedTypeSeen(tt.Elem(), seen)
 	case *types.Pointer:
-		return containsUserDefinedType(tt.Elem())
+		return containsUserDefinedTypeSeen(tt.Elem(), seen)
 	case *types.Array:
-		return containsUserDefinedType(tt.Elem())
+		return containsUserDefinedTypeSeen(tt.Elem(), seen)
+	case *types.Chan:
+		return containsUserDefinedTypeSeen(tt.Elem(), seen)
+	case *types.Struct:
+		for i := 0; i < tt.NumFields(); i++ {
+			if containsUserDefinedTypeSeen(tt.Field(i).Type(), seen) {
+				return true
+			}
+		}
+	case *types.Signature:
+		if recv := tt.Recv(); recv != nil && containsUserDefinedTypeSeen(recv.Type(), seen) {
+			return true
+		}
+		if containsUserDefinedTuple(tt.Params(), seen) || containsUserDefinedTuple(tt.Results(), seen) {
+			return true
+		}
+	case *types.Interface:
+		for i := 0; i < tt.NumMethods(); i++ {
+			if containsUserDefinedTypeSeen(tt.Method(i).Type(), seen) {
+				return true
+			}
+		}
+		for i := 0; i < tt.NumEmbeddeds(); i++ {
+			if containsUserDefinedTypeSeen(tt.EmbeddedType(i), seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func containsUserDefinedTuple(tuple *types.Tuple, seen map[types.Type]bool) bool {
+	if tuple == nil {
+		return false
+	}
+	for i := 0; i < tuple.Len(); i++ {
+		if containsUserDefinedTypeSeen(tuple.At(i).Type(), seen) {
+			return true
+		}
 	}
 	return false
 }
@@ -85,16 +136,32 @@ func containsUserDefinedType(t types.Type) bool {
 // validateExternalCallArgs checks whether any argument to an external function
 // call is a user-defined type being passed to a third-party (non-stdlib) package.
 func validateExternalCallArgs(pkgPath, funcName string, argTypes []types.Type) error {
+	args := make([]externalCallArg, len(argTypes))
+	for i, argType := range argTypes {
+		args[i] = externalCallArg{SourceType: argType}
+	}
+	return validateExternalCallBoundary(pkgPath, funcName, args)
+}
+
+type externalCallArg struct {
+	SourceType          types.Type
+	AllowInterfaceProxy bool
+}
+
+func validateExternalCallBoundary(pkgPath, funcName string, args []externalCallArg) error {
 	if isStdlibPath(pkgPath) {
 		return nil
 	}
-	for i, argType := range argTypes {
-		if containsUserDefinedType(argType) {
-			typeName := describeType(argType)
+	for i, arg := range args {
+		if arg.AllowInterfaceProxy {
+			continue
+		}
+		if containsUserDefinedType(arg.SourceType) {
+			typeName := describeType(arg.SourceType)
 			return fmt.Errorf(
 				"cannot pass interpreter-defined type %q to third-party function %s.%s (argument %d): "+
 					"custom types are not compatible with external libraries that use reflection. "+
-					"Use primitive types, slices, maps, or types from registered packages instead",
+					"Use primitive types, slices, maps, types from registered packages, or a registered interface proxy instead",
 				typeName, pkgPath, funcName, i+1,
 			)
 		}

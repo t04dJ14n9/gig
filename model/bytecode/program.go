@@ -46,12 +46,17 @@ type CompiledProgram struct {
 	// Only populated for globals whose zero value is a non-nil struct/map/slice/chan.
 	GlobalZeroValues map[int]reflect.Value
 
-	// GlobalTypes stores the types.Type index for globals that need runtime
-	// zero-value initialization (e.g., user-defined structs, anonymous structs).
-	// Key: global index, Value: index into Types slice.
-	// When a global is nil/invalid at init time and not in GlobalZeroValues,
-	// the VM uses this to create a zero reflect.Value via typeToReflect.
+	// GlobalTypes maps global variable index to the Types pool index used by
+	// older runtime zero-value initialization paths. New compilation primarily
+	// uses GlobalElemTypes, but this field remains for compatibility with VM
+	// paths that still understand the legacy encoding.
 	GlobalTypes map[int]int
+
+	// GlobalElemTypes maps global variable index to its element type (types.Type).
+	// SSA globals have type *T; this stores T. Used by the VM to compute zero
+	// reflect.Values at startup for globals not handled by GlobalZeroValues
+	// (e.g., anonymous structs, arrays).
+	GlobalElemTypes map[int]types.Type
 
 	// Types is the type pool for runtime type operations.
 	Types []types.Type
@@ -60,6 +65,10 @@ type CompiledProgram struct {
 	// These are resolved at compile time and used to initialize globals in the VM.
 	// The value is a pointer to the external variable (e.g., &time.UTC).
 	ExternalVarValues map[int]any
+
+	// AllowUnsafeTypePass disables third-party boundary checks for callers that
+	// explicitly opted into unsafe external type passing at build time.
+	AllowUnsafeTypePass bool
 
 	// TypeResolver resolves external types at runtime.
 	// Used by the VM's typeToReflect to look up real reflect.Type for named types.
@@ -128,6 +137,12 @@ func (p *CompiledProgram) LookupTypeName(rt reflect.Type) string {
 // afterwards. Because it lives on CompiledProgram (which is read-only after
 // compilation), all VMs sharing the same program can access it without locks.
 type ResolvedCall struct {
+	// PkgPath is the Go import path for the package that owns the function.
+	PkgPath string
+
+	// FuncName is the exported function name used for diagnostics.
+	FuncName string
+
 	// DirectCall is the fast-path wrapper. Nil means use reflect.
 	DirectCall func(args []value.Value) value.Value
 
@@ -168,6 +183,8 @@ func ResolveConstant(c any) *ResolvedCall {
 	switch info := c.(type) {
 	case *external.ExternalFuncInfo:
 		rc := &ResolvedCall{
+			PkgPath:    info.PkgPath,
+			FuncName:   info.FuncName,
 			DirectCall: info.DirectCall,
 			IsVariadic: info.IsVariadic,
 			NumIn:      info.NumIn,
