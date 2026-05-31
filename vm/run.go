@@ -3,7 +3,6 @@ package vm
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/t04dJ14n9/gig/model/bytecode"
 	"github.com/t04dJ14n9/gig/model/value"
@@ -78,76 +77,12 @@ func (v *vm) run() (value.Value, error) {
 		// Allow panic handling at any defer depth — this enables nested panics
 		// (panic inside a deferred function) to be properly recovered.
 		if v.panicking {
-			// Sync sp so runDefersDuringPanic can use v.sp for recursive run() calls.
-			v.sp = sp
-			recovered := v.runDefersDuringPanic(frame)
-			sp = v.sp
-
-			// Check if panic was recovered during deferred execution
-			if recovered || !v.panicking {
-				// Panic was recovered — return value from this frame.
-				// If the function has ResultAllocSlots (named returns),
-				// deref those Alloc pointers to get the value that deferred closures
-				// may have written. Otherwise fall back to nil (zero value).
-				retVal := value.MakeNil()
-				if slots := frame.fn.ResultAllocSlots; len(slots) > 0 {
-					if len(slots) == 1 {
-						// Single result: deref the Alloc pointer in the local slot
-						ptr := frame.locals[slots[0]]
-						retVal = derefAllocLocal(ptr)
-					} else {
-						// Multiple results: pack them
-						results := make([]value.Value, len(slots))
-						for i, slot := range slots {
-							results[i] = derefAllocLocal(frame.locals[slot])
-						}
-						retVal = value.FromInterface(results)
-					}
-				}
-				v.fpool.put(frame)
-				v.fp--
-				// If running inside a deferred function (deferDepth > 0),
-				// return immediately. Don't continue executing the outer
-				// function's frame — that's handled by the caller's run().
-				if v.deferDepth > 0 {
-					v.sp = sp
-					return retVal, nil
-				}
-				if v.fp > 0 {
-					loadFrame()
-					sp = frame.basePtr
-				}
-				stack[sp] = retVal
-				sp++
-				continue
+			disposition, nextSP, retVal, err := v.handlePendingPanic(frame, sp)
+			sp = nextSP
+			stack = v.stack
+			if err != nil || disposition == runReturn {
+				return retVal, err
 			}
-
-			// If this is the last frame, return the panic as an error
-			if v.fp == 1 {
-				// Preserve the original typed panic value before clearing,
-				// so callers (e.g. OpRunDefers) can recover it instead of
-				// parsing the error string (which loses type information).
-				v.lastPanicVal = v.panicVal
-				err := fmt.Errorf("panic: %v", v.panicVal.Interface())
-				v.panicking = false
-				v.panicVal = value.MakeNil()
-				return value.MakeNil(), err
-			}
-
-			// If running inside a deferred function (deferDepth > 0) and panic wasn't recovered,
-			// return immediately to let the outer runDefersDuringPanic handle it.
-			// This prevents re-running defers on the same frame after a nested panic.
-			// Must pop the defer's frame before returning.
-			if v.deferDepth > 0 {
-				v.fp--
-				v.fpool.put(frame)
-				// Don't clear v.panicking - let the caller's runDefersDuringPanic see it
-				return value.MakeNil(), nil
-			}
-
-			// Propagate panic to caller
-			v.fp--
-			v.fpool.put(frame)
 			if v.fp > 0 {
 				loadFrame()
 			}
@@ -156,16 +91,9 @@ func (v *vm) run() (value.Value, error) {
 
 		// Check for end of function
 		if frame.ip >= len(ins) {
-			// If running a deferred function, return immediately after the function ends.
-			// Don't continue with the caller's frame - that's handled by the outer run().
-			if v.deferDepth > 0 {
-				v.fp--
-				v.fpool.put(frame)
+			if v.handleFrameEnd(frame) == runReturn {
 				return value.MakeNil(), nil
 			}
-			// Pop frame and return it to pool
-			v.fp--
-			v.fpool.put(frame)
 			if v.fp > 0 {
 				loadFrame()
 			}
@@ -414,124 +342,46 @@ func (v *vm) run() (value.Value, error) {
 			continue
 
 		case bytecode.OpSetDeref:
-			sp--
-			val := stack[sp]
-			sp--
-			ptr := stack[sp]
-			// Nil pointer dereference check
-			if ptr.IsNil() || !ptr.IsValid() {
-				v.panicking = true
-				v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
-				continue
-			}
-			// Fast path: *int64 pointer (from native int slice OpIndexAddr)
-			if p, ok := ptr.IntPtr(); ok {
-				*p = val.RawInt()
-			} else if iface := ptr.Interface(); iface != nil {
-				// GlobalRef from shared-mode OpGlobal — use locked write
-				if ref, ok := iface.(*GlobalRef); ok {
-					ref.Store(val)
-				} else {
-					ptr.SetElem(val)
-				}
-			} else {
-				ptr.SetElem(val)
-			}
+			sp = v.runSetDeref(sp)
 			continue
 
 		case bytecode.OpIndexAddr:
-			sp--
-			index := stack[sp]
-			sp--
-			container := stack[sp]
-			// Fast path: native []int64 slice (covers make([]int, N) in interpreted code)
-			if s, ok := container.IntSlice(); ok {
-				idx := index.RawInt()
-				if idx < 0 || idx >= int64(len(s)) {
-					// Bounds check failed — convert to VM panic so guest recover() can catch it.
-					v.panicking = true
-					v.panicVal = value.FromInterface(fmt.Sprintf("runtime error: index out of range [%d] with length %d", idx, len(s)))
-					continue
-				}
-				stack[sp] = value.MakeIntPtr(&s[idx])
-				sp++
-				continue
-			}
-			// Slow path: go through executeOp
-			v.sp = sp
-			v.push(container)
-			v.push(index)
-			if err := v.executeOp(op, frame); err != nil {
+			var err error
+			sp, stack, err = v.runIndexAddr(frame, sp)
+			if err != nil {
 				return value.MakeNil(), err
 			}
 			if v.panicking {
 				continue
 			}
-			sp = v.sp
-			stack = v.stack
 			if v.fp > 0 {
 				loadFrame()
 			}
 			continue
 
 		case bytecode.OpDeref:
-			sp--
-			ptr := stack[sp]
-			// Nil pointer dereference check for reflect-based pointers.
-			// IntPtr fast path handles native *int64 pointers.
-			if ptr.Kind() == value.KindReflect || ptr.Kind() == value.KindPointer {
-				if ptr.IsNil() {
-					v.panicking = true
-					v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
-					continue
-				}
-			}
-			// Fast path: *int64 pointer (from native int slice OpIndexAddr)
-			if p, ok := ptr.IntPtr(); ok {
-				stack[sp] = value.MakeInt(*p)
-				sp++
-				continue
-			}
-			// Slow path: go through executeOp
-			v.sp = sp
-			v.push(ptr)
-			if err := v.executeOp(op, frame); err != nil {
+			var err error
+			sp, stack, err = v.runDeref(frame, sp)
+			if err != nil {
 				return value.MakeNil(), err
 			}
 			if v.panicking {
 				continue
 			}
-			sp = v.sp
-			stack = v.stack
 			if v.fp > 0 {
 				loadFrame()
 			}
 			continue
 
 		case bytecode.OpLen:
-			sp--
-			obj := stack[sp]
-			switch obj.Kind() {
-			case value.KindSlice:
-				stack[sp] = value.MakeInt(int64(obj.Len()))
-				sp++
-				continue
-			case value.KindString:
-				stack[sp] = value.MakeInt(int64(len(obj.String())))
-				sp++
-				continue
-			}
-			// Slow path
-			v.sp = sp
-			v.push(obj)
-			if err := v.executeOp(op, frame); err != nil {
+			var err error
+			sp, stack, err = v.runLen(frame, sp)
+			if err != nil {
 				return value.MakeNil(), err
 			}
 			if v.panicking {
 				continue
 			}
-			sp = v.sp
-			stack = v.stack
 			if v.fp > 0 {
 				loadFrame()
 			}
@@ -541,298 +391,27 @@ func (v *vm) run() (value.Value, error) {
 			// Superinstructions: fused ops for hot loops
 			// ========================================
 
-		case bytecode.OpAddLocalLocal:
-			idxA := readU16()
-			idxB := readU16()
-			a := locals[idxA]
-			b := locals[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				stack[sp] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
-			} else {
-				stack[sp] = a.Add(b)
-			}
-			sp++
-			continue
-
-		case bytecode.OpSubLocalLocal:
-			idxA := readU16()
-			idxB := readU16()
-			a := locals[idxA]
-			b := locals[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				stack[sp] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
-			} else {
-				stack[sp] = a.Sub(b)
-			}
-			sp++
-			continue
-
-		case bytecode.OpMulLocalLocal:
-			idxA := readU16()
-			idxB := readU16()
-			a := locals[idxA]
-			b := locals[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				stack[sp] = value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize())
-			} else {
-				stack[sp] = a.Mul(b)
-			}
-			sp++
-			continue
-
-		case bytecode.OpAddLocalConst:
-			idxA := readU16()
-			idxB := readU16()
-			a := locals[idxA]
-			b := prebaked[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				stack[sp] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
-			} else {
-				stack[sp] = a.Add(b)
-			}
-			sp++
-			continue
-
-		case bytecode.OpSubLocalConst:
-			idxA := readU16()
-			idxB := readU16()
-			a := locals[idxA]
-			b := prebaked[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				stack[sp] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
-			} else {
-				stack[sp] = a.Sub(b)
-			}
-			sp++
-			continue
-
-		case bytecode.OpLessLocalLocalJumpTrue:
-			idxA := readU16()
-			idxB := readU16()
-			offset := readU16()
-			a := locals[idxA]
-			b := locals[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				if a.RawInt() < b.RawInt() {
-					frame.ip = int(offset)
-				}
-			} else {
-				if a.Cmp(b) < 0 {
-					frame.ip = int(offset)
-				}
-			}
-			continue
-
-		case bytecode.OpLessLocalConstJumpTrue:
-			idxA := readU16()
-			idxB := readU16()
-			offset := readU16()
-			a := locals[idxA]
-			b := prebaked[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				if a.RawInt() < b.RawInt() {
-					frame.ip = int(offset)
-				}
-			} else {
-				if a.Cmp(b) < 0 {
-					frame.ip = int(offset)
-				}
-			}
-			continue
-
-		case bytecode.OpLessEqLocalConstJumpTrue:
-			idxA := readU16()
-			idxB := readU16()
-			offset := readU16()
-			a := locals[idxA]
-			b := prebaked[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				if a.RawInt() <= b.RawInt() {
-					frame.ip = int(offset)
-				}
-			} else {
-				if lessEqCmp(a, b) {
-					frame.ip = int(offset)
-				}
-			}
-			continue
-
-		case bytecode.OpGreaterLocalLocalJumpTrue:
-			idxA := readU16()
-			idxB := readU16()
-			offset := readU16()
-			a := locals[idxA]
-			b := locals[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				if a.RawInt() > b.RawInt() {
-					frame.ip = int(offset)
-				}
-			} else {
-				if a.Cmp(b) > 0 {
-					frame.ip = int(offset)
-				}
-			}
-			continue
-
-		case bytecode.OpLessLocalLocalJumpFalse:
-			idxA := readU16()
-			idxB := readU16()
-			offset := readU16()
-			a := locals[idxA]
-			b := locals[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				if a.RawInt() >= b.RawInt() {
-					frame.ip = int(offset)
-				}
-			} else {
-				if a.Cmp(b) >= 0 {
-					frame.ip = int(offset)
-				}
-			}
-			continue
-
-		case bytecode.OpLessLocalConstJumpFalse:
-			idxA := readU16()
-			idxB := readU16()
-			offset := readU16()
-			a := locals[idxA]
-			b := prebaked[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				if a.RawInt() >= b.RawInt() {
-					frame.ip = int(offset)
-				}
-			} else {
-				if a.Cmp(b) >= 0 {
-					frame.ip = int(offset)
-				}
-			}
-			continue
-
-		case bytecode.OpLessEqLocalConstJumpFalse:
-			idxA := readU16()
-			idxB := readU16()
-			offset := readU16()
-			a := locals[idxA]
-			b := prebaked[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				if a.RawInt() > b.RawInt() {
-					frame.ip = int(offset)
-				}
-			} else {
-				if !lessEqCmp(a, b) {
-					frame.ip = int(offset)
-				}
-			}
-			continue
-
-		case bytecode.OpAddSetLocal:
-			idx := readU16()
-			sp--
-			b := stack[sp]
-			sp--
-			a := stack[sp]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idx] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
-				if intLocals != nil {
-					intLocals[idx] = locals[idx].RawInt()
-				}
-			} else {
-				locals[idx] = a.Add(b)
-			}
-			continue
-
-		case bytecode.OpSubSetLocal:
-			idx := readU16()
-			sp--
-			b := stack[sp]
-			sp--
-			a := stack[sp]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idx] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
-				if intLocals != nil {
-					intLocals[idx] = locals[idx].RawInt()
-				}
-			} else {
-				locals[idx] = a.Sub(b)
-			}
-			continue
-
-		case bytecode.OpLocalLocalAddSetLocal:
-			idxA := readU16()
-			idxB := readU16()
-			idxC := readU16()
-			a := locals[idxA]
-			b := locals[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idxC] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
-			} else {
-				locals[idxC] = a.Add(b)
-			}
-			continue
-
-		case bytecode.OpLocalConstAddSetLocal:
-			idxA := readU16()
-			idxB := readU16()
-			idxC := readU16()
-			a := locals[idxA]
-			b := prebaked[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idxC] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
-			} else {
-				locals[idxC] = a.Add(b)
-			}
-			continue
-
-		case bytecode.OpLocalConstSubSetLocal:
-			idxA := readU16()
-			idxB := readU16()
-			idxC := readU16()
-			a := locals[idxA]
-			b := prebaked[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idxC] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
-			} else {
-				locals[idxC] = a.Sub(b)
-			}
-			continue
-
-		case bytecode.OpLocalLocalSubSetLocal:
-			idxA := readU16()
-			idxB := readU16()
-			idxC := readU16()
-			a := locals[idxA]
-			b := locals[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idxC] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
-			} else {
-				locals[idxC] = a.Sub(b)
-			}
-			continue
-
-		case bytecode.OpLocalLocalMulSetLocal:
-			idxA := readU16()
-			idxB := readU16()
-			idxC := readU16()
-			a := locals[idxA]
-			b := locals[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idxC] = value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize())
-			} else {
-				locals[idxC] = a.Mul(b)
-			}
-			continue
-
-		case bytecode.OpLocalConstMulSetLocal:
-			idxA := readU16()
-			idxB := readU16()
-			idxC := readU16()
-			a := locals[idxA]
-			b := prebaked[idxB]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
-				locals[idxC] = value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize())
-			} else {
-				locals[idxC] = a.Mul(b)
-			}
+		case bytecode.OpAddLocalLocal,
+			bytecode.OpSubLocalLocal,
+			bytecode.OpMulLocalLocal,
+			bytecode.OpAddLocalConst,
+			bytecode.OpSubLocalConst,
+			bytecode.OpLessLocalLocalJumpTrue,
+			bytecode.OpLessLocalConstJumpTrue,
+			bytecode.OpLessEqLocalConstJumpTrue,
+			bytecode.OpGreaterLocalLocalJumpTrue,
+			bytecode.OpLessLocalLocalJumpFalse,
+			bytecode.OpLessLocalConstJumpFalse,
+			bytecode.OpLessEqLocalConstJumpFalse,
+			bytecode.OpAddSetLocal,
+			bytecode.OpSubSetLocal,
+			bytecode.OpLocalLocalAddSetLocal,
+			bytecode.OpLocalConstAddSetLocal,
+			bytecode.OpLocalConstSubSetLocal,
+			bytecode.OpLocalLocalSubSetLocal,
+			bytecode.OpLocalLocalMulSetLocal,
+			bytecode.OpLocalConstMulSetLocal:
+			sp = v.runGenericSuperinstruction(op, frame, sp, locals, intLocals, prebaked)
 			continue
 
 		// ========================================
@@ -1090,109 +669,33 @@ func (v *vm) run() (value.Value, error) {
 		case bytecode.OpCallExternal:
 			funcIdx := readU16()
 			numArgs := int(frame.readByte())
-			prevFP := v.fp
-			v.sp = sp
-			var callErr error
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						v.panicking = true
-						v.panicVal = value.FromInterface(r)
-					}
-				}()
-				callErr = v.callExternal(int(funcIdx), numArgs)
-			}()
-			if callErr != nil {
-				return value.MakeNil(), callErr
+			frameChanged := false
+			var err error
+			sp, stack, frameChanged, err = v.runExternalCall(int(funcIdx), numArgs, sp)
+			if err != nil {
+				return value.MakeNil(), err
 			}
 			if v.panicking {
-				sp = v.sp
-				stack = v.stack
 				if v.fp > 0 {
 					loadFrame()
 				}
 				continue
 			}
-			if err := v.checkCtx(); err != nil {
-				return value.MakeNil(), err
-			}
-			sp = v.sp
-			stack = v.stack
-			// If callExternal pushed a new compiled frame (e.g., compiled method
-			// dispatch for invoke calls), reload frame state so the main loop
-			// executes the new frame before continuing.
-			if v.fp != prevFP {
+			if frameChanged {
 				loadFrame()
 			}
 			continue
 
 		case bytecode.OpCallIndirect:
 			numArgs := int(frame.readByte())
-			// Pop arguments using stack-allocated buffer to avoid heap allocation
-			var argsBuf [8]value.Value
-			var args []value.Value
-			if numArgs <= len(argsBuf) {
-				args = argsBuf[:numArgs]
-			} else {
-				args = make([]value.Value, numArgs)
+			frameChanged := false
+			var err error
+			sp, stack, frameChanged, err = v.runIndirectCall(sp, numArgs)
+			if err != nil {
+				return value.MakeNil(), err
 			}
-			spLocal := sp
-			for i := numArgs - 1; i >= 0; i-- {
-				spLocal--
-				args[i] = stack[spLocal]
-			}
-			// Pop the callee
-			spLocal--
-			callee := stack[spLocal]
-			sp = spLocal
-			// Fast path: direct obj type assertion for *Closure avoids Interface() overhead
-			if closure, ok := callee.RawObj().(*Closure); ok {
-				v.sp = sp
-				v.callFunction(closure.Fn, args, closure.FreeVars)
-				sp = v.sp
-				stack = v.stack
+			if frameChanged {
 				loadFrame()
-			} else if rv, ok := callee.ReflectValue(); ok && rv.Kind() == reflect.Func {
-				// Nil function call: trigger VM panic so guest recover() can catch it
-				if rv.IsNil() {
-					v.sp = sp
-					v.panicking = true
-					v.panicVal = value.FromInterface("invalid memory address or nil pointer dereference")
-					continue
-				}
-				// Reflect-based function call with panic safety:
-				// catch Go-level panics from external code and convert to VM panics
-				// so guest recover() can catch them.
-				in := make([]reflect.Value, numArgs)
-				fnType := rv.Type()
-				for i := 0; i < numArgs; i++ {
-					if i < fnType.NumIn() {
-						in[i] = args[i].ToReflectValue(fnType.In(i))
-					}
-				}
-				var out []reflect.Value
-				func() {
-					defer func() {
-						if r := recover(); r != nil {
-							v.sp = sp
-							v.panicking = true
-							v.panicVal = value.FromInterface(r)
-						}
-					}()
-					out = rv.Call(in)
-				}()
-				if v.panicking {
-					continue
-				}
-				if len(out) == 0 {
-					stack[sp] = value.MakeNil()
-				} else {
-					stack[sp] = value.MakeFromReflect(out[0])
-				}
-				sp++
-			} else {
-				stack[sp] = value.MakeNil()
-				sp++
 			}
 			continue
 

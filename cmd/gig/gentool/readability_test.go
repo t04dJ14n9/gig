@@ -1,0 +1,31 @@
+package gentool
+
+import (
+	"bytes"
+	"os"
+	"testing"
+)
+
+func TestDirectCallFileStaysFocused(t *testing.T) {
+	assertFileLineLimit(t, "directcall.go", 180, "move direct-call helpers to focused files")
+}
+
+func TestResolveFileStaysFocused(t *testing.T) {
+	assertFileLineLimit(t, "resolve.go", 180, "move type-resolution helpers to focused files")
+}
+
+func TestExtractFileStaysFocused(t *testing.T) {
+	assertFileLineLimit(t, "extract.go", 180, "move argument extraction helpers to focused files")
+}
+
+func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
+	t.Helper()
+	src, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	lines := bytes.Count(src, []byte{'\n'})
+	if lines > maxLines {
+		t.Fatalf("%s has %d lines, want <= %d; %s", path, lines, maxLines, hint)
+	}
+}
