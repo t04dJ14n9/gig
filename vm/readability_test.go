@@ -74,6 +74,13 @@ func TestExecuteSliceStaysShallow(t *testing.T) {
 	}
 }
 
+func TestExecuteAssertStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_assert.go", "executeAssert")
+	if count > 10 {
+		t.Fatalf("executeAssert has %d branch points, want <= 10; split assertion target, interface, reflect, and primitive paths", count)
+	}
+}
+
 func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)
