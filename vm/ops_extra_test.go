@@ -72,6 +72,26 @@ func TestVM_XorIntegers(t *testing.T) {
 	}
 }
 
+func TestVM_AndNotIntegers(t *testing.T) {
+	hi0, lo0 := u16(0)
+	hi1, lo1 := u16(1)
+	instr := makeInstructions(
+		byte(bytecode.OpConst), hi0, lo0,
+		byte(bytecode.OpConst), hi1, lo1,
+		byte(bytecode.OpAndNot),
+		byte(bytecode.OpReturnVal),
+	)
+	prog, name := buildProg("andnot", instr, 0, int64(0xFF), int64(0x0F))
+	v := New(prog)
+	result, err := v.Execute(name, context.Background())
+	if err != nil {
+		t.Fatalf("Execute error: %v", err)
+	}
+	if result.Int() != 0xF0 {
+		t.Errorf("result = %d, want %d", result.Int(), 0xF0)
+	}
+}
+
 func TestVM_LshIntegers(t *testing.T) {
 	hi0, lo0 := u16(0)
 	hi1, lo1 := u16(1)
@@ -476,6 +496,30 @@ func TestVM_ComplexImag(t *testing.T) {
 	}
 }
 
+func TestVM_ComplexFromFloat32KeepsComplex64Size(t *testing.T) {
+	hi0, lo0 := u16(0)
+	hi1, lo1 := u16(1)
+	instr := makeInstructions(
+		byte(bytecode.OpConst), hi0, lo0,
+		byte(bytecode.OpConst), hi1, lo1,
+		byte(bytecode.OpComplex),
+		byte(bytecode.OpReturnVal),
+	)
+	prog, name := buildProg("complex64_size", instr, 0, float32(3.0), 4.0)
+	v := New(prog)
+	result, err := v.Execute(name, context.Background())
+	if err != nil {
+		t.Fatalf("Execute error: %v", err)
+	}
+	if result.RawSize() != value.Size32 {
+		t.Fatalf("complex(float32, float64) size = %v, want Size32", result.RawSize())
+	}
+	got := result.Interface()
+	if _, ok := got.(complex64); !ok {
+		t.Fatalf("complex(float32, float64) Interface() = %T, want complex64", got)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // OpCall — function calls
 // ---------------------------------------------------------------------------
@@ -730,8 +774,8 @@ func TestVM_PanicOpcode(t *testing.T) {
 
 func TestVM_PackUnpack(t *testing.T) {
 	// Push 2 values, pack them into a tuple, unpack, and return first
-	hi0, lo0 := u16(0) // const 0 = 10
-	hi1, lo1 := u16(1) // const 1 = 32
+	hi0, lo0 := u16(0)       // const 0 = 10
+	hi1, lo1 := u16(1)       // const 1 = 32
 	hiPack, loPack := u16(2) // count = 2
 	instr := makeInstructions(
 		byte(bytecode.OpConst), hi0, lo0,

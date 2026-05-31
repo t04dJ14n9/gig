@@ -123,6 +123,13 @@ func TestConvertBasicValueStaysShallow(t *testing.T) {
 	}
 }
 
+func TestExecuteArithmeticStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_arithmetic.go", "executeArithmetic")
+	if count > 8 {
+		t.Fatalf("executeArithmetic has %d branch points, want <= 8; split arithmetic, complex, bitwise, and shift operation domains", count)
+	}
+}
+
 func TestTypeToReflectInnerStaysGrouped(t *testing.T) {
 	count := directSwitchCaseCount(t, "typeconv.go", "typeToReflectInner")
 	if count > 8 {
