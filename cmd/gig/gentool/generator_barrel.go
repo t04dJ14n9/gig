@@ -1,7 +1,6 @@
 package gentool
 
 import (
-	"fmt"
 	"go/format"
 	"os"
 	"path/filepath"
@@ -17,7 +16,7 @@ func GenerateBarrelImport(outDir string, modulePath string, generatedPkgs []stri
 	b.WriteString("package packages\n\n")
 	b.WriteString("import (\n")
 	for _, pkgName := range generatedPkgs {
-		b.WriteString(fmt.Sprintf("\t_ %q\n", modulePath+"/packages/"+pkgName))
+		writeGeneratedf(b, "\t_ %q\n", modulePath+"/packages/"+pkgName)
 	}
 	b.WriteString(")\n")
 

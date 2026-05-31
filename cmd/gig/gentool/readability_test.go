@@ -26,6 +26,10 @@ func TestGeneratorEmitAvoidsNestedFormattedWriteString(t *testing.T) {
 	assertNoNestedFormattedWriteString(t, "generator_emit.go")
 }
 
+func TestGeneratorBarrelAvoidsNestedFormattedWriteString(t *testing.T) {
+	assertNoNestedFormattedWriteString(t, "generator_barrel.go")
+}
+
 func TestInterfaceProxyAvoidsNestedFormattedWriteString(t *testing.T) {
 	assertNoNestedFormattedWriteString(t, "interface_proxy.go")
 }
