@@ -20,40 +20,64 @@ func (v *vm) interpreterDefinedReflectValueType(rv reflect.Value, seen map[refle
 	}
 
 	switch rv.Kind() {
-	case reflect.Interface:
-		if rv.IsNil() {
-			return "", false
-		}
-		return v.interpreterDefinedReflectValueType(rv.Elem(), seen, depth+1)
-	case reflect.Ptr:
-		if rv.IsNil() {
-			return "", false
-		}
-		return v.interpreterDefinedReflectValueType(rv.Elem(), seen, depth+1)
+	case reflect.Interface, reflect.Ptr:
+		return v.scanReflectIndirectBoundaryValue(rv, seen, depth)
 	case reflect.Slice, reflect.Array:
-		for i := 0; i < rv.Len(); i++ {
-			if typeName, ok := v.interpreterDefinedReflectValueType(rv.Index(i), seen, depth+1); ok {
-				return typeName, true
-			}
-		}
+		return v.scanReflectSequenceBoundaryValue(rv, seen, depth)
 	case reflect.Map:
-		iter := rv.MapRange()
-		for iter.Next() {
-			if typeName, ok := v.interpreterDefinedReflectValueType(iter.Key(), seen, depth+1); ok {
-				return typeName, true
-			}
-			if typeName, ok := v.interpreterDefinedReflectValueType(iter.Value(), seen, depth+1); ok {
-				return typeName, true
-			}
-		}
+		return v.scanReflectMapBoundaryValue(rv, seen, depth)
 	case reflect.Struct:
-		for i := 0; i < rv.NumField(); i++ {
-			if typeName, ok := v.interpreterDefinedReflectValueType(rv.Field(i), seen, depth+1); ok {
-				return typeName, true
-			}
-		}
+		return v.scanReflectStructBoundaryValue(rv, seen, depth)
 	}
 
+	return "", false
+}
+
+func (v *vm) scanReflectIndirectBoundaryValue(rv reflect.Value, seen map[reflect.Type]bool, depth int) (string, bool) {
+	if rv.IsNil() {
+		return "", false
+	}
+	return v.interpreterDefinedReflectValueType(rv.Elem(), seen, depth+1)
+}
+
+func (v *vm) scanReflectSequenceBoundaryValue(rv reflect.Value, seen map[reflect.Type]bool, depth int) (string, bool) {
+	for i := 0; i < rv.Len(); i++ {
+		if typeName, ok := v.interpreterDefinedReflectValueType(rv.Index(i), seen, depth+1); ok {
+			return typeName, true
+		}
+	}
+	return "", false
+}
+
+func (v *vm) scanReflectMapBoundaryValue(rv reflect.Value, seen map[reflect.Type]bool, depth int) (string, bool) {
+	iter := rv.MapRange()
+	for iter.Next() {
+		if typeName, ok := v.scanReflectMapEntryBoundaryValue(iter, seen, depth); ok {
+			return typeName, true
+		}
+	}
+	return "", false
+}
+
+func (v *vm) scanReflectMapEntryBoundaryValue(
+	iter *reflect.MapIter,
+	seen map[reflect.Type]bool,
+	depth int,
+) (string, bool) {
+	// Preserve the previous scan order so map keys are reported before values
+	// when both sides contain interpreter-defined types.
+	if typeName, ok := v.interpreterDefinedReflectValueType(iter.Key(), seen, depth+1); ok {
+		return typeName, true
+	}
+	return v.interpreterDefinedReflectValueType(iter.Value(), seen, depth+1)
+}
+
+func (v *vm) scanReflectStructBoundaryValue(rv reflect.Value, seen map[reflect.Type]bool, depth int) (string, bool) {
+	for i := 0; i < rv.NumField(); i++ {
+		if typeName, ok := v.interpreterDefinedReflectValueType(rv.Field(i), seen, depth+1); ok {
+			return typeName, true
+		}
+	}
 	return "", false
 }
 

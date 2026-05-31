@@ -50,6 +50,13 @@ func TestReflectTypeContainsInterfaceStaysShallow(t *testing.T) {
 	}
 }
 
+func TestInterpreterDefinedReflectValueTypeStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "call_boundary_reflect.go", "interpreterDefinedReflectValueType")
+	if count > 8 {
+		t.Fatalf("interpreterDefinedReflectValueType has %d decision points, want <= 8; split pointer/interface descent, sequence, map, and struct scans", count)
+	}
+}
+
 func TestBuildReflectArgsStaysShallow(t *testing.T) {
 	count := recursiveDecisionCount(t, "call_external.go", "buildReflectArgs")
 	if count > 8 {
