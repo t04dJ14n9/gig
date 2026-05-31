@@ -8,63 +8,16 @@ func MakeFromReflect(rv reflect.Value) Value {
 		return MakeNil()
 	}
 
-	// Check if the underlying value is already a Value - unwrap it
-	if rv.Kind() == reflect.Struct {
-		if t := rv.Type(); t.Name() == "Value" && t.PkgPath() == "github.com/t04dJ14n9/gig/model/value" {
-			// This is a value.Value, extract it directly
-			return rv.Interface().(Value)
-		}
+	if val, ok := reflectedValueStruct(rv); ok {
+		return val
 	}
-
-	kind := rv.Kind()
-	switch kind {
-	case reflect.Bool:
-		return MakeBool(rv.Bool())
-	case reflect.Int:
-		return MakeInt(rv.Int())
-	case reflect.Int8:
-		return MakeInt8(int8(rv.Int()))
-	case reflect.Int16:
-		return MakeInt16(int16(rv.Int()))
-	case reflect.Int32:
-		return MakeInt32(int32(rv.Int()))
-	case reflect.Int64:
-		return MakeInt64(rv.Int())
-	case reflect.Uint:
-		return MakeUint(rv.Uint())
-	case reflect.Uint8:
-		return MakeUint8(uint8(rv.Uint()))
-	case reflect.Uint16:
-		return MakeUint16(uint16(rv.Uint()))
-	case reflect.Uint32:
-		return MakeUint32(uint32(rv.Uint()))
-	case reflect.Uint64, reflect.Uintptr:
-		return MakeUint64(rv.Uint())
-	case reflect.Float32:
-		return MakeFloat32(float32(rv.Float()))
-	case reflect.Float64:
-		return MakeFloat(rv.Float())
-	case reflect.String:
-		return MakeString(rv.String())
-	case reflect.Complex64:
-		c := rv.Complex()
-		return MakeComplex64(float32(real(c)), float32(imag(c)))
-	case reflect.Complex128:
-		c := rv.Complex()
-		return MakeComplex(real(c), imag(c))
-	case reflect.Slice:
-		// Native []byte storage: avoid reflect overhead for the common []byte case
-		if rv.Type().Elem().Kind() == reflect.Uint8 {
-			return MakeBytes(rv.Bytes())
-		}
-		// Native []int64 storage: use KindSlice so Interface() converts to []int correctly
-		if rv.Type().Elem().Kind() == reflect.Int64 {
-			return MakeIntSlice(rv.Interface().([]int64))
-		}
-		return Value{kind: KindReflect, obj: rv}
-	default:
-		return Value{kind: KindReflect, obj: rv}
+	if val, ok := reflectPrimitiveValue(rv); ok {
+		return val
 	}
+	if val, ok := reflectNativeSliceValue(rv); ok {
+		return val
+	}
+	return makeReflectValue(rv)
 }
 
 // FromInterface creates a Value from any Go value.
@@ -72,46 +25,145 @@ func FromInterface(v any) Value {
 	if v == nil {
 		return MakeNil()
 	}
-	// Fast path: detect common types via type switch to avoid reflect.ValueOf.
-	// Each case uses the typed constructor to preserve the original Go type.
-	switch val := v.(type) {
-	case bool:
-		return MakeBool(val)
-	case int:
-		return MakeInt(int64(val))
-	case int8:
-		return MakeInt8(val)
-	case int16:
-		return MakeInt16(val)
-	case int32:
-		return MakeInt32(val)
-	case int64:
-		return MakeInt64(val)
-	case uint:
-		return MakeUint(uint64(val))
-	case uint8:
-		return MakeUint8(val)
-	case uint16:
-		return MakeUint16(val)
-	case uint32:
-		return MakeUint32(val)
-	case uint64:
-		return MakeUint64(val)
-	case float32:
-		return MakeFloat32(val)
-	case float64:
-		return MakeFloat(val)
-	case complex64:
-		return MakeComplex64(real(val), imag(val))
-	case complex128:
-		return MakeComplex(real(val), imag(val))
-	case string:
-		return MakeString(val)
-	case []byte:
-		return MakeBytes(val)
-	case reflect.Value:
-		// Unwrap reflect.Value directly (e.g., typed nil constants from the compiler).
-		return MakeFromReflect(val)
+
+	if val, ok := primitiveInterfaceValue(v); ok {
+		return val
+	}
+	if val, ok := specialInterfaceValue(v); ok {
+		return val
 	}
 	return MakeFromReflect(reflect.ValueOf(v))
+}
+
+func reflectedValueStruct(rv reflect.Value) (Value, bool) {
+	if rv.Kind() != reflect.Struct {
+		return Value{}, false
+	}
+	if !isValueStructType(rv.Type()) {
+		return Value{}, false
+	}
+	// Keep value.Value identity intact when reflected interpreter storage flows
+	// back through host APIs; wrapping it as KindReflect would hide its tag.
+	return rv.Interface().(Value), true
+}
+
+func isValueStructType(t reflect.Type) bool {
+	return t.Name() == "Value" && t.PkgPath() == "github.com/t04dJ14n9/gig/model/value"
+}
+
+func reflectPrimitiveValue(rv reflect.Value) (Value, bool) {
+	switch rv.Kind() {
+	case reflect.Bool:
+		return MakeBool(rv.Bool()), true
+	case reflect.Int:
+		return MakeInt(rv.Int()), true
+	case reflect.Int8:
+		return MakeInt8(int8(rv.Int())), true
+	case reflect.Int16:
+		return MakeInt16(int16(rv.Int())), true
+	case reflect.Int32:
+		return MakeInt32(int32(rv.Int())), true
+	case reflect.Int64:
+		return MakeInt64(rv.Int()), true
+	case reflect.Uint:
+		return MakeUint(rv.Uint()), true
+	case reflect.Uint8:
+		return MakeUint8(uint8(rv.Uint())), true
+	case reflect.Uint16:
+		return MakeUint16(uint16(rv.Uint())), true
+	case reflect.Uint32:
+		return MakeUint32(uint32(rv.Uint())), true
+	case reflect.Uint64, reflect.Uintptr:
+		return MakeUint64(rv.Uint()), true
+	case reflect.Float32:
+		return MakeFloat32(float32(rv.Float())), true
+	case reflect.Float64:
+		return MakeFloat(rv.Float()), true
+	case reflect.String:
+		return MakeString(rv.String()), true
+	case reflect.Complex64:
+		c := rv.Complex()
+		return MakeComplex64(float32(real(c)), float32(imag(c))), true
+	case reflect.Complex128:
+		c := rv.Complex()
+		return MakeComplex(real(c), imag(c)), true
+	default:
+		return Value{}, false
+	}
+}
+
+func reflectNativeSliceValue(rv reflect.Value) (Value, bool) {
+	if rv.Kind() != reflect.Slice {
+		return Value{}, false
+	}
+
+	elemKind := rv.Type().Elem().Kind()
+	if elemKind == reflect.Uint8 {
+		// []byte is common in external APIs; store it natively so callers avoid
+		// reflect overhead and preserve byte-slice formatting behavior.
+		return MakeBytes(rv.Bytes()), true
+	}
+	if elemKind == reflect.Int64 {
+		// []int64 is the interpreter's native integer slice representation.
+		// Keeping it as KindSlice lets Interface() convert it back to []int.
+		return MakeIntSlice(rv.Interface().([]int64)), true
+	}
+	return Value{}, false
+}
+
+func primitiveInterfaceValue(v any) (Value, bool) {
+	// Fast path common scalar values to avoid reflect.ValueOf while preserving
+	// the original Go width in the Value size tag.
+	switch val := v.(type) {
+	case bool:
+		return MakeBool(val), true
+	case int:
+		return MakeInt(int64(val)), true
+	case int8:
+		return MakeInt8(val), true
+	case int16:
+		return MakeInt16(val), true
+	case int32:
+		return MakeInt32(val), true
+	case int64:
+		return MakeInt64(val), true
+	case uint:
+		return MakeUint(uint64(val)), true
+	case uint8:
+		return MakeUint8(val), true
+	case uint16:
+		return MakeUint16(val), true
+	case uint32:
+		return MakeUint32(val), true
+	case uint64:
+		return MakeUint64(val), true
+	case float32:
+		return MakeFloat32(val), true
+	case float64:
+		return MakeFloat(val), true
+	case complex64:
+		return MakeComplex64(real(val), imag(val)), true
+	case complex128:
+		return MakeComplex(real(val), imag(val)), true
+	case string:
+		return MakeString(val), true
+	default:
+		return Value{}, false
+	}
+}
+
+func specialInterfaceValue(v any) (Value, bool) {
+	switch val := v.(type) {
+	case []byte:
+		return MakeBytes(val), true
+	case reflect.Value:
+		// Unwrap reflect.Value directly (e.g., typed nil constants from the compiler).
+		return MakeFromReflect(val), true
+	default:
+		return Value{}, false
+	}
+}
+
+func makeReflectValue(rv reflect.Value) Value {
+	return Value{kind: KindReflect, obj: rv}
 }

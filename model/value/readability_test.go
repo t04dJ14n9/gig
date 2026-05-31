@@ -14,6 +14,20 @@ func TestValueEqualStaysShallow(t *testing.T) {
 	}
 }
 
+func TestMakeFromReflectStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "reflect.go", "MakeFromReflect")
+	if count > 8 {
+		t.Fatalf("MakeFromReflect has %d branch points, want <= 8; split validity, scalar, native slice, and reflect fallback domains", count)
+	}
+}
+
+func TestFromInterfaceStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "reflect.go", "FromInterface")
+	if count > 8 {
+		t.Fatalf("FromInterface has %d branch points, want <= 8; split nil handling, fast interface cases, and reflect fallback domains", count)
+	}
+}
+
 func TestIsGigStructStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "extern_type.go", "isGigStruct")
 	if count > 8 {
