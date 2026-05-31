@@ -17,10 +17,9 @@ func canPassInterpretedFuncToThirdParty(targetType reflect.Type) bool {
 }
 
 func reflectTypeContainsInterface(rt reflect.Type, seen map[reflect.Type]bool) bool {
-	if rt == nil || seen[rt] {
+	if !markReflectTypeForInterfaceScan(rt, seen) {
 		return false
 	}
-	seen[rt] = true
 
 	switch rt.Kind() {
 	case reflect.Interface:
@@ -28,18 +27,43 @@ func reflectTypeContainsInterface(rt reflect.Type, seen map[reflect.Type]bool) b
 	case reflect.Ptr, reflect.Slice, reflect.Array, reflect.Chan:
 		return reflectTypeContainsInterface(rt.Elem(), seen)
 	case reflect.Map:
-		return reflectTypeContainsInterface(rt.Key(), seen) || reflectTypeContainsInterface(rt.Elem(), seen)
+		return reflectMapTypeContainsInterface(rt, seen)
 	case reflect.Struct:
-		for i := 0; i < rt.NumField(); i++ {
-			if reflectTypeContainsInterface(rt.Field(i).Type, seen) {
-				return true
-			}
-		}
+		return reflectStructTypeContainsInterface(rt, seen)
 	case reflect.Func:
-		for i := 0; i < rt.NumOut(); i++ {
-			if reflectTypeContainsInterface(rt.Out(i), seen) {
-				return true
-			}
+		return reflectFuncResultsContainInterface(rt, seen)
+	}
+	return false
+}
+
+func markReflectTypeForInterfaceScan(rt reflect.Type, seen map[reflect.Type]bool) bool {
+	if rt == nil || seen[rt] {
+		return false
+	}
+	// Mark before descending so recursive type graphs terminate without hiding
+	// interface-typed leaves that appear through a different path.
+	seen[rt] = true
+	return true
+}
+
+func reflectMapTypeContainsInterface(rt reflect.Type, seen map[reflect.Type]bool) bool {
+	return reflectTypeContainsInterface(rt.Key(), seen) ||
+		reflectTypeContainsInterface(rt.Elem(), seen)
+}
+
+func reflectStructTypeContainsInterface(rt reflect.Type, seen map[reflect.Type]bool) bool {
+	for i := 0; i < rt.NumField(); i++ {
+		if reflectTypeContainsInterface(rt.Field(i).Type, seen) {
+			return true
+		}
+	}
+	return false
+}
+
+func reflectFuncResultsContainInterface(rt reflect.Type, seen map[reflect.Type]bool) bool {
+	for i := 0; i < rt.NumOut(); i++ {
+		if reflectTypeContainsInterface(rt.Out(i), seen) {
+			return true
 		}
 	}
 	return false

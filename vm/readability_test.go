@@ -43,6 +43,13 @@ func TestCallBoundaryFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(t, "call_boundary.go", 140, "move reflect scanning and callable policy to focused files")
 }
 
+func TestReflectTypeContainsInterfaceStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "call_boundary_func.go", "reflectTypeContainsInterface")
+	if count > 8 {
+		t.Fatalf("reflectTypeContainsInterface has %d decision points, want <= 8; split recursion guard, kind routing, and composite scans", count)
+	}
+}
+
 func TestReflectMethodTypeForBoundaryStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "call_external_method.go", "reflectMethodTypeForBoundary")
 	if count > 8 {
