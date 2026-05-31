@@ -9,67 +9,93 @@ import (
 	"github.com/t04dJ14n9/gig/model/bytecode"
 )
 
-// builtinOps maps simple builtin names to their single-opcode implementations.
+// builtinResultOps maps simple builtin names to their single-opcode implementations.
 // Builtins not in this map have custom compilation logic in compileBuiltinCall.
-var builtinOps = map[string]bytecode.OpCode{
+var builtinResultOps = map[string]bytecode.OpCode{
 	"len":     bytecode.OpLen,
 	"cap":     bytecode.OpCap,
 	"copy":    bytecode.OpCopy,
-	"panic":   bytecode.OpPanic,
 	"recover": bytecode.OpRecover,
-	"close":   bytecode.OpClose,
 }
 
 // compileBuiltinCall compiles a call to a builtin function.
 func (c *compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, resultIdx int) {
 	name := builtin.Name()
 
-	// Fast path: single-opcode builtins with 1 arg that push a value
-	if op, ok := builtinOps[name]; ok {
-		switch name {
-		case "len", "cap":
-			c.compileValue(args[0])
-			c.emit(op)
-		case "copy":
-			c.compileValue(args[0])
-			c.compileValue(args[1])
-			c.emit(op)
-		case "panic":
-			c.compileValue(args[0])
-			c.emit(op)
-			return
-		case "recover":
-			// recover() takes no arguments
-			c.emit(op)
-		case "close":
-			c.compileValue(args[0])
-			c.emit(op)
-			return
-		}
-		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	if c.compileNoResultBuiltin(name, args) {
 		return
 	}
 
+	c.compileResultBuiltin(name, args)
+	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+}
+
+func (c *compiler) compileNoResultBuiltin(name string, args []ssa.Value) bool {
 	switch name {
-	case "append":
-		c.compileAppendBuiltin(args)
 	case "delete":
 		c.compileValue(args[0])
 		c.compileValue(args[1])
 		c.emit(bytecode.OpDelete)
-		return
+		return true
 	case "print":
-		for _, arg := range args {
-			c.compileValue(arg)
-		}
+		c.compileValues(args)
 		c.emit(bytecode.OpPrint, uint16(len(args)))
-		return
+		return true
 	case "println":
-		for _, arg := range args {
-			c.compileValue(arg)
-		}
+		c.compileValues(args)
 		c.emit(bytecode.OpPrintln, uint16(len(args)))
+		return true
+	case "panic":
+		c.compileValue(args[0])
+		c.emit(bytecode.OpPanic)
+		return true
+	case "close":
+		c.compileValue(args[0])
+		c.emit(bytecode.OpClose)
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *compiler) compileValues(args []ssa.Value) {
+	for _, arg := range args {
+		c.compileValue(arg)
+	}
+}
+
+func (c *compiler) compileResultBuiltin(name string, args []ssa.Value) {
+	if c.compileSimpleResultBuiltin(name, args) {
 		return
+	}
+	if c.compileCustomResultBuiltin(name, args) {
+		return
+	}
+	c.emit(bytecode.OpNil)
+}
+
+func (c *compiler) compileSimpleResultBuiltin(name string, args []ssa.Value) bool {
+	op, ok := builtinResultOps[name]
+	if !ok {
+		return false
+	}
+	switch name {
+	case "len", "cap":
+		c.compileValue(args[0])
+	case "copy":
+		c.compileValue(args[0])
+		c.compileValue(args[1])
+	case "recover":
+		// recover() takes no arguments.
+	}
+	c.emit(op)
+	return true
+}
+
+func (c *compiler) compileCustomResultBuiltin(name string, args []ssa.Value) bool {
+	switch name {
+	case "append":
+		c.compileAppendBuiltin(args)
 	case "new":
 		typeIdx := c.addType(args[0].Type())
 		c.emit(bytecode.OpNew, uint16(typeIdx))
@@ -91,10 +117,9 @@ func (c *compiler) compileBuiltinCall(builtin *ssa.Builtin, args []ssa.Value, re
 		c.compileValue(args[1]) // imag part
 		c.emit(bytecode.OpComplex)
 	default:
-		c.emit(bytecode.OpNil)
+		return false
 	}
-
-	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+	return true
 }
 
 func (c *compiler) compileAppendBuiltin(args []ssa.Value) {
@@ -126,59 +151,101 @@ func isNilConst(v ssa.Value) bool {
 }
 
 func packedVarargsValues(v ssa.Value) ([]ssa.Value, bool) {
-	slice, ok := v.(*ssa.Slice)
-	if !ok || slice.Low != nil || slice.High != nil || slice.Max != nil {
-		return nil, false
-	}
-	alloc, ok := slice.X.(*ssa.Alloc)
-	if !ok || alloc.Comment != "varargs" {
-		return nil, false
-	}
-	ptr, ok := alloc.Type().Underlying().(*types.Pointer)
+	alloc, length, ok := packedVarargsAlloc(v)
 	if !ok {
 		return nil, false
 	}
-	arr, ok := ptr.Elem().Underlying().(*types.Array)
-	if !ok || arr.Len() < 0 {
-		return nil, false
-	}
 
-	values := make([]ssa.Value, int(arr.Len()))
-	refs := alloc.Referrers()
-	if refs == nil {
+	values := make([]ssa.Value, length)
+	if !collectPackedVarargsStores(alloc, values) || !packedVarargsComplete(values) {
 		return nil, false
-	}
-	for _, ref := range *refs {
-		indexAddr, ok := ref.(*ssa.IndexAddr)
-		if !ok || indexAddr.X != alloc {
-			continue
-		}
-		idxConst, ok := indexAddr.Index.(*ssa.Const)
-		if !ok || idxConst.Value == nil {
-			continue
-		}
-		idx, exact := constant.Int64Val(idxConst.Value)
-		if !exact || idx < 0 || idx >= int64(len(values)) {
-			continue
-		}
-		indexRefs := indexAddr.Referrers()
-		if indexRefs == nil {
-			continue
-		}
-		for _, indexRef := range *indexRefs {
-			store, ok := indexRef.(*ssa.Store)
-			if ok && store.Addr == indexAddr {
-				values[idx] = store.Val
-				break
-			}
-		}
-	}
-	for _, val := range values {
-		if val == nil {
-			return nil, false
-		}
 	}
 	return values, true
+}
+
+func packedVarargsAlloc(v ssa.Value) (*ssa.Alloc, int, bool) {
+	slice, ok := v.(*ssa.Slice)
+	if !ok || slice.Low != nil || slice.High != nil || slice.Max != nil {
+		return nil, 0, false
+	}
+	alloc, ok := slice.X.(*ssa.Alloc)
+	if !ok || alloc.Comment != "varargs" {
+		return nil, 0, false
+	}
+	length, ok := packedVarargsArrayLen(alloc)
+	return alloc, length, ok
+}
+
+func packedVarargsArrayLen(alloc *ssa.Alloc) (int, bool) {
+	ptr, ok := alloc.Type().Underlying().(*types.Pointer)
+	if !ok {
+		return 0, false
+	}
+	arr, ok := ptr.Elem().Underlying().(*types.Array)
+	if !ok || arr.Len() < 0 {
+		return 0, false
+	}
+	return int(arr.Len()), true
+}
+
+func collectPackedVarargsStores(alloc *ssa.Alloc, values []ssa.Value) bool {
+	refs := alloc.Referrers()
+	if refs == nil {
+		return false
+	}
+	for _, ref := range *refs {
+		storePackedVararg(values, alloc, ref)
+	}
+	return true
+}
+
+func storePackedVararg(values []ssa.Value, alloc *ssa.Alloc, ref ssa.Instruction) {
+	indexAddr, ok := ref.(*ssa.IndexAddr)
+	if !ok || indexAddr.X != alloc {
+		return
+	}
+	idx, ok := packedVarargIndex(indexAddr.Index, len(values))
+	if !ok {
+		return
+	}
+	if val, ok := packedVarargStoreValue(indexAddr); ok {
+		values[idx] = val
+	}
+}
+
+func packedVarargIndex(index ssa.Value, length int) (int, bool) {
+	idxConst, ok := index.(*ssa.Const)
+	if !ok || idxConst.Value == nil {
+		return 0, false
+	}
+	idx, exact := constant.Int64Val(idxConst.Value)
+	if !exact || idx < 0 || idx >= int64(length) {
+		return 0, false
+	}
+	return int(idx), true
+}
+
+func packedVarargStoreValue(indexAddr *ssa.IndexAddr) (ssa.Value, bool) {
+	indexRefs := indexAddr.Referrers()
+	if indexRefs == nil {
+		return nil, false
+	}
+	for _, indexRef := range *indexRefs {
+		store, ok := indexRef.(*ssa.Store)
+		if ok && store.Addr == indexAddr {
+			return store.Val, true
+		}
+	}
+	return nil, false
+}
+
+func packedVarargsComplete(values []ssa.Value) bool {
+	for _, val := range values {
+		if val == nil {
+			return false
+		}
+	}
+	return true
 }
 
 // compileMakeBuiltin compiles the make builtin.

@@ -32,6 +32,20 @@ func TestCompileConstFileStaysFocused(t *testing.T) {
 	assertCompilerFileLineLimit(t, "compile_const.go", 120, "move constant conversion helpers to focused files")
 }
 
+func TestCompileBuiltinCallStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "compile_builtin.go", "compileBuiltinCall")
+	if count > 10 {
+		t.Fatalf("compileBuiltinCall has %d branch points, want <= 10; split no-result, simple-result, and custom-result builtin domains", count)
+	}
+}
+
+func TestPackedVarargsValuesStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "compile_builtin.go", "packedVarargsValues")
+	if count > 10 {
+		t.Fatalf("packedVarargsValues has %d branch points, want <= 10; split varargs shape validation, store collection, and completeness checks", count)
+	}
+}
+
 func TestCompileInstructionDispatchStaysShallow(t *testing.T) {
 	count := directTypeSwitchCaseCount(t, "compile_instr.go", "compileInstruction")
 	if count > 8 {
