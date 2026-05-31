@@ -193,6 +193,20 @@ func TestRunDefersDuringPanicStaysShallow(t *testing.T) {
 	}
 }
 
+func TestResolveCompiledMethodStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "pool.go", "ResolveCompiledMethod")
+	if count > 8 {
+		t.Fatalf("ResolveCompiledMethod has %d branch points, want <= 8; split receiver normalization, candidate selection, and side-channel invocation", count)
+	}
+}
+
+func TestResolveCompiledMethodWithArgsStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "pool.go", "ResolveCompiledMethodWithArgs")
+	if count > 8 {
+		t.Fatalf("ResolveCompiledMethodWithArgs has %d branch points, want <= 8; reuse the shared compiled-method resolver path", count)
+	}
+}
+
 func TestIteratorNextStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "iterator.go", "next")
 	if count > 10 {
