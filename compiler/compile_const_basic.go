@@ -5,73 +5,23 @@ import (
 	"go/types"
 )
 
+type basicConstConverter func(constant.Value) any
+
 // basicConstValue extracts a Go value from a constant.Value based on the basic type kind.
 // Returns nil for unsupported kinds.
-func basicConstValue(kind types.BasicKind, val constant.Value) any { //nolint:gocyclo,cyclop
+func basicConstValue(kind types.BasicKind, val constant.Value) any {
 	if val == nil {
 		return basicZeroValue(kind)
 	}
 
-	switch kind { //nolint:exhaustive
-	case types.Bool, types.UntypedBool:
-		return val.Kind() == constant.Bool && constant.BoolVal(val)
-	case types.Int, types.UntypedInt, types.UntypedRune:
-		i, exact := constant.Int64Val(val)
-		if exact {
-			return int(i)
-		}
-		return int(0)
-	case types.Int8:
-		i, _ := constant.Int64Val(val)
-		return int8(i)
-	case types.Int16:
-		i, _ := constant.Int64Val(val)
-		return int16(i)
-	case types.Int32:
-		i, _ := constant.Int64Val(val)
-		return int32(i)
-	case types.Int64:
-		i, exact := constant.Int64Val(val)
-		if exact {
-			return i
-		}
-		return int64(0)
-	case types.Uint:
-		u, _ := constant.Uint64Val(val)
-		return uint(u)
-	case types.Uint8:
-		u, _ := constant.Uint64Val(val)
-		return uint8(u)
-	case types.Uint16:
-		u, _ := constant.Uint64Val(val)
-		return uint16(u)
-	case types.Uint32:
-		u, _ := constant.Uint64Val(val)
-		return uint32(u)
-	case types.Uint64:
-		u, _ := constant.Uint64Val(val)
-		return u
-	case types.Uintptr:
-		u, _ := constant.Uint64Val(val)
-		return uint64(u)
-	case types.Float32:
-		f, _ := constant.Float64Val(val)
-		return float32(f)
-	case types.Float64, types.UntypedFloat:
-		f, _ := constant.Float64Val(val)
-		return f
-	case types.String, types.UntypedString:
-		return constant.StringVal(val)
-	case types.Complex64:
-		return complex64ConstValue(val)
-	case types.Complex128, types.UntypedComplex:
-		return complex128ConstValue(val)
-	default:
+	conv := basicConstConverters[kind]
+	if conv == nil {
 		return nil
 	}
+	return conv(val)
 }
 
-func complex64ConstValue(val constant.Value) complex64 {
+func complex64ConstValue(val constant.Value) any {
 	re := constant.Real(val)
 	im := constant.Imag(val)
 	reVal, _ := constant.Float64Val(re)
@@ -79,12 +29,57 @@ func complex64ConstValue(val constant.Value) complex64 {
 	return complex(float32(reVal), float32(imVal))
 }
 
-func complex128ConstValue(val constant.Value) complex128 {
+func complex128ConstValue(val constant.Value) any {
 	re := constant.Real(val)
 	im := constant.Imag(val)
 	reVal, _ := constant.Float64Val(re)
 	imVal, _ := constant.Float64Val(im)
 	return complex(reVal, imVal)
+}
+
+// basicConstConverters makes the supported-kind matrix explicit without a large switch.
+// The Uintptr entry intentionally maps to uint64 to preserve the old constant-pool shape.
+var basicConstConverters = map[types.BasicKind]basicConstConverter{
+	types.Bool: boolConstValue, types.UntypedBool: boolConstValue,
+	types.Int: exactSignedConstValue[int], types.UntypedInt: exactSignedConstValue[int], types.UntypedRune: exactSignedConstValue[int],
+	types.Int8: signedConstValue[int8], types.Int16: signedConstValue[int16], types.Int32: signedConstValue[int32], types.Int64: exactSignedConstValue[int64],
+	types.Uint: unsignedConstValue[uint], types.Uint8: unsignedConstValue[uint8], types.Uint16: unsignedConstValue[uint16],
+	types.Uint32: unsignedConstValue[uint32], types.Uint64: unsignedConstValue[uint64], types.Uintptr: unsignedConstValue[uint64],
+	types.Float32: floatConstValue[float32], types.Float64: floatConstValue[float64], types.UntypedFloat: floatConstValue[float64],
+	types.String: stringConstValue, types.UntypedString: stringConstValue,
+	types.Complex64: complex64ConstValue, types.Complex128: complex128ConstValue, types.UntypedComplex: complex128ConstValue,
+}
+
+func boolConstValue(val constant.Value) any {
+	return val.Kind() == constant.Bool && constant.BoolVal(val)
+}
+
+func exactSignedConstValue[T ~int | ~int64](val constant.Value) any {
+	i, exact := constant.Int64Val(val)
+	if exact {
+		return T(i)
+	}
+	var zero T
+	return zero
+}
+
+func signedConstValue[T ~int8 | ~int16 | ~int32](val constant.Value) any {
+	i, _ := constant.Int64Val(val)
+	return T(i)
+}
+
+func unsignedConstValue[T ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64](val constant.Value) any {
+	u, _ := constant.Uint64Val(val)
+	return T(u)
+}
+
+func floatConstValue[T ~float32 | ~float64](val constant.Value) any {
+	f, _ := constant.Float64Val(val)
+	return T(f)
+}
+
+func stringConstValue(val constant.Value) any {
+	return constant.StringVal(val)
 }
 
 var basicZeroValues = map[types.BasicKind]any{

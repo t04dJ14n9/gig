@@ -60,6 +60,13 @@ func TestContainsUserDefinedTypeSeenStaysShallow(t *testing.T) {
 	}
 }
 
+func TestBasicConstValueStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "compile_const_basic.go", "basicConstValue")
+	if count > 5 {
+		t.Fatalf("basicConstValue has %d branch points, want <= 5; move kind-specific conversion into table-driven helpers", count)
+	}
+}
+
 func assertCompilerFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)
