@@ -42,6 +42,13 @@ func TestReflectPrimitiveValueStaysShallow(t *testing.T) {
 	}
 }
 
+func TestPrimitiveInterfaceValueStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "reflect.go", "primitiveInterfaceValue")
+	if count > 8 {
+		t.Fatalf("primitiveInterfaceValue has %d branch points, want <= 8; split interface scalar conversion by kind family", count)
+	}
+}
+
 func TestValueToReflectValueStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "reflect_convert.go", "ToReflectValue")
 	if count > 10 {

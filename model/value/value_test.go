@@ -397,6 +397,7 @@ func TestFromInterfaceRoundTrip(t *testing.T) {
 		in   any
 		want any
 	}{
+		{true, true},
 		{int(42), int(42)},
 		{int8(42), int8(42)},
 		{int16(42), int16(42)},
@@ -409,6 +410,9 @@ func TestFromInterfaceRoundTrip(t *testing.T) {
 		{uint64(42), uint64(42)},
 		{float32(3.14), float32(3.14)},
 		{float64(3.14), float64(3.14)},
+		{complex64(complex(1, 2)), complex64(complex(1, 2))},
+		{complex128(complex(1, 2)), complex128(complex(1, 2))},
+		{"hi", "hi"},
 	}
 	for _, tt := range tests {
 		v := FromInterface(tt.in)

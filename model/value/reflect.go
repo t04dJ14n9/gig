@@ -138,11 +138,36 @@ func reflectNativeSliceValue(rv reflect.Value) (Value, bool) {
 func primitiveInterfaceValue(v any) (Value, bool) {
 	// Fast path common scalar values to avoid reflect.ValueOf while preserving
 	// the original Go width in the Value size tag.
+	if val, ok := exactPrimitiveInterfaceValue(v); ok {
+		return val, true
+	}
+	if val, ok := signedPrimitiveInterfaceValue(v); ok {
+		return val, true
+	}
+	if val, ok := unsignedPrimitiveInterfaceValue(v); ok {
+		return val, true
+	}
+	if val, ok := floatPrimitiveInterfaceValue(v); ok {
+		return val, true
+	}
+	return complexPrimitiveInterfaceValue(v)
+}
+
+func exactPrimitiveInterfaceValue(v any) (Value, bool) {
 	switch val := v.(type) {
 	case bool:
 		return MakeBool(val), true
 	case int:
 		return MakeInt(int64(val)), true
+	case string:
+		return MakeString(val), true
+	default:
+		return Value{}, false
+	}
+}
+
+func signedPrimitiveInterfaceValue(v any) (Value, bool) {
+	switch val := v.(type) {
 	case int8:
 		return MakeInt8(val), true
 	case int16:
@@ -151,6 +176,13 @@ func primitiveInterfaceValue(v any) (Value, bool) {
 		return MakeInt32(val), true
 	case int64:
 		return MakeInt64(val), true
+	default:
+		return Value{}, false
+	}
+}
+
+func unsignedPrimitiveInterfaceValue(v any) (Value, bool) {
+	switch val := v.(type) {
 	case uint:
 		return MakeUint(uint64(val)), true
 	case uint8:
@@ -161,16 +193,28 @@ func primitiveInterfaceValue(v any) (Value, bool) {
 		return MakeUint32(val), true
 	case uint64:
 		return MakeUint64(val), true
+	default:
+		return Value{}, false
+	}
+}
+
+func floatPrimitiveInterfaceValue(v any) (Value, bool) {
+	switch val := v.(type) {
 	case float32:
 		return MakeFloat32(val), true
 	case float64:
 		return MakeFloat(val), true
+	default:
+		return Value{}, false
+	}
+}
+
+func complexPrimitiveInterfaceValue(v any) (Value, bool) {
+	switch val := v.(type) {
 	case complex64:
 		return MakeComplex64(real(val), imag(val)), true
 	case complex128:
 		return MakeComplex(real(val), imag(val)), true
-	case string:
-		return MakeString(val), true
 	default:
 		return Value{}, false
 	}
