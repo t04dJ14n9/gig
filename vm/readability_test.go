@@ -151,6 +151,13 @@ func TestGenericSuperinstructionStaysGrouped(t *testing.T) {
 	}
 }
 
+func TestExecuteContainerStaysGrouped(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_container.go", "executeContainer")
+	if count > 8 {
+		t.Fatalf("executeContainer has %d branch points, want <= 8; split make, index, range, size, append, copy, and delete domains", count)
+	}
+}
+
 func TestIteratorNextStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "iterator.go", "next")
 	if count > 10 {
