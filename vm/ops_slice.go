@@ -14,116 +14,114 @@ func (v *vm) executeSlice() {
 	container := v.pop()
 
 	low := int(lowVal.Int())
-
-	// Handle nil container: nil[0:0] returns nil, nil[0:n] panics for n > 0.
-	if container.Kind() == value.KindNil {
-		high := int(highVal.Int())
-		if high == sliceEndSentinel {
-			high = 0
-		}
-		if low != 0 || high != 0 {
-			panic("runtime error: slice bounds out of range")
-		}
-		// nil[0:0] returns a nil slice with the same type (Go semantics).
-		v.push(container)
-		return
-	}
-
-	if v.executeSpecialSlice(container, low, highVal, maxVal) {
-		return
-	}
-
-	rv := v.mustReflectValue(container)
-	if !rv.IsValid() {
-		// Nil slice subslicing: in Go, nil[0:0] returns nil, not an empty non-nil slice.
-		v.push(value.MakeNil())
-		return
-	}
-
-	// Nil slice check: in Go, nil[0:0] returns nil, not an empty non-nil slice.
-	if rv.Kind() == reflect.Slice && rv.IsNil() {
-		high := int(highVal.Int())
-		if high == sliceEndSentinel {
-			high = 0
-		}
-		if low != 0 || high != 0 {
-			panic("runtime error: slice bounds out of range")
-		}
-		v.push(container)
-		return
-	}
-
-	// If it's a pointer to an array or slice, dereference it first.
-	if rv.Kind() == reflect.Ptr {
-		elemKind := rv.Elem().Kind()
-		if elemKind == reflect.Array || elemKind == reflect.Slice {
-			rv = rv.Elem()
-		}
-	}
-
-	if v.executeReflectIntSlice(container, rv, low, highVal, maxVal) {
-		return
-	}
-
 	high := int(highVal.Int())
-	if high == sliceEndSentinel {
-		high = rv.Len()
-	}
+	// Normalize the optional max bound once at the opcode boundary. The
+	// helper paths below stay on primitive ints, which keeps the hot bound
+	// normalization small enough for the compiler to inline.
+	max, hasMax := sliceMaxIndex(maxVal)
 
-	var sliced reflect.Value
-	if maxVal.Kind() != value.KindNil && maxVal.Int() != sliceEndSentinel {
-		// 3-index slice: container[low:high:max]
-		max := int(maxVal.Int())
-		sliced = rv.Slice3(low, high, max)
-	} else {
-		// 2-index slice: container[low:high]
-		sliced = rv.Slice(low, high)
-	}
-	v.push(value.MakeFromReflect(sliced))
-}
-
-func (v *vm) executeSpecialSlice(container value.Value, low int, highVal, maxVal value.Value) bool {
-	if container.Kind() == value.KindString {
-		high := int(highVal.Int())
-		if high == sliceEndSentinel {
-			high = len(container.String())
-		}
-		v.push(value.MakeString(container.String()[low:high]))
-		return true
-	}
-
-	if container.Kind() == value.KindBytes {
+	// Keep the common native slice cases in the opcode body. These are the hot
+	// paths emitted for ordinary Gig source, while nil and reflect handling stay
+	// below as small named domains.
+	switch container.Kind() {
+	case value.KindNil:
+		panicIfNonZeroNilSliceBounds(low, high)
+		v.push(container)
+		return
+	case value.KindString:
+		s := container.String()
+		v.push(value.MakeString(s[low:sliceHighIndex(high, len(s))]))
+		return
+	case value.KindBytes:
 		if b, ok := container.Bytes(); ok {
-			high := int(highVal.Int())
-			if high == sliceEndSentinel {
-				high = len(b)
-			}
-			if maxVal.Kind() != value.KindNil && maxVal.Int() != sliceEndSentinel {
-				v.push(value.MakeBytes(b[low:high:int(maxVal.Int())]))
+			high := sliceHighIndex(high, len(b))
+			if hasMax {
+				v.push(value.MakeBytes(b[low:high:max]))
 			} else {
 				v.push(value.MakeBytes(b[low:high]))
 			}
-			return true
+			return
 		}
 	}
 
 	if s, ok := container.IntSlice(); ok {
-		high := int(highVal.Int())
-		if high == sliceEndSentinel {
-			high = len(s)
-		}
-		if maxVal.Kind() != value.KindNil && maxVal.Int() != sliceEndSentinel {
-			v.push(value.MakeIntSlice(s[low:high:int(maxVal.Int())]))
+		high := sliceHighIndex(high, len(s))
+		if hasMax {
+			v.push(value.MakeIntSlice(s[low:high:max]))
 		} else {
 			v.push(value.MakeIntSlice(s[low:high]))
 		}
-		return true
+		return
 	}
 
-	return false
+	rv := v.mustReflectValue(container)
+	if v.executeNilReflectSlice(container, rv, low, high) {
+		return
+	}
+
+	rv = dereferenceSliceTarget(rv)
+
+	if v.executeReflectIntSlice(rv, low, high, max, hasMax) {
+		return
+	}
+
+	v.push(value.MakeFromReflect(sliceReflectValue(rv, low, high, max, hasMax)))
 }
 
-func (v *vm) executeReflectIntSlice(container value.Value, rv reflect.Value, low int, highVal, maxVal value.Value) bool {
+func (v *vm) executeNilReflectSlice(container value.Value, rv reflect.Value, low, high int) bool {
+	if !rv.IsValid() {
+		v.push(value.MakeNil())
+		return true
+	}
+	if rv.Kind() != reflect.Slice || !rv.IsNil() {
+		return false
+	}
+	panicIfNonZeroNilSliceBounds(low, high)
+	v.push(container)
+	return true
+}
+
+func panicIfNonZeroNilSliceBounds(low, high int) {
+	if low != 0 || sliceHighIndex(high, 0) != 0 {
+		panic("runtime error: slice bounds out of range")
+	}
+}
+
+func dereferenceSliceTarget(rv reflect.Value) reflect.Value {
+	if rv.Kind() != reflect.Ptr {
+		return rv
+	}
+	elemKind := rv.Elem().Kind()
+	if elemKind == reflect.Array || elemKind == reflect.Slice {
+		return rv.Elem()
+	}
+	return rv
+}
+
+func sliceHighIndex(high, length int) int {
+	if high == sliceEndSentinel {
+		return length
+	}
+	return high
+}
+
+func sliceMaxIndex(maxVal value.Value) (int, bool) {
+	if maxVal.Kind() == value.KindNil {
+		return 0, false
+	}
+	max := int(maxVal.Int())
+	return max, max != sliceEndSentinel
+}
+
+func sliceReflectValue(rv reflect.Value, low, high, max int, hasMax bool) reflect.Value {
+	high = sliceHighIndex(high, rv.Len())
+	if hasMax {
+		return rv.Slice3(low, high, max)
+	}
+	return rv.Slice(low, high)
+}
+
+func (v *vm) executeReflectIntSlice(rv reflect.Value, low, high, max int, hasMax bool) bool {
 	// Native int array/slice -> []int64 fast path
 	// SSA compiles make([]int, N) with constant N as Alloc([N]int) + Slice,
 	// so we intercept it here to produce a native []int64.
@@ -134,46 +132,25 @@ func (v *vm) executeReflectIntSlice(container value.Value, rv reflect.Value, low
 	// For slices from reflect, also use rv.Slice() to preserve sharing.
 	// The []int64 fast path is only used when the source is already
 	// a native []int64 (handled by the IntSlice() check above).
-	if rv.Kind() == reflect.Array && rv.Type().Elem().Kind() == reflect.Int {
-		high := int(highVal.Int())
-		if high == sliceEndSentinel {
-			high = rv.Len()
-		}
-		var sliced reflect.Value
-		if maxVal.Kind() != value.KindNil && maxVal.Int() != sliceEndSentinel {
-			sliced = rv.Slice3(low, high, int(maxVal.Int()))
-		} else {
-			sliced = rv.Slice(low, high)
-		}
-		v.push(value.MakeFromReflect(sliced))
-		return true
-	}
-	if rv.Kind() == reflect.Slice && rv.Type().Elem().Kind() == reflect.Int {
-		high := int(highVal.Int())
-		if high == sliceEndSentinel {
-			high = rv.Len()
-		}
-		var sliced reflect.Value
-		if maxVal.Kind() != value.KindNil && maxVal.Int() != sliceEndSentinel {
-			sliced = rv.Slice3(low, high, int(maxVal.Int()))
-		} else {
-			sliced = rv.Slice(low, high)
-		}
-		v.push(value.MakeFromReflect(sliced))
+	if isReflectIntArrayOrSlice(rv) {
+		v.push(value.MakeFromReflect(sliceReflectValue(rv, low, high, max, hasMax)))
 		return true
 	}
 
 	// Handle native []value.Value slices used for function slices.
 	if rv.Kind() == reflect.Slice && rv.Type().Elem() == reflect.TypeOf(value.Value{}) {
-		high := int(highVal.Int())
-		if high == sliceEndSentinel {
-			high = rv.Len()
-		}
+		high := sliceHighIndex(high, rv.Len())
 		sliced := rv.Slice(low, high)
 		v.push(value.MakeFromReflect(sliced))
 		return true
 	}
 
-	_ = container
 	return false
+}
+
+func isReflectIntArrayOrSlice(rv reflect.Value) bool {
+	if rv.Kind() != reflect.Array && rv.Kind() != reflect.Slice {
+		return false
+	}
+	return rv.Type().Elem().Kind() == reflect.Int
 }

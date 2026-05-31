@@ -67,6 +67,13 @@ func TestIteratorNextStaysShallow(t *testing.T) {
 	}
 }
 
+func TestExecuteSliceStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_slice.go", "executeSlice")
+	if count > 10 {
+		t.Fatalf("executeSlice has %d branch points, want <= 10; split nil, native, and reflect slicing paths", count)
+	}
+}
+
 func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)

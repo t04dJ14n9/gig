@@ -64,7 +64,7 @@ linters:
           - gocyclo
           - lll
           - maintidx
-      - path: '^(compiler/compile_builtin\.go|compiler/external_func_origin\.go|compiler/optimize/int_specialize\.go|compiler/optimize/slice_fusion\.go|compiler/typecheck\.go|importer/typeconv\.go|model/value/accessor\.go|model/value/container_elem\.go|model/value/extern_errors_as\.go|model/value/extern_wrapper_format\.go|model/value/reflect\.go|vm/ops_assert\.go|vm/ops_make_interface\.go|vm/ops_slice\.go|vm/reference\.go|vm/typeconv\.go|vm/vm\.go)$'
+      - path: '^(compiler/compile_builtin\.go|compiler/external_func_origin\.go|compiler/optimize/int_specialize\.go|compiler/optimize/slice_fusion\.go|compiler/typecheck\.go|importer/typeconv\.go|model/value/accessor\.go|model/value/container_elem\.go|model/value/extern_errors_as\.go|model/value/extern_wrapper_format\.go|model/value/reflect\.go|vm/ops_assert\.go|vm/ops_make_interface\.go|vm/reference\.go|vm/typeconv\.go|vm/vm\.go)$'
         linters:
           - cyclop
       - path: '^(compiler/compile_builtin\.go|compiler/external_func_origin\.go|compiler/optimize/int_specialize\.go|compiler/optimize/slice_fusion\.go|compiler/typecheck\.go|importer/typeconv\.go|model/value/accessor\.go|model/value/container_elem\.go|model/value/extern_errors_as\.go|model/value/extern_wrapper_format\.go|model/value/reflect\.go|vm/ops_assert\.go|vm/ops_make_interface\.go|vm/vm\.go)$'
