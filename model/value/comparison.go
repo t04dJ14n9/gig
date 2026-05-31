@@ -94,75 +94,101 @@ func sameNumericEqualityType(a, b Value) bool {
 
 // Equal returns v == other.
 func (v Value) Equal(other Value) bool {
-	// Unwrap interface/reflect values for comparison.
-	// When an external function returns an interface{} holding e.g. a string,
-	// it comes back as KindReflect. We need to compare the underlying value.
-	a, b := v, other
+	a, b := normalizeEqualityValues(v, other)
+	if result, handled := equalNilInterface(a, b); handled {
+		return result
+	}
+	if result, handled := equalInterpretedInterfaces(a, b); handled {
+		return result
+	}
+	a, b = unwrapEqualityValues(a, b)
+	if a.kind != b.kind {
+		return equalDifferentKinds(a, b)
+	}
+	return equalSameKind(a, b)
+}
 
-	// Treat KindInvalid (uninitialized zero Value) as KindNil.
-	// Go globals with reference types (pointer, slice, map, chan, func, interface)
-	// default to nil, but SSA may not emit explicit zero stores for them,
-	// leaving them as KindInvalid in the interpreter. Comparing an uninitialized
-	// global to nil should return true, just like in Go.
-	if a.kind == KindInvalid {
-		a = MakeNil()
-	}
-	if b.kind == KindInvalid {
-		b = MakeNil()
-	}
+func normalizeEqualityValues(a, b Value) (Value, Value) {
+	// SSA can leave zero stores implicit for nil-able globals. Treat the
+	// interpreter zero Value the same way Go treats an unstored nil reference.
+	return normalizeInvalidForEquality(a), normalizeInvalidForEquality(b)
+}
 
-	// Handle nil comparison with interface values first.
-	// In Go, a typed nil interface is NOT equal to nil.
-	// e.g., var p *T = nil; var e error = p; e == nil -> false
-	isInterfaceNil := func(val Value) (bool, bool) {
-		if val.kind == KindInterface {
-			if _, ok := val.InterpretedInterface(); ok {
-				return true, false
-			}
-			if rv, ok := val.obj.(reflect.Value); ok && rv.Kind() == reflect.Interface {
-				return true, rv.IsNil()
-			}
-			return true, true
-		}
-		if val.kind == KindReflect {
-			if rv, ok := val.obj.(reflect.Value); ok && rv.Kind() == reflect.Interface {
-				return true, rv.IsNil()
-			}
-		}
-		return false, false
+func normalizeInvalidForEquality(v Value) Value {
+	if v.kind == KindInvalid {
+		return MakeNil()
 	}
+	return v
+}
+
+func equalNilInterface(a, b Value) (bool, bool) {
 	if b.kind == KindNil {
-		if isIface, isNil := isInterfaceNil(a); isIface {
-			return isNil
+		if isIface, isNil := interfaceNilState(a); isIface {
+			return isNil, true
 		}
 	}
 	if a.kind == KindNil {
-		if isIface, isNil := isInterfaceNil(b); isIface {
-			return isNil
+		if isIface, isNil := interfaceNilState(b); isIface {
+			return isNil, true
 		}
 	}
+	return false, false
+}
 
-	if dynA, ok := a.InterpretedInterface(); ok {
-		dynB, ok := b.InterpretedInterface()
-		return ok && dynA.TypeName == dynB.TypeName && dynA.Value.Equal(dynB.Value)
-	}
-	if _, ok := b.InterpretedInterface(); ok {
-		return false
-	}
-
-	if a.kind == KindReflect || a.kind == KindInterface {
-		a = unwrapForComparison(a)
-	}
-	if b.kind == KindReflect || b.kind == KindInterface {
-		b = unwrapForComparison(b)
-	}
-	if a.kind != b.kind {
-		// Handle nil comparison
-		if a.kind == KindNil || b.kind == KindNil {
-			return a.IsNil() && b.IsNil()
+func interfaceNilState(val Value) (bool, bool) {
+	// Go distinguishes a nil interface from an interface holding a typed nil.
+	// Script-defined dynamic values are typed interface contents, even when the
+	// carried value is nil.
+	if val.kind == KindInterface {
+		if _, ok := val.InterpretedInterface(); ok {
+			return true, false
 		}
-		return false
+		if rv, ok := val.obj.(reflect.Value); ok && rv.Kind() == reflect.Interface {
+			return true, rv.IsNil()
+		}
+		return true, true
 	}
+	if val.kind == KindReflect {
+		if rv, ok := val.obj.(reflect.Value); ok && rv.Kind() == reflect.Interface {
+			return true, rv.IsNil()
+		}
+	}
+	return false, false
+}
+
+func equalInterpretedInterfaces(a, b Value) (bool, bool) {
+	dynA, okA := a.InterpretedInterface()
+	dynB, okB := b.InterpretedInterface()
+	if okA && okB {
+		return dynA.TypeName == dynB.TypeName && dynA.Value.Equal(dynB.Value), true
+	}
+	if okA || okB {
+		return false, true
+	}
+	return false, false
+}
+
+func unwrapEqualityValues(a, b Value) (Value, Value) {
+	// External calls often return interface{} contents as KindReflect; unwrap
+	// those before comparing against native Gig primitive values.
+	return unwrapEqualityValue(a), unwrapEqualityValue(b)
+}
+
+func unwrapEqualityValue(v Value) Value {
+	if v.kind == KindReflect || v.kind == KindInterface {
+		return unwrapForComparison(v)
+	}
+	return v
+}
+
+func equalDifferentKinds(a, b Value) bool {
+	if a.kind == KindNil || b.kind == KindNil {
+		return a.IsNil() && b.IsNil()
+	}
+	return false
+}
+
+func equalSameKind(a, b Value) bool {
 	switch a.kind {
 	case KindNil:
 		return true
@@ -179,29 +205,44 @@ func (v Value) Equal(other Value) bool {
 	case KindComplex:
 		return sameNumericEqualityType(a, b) && a.obj.(complex128) == b.obj.(complex128)
 	default:
-		// For pointer types, compare by identity (address), not by value.
-		// Go's == on pointers checks whether they point to the same location.
-		if vp, ok := a.obj.(*Value); ok {
-			if op, ok2 := b.obj.(*Value); ok2 {
-				return vp == op // pointer identity
-			}
-			return false
-		}
-		if rv, ok := a.obj.(reflect.Value); ok {
-			if rv.Kind() == reflect.Ptr {
-				if orv, ok2 := b.obj.(reflect.Value); ok2 && orv.Kind() == reflect.Ptr {
-					if rv.IsNil() && orv.IsNil() {
-						return true
-					}
-					if rv.IsNil() || orv.IsNil() {
-						return false
-					}
-					return rv.Pointer() == orv.Pointer()
-				}
-				return false
-			}
-		}
-		// For other complex types, use reflect.DeepEqual
-		return reflect.DeepEqual(a.Interface(), b.Interface())
+		return equalReferenceOrComposite(a, b)
 	}
+}
+
+func equalReferenceOrComposite(a, b Value) bool {
+	if result, handled := equalValuePointerIdentity(a, b); handled {
+		return result
+	}
+	if result, handled := equalReflectPointerIdentity(a, b); handled {
+		return result
+	}
+	return reflect.DeepEqual(a.Interface(), b.Interface())
+}
+
+func equalValuePointerIdentity(a, b Value) (bool, bool) {
+	// Interpreter pointers compare by identity, matching Go pointer equality.
+	vp, ok := a.obj.(*Value)
+	if !ok {
+		return false, false
+	}
+	op, ok := b.obj.(*Value)
+	return ok && vp == op, true
+}
+
+func equalReflectPointerIdentity(a, b Value) (bool, bool) {
+	rv, ok := a.obj.(reflect.Value)
+	if !ok || rv.Kind() != reflect.Ptr {
+		return false, false
+	}
+	orv, ok := b.obj.(reflect.Value)
+	if !ok || orv.Kind() != reflect.Ptr {
+		return false, true
+	}
+	if rv.IsNil() && orv.IsNil() {
+		return true, true
+	}
+	if rv.IsNil() || orv.IsNil() {
+		return false, true
+	}
+	return rv.Pointer() == orv.Pointer(), true
 }
