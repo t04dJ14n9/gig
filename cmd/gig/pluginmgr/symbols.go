@@ -16,6 +16,20 @@ type ExportedSymbols struct {
 	Types  []string
 }
 
+type symbolKind uint8
+
+const (
+	symbolFunc symbolKind = iota
+	symbolConst
+	symbolVar
+	symbolType
+)
+
+type parsedSymbol struct {
+	kind symbolKind
+	name string
+}
+
 // getExportedSymbols uses go doc to discover exported package symbols.
 func (pm *Manager) getExportedSymbols(pkgPath string) (*ExportedSymbols, error) {
 	ctx := context.Background()
@@ -55,26 +69,55 @@ func (pm *Manager) GetSymbols(pkgPath string) []string {
 }
 
 func addExportedSymbol(symbols *ExportedSymbols, line string) {
-	if line == "" || strings.HasPrefix(line, "//") {
+	symbol, ok := parseExportedSymbol(line)
+	if !ok {
 		return
 	}
+	symbols.add(symbol)
+}
+
+func parseExportedSymbol(line string) (parsedSymbol, bool) {
+	if line == "" || strings.HasPrefix(line, "//") {
+		return parsedSymbol{}, false
+	}
+	return parseSymbolDeclaration(line)
+}
+
+func parseSymbolDeclaration(line string) (parsedSymbol, bool) {
 	switch {
 	case strings.HasPrefix(line, "func "):
-		if name, ok := parseFunctionName(line); ok && isExported(name) {
-			symbols.Funcs = append(symbols.Funcs, name)
-		}
+		name, ok := parseFunctionName(line)
+		return parsedExportedSymbol(symbolFunc, name, ok)
 	case strings.HasPrefix(line, "type "):
-		if name, ok := parseTypeName(line); ok && isExported(name) {
-			symbols.Types = append(symbols.Types, name)
-		}
+		name, ok := parseTypeName(line)
+		return parsedExportedSymbol(symbolType, name, ok)
 	case strings.HasPrefix(line, "const "):
-		if name, ok := parseFirstDeclaredName(line, "const "); ok && isExported(name) {
-			symbols.Consts = append(symbols.Consts, name)
-		}
+		name, ok := parseFirstDeclaredName(line, "const ")
+		return parsedExportedSymbol(symbolConst, name, ok)
 	case strings.HasPrefix(line, "var "):
-		if name, ok := parseFirstDeclaredName(line, "var "); ok && isExported(name) {
-			symbols.Vars = append(symbols.Vars, name)
-		}
+		name, ok := parseFirstDeclaredName(line, "var ")
+		return parsedExportedSymbol(symbolVar, name, ok)
+	}
+	return parsedSymbol{}, false
+}
+
+func parsedExportedSymbol(kind symbolKind, name string, ok bool) (parsedSymbol, bool) {
+	if !ok || !isExported(name) {
+		return parsedSymbol{}, false
+	}
+	return parsedSymbol{kind: kind, name: name}, true
+}
+
+func (symbols *ExportedSymbols) add(symbol parsedSymbol) {
+	switch symbol.kind {
+	case symbolFunc:
+		symbols.Funcs = append(symbols.Funcs, symbol.name)
+	case symbolType:
+		symbols.Types = append(symbols.Types, symbol.name)
+	case symbolConst:
+		symbols.Consts = append(symbols.Consts, symbol.name)
+	case symbolVar:
+		symbols.Vars = append(symbols.Vars, symbol.name)
 	}
 }
 
