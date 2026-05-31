@@ -158,6 +158,13 @@ func TestExecuteContainerStaysGrouped(t *testing.T) {
 	}
 }
 
+func TestExecuteControlStaysGrouped(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_control.go", "executeControl")
+	if count > 8 {
+		t.Fatalf("executeControl has %d branch points, want <= 8; split channel, select, defer, panic, print, and halt domains", count)
+	}
+}
+
 func TestIteratorNextStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "iterator.go", "next")
 	if count > 10 {
