@@ -22,6 +22,16 @@ func TestGeneratorFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(t, "generator.go", 180, "move package generation helpers to focused files")
 }
 
+func TestGeneratorEmitAvoidsNestedFormattedWriteString(t *testing.T) {
+	src, err := os.ReadFile("generator_emit.go")
+	if err != nil {
+		t.Fatalf("read generator_emit.go: %v", err)
+	}
+	if count := bytes.Count(src, []byte("WriteString(fmt.Sprintf(")); count > 0 {
+		t.Fatalf("generator_emit.go has %d WriteString(fmt.Sprintf(...)) calls; use fmt.Fprintf on the builder instead", count)
+	}
+}
+
 func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)
