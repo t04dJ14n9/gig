@@ -111,83 +111,112 @@ func gigAsMatchValue(err error, elemType reflect.Type, targetVal reflect.Value) 
 	errVal := reflect.ValueOf(err)
 	errType := errVal.Type()
 
-	if wrapper, ok := err.(*gigStructWrapper); ok && elemType.Kind() == reflect.Interface && elemType.NumMethod() == 0 {
-		targetVal.Elem().Set(reflect.ValueOf(wrapper.iface))
+	wrapper, isWrapper := err.(*gigStructWrapper)
+	if isWrapper && gigAsMatchEmptyInterface(wrapper, elemType, targetVal) {
 		return true
 	}
 
 	// Direct type match: err's type is assignable to target element type.
-	if errType.AssignableTo(elemType) {
-		targetVal.Elem().Set(errVal)
+	if gigAsSetAssignable(errVal, elemType, targetVal) {
 		return true
 	}
 
 	// If err is a *gigStructWrapper, try matching by interpreter type name.
-	if wrapper, ok := err.(*gigStructWrapper); ok {
-		// Case 1: target is **StructType (errors.As(&ce) where ce is *CustomError)
-		if elemType.Kind() == reflect.Ptr {
-			ptrElemType := elemType.Elem()
-
-			// Check if the wrapper's underlying value type is assignable.
-			ifaceType := reflect.TypeOf(wrapper.iface)
-			if ifaceType.AssignableTo(elemType) {
-				targetVal.Elem().Set(reflect.ValueOf(wrapper.iface))
-				return true
-			}
-
-			// Match by gig type name: compare wrapper's typeName with target's gig tag.
-			wrapperTypeName := extractBareTypeName(wrapper.typeName)
-			targetTypeName := extractGigTagFromType(ptrElemType)
-			if targetTypeName == "" {
-				targetTypeName = ptrElemType.Name()
-			}
-			targetTypeName = extractBareTypeName(targetTypeName)
-
-			if wrapperTypeName != "" && wrapperTypeName == targetTypeName {
-				// Type names match: set the target to the underlying value.
-				if ifaceType.AssignableTo(elemType) {
-					targetVal.Elem().Set(reflect.ValueOf(wrapper.iface))
-					return true
-				}
-				// Try converting through interface{} if the pointer element is also a gig struct.
-				if ifaceType.Kind() == reflect.Ptr && ptrElemType.Kind() == reflect.Struct {
-					// Both are pointers to structs: try setting the value directly.
-					if ifaceType.Elem().ConvertibleTo(ptrElemType) {
-						converted := reflect.ValueOf(wrapper.iface).Elem().Convert(ptrElemType)
-						ptr := reflect.New(ptrElemType)
-						ptr.Elem().Set(converted)
-						targetVal.Elem().Set(ptr)
-						return true
-					}
-				}
-			}
-		}
-
-		// Case 2: target is an interface type (e.g., error)
-		if elemType.Kind() == reflect.Interface {
-			if errType.Implements(elemType) {
-				targetVal.Elem().Set(errVal)
-				return true
-			}
-		}
-
-		// Case 3: target is a struct type (value receiver, unlikely for errors)
-		if elemType.Kind() == reflect.Struct {
-			ifaceType := reflect.TypeOf(wrapper.iface)
-			if ifaceType.AssignableTo(elemType) {
-				targetVal.Elem().Set(reflect.ValueOf(wrapper.iface))
-				return true
-			}
-		}
-	}
-
-	// For non-gig errors, try standard interface check.
-	if elemType.Kind() == reflect.Interface && errType.Implements(elemType) {
-		targetVal.Elem().Set(errVal)
+	if isWrapper && gigAsMatchWrapper(wrapper, errVal, errType, elemType, targetVal) {
 		return true
 	}
 
-	return false
+	// For non-gig errors, try standard interface check.
+	return gigAsSetImplementedInterface(errVal, errType, elemType, targetVal)
+}
+
+func gigAsMatchEmptyInterface(wrapper *gigStructWrapper, elemType reflect.Type, targetVal reflect.Value) bool {
+	if elemType.Kind() != reflect.Interface || elemType.NumMethod() != 0 {
+		return false
+	}
+	// For *any targets, expose the script value itself. Setting the wrapper
+	// would leak the fmt/error adapter instead of the interpreter struct.
+	targetVal.Elem().Set(reflect.ValueOf(wrapper.iface))
+	return true
+}
+
+func gigAsSetAssignable(val reflect.Value, elemType reflect.Type, targetVal reflect.Value) bool {
+	if !val.Type().AssignableTo(elemType) {
+		return false
+	}
+	targetVal.Elem().Set(val)
+	return true
+}
+
+func gigAsMatchWrapper(
+	wrapper *gigStructWrapper,
+	errVal reflect.Value,
+	errType reflect.Type,
+	elemType reflect.Type,
+	targetVal reflect.Value,
+) bool {
+	switch elemType.Kind() {
+	case reflect.Ptr:
+		return gigAsMatchWrapperPointer(wrapper, elemType, targetVal)
+	case reflect.Interface:
+		return gigAsSetImplementedInterface(errVal, errType, elemType, targetVal)
+	case reflect.Struct:
+		return gigAsMatchWrapperStruct(wrapper, elemType, targetVal)
+	default:
+		return false
+	}
+}
+
+func gigAsMatchWrapperPointer(wrapper *gigStructWrapper, elemType reflect.Type, targetVal reflect.Value) bool {
+	ifaceVal := reflect.ValueOf(wrapper.iface)
+	if gigAsSetAssignable(ifaceVal, elemType, targetVal) {
+		return true
+	}
+
+	ptrElemType := elemType.Elem()
+	if !gigAsWrapperTypeNameMatches(wrapper, ptrElemType) {
+		return false
+	}
+	return gigAsSetConvertedWrapperPointer(wrapper, ptrElemType, targetVal)
+}
+
+func gigAsWrapperTypeNameMatches(wrapper *gigStructWrapper, targetType reflect.Type) bool {
+	// reflect.StructOf gives script structs anonymous host identities, so
+	// errors.As must compare the embedded Gig type name before conversion.
+	wrapperTypeName := extractBareTypeName(wrapper.typeName)
+	targetTypeName := extractGigTagFromType(targetType)
+	if targetTypeName == "" {
+		targetTypeName = targetType.Name()
+	}
+	return wrapperTypeName != "" && wrapperTypeName == extractBareTypeName(targetTypeName)
+}
+
+func gigAsSetConvertedWrapperPointer(wrapper *gigStructWrapper, targetType reflect.Type, targetVal reflect.Value) bool {
+	ifaceVal := reflect.ValueOf(wrapper.iface)
+	if ifaceVal.Kind() != reflect.Ptr || targetType.Kind() != reflect.Struct || !ifaceVal.Type().Elem().ConvertibleTo(targetType) {
+		return false
+	}
+	// Allocate a fresh pointer of the target type so the caller receives the
+	// shape requested by errors.As, not the anonymous StructOf pointer.
+	converted := ifaceVal.Elem().Convert(targetType)
+	ptr := reflect.New(targetType)
+	ptr.Elem().Set(converted)
+	targetVal.Elem().Set(ptr)
+	return true
+}
+
+func gigAsMatchWrapperStruct(wrapper *gigStructWrapper, elemType reflect.Type, targetVal reflect.Value) bool {
+	return gigAsSetAssignable(reflect.ValueOf(wrapper.iface), elemType, targetVal)
+}
+
+func gigAsSetImplementedInterface(errVal reflect.Value, errType, elemType reflect.Type, targetVal reflect.Value) bool {
+	if elemType.Kind() != reflect.Interface || !errType.Implements(elemType) {
+		return false
+	}
+	// Non-empty interfaces such as error should receive the wrapper, because
+	// that is the host value carrying the method implementation.
+	targetVal.Elem().Set(errVal)
+	return true
 }
 
 // gigAsMatchFrameSlot checks if an error matches a target type and sets

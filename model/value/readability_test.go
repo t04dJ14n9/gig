@@ -35,6 +35,13 @@ func TestGigErrorsIsStaysShallow(t *testing.T) {
 	}
 }
 
+func TestGigErrorsAsMatchValueStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "extern_errors_as.go", "gigAsMatchValue")
+	if count > 10 {
+		t.Fatalf("gigAsMatchValue has %d branch points, want <= 10; split native and gig-wrapper target matching", count)
+	}
+}
+
 func TestValueInterfaceStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "accessor.go", "Interface")
 	if count > 14 {
