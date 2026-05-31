@@ -65,76 +65,102 @@ func (v Value) Interface() any {
 	case KindBool:
 		return v.Bool()
 	case KindInt:
-		switch v.size {
-		case Size8:
-			return int8(v.num)
-		case Size16:
-			return int16(v.num)
-		case Size32:
-			return int32(v.num)
-		case Size64:
-			return v.num // int64
-		default:
-			return int(v.num) // SizePtr / Size0 → int
-		}
+		return interfaceSignedInt(v.num, v.size)
 	case KindUint:
-		switch v.size {
-		case Size8:
-			return uint8(v.num)
-		case Size16:
-			return uint16(v.num)
-		case Size32:
-			return uint32(v.num)
-		case Size64:
-			return uint64(v.num)
-		default:
-			return uint(v.num) // SizePtr / Size0 → uint
-		}
+		return interfaceUnsignedInt(uint64(v.num), v.size)
 	case KindFloat:
-		f := math.Float64frombits(uint64(v.num))
-		if v.size == Size32 {
-			return float32(f)
-		}
-		return f // float64
+		return interfaceFloat(v.num, v.size)
 	case KindString:
 		return v.obj.(string)
 	case KindComplex:
-		c := v.obj.(complex128)
-		if v.size == Size32 {
-			return complex64(c)
-		}
-		return c
+		return interfaceComplex(v.obj.(complex128), v.size)
 	case KindInterface:
-		if dyn, ok := v.InterpretedInterface(); ok {
-			return dyn.Value.Interface()
-		}
-		if rv, ok := v.obj.(reflect.Value); ok {
-			return rv.Interface()
-		}
-		return v.obj
+		return v.interfaceInterface()
 	case KindFunc:
 		return v.obj
 	case KindBytes:
 		return v.obj.([]byte)
 	case KindSlice:
-		// Native int slice: convert []int64 to []int for Go-compatible return
-		if s, ok := v.obj.([]int64); ok {
-			result := make([]int, len(s))
-			for i, n := range s {
-				result[i] = int(n)
-			}
-			return result
-		}
-		return v.obj
+		return interfaceSlice(v.obj)
 	case KindReflect:
-		if rv, ok := v.obj.(reflect.Value); ok {
-			return rv.Interface()
-		}
-		return v.obj
+		return interfaceReflectOrObject(v.obj)
 	default:
-		if rv, ok := v.obj.(reflect.Value); ok {
-			return rv.Interface()
-		}
-		return v.obj
+		return interfaceReflectOrObject(v.obj)
 	}
+}
+
+func interfaceSignedInt(num int64, size Size) any {
+	switch size {
+	case Size8:
+		return int8(num)
+	case Size16:
+		return int16(num)
+	case Size32:
+		return int32(num)
+	case Size64:
+		return num
+	default:
+		// SizePtr and Size0 represent the interpreter's default int width.
+		return int(num)
+	}
+}
+
+func interfaceUnsignedInt(num uint64, size Size) any {
+	switch size {
+	case Size8:
+		return uint8(num)
+	case Size16:
+		return uint16(num)
+	case Size32:
+		return uint32(num)
+	case Size64:
+		return num
+	default:
+		// SizePtr and Size0 represent the interpreter's default uint width.
+		return uint(num)
+	}
+}
+
+func interfaceFloat(bits int64, size Size) any {
+	f := math.Float64frombits(uint64(bits))
+	if size == Size32 {
+		return float32(f)
+	}
+	return f
+}
+
+func interfaceComplex(c complex128, size Size) any {
+	if size == Size32 {
+		return complex64(c)
+	}
+	return c
+}
+
+func (v Value) interfaceInterface() any {
+	if dyn, ok := v.InterpretedInterface(); ok {
+		return dyn.Value.Interface()
+	}
+	return interfaceReflectOrObject(v.obj)
+}
+
+func interfaceSlice(obj any) any {
+	s, ok := obj.([]int64)
+	if !ok {
+		return obj
+	}
+
+	// Native int slices are stored internally as []int64 but should return as
+	// []int so API callers observe the same type native Go would produce.
+	result := make([]int, len(s))
+	for i, n := range s {
+		result[i] = int(n)
+	}
+	return result
+}
+
+func interfaceReflectOrObject(obj any) any {
+	if rv, ok := obj.(reflect.Value); ok {
+		return rv.Interface()
+	}
+	return obj
 }

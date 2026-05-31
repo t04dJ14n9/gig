@@ -35,6 +35,13 @@ func TestGigErrorsIsStaysShallow(t *testing.T) {
 	}
 }
 
+func TestValueInterfaceStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "accessor.go", "Interface")
+	if count > 14 {
+		t.Fatalf("Value.Interface has %d branch points, want <= 14; split primitive widths, interface unwrap, and reflected payloads", count)
+	}
+}
+
 func directBranchCount(t *testing.T, path, funcName string) int {
 	t.Helper()
 
