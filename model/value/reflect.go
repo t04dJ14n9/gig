@@ -55,41 +55,65 @@ func reflectPrimitiveValue(rv reflect.Value) (Value, bool) {
 	switch rv.Kind() {
 	case reflect.Bool:
 		return MakeBool(rv.Bool()), true
-	case reflect.Int:
-		return MakeInt(rv.Int()), true
-	case reflect.Int8:
-		return MakeInt8(int8(rv.Int())), true
-	case reflect.Int16:
-		return MakeInt16(int16(rv.Int())), true
-	case reflect.Int32:
-		return MakeInt32(int32(rv.Int())), true
-	case reflect.Int64:
-		return MakeInt64(rv.Int()), true
-	case reflect.Uint:
-		return MakeUint(rv.Uint()), true
-	case reflect.Uint8:
-		return MakeUint8(uint8(rv.Uint())), true
-	case reflect.Uint16:
-		return MakeUint16(uint16(rv.Uint())), true
-	case reflect.Uint32:
-		return MakeUint32(uint32(rv.Uint())), true
-	case reflect.Uint64, reflect.Uintptr:
-		return MakeUint64(rv.Uint()), true
-	case reflect.Float32:
-		return MakeFloat32(float32(rv.Float())), true
-	case reflect.Float64:
-		return MakeFloat(rv.Float()), true
 	case reflect.String:
 		return MakeString(rv.String()), true
-	case reflect.Complex64:
-		c := rv.Complex()
-		return MakeComplex64(float32(real(c)), float32(imag(c))), true
-	case reflect.Complex128:
-		c := rv.Complex()
-		return MakeComplex(real(c), imag(c)), true
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return reflectSignedValue(rv), true
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return reflectUnsignedValue(rv), true
+	case reflect.Float32, reflect.Float64:
+		return reflectFloatValue(rv), true
+	case reflect.Complex64, reflect.Complex128:
+		return reflectComplexValue(rv), true
 	default:
 		return Value{}, false
 	}
+}
+
+func reflectSignedValue(rv reflect.Value) Value {
+	switch rv.Kind() {
+	case reflect.Int:
+		return MakeInt(rv.Int())
+	case reflect.Int8:
+		return MakeInt8(int8(rv.Int()))
+	case reflect.Int16:
+		return MakeInt16(int16(rv.Int()))
+	case reflect.Int32:
+		return MakeInt32(int32(rv.Int()))
+	default:
+		return MakeInt64(rv.Int())
+	}
+}
+
+func reflectUnsignedValue(rv reflect.Value) Value {
+	switch rv.Kind() {
+	case reflect.Uint:
+		return MakeUint(rv.Uint())
+	case reflect.Uint8:
+		return MakeUint8(uint8(rv.Uint()))
+	case reflect.Uint16:
+		return MakeUint16(uint16(rv.Uint()))
+	case reflect.Uint32:
+		return MakeUint32(uint32(rv.Uint()))
+	default:
+		// Uint64 and Uintptr share the existing uint64 Value representation.
+		return MakeUint64(rv.Uint())
+	}
+}
+
+func reflectFloatValue(rv reflect.Value) Value {
+	if rv.Kind() == reflect.Float32 {
+		return MakeFloat32(float32(rv.Float()))
+	}
+	return MakeFloat(rv.Float())
+}
+
+func reflectComplexValue(rv reflect.Value) Value {
+	c := rv.Complex()
+	if rv.Kind() == reflect.Complex64 {
+		return MakeComplex64(float32(real(c)), float32(imag(c)))
+	}
+	return MakeComplex(real(c), imag(c))
 }
 
 func reflectNativeSliceValue(rv reflect.Value) (Value, bool) {

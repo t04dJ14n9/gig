@@ -35,6 +35,13 @@ func TestFromInterfaceStaysShallow(t *testing.T) {
 	}
 }
 
+func TestReflectPrimitiveValueStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "reflect.go", "reflectPrimitiveValue")
+	if count > 8 {
+		t.Fatalf("reflectPrimitiveValue has %d branch points, want <= 8; split reflected scalar conversion by kind family", count)
+	}
+}
+
 func TestIsGigStructStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "extern_type.go", "isGigStruct")
 	if count > 8 {

@@ -1,6 +1,7 @@
 package value
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"testing"
@@ -82,6 +83,40 @@ func TestMakeFromReflect(t *testing.T) {
 	}
 	if got.Len() != 3 {
 		t.Errorf("ReflectValue slice len = %d, want 3", got.Len())
+	}
+}
+
+func TestMakeFromReflectPrimitiveRoundTrip(t *testing.T) {
+	tests := []struct {
+		in   any
+		want any
+	}{
+		{true, true},
+		{int(42), int(42)},
+		{int8(42), int8(42)},
+		{int16(42), int16(42)},
+		{int32(42), int32(42)},
+		{int64(42), int64(42)},
+		{uint(42), uint(42)},
+		{uint8(42), uint8(42)},
+		{uint16(42), uint16(42)},
+		{uint32(42), uint32(42)},
+		{uint64(42), uint64(42)},
+		{uintptr(42), uint64(42)},
+		{float32(3.25), float32(3.25)},
+		{float64(3.25), float64(3.25)},
+		{complex64(complex(1, 2)), complex64(complex(1, 2))},
+		{complex128(complex(1, 2)), complex128(complex(1, 2))},
+		{"hi", "hi"},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%T", tt.in), func(t *testing.T) {
+			got := MakeFromReflect(reflect.ValueOf(tt.in)).Interface()
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("MakeFromReflect(%T).Interface() = %#v (%T), want %#v (%T)", tt.in, got, got, tt.want, tt.want)
+			}
+		})
 	}
 }
 
