@@ -53,52 +53,72 @@ func (v *vm) pushReflectResults(out []reflect.Value) {
 // look up the method signature and wraps any KindFunc arguments via reflect.MakeFunc.
 // args[0] is the receiver, args[1:] are method arguments.
 func convertClosureArgsForMethod(methodName string, args []value.Value) {
-	hasClosure := false
-	for i := 1; i < len(args); i++ {
-		if args[i].Kind() == value.KindFunc {
-			hasClosure = true
-			break
-		}
-	}
-	if !hasClosure {
+	if !methodArgsContainClosure(args) {
 		return
 	}
 
-	// Get the receiver's reflect type to look up method signature
-	var rv reflect.Value
-	if rr, ok := args[0].ReflectValue(); ok {
-		rv = rr
-	} else {
-		iface := args[0].Interface()
-		if iface == nil {
-			return
-		}
-		rv = reflect.ValueOf(iface)
+	method, ok := methodValueForClosureArgs(methodName, args)
+	if !ok {
+		return
 	}
+	convertMethodClosureArgs(args, method.Type())
+}
 
-	// Look up the method by name on the receiver
-	method := rv.MethodByName(methodName)
-	if !method.IsValid() {
-		if rv.CanAddr() {
-			method = rv.Addr().MethodByName(methodName)
-		}
-		if !method.IsValid() {
-			return
-		}
-	}
-
-	mt := method.Type()
+func methodArgsContainClosure(args []value.Value) bool {
 	for i := 1; i < len(args); i++ {
 		if args[i].Kind() == value.KindFunc {
-			paramIdx := i - 1 // method args are 0-based (no receiver in method.Type())
-			if paramIdx < mt.NumIn() {
-				paramType := mt.In(paramIdx)
-				if paramType.Kind() == reflect.Func {
-					args[i] = value.MakeFromReflect(args[i].ToReflectValue(paramType))
-				}
-			}
+			return true
 		}
 	}
+	return false
+}
+
+func methodValueForClosureArgs(methodName string, args []value.Value) (reflect.Value, bool) {
+	rv, ok := methodReceiverValue(args[0])
+	if !ok {
+		return reflect.Value{}, false
+	}
+	return lookupMethodValue(rv, methodName)
+}
+
+func methodReceiverValue(receiver value.Value) (reflect.Value, bool) {
+	if rv, ok := receiver.ReflectValue(); ok {
+		return rv, true
+	}
+	iface := receiver.Interface()
+	if iface == nil {
+		return reflect.Value{}, false
+	}
+	return reflect.ValueOf(iface), true
+}
+
+func lookupMethodValue(rv reflect.Value, methodName string) (reflect.Value, bool) {
+	method := rv.MethodByName(methodName)
+	if method.IsValid() {
+		return method, true
+	}
+	if rv.CanAddr() {
+		method = rv.Addr().MethodByName(methodName)
+	}
+	return method, method.IsValid()
+}
+
+func convertMethodClosureArgs(args []value.Value, methodType reflect.Type) {
+	for i := 1; i < len(args); i++ {
+		paramType, ok := methodFuncParamType(methodType, i)
+		if ok && args[i].Kind() == value.KindFunc {
+			args[i] = value.MakeFromReflect(args[i].ToReflectValue(paramType))
+		}
+	}
+}
+
+func methodFuncParamType(methodType reflect.Type, argIndex int) (reflect.Type, bool) {
+	paramIdx := argIndex - 1 // method args are 0-based (no receiver in method.Type()).
+	if paramIdx >= methodType.NumIn() {
+		return nil, false
+	}
+	paramType := methodType.In(paramIdx)
+	return paramType, paramType.Kind() == reflect.Func
 }
 
 // convertClosureArgs scans args for interpreted closures (KindFunc) and converts them

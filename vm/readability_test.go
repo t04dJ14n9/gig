@@ -64,6 +64,13 @@ func TestUnpackVariadicArgsStaysShallow(t *testing.T) {
 	}
 }
 
+func TestConvertClosureArgsForMethodStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "call_runtime.go", "convertClosureArgsForMethod")
+	if count > 8 {
+		t.Fatalf("convertClosureArgsForMethod has %d decision points, want <= 8; split closure detection, receiver resolution, method lookup, and argument conversion", count)
+	}
+}
+
 func TestReflectMethodTypeForBoundaryStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "call_external_method.go", "reflectMethodTypeForBoundary")
 	if count > 8 {

@@ -7,6 +7,69 @@ import (
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
+type methodClosureReceiver struct{}
+
+func (methodClosureReceiver) Apply(fn func(int) int) int { return fn(3) }
+
+type methodClosureExecutor struct{}
+
+var _ value.ClosureExecutor = methodClosureExecutor{}
+
+func (methodClosureExecutor) Execute(args []reflect.Value, outTypes []reflect.Type) []reflect.Value {
+	if len(args) == 0 || len(outTypes) == 0 {
+		return nil
+	}
+	return []reflect.Value{args[0].Convert(outTypes[0])}
+}
+
+func TestConvertClosureArgsForMethodConvertsFuncParams(t *testing.T) {
+	args := []value.Value{
+		value.FromInterface(methodClosureReceiver{}),
+		value.MakeFunc(methodClosureExecutor{}),
+	}
+
+	convertClosureArgsForMethod("Apply", args)
+
+	rv, ok := args[1].ReflectValue()
+	if !ok {
+		t.Fatal("converted method closure argument is not reflect-backed")
+	}
+	if rv.Kind() != reflect.Func {
+		t.Fatalf("converted method closure kind = %v, want Func", rv.Kind())
+	}
+	out := rv.Call([]reflect.Value{reflect.ValueOf(7)})
+	if len(out) != 1 || out[0].Int() != 7 {
+		t.Fatalf("converted closure returned %#v, want 7", out)
+	}
+}
+
+func TestConvertClosureArgsForMethodLeavesNonFuncParamsAlone(t *testing.T) {
+	args := []value.Value{
+		value.FromInterface(methodClosureReceiver{}),
+		value.MakeInt(1),
+		value.MakeFunc(methodClosureExecutor{}),
+	}
+
+	convertClosureArgsForMethod("Apply", args)
+
+	if args[2].Kind() != value.KindFunc {
+		t.Fatalf("out-of-range closure argument kind = %v, want KindFunc", args[2].Kind())
+	}
+}
+
+func TestConvertClosureArgsForMethodIgnoresMissingMethod(t *testing.T) {
+	args := []value.Value{
+		value.FromInterface(methodClosureReceiver{}),
+		value.MakeFunc(methodClosureExecutor{}),
+	}
+
+	convertClosureArgsForMethod("Missing", args)
+
+	if args[1].Kind() != value.KindFunc {
+		t.Fatalf("missing method closure argument kind = %v, want KindFunc", args[1].Kind())
+	}
+}
+
 func TestUnpackVariadicArgsExpandsPackedSlices(t *testing.T) {
 	tests := []struct {
 		name string
