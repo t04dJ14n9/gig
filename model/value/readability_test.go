@@ -49,6 +49,13 @@ func TestSetElemStaysShallow(t *testing.T) {
 	}
 }
 
+func TestExternWrapperFormatStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "extern_wrapper_format.go", "Format")
+	if count > 10 {
+		t.Fatalf("gigStructWrapper.Format has %d branch points, want <= 10; split verb dispatch and struct rendering", count)
+	}
+}
+
 func directBranchCount(t *testing.T, path, funcName string) int {
 	t.Helper()
 
