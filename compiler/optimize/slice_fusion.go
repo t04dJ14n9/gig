@@ -2,19 +2,29 @@ package optimize
 
 import "github.com/t04dJ14n9/gig/model/bytecode"
 
+// The pattern we match is always 17 bytes:
+//
+//	LOCAL(s) LOCAL(j) INDEXADDR SETLOCAL(ptr) LOCAL(ptr) <op6> <op7>
+//
+// where <op6>/<op7> determines the fused instruction:
+//
+//	DEREF + SETLOCAL(v)      -> OpIntSliceGet(s, j, v)
+//	LOCAL(val) + SETDEREF    -> OpIntSliceSet(s, j, val)
+//	CONST(c) + SETDEREF      -> OpIntSliceSetConst(s, j, c)
+const sliceFusionPatternLen = 17
+
+type sliceFusionCandidate struct {
+	start int
+	s     uint16
+	j     uint16
+	ptr   uint16
+}
+
 // FuseSliceOps replaces common slice access patterns with fused superinstructions.
 // It matches 17-byte sequences of [LOCAL, LOCAL, INDEXADDR, SETLOCAL, LOCAL, ...]
 // and replaces them with 7-byte OpIntSlice{Get,Set,SetConst}.
 func FuseSliceOps(code []byte, localIsInt, localIsIntSlice []bool) []byte {
 	var rewrites []rewrite
-
-	// The pattern we match is always 17 bytes:
-	//   LOCAL(s) LOCAL(j) INDEXADDR SETLOCAL(ptr) LOCAL(ptr) <op6> <op7>
-	// where <op6>/<op7> determines the fused instruction:
-	//   DEREF + SETLOCAL(v)      -> OpIntSliceGet(s, j, v)
-	//   LOCAL(val) + SETDEREF    -> OpIntSliceSet(s, j, val)
-	//   CONST(c) + SETDEREF      -> OpIntSliceSetConst(s, j, c)
-	const patternLen = 17
 
 	i := 0
 	for i < len(code) {
@@ -24,72 +34,112 @@ func FuseSliceOps(code []byte, localIsInt, localIsIntSlice []bool) []byte {
 			break
 		}
 
-		if op != bytecode.OpLocal || i+patternLen > len(code) {
+		candidate, ok := sliceFusionCandidateAt(code, i)
+		if !ok {
 			i = instrEnd
 			continue
 		}
 
-		// Check the fixed prefix: LOCAL(s) LOCAL(j) INDEXADDR SETLOCAL(ptr) LOCAL(ptr)
-		if bytecode.OpCode(code[i+3]) != bytecode.OpLocal ||
-			bytecode.OpCode(code[i+6]) != bytecode.OpIndexAddr ||
-			bytecode.OpCode(code[i+7]) != bytecode.OpSetLocal ||
-			bytecode.OpCode(code[i+10]) != bytecode.OpLocal {
+		fused := candidate.fusedBytes(code, localIsInt, localIsIntSlice)
+		if fused == nil {
 			i = instrEnd
 			continue
 		}
 
-		s := bytecode.ReadU16(code, i+1)
-		j := bytecode.ReadU16(code, i+4)
-		ptr := bytecode.ReadU16(code, i+8)
-		ptrGet := bytecode.ReadU16(code, i+11)
-		if ptr != ptrGet {
-			i = instrEnd
-			continue
-		}
-
-		// ptr must not be used elsewhere; it is a temporary.
-		if localUsedOutside(code, ptr, i, i+patternLen) {
-			i = instrEnd
-			continue
-		}
-
-		op6 := bytecode.OpCode(code[i+13])
-		op7 := bytecode.OpCode(code[i+14]) // for DEREF case, this is SETLOCAL opcode; for others, it is at i+16
-
-		var fused []byte
-		switch {
-		case op6 == bytecode.OpDeref && op7 == bytecode.OpSetLocal:
-			// s[j] read -> OpIntSliceGet(s, j, v)
-			v := bytecode.ReadU16(code, i+15)
-			if safeIdx(int(s), localIsIntSlice) && safeIdx(int(j), localIsInt) && safeIdx(int(v), localIsInt) {
-				fused = makeSliceOp(bytecode.OpIntSliceGet, s, j, v)
-			}
-		case op6 == bytecode.OpLocal && bytecode.OpCode(code[i+16]) == bytecode.OpSetDeref:
-			// s[j] = val -> OpIntSliceSet(s, j, val)
-			val := bytecode.ReadU16(code, i+14)
-			if safeIdx(int(s), localIsIntSlice) && safeIdx(int(j), localIsInt) && safeIdx(int(val), localIsInt) {
-				fused = makeSliceOp(bytecode.OpIntSliceSet, s, j, val)
-			}
-		case op6 == bytecode.OpConst && bytecode.OpCode(code[i+16]) == bytecode.OpSetDeref:
-			// s[j] = const -> OpIntSliceSetConst(s, j, constIdx)
-			constIdx := bytecode.ReadU16(code, i+14)
-			if safeIdx(int(s), localIsIntSlice) && safeIdx(int(j), localIsInt) {
-				fused = makeSliceOp(bytecode.OpIntSliceSetConst, s, j, constIdx)
-			}
-		}
-
-		if fused != nil {
-			rewrites = append(rewrites, rewrite{i, i + patternLen, fused})
-			i += patternLen
-		} else {
-			i = instrEnd
-		}
+		rewrites = append(rewrites, rewrite{i, i + sliceFusionPatternLen, fused})
+		i += sliceFusionPatternLen
 	}
 
 	if len(rewrites) == 0 {
 		return code
 	}
 	return applyRewrites(code, rewrites)
+}
+
+func sliceFusionCandidateAt(code []byte, i int) (sliceFusionCandidate, bool) {
+	if !hasSliceFusionPrefix(code, i) {
+		return sliceFusionCandidate{}, false
+	}
+
+	candidate := sliceFusionCandidate{
+		start: i,
+		s:     bytecode.ReadU16(code, i+1),
+		j:     bytecode.ReadU16(code, i+4),
+		ptr:   bytecode.ReadU16(code, i+8),
+	}
+	ptrGet := bytecode.ReadU16(code, i+11)
+	if candidate.ptr != ptrGet {
+		return sliceFusionCandidate{}, false
+	}
+	if localUsedOutside(code, candidate.ptr, i, i+sliceFusionPatternLen) {
+		return sliceFusionCandidate{}, false
+	}
+	return candidate, true
+}
+
+func hasSliceFusionPrefix(code []byte, i int) bool {
+	return i+sliceFusionPatternLen <= len(code) &&
+		bytecode.OpCode(code[i]) == bytecode.OpLocal &&
+		bytecode.OpCode(code[i+3]) == bytecode.OpLocal &&
+		bytecode.OpCode(code[i+6]) == bytecode.OpIndexAddr &&
+		bytecode.OpCode(code[i+7]) == bytecode.OpSetLocal &&
+		bytecode.OpCode(code[i+10]) == bytecode.OpLocal
+}
+
+func (candidate sliceFusionCandidate) fusedBytes(code []byte, localIsInt, localIsIntSlice []bool) []byte {
+	switch {
+	case candidate.isGetPattern(code):
+		return candidate.fuseGet(code, localIsInt, localIsIntSlice)
+	case candidate.isSetPattern(code):
+		return candidate.fuseSet(code, localIsInt, localIsIntSlice)
+	case candidate.isSetConstPattern(code):
+		return candidate.fuseSetConst(code, localIsInt, localIsIntSlice)
+	default:
+		return nil
+	}
+}
+
+func (candidate sliceFusionCandidate) isGetPattern(code []byte) bool {
+	return bytecode.OpCode(code[candidate.start+13]) == bytecode.OpDeref &&
+		bytecode.OpCode(code[candidate.start+14]) == bytecode.OpSetLocal
+}
+
+func (candidate sliceFusionCandidate) isSetPattern(code []byte) bool {
+	return bytecode.OpCode(code[candidate.start+13]) == bytecode.OpLocal &&
+		bytecode.OpCode(code[candidate.start+16]) == bytecode.OpSetDeref
+}
+
+func (candidate sliceFusionCandidate) isSetConstPattern(code []byte) bool {
+	return bytecode.OpCode(code[candidate.start+13]) == bytecode.OpConst &&
+		bytecode.OpCode(code[candidate.start+16]) == bytecode.OpSetDeref
+}
+
+func (candidate sliceFusionCandidate) fuseGet(code []byte, localIsInt, localIsIntSlice []bool) []byte {
+	v := bytecode.ReadU16(code, candidate.start+15)
+	if !candidate.hasIntSliceBaseAndIndex(localIsInt, localIsIntSlice) || !safeIdx(int(v), localIsInt) {
+		return nil
+	}
+	return makeSliceOp(bytecode.OpIntSliceGet, candidate.s, candidate.j, v)
+}
+
+func (candidate sliceFusionCandidate) fuseSet(code []byte, localIsInt, localIsIntSlice []bool) []byte {
+	val := bytecode.ReadU16(code, candidate.start+14)
+	if !candidate.hasIntSliceBaseAndIndex(localIsInt, localIsIntSlice) || !safeIdx(int(val), localIsInt) {
+		return nil
+	}
+	return makeSliceOp(bytecode.OpIntSliceSet, candidate.s, candidate.j, val)
+}
+
+func (candidate sliceFusionCandidate) fuseSetConst(code []byte, localIsInt, localIsIntSlice []bool) []byte {
+	constIdx := bytecode.ReadU16(code, candidate.start+14)
+	if !candidate.hasIntSliceBaseAndIndex(localIsInt, localIsIntSlice) {
+		return nil
+	}
+	return makeSliceOp(bytecode.OpIntSliceSetConst, candidate.s, candidate.j, constIdx)
+}
+
+func (candidate sliceFusionCandidate) hasIntSliceBaseAndIndex(localIsInt, localIsIntSlice []bool) bool {
+	return safeIdx(int(candidate.s), localIsIntSlice) && safeIdx(int(candidate.j), localIsInt)
 }
 
 func makeSliceOp(op bytecode.OpCode, a, b, c uint16) []byte {
