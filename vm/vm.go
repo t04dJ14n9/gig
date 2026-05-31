@@ -60,6 +60,7 @@ package vm
 
 import (
 	"context"
+	"go/types"
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/model/bytecode"
@@ -148,55 +149,7 @@ type vm struct {
 
 // newVM creates a new VM for executing the given program.
 func newVM(program *bytecode.CompiledProgram, initialGlobals []value.Value, goroutines *GoroutineTracker) *vm {
-	globals := make([]value.Value, len(program.Globals))
-	if len(initialGlobals) == len(globals) {
-		copy(globals, initialGlobals)
-	}
-	// Initialize external variable values
-	for idx, ptr := range program.ExternalVarValues {
-		if idx < len(globals) {
-			globals[idx] = value.FromInterface(ptr)
-		}
-	}
-
-	// Initialize zero-valued and deferred-type globals.
-	for idx, zeroRV := range program.GlobalZeroValues {
-		if idx < len(globals) {
-			g := globals[idx]
-			if !g.IsValid() || g.IsNil() {
-				globals[idx] = value.MakeFromReflect(zeroRV)
-			}
-		}
-	}
-	for idx, typeIdx := range program.GlobalTypes {
-		if idx >= len(globals) || typeIdx >= len(program.Types) {
-			continue
-		}
-		g := globals[idx]
-		if !g.IsValid() || g.IsNil() {
-			t := program.Types[typeIdx]
-			if rt := typeToReflect(t, program); rt != nil && rt.Kind() == reflect.Ptr {
-				globals[idx] = value.MakeFromReflect(reflect.New(rt.Elem()))
-			}
-		}
-	}
-
-	// For globals with element types but no pre-computed zero values (anonymous
-	// structs, arrays, user-defined named types), compute the zero value using
-	// typeToReflect. This must run AFTER GlobalZeroValues so it doesn't override
-	// pre-computed values for external types like sync.Mutex.
-	for idx, elemType := range program.GlobalElemTypes {
-		if idx < len(globals) {
-			g := globals[idx]
-			if !g.IsValid() || g.IsNil() {
-				if _, hasZero := program.GlobalZeroValues[idx]; !hasZero {
-					if rt := typeToReflect(elemType, program); rt != nil {
-						globals[idx] = value.MakeFromReflect(reflect.New(rt))
-					}
-				}
-			}
-		}
-	}
+	globals := initializeVMGlobals(program, initialGlobals)
 
 	return &vm{
 		program:        program,
@@ -208,4 +161,84 @@ func newVM(program *bytecode.CompiledProgram, initialGlobals []value.Value, goro
 		initialGlobals: initialGlobals,
 		goroutines:     goroutines,
 	}
+}
+
+func initializeVMGlobals(program *bytecode.CompiledProgram, initialGlobals []value.Value) []value.Value {
+	globals := copyInitialGlobals(program, initialGlobals)
+	applyExternalVarGlobals(globals, program)
+	applyZeroValueGlobals(globals, program)
+	applyPointerTypeGlobals(globals, program)
+	applyElementTypeGlobals(globals, program)
+	return globals
+}
+
+func copyInitialGlobals(program *bytecode.CompiledProgram, initialGlobals []value.Value) []value.Value {
+	globals := make([]value.Value, len(program.Globals))
+	if len(initialGlobals) == len(globals) {
+		copy(globals, initialGlobals)
+	}
+	return globals
+}
+
+func applyExternalVarGlobals(globals []value.Value, program *bytecode.CompiledProgram) {
+	for idx, ptr := range program.ExternalVarValues {
+		if idx < len(globals) {
+			globals[idx] = value.FromInterface(ptr)
+		}
+	}
+}
+
+func applyZeroValueGlobals(globals []value.Value, program *bytecode.CompiledProgram) {
+	for idx, zeroRV := range program.GlobalZeroValues {
+		if idx < len(globals) {
+			if shouldInitializeGlobal(globals[idx]) {
+				globals[idx] = value.MakeFromReflect(zeroRV)
+			}
+		}
+	}
+}
+
+func applyPointerTypeGlobals(globals []value.Value, program *bytecode.CompiledProgram) {
+	for idx, typeIdx := range program.GlobalTypes {
+		if idx >= len(globals) || typeIdx >= len(program.Types) {
+			continue
+		}
+		if shouldInitializeGlobal(globals[idx]) {
+			initializePointerTypeGlobal(globals, program, idx, typeIdx)
+		}
+	}
+}
+
+func initializePointerTypeGlobal(globals []value.Value, program *bytecode.CompiledProgram, idx, typeIdx int) {
+	t := program.Types[typeIdx]
+	if rt := typeToReflect(t, program); rt != nil && rt.Kind() == reflect.Ptr {
+		globals[idx] = value.MakeFromReflect(reflect.New(rt.Elem()))
+	}
+}
+
+func applyElementTypeGlobals(globals []value.Value, program *bytecode.CompiledProgram) {
+	// For globals with element types but no pre-computed zero values (anonymous
+	// structs, arrays, user-defined named types), compute the zero value using
+	// typeToReflect. This must run AFTER GlobalZeroValues so it doesn't override
+	// pre-computed values for external types like sync.Mutex.
+	for idx, elemType := range program.GlobalElemTypes {
+		if idx < len(globals) {
+			if shouldInitializeGlobal(globals[idx]) {
+				initializeElementTypeGlobal(globals, program, idx, elemType)
+			}
+		}
+	}
+}
+
+func initializeElementTypeGlobal(globals []value.Value, program *bytecode.CompiledProgram, idx int, elemType types.Type) {
+	if _, hasZero := program.GlobalZeroValues[idx]; hasZero {
+		return
+	}
+	if rt := typeToReflect(elemType, program); rt != nil {
+		globals[idx] = value.MakeFromReflect(reflect.New(rt))
+	}
+}
+
+func shouldInitializeGlobal(g value.Value) bool {
+	return !g.IsValid() || g.IsNil()
 }

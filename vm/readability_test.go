@@ -17,6 +17,13 @@ func TestVMFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(t, "vm.go", 360, "move execution entry and argument preparation to focused files")
 }
 
+func TestNewVMStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "vm.go", "newVM")
+	if count > 8 {
+		t.Fatalf("newVM has %d branch points, want <= 8; split global initialization domains from VM allocation", count)
+	}
+}
+
 func TestInterfaceAdapterFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(t, "interface_adapter.go", 180, "move adapter call mechanics to focused files")
 }
