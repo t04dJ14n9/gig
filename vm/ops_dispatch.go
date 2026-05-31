@@ -152,99 +152,11 @@ func toFloat64(v value.Value) float64 {
 // against target types. The size parameter enables exact type matching
 // (e.g., int vs int64, complex64 vs complex128).
 func kindMatchesType(k value.Kind, sz value.Size, t types.Type) bool {
-	// Unwrap named types to get the underlying type
 	t = t.Underlying()
-
-	switch k {
-	case value.KindInt:
-		if basic, ok := t.(*types.Basic); ok {
-			switch basic.Kind() {
-			case types.Int:
-				return sz == value.SizePtr
-			case types.Int8:
-				return sz == value.Size8
-			case types.Int16:
-				return sz == value.Size16
-			case types.Int32:
-				return sz == value.Size32
-			case types.Int64:
-				return sz == value.Size64
-			}
-		}
-		return false
-	case value.KindUint:
-		if basic, ok := t.(*types.Basic); ok {
-			switch basic.Kind() {
-			case types.Uint:
-				return sz == value.SizePtr
-			case types.Uint8:
-				return sz == value.Size8
-			case types.Uint16:
-				return sz == value.Size16
-			case types.Uint32:
-				return sz == value.Size32
-			case types.Uint64, types.Uintptr:
-				return sz == value.Size64
-			}
-		}
-		return false
-	case value.KindFloat:
-		if basic, ok := t.(*types.Basic); ok {
-			switch basic.Kind() {
-			case types.Float32:
-				return sz == value.Size32
-			case types.Float64:
-				return sz == value.Size64
-			}
-		}
-		return false
-	case value.KindBool:
-		if basic, ok := t.(*types.Basic); ok {
-			return basic.Kind() == types.Bool
-		}
-		return false
-	case value.KindString:
-		if basic, ok := t.(*types.Basic); ok {
-			return basic.Kind() == types.String
-		}
-		return false
-	case value.KindComplex:
-		if basic, ok := t.(*types.Basic); ok {
-			switch basic.Kind() {
-			case types.Complex64:
-				return sz == value.Size32
-			case types.Complex128:
-				return sz == value.Size64
-			}
-		}
-		return false
-	case value.KindSlice:
-		_, ok := t.(*types.Slice)
-		return ok
-	case value.KindMap:
-		_, ok := t.(*types.Map)
-		return ok
-	case value.KindFunc:
-		_, ok := t.(*types.Signature)
-		return ok
-	case value.KindBytes:
-		// []byte is a slice of uint8
-		if s, ok := t.(*types.Slice); ok {
-			if basic, ok2 := s.Elem().(*types.Basic); ok2 {
-				return basic.Kind() == types.Uint8 || basic.Kind() == types.Byte
-			}
-		}
-		return false
-	case value.KindNil:
-		return false
-	case value.KindInterface:
-		_, ok := t.(*types.Interface)
-		return ok
-	default:
-		// For KindReflect, KindPointer, KindStruct, etc., fall through to true
-		// (these should normally be handled by the reflect path above).
-		return true
+	if basic, ok := t.(*types.Basic); ok {
+		return basicKindMatchesValue(k, sz, basic.Kind())
 	}
+	return compositeKindMatchesValue(k, t)
 }
 
 // sameReflectKindFamily checks whether two reflect.Types belong to the same

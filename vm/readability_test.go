@@ -2,6 +2,9 @@ package vm
 
 import (
 	"bytes"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"testing"
 )
@@ -26,6 +29,13 @@ func TestCallBoundaryFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(t, "call_boundary.go", 140, "move reflect scanning and callable policy to focused files")
 }
 
+func TestKindMatchesTypeStaysShallow(t *testing.T) {
+	count := directSwitchCaseCount(t, "ops_dispatch.go", "kindMatchesType")
+	if count > 8 {
+		t.Fatalf("kindMatchesType has %d direct switch cases, want <= 8; split primitive and composite type matching", count)
+	}
+}
+
 func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)
@@ -36,4 +46,40 @@ func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	if lines > maxLines {
 		t.Fatalf("%s has %d lines, want <= %d; %s", path, lines, maxLines, hint)
 	}
+}
+
+func directSwitchCaseCount(t *testing.T, path, funcName string) int {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+
+	fn := findFuncDecl(file, funcName)
+	if fn == nil || fn.Body == nil {
+		t.Fatalf("find function %s in %s", funcName, path)
+	}
+
+	count := 0
+	for _, stmt := range fn.Body.List {
+		switch s := stmt.(type) {
+		case *ast.SwitchStmt:
+			count += len(s.Body.List)
+		case *ast.TypeSwitchStmt:
+			count += len(s.Body.List)
+		}
+	}
+	return count
+}
+
+func findFuncDecl(file *ast.File, name string) *ast.FuncDecl {
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if ok && fn.Name.Name == name {
+			return fn
+		}
+	}
+	return nil
 }
