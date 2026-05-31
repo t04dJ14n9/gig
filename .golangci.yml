@@ -64,10 +64,10 @@ linters:
           - gocyclo
           - lll
           - maintidx
-      - path: '^(compiler/compile_builtin\.go|compiler/external_func_origin\.go|compiler/optimize/int_specialize\.go|compiler/optimize/slice_fusion\.go|importer/typeconv\.go|model/value/reflect\.go|vm/ops_make_interface\.go|vm/typeconv\.go|vm/vm\.go)$'
+      - path: '^(compiler/compile_builtin\.go|compiler/optimize/int_specialize\.go|compiler/optimize/slice_fusion\.go|importer/typeconv\.go|model/value/reflect\.go|vm/ops_make_interface\.go|vm/typeconv\.go|vm/vm\.go)$'
         linters:
           - cyclop
-      - path: '^(compiler/compile_builtin\.go|compiler/external_func_origin\.go|compiler/optimize/int_specialize\.go|compiler/optimize/slice_fusion\.go|importer/typeconv\.go|model/value/reflect\.go|vm/ops_make_interface\.go|vm/vm\.go)$'
+      - path: '^(compiler/compile_builtin\.go|compiler/optimize/int_specialize\.go|compiler/optimize/slice_fusion\.go|importer/typeconv\.go|model/value/reflect\.go|vm/ops_make_interface\.go|vm/typeconv\.go|vm/vm\.go)$'
         linters:
           - gocyclo
       - path: '^importer/typeconv\.go$'
