@@ -32,6 +32,13 @@ func TestInterfaceBoundaryFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(t, "interface_boundary.go", 170, "move proxy lookup and host-interface classification to focused files")
 }
 
+func TestInterpretedTypeSatisfiesInterfaceStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "interface_boundary.go", "interpretedTypeSatisfiesInterface")
+	if count > 8 {
+		t.Fatalf("interpretedTypeSatisfiesInterface has %d decision points, want <= 8; split method lookup, receiver eligibility, and dynamic receiver matching", count)
+	}
+}
+
 func TestCallBoundaryFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(t, "call_boundary.go", 140, "move reflect scanning and callable policy to focused files")
 }

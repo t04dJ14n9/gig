@@ -3,6 +3,7 @@ package vm
 import (
 	"go/types"
 
+	"github.com/t04dJ14n9/gig/model/bytecode"
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
@@ -30,27 +31,55 @@ func (v *vm) assertInterpretedInterfaceValue(dyn *value.InterpretedInterfaceValu
 }
 
 func (v *vm) interpretedTypeSatisfiesInterface(dyn *value.InterpretedInterfaceValue, iface *types.Interface) bool {
-	if dyn == nil || iface == nil || v == nil || v.program == nil {
+	if !v.canResolveInterpretedInterface(dyn, iface) {
 		return false
 	}
 	for i := 0; i < iface.NumMethods(); i++ {
-		methodName := iface.Method(i).Name()
-		found := false
-		for _, fn := range v.program.MethodsByName[methodName] {
-			if fn.ReceiverTypeName == dyn.TypeName && (!fn.ReceiverIsPointer || dyn.IsPointer) {
-				found = true
-				break
-			}
-			if !fn.ReceiverIsPointer || dyn.IsPointer {
-				if _, ok := receiverForCompiledMethodTarget(methodName, dyn.Value, fn, v.program); ok {
-					found = true
-					break
-				}
-			}
-		}
-		if !found {
+		if !v.interpretedMethodSatisfiesInterface(dyn, iface.Method(i).Name()) {
 			return false
 		}
 	}
 	return true
+}
+
+func (v *vm) canResolveInterpretedInterface(dyn *value.InterpretedInterfaceValue, iface *types.Interface) bool {
+	return dyn != nil && iface != nil && v != nil && v.program != nil
+}
+
+func (v *vm) interpretedMethodSatisfiesInterface(dyn *value.InterpretedInterfaceValue, methodName string) bool {
+	for _, fn := range v.program.MethodsByName[methodName] {
+		if compiledMethodMatchesInterpretedType(dyn, fn) {
+			return true
+		}
+		if v.compiledMethodMatchesDynamicReceiver(dyn, methodName, fn) {
+			return true
+		}
+	}
+	return false
+}
+
+func compiledMethodMatchesInterpretedType(
+	dyn *value.InterpretedInterfaceValue,
+	fn *bytecode.CompiledFunction,
+) bool {
+	return fn.ReceiverTypeName == dyn.TypeName && receiverEligibleForInterpretedValue(dyn, fn)
+}
+
+func (v *vm) compiledMethodMatchesDynamicReceiver(
+	dyn *value.InterpretedInterfaceValue,
+	methodName string,
+	fn *bytecode.CompiledFunction,
+) bool {
+	if !receiverEligibleForInterpretedValue(dyn, fn) {
+		return false
+	}
+	_, ok := receiverForCompiledMethodTarget(methodName, dyn.Value, fn, v.program)
+	return ok
+}
+
+func receiverEligibleForInterpretedValue(
+	dyn *value.InterpretedInterfaceValue,
+	fn *bytecode.CompiledFunction,
+) bool {
+	return !fn.ReceiverIsPointer || dyn.IsPointer
 }
