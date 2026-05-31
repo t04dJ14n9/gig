@@ -45,113 +45,152 @@ func (v *vm) runDefersDuringPanic(frame *Frame) bool {
 	}
 
 	for i := len(frame.defers) - 1; i >= 0; i-- {
-		d := frame.defers[i]
-
-		// Handle external method defers (OpDeferExternal, e.g. defer mu.Unlock())
-		// These must run during panic recovery, just like in Go.
-		if d.externalInfo != nil {
-			switch info := d.externalInfo.(type) {
-			case *external.ExternalMethodInfo:
-				_ = v.callExternalMethod(info, d.args)
-				if info.DirectCall == nil {
-					_ = v.pop()
-				}
-			case *external.ExternalFuncInfo:
-				before := v.sp
-				_ = v.callResolvedExternal(bytecode.ResolveConstant(info), d.args)
-				if v.sp > before {
-					_ = v.pop()
-				}
-			}
-			continue
-		}
-
-		// Handle external function value defers (OpDeferIndirect with external func)
-		// e.g. defer fn() where fn is an external function variable
-		if d.externalFunc.IsValid() {
-			argVals := make([]reflect.Value, len(d.args))
-			for j, arg := range d.args {
-				funcType := d.externalFunc.Type()
-				if j < funcType.NumIn() {
-					argType := funcType.In(j)
-					argVals[j] = arg.ToReflectValue(argType)
-				} else {
-					argVals[j] = reflect.ValueOf(arg.Interface())
-				}
-			}
-			d.externalFunc.Call(argVals)
-			continue
-		}
-
-		// Skip nil function entries (shouldn't happen, but defensive)
-		if d.fn == nil {
-			continue
-		}
-
-		// Get free variables from closure if present
-		var freeVars []*value.Value
-		if d.closure != nil {
-			freeVars = d.closure.FreeVars
-		}
-
-		if v.panicking {
-			// Panic is active: push state onto panicStack so that
-			// OpRecover (inside the deferred function) can access it.
-			// Clear v.panicking so the recursive run() doesn't immediately
-			// re-enter the panic handler on the defer's frame.
-			v.panicStack = append(v.panicStack, panicState{
-				panicking: true,
-				panicVal:  v.panicVal,
-			})
-			v.panicking = false
-			v.panicVal = value.MakeNil()
-
-			v.callFunction(d.fn, d.args, freeVars)
-			v.deferDepth++
-			_, _ = v.run()
-			v.deferDepth--
-
-			if v.panicking {
-				// The defer itself panicked (and was not recovered).
-				// Pop the saved state — this new panic replaces the old one.
-				v.panicStack = v.panicStack[:len(v.panicStack)-1]
-				continue
-			}
-
-			// Pop the saved state and check if recover() consumed it.
-			saved := v.panicStack[len(v.panicStack)-1]
-			v.panicStack = v.panicStack[:len(v.panicStack)-1]
-
-			if saved.panicking {
-				// The defer didn't call recover() — restore the panic.
-				v.panicking = true
-				v.panicVal = saved.panicVal
-			} else {
-				// recover() was called — panic is resolved.
-				// Continue running remaining defers in normal mode.
-				recovered = true
-			}
-		} else {
-			// Panic already recovered: run remaining defers normally.
-			// Use child VM to avoid interfering with the parent frame stack.
-			childVM := v.newDeferVM()
-			deferFrame := newFrame(d.fn, d.args, freeVars)
-			childVM.frames[0] = deferFrame
-			childVM.fp = 1
-			_, _ = childVM.run()
-
-			// If the child VM panicked, re-enter panic mode.
-			if childVM.lastPanicVal.IsValid() {
-				v.panicking = true
-				v.panicVal = childVM.lastPanicVal
-				recovered = false
-			} else if childVM.panicking {
-				v.panicking = true
-				v.panicVal = childVM.panicVal
-				recovered = false
-			}
-		}
+		recovered = v.runDeferDuringPanic(frame.defers[i], recovered)
 	}
 	frame.defers = nil
 	return recovered
+}
+
+func (v *vm) runDeferDuringPanic(d DeferInfo, recovered bool) bool {
+	if v.runExternalInfoDefer(d) {
+		return recovered
+	}
+	if v.runExternalFuncDefer(d) {
+		return recovered
+	}
+	if d.fn == nil {
+		return recovered
+	}
+
+	freeVars := deferFreeVars(d)
+	if v.panicking {
+		return v.runInterpretedDeferWithActivePanic(d, freeVars, recovered)
+	}
+	return v.runInterpretedDeferAfterRecovery(d, freeVars, recovered)
+}
+
+func (v *vm) runExternalInfoDefer(d DeferInfo) bool {
+	// OpDeferExternal stores resolved metadata for calls such as
+	// `defer mu.Unlock()`. They must run even while unwinding a panic.
+	if d.externalInfo == nil {
+		return false
+	}
+	switch info := d.externalInfo.(type) {
+	case *external.ExternalMethodInfo:
+		_ = v.callExternalMethod(info, d.args)
+		if info.DirectCall == nil {
+			_ = v.pop()
+		}
+	case *external.ExternalFuncInfo:
+		before := v.sp
+		_ = v.callResolvedExternal(bytecode.ResolveConstant(info), d.args)
+		if v.sp > before {
+			_ = v.pop()
+		}
+	}
+	return true
+}
+
+func (v *vm) runExternalFuncDefer(d DeferInfo) bool {
+	// OpDeferIndirect can capture an external function value. These calls use
+	// reflect because their concrete function value is known only at runtime.
+	if !d.externalFunc.IsValid() {
+		return false
+	}
+	d.externalFunc.Call(reflectDeferArgs(d.externalFunc, d.args))
+	return true
+}
+
+func reflectDeferArgs(fn reflect.Value, args []value.Value) []reflect.Value {
+	argVals := make([]reflect.Value, len(args))
+	funcType := fn.Type()
+	for j, arg := range args {
+		if j < funcType.NumIn() {
+			argVals[j] = arg.ToReflectValue(funcType.In(j))
+		} else {
+			argVals[j] = reflect.ValueOf(arg.Interface())
+		}
+	}
+	return argVals
+}
+
+func deferFreeVars(d DeferInfo) []*value.Value {
+	if d.closure == nil {
+		return nil
+	}
+	return d.closure.FreeVars
+}
+
+func (v *vm) runInterpretedDeferWithActivePanic(d DeferInfo, freeVars []*value.Value, recovered bool) bool {
+	// OpRecover must observe the same VM panic stack as the panicking frame, so
+	// interpreted defers run recursively on the current VM while the saved panic
+	// state is temporarily moved onto panicStack.
+	v.pushActivePanicForDefer()
+	v.invokeInterpretedDefer(d, freeVars)
+
+	if v.panicking {
+		v.dropSavedPanicForReplacedPanic()
+		return recovered
+	}
+
+	saved := v.popSavedPanic()
+	if saved.panicking {
+		v.panicking = true
+		v.panicVal = saved.panicVal
+		return recovered
+	}
+	return true
+}
+
+func (v *vm) pushActivePanicForDefer() {
+	v.panicStack = append(v.panicStack, panicState{
+		panicking: true,
+		panicVal:  v.panicVal,
+	})
+	v.panicking = false
+	v.panicVal = value.MakeNil()
+}
+
+func (v *vm) invokeInterpretedDefer(d DeferInfo, freeVars []*value.Value) {
+	v.callFunction(d.fn, d.args, freeVars)
+	v.deferDepth++
+	_, _ = v.run()
+	v.deferDepth--
+}
+
+func (v *vm) dropSavedPanicForReplacedPanic() {
+	v.panicStack = v.panicStack[:len(v.panicStack)-1]
+}
+
+func (v *vm) popSavedPanic() panicState {
+	saved := v.panicStack[len(v.panicStack)-1]
+	v.panicStack = v.panicStack[:len(v.panicStack)-1]
+	return saved
+}
+
+func (v *vm) runInterpretedDeferAfterRecovery(d DeferInfo, freeVars []*value.Value, recovered bool) bool {
+	// After recover has resolved the active panic, remaining interpreted defers
+	// run on a lightweight child VM so their stack frames do not disturb the
+	// parent frame that is finishing panic unwinding.
+	childVM := v.runRecoveredDeferInChildVM(d, freeVars)
+	if childVM.lastPanicVal.IsValid() {
+		v.panicking = true
+		v.panicVal = childVM.lastPanicVal
+		return false
+	}
+	if childVM.panicking {
+		v.panicking = true
+		v.panicVal = childVM.panicVal
+		return false
+	}
+	return recovered
+}
+
+func (v *vm) runRecoveredDeferInChildVM(d DeferInfo, freeVars []*value.Value) *vm {
+	childVM := v.newDeferVM()
+	deferFrame := newFrame(d.fn, d.args, freeVars)
+	childVM.frames[0] = deferFrame
+	childVM.fp = 1
+	_, _ = childVM.run()
+	return childVM
 }

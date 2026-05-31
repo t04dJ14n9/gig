@@ -186,6 +186,13 @@ func TestExecuteSelectStaysShallow(t *testing.T) {
 	}
 }
 
+func TestRunDefersDuringPanicStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "run_panic.go", "runDefersDuringPanic")
+	if count > 8 {
+		t.Fatalf("runDefersDuringPanic has %d branch points, want <= 8; split external, reflect, active-panic, and post-recovery defer execution", count)
+	}
+}
+
 func TestIteratorNextStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "iterator.go", "next")
 	if count > 10 {
