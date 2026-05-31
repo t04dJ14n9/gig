@@ -13,69 +13,47 @@ func isGigStruct(v any) string {
 	if v == nil {
 		return ""
 	}
-	rv := reflect.ValueOf(v)
-	rt := rv.Type()
+	return gigStructNameFromType(baseReflectType(reflect.TypeOf(v)))
+}
 
-	// Handle multiple levels of pointers: **T, ***T, etc.
-	for rv.Kind() == reflect.Ptr {
-		if rv.IsNil() {
-			elemType := rt.Elem()
-			for elemType.Kind() == reflect.Ptr {
-				elemType = elemType.Elem()
-			}
-			if elemType.Kind() != reflect.Struct || elemType.NumField() == 0 {
-				return ""
-			}
-			gigTag := elemType.Field(0).Tag.Get("gig")
-			if gigTag == "" {
-				// Fallback: check PkgPath of unexported fields for "#TypeName"
-				for i := 0; i < elemType.NumField(); i++ {
-					pkgPath := elemType.Field(i).PkgPath
-					if idx := strings.LastIndex(pkgPath, "#"); idx >= 0 {
-						qualName := pkgPath[idx+1:]
-						if dotIdx := strings.LastIndex(qualName, "."); dotIdx >= 0 {
-							return qualName[dotIdx+1:]
-						}
-						return qualName
-					}
-				}
-				return ""
-			}
-			if strings.HasPrefix(gigTag, "#") {
-				return gigTag[1:]
-			}
-			return gigTag
-		}
-		rv = rv.Elem()
-		rt = rv.Type()
+func baseReflectType(rt reflect.Type) reflect.Type {
+	for rt.Kind() == reflect.Ptr {
+		rt = rt.Elem()
 	}
+	return rt
+}
 
-	if rv.Kind() != reflect.Struct {
+func gigStructNameFromType(rt reflect.Type) string {
+	if rt.Kind() != reflect.Struct {
 		return ""
 	}
-	rt = rv.Type()
 	if rt.NumField() == 0 {
 		return ""
 	}
 	gigTag := rt.Field(0).Tag.Get("gig")
-	if gigTag == "" {
-		// Fallback: check PkgPath of unexported fields for "#TypeName"
-		for i := 0; i < rt.NumField(); i++ {
-			pkgPath := rt.Field(i).PkgPath
-			if idx := strings.LastIndex(pkgPath, "#"); idx >= 0 {
-				qualName := pkgPath[idx+1:]
-				if dotIdx := strings.LastIndex(qualName, "."); dotIdx >= 0 {
-					return qualName[dotIdx+1:]
-				}
-				return qualName
-			}
-		}
-		return ""
+	if gigTag != "" {
+		return normalizeGigTag(gigTag)
 	}
+	return gigStructNameFromPkgPath(rt)
+}
+
+func normalizeGigTag(gigTag string) string {
 	if strings.HasPrefix(gigTag, "#") {
 		return gigTag[1:]
 	}
 	return gigTag
+}
+
+func gigStructNameFromPkgPath(rt reflect.Type) string {
+	// Some synthesized structs carry the script type name in the unexported
+	// field PkgPath because reflect.StructOf cannot attach real methods.
+	for i := 0; i < rt.NumField(); i++ {
+		pkgPath := rt.Field(i).PkgPath
+		if idx := strings.LastIndex(pkgPath, "#"); idx >= 0 {
+			return extractBareTypeName(pkgPath[idx+1:])
+		}
+	}
+	return ""
 }
 
 // FmtWrap prepares a value.Value for passing to fmt.* functions.
@@ -115,9 +93,5 @@ func extractGigTagFromType(rt reflect.Type) string {
 	if rt.Kind() != reflect.Struct || rt.NumField() == 0 {
 		return ""
 	}
-	tag := rt.Field(0).Tag.Get("gig")
-	if strings.HasPrefix(tag, "#") {
-		return tag[1:]
-	}
-	return tag
+	return normalizeGigTag(rt.Field(0).Tag.Get("gig"))
 }

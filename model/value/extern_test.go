@@ -42,6 +42,14 @@ func TestIsGigStructDetectsPointersAndValues(t *testing.T) {
 	if got := isGigStruct(rv.Addr().Interface()); got != "example.Widget" {
 		t.Fatalf("isGigStruct(pointer) = %q, want example.Widget", got)
 	}
+	nilPtr := reflect.Zero(reflect.PointerTo(rv.Type())).Interface()
+	if got := isGigStruct(nilPtr); got != "example.Widget" {
+		t.Fatalf("isGigStruct(nil pointer) = %q, want example.Widget", got)
+	}
+	nilPtrPtr := reflect.Zero(reflect.PointerTo(reflect.PointerTo(rv.Type()))).Interface()
+	if got := isGigStruct(nilPtrPtr); got != "example.Widget" {
+		t.Fatalf("isGigStruct(nil pointer pointer) = %q, want example.Widget", got)
+	}
 }
 
 func TestGigErrorsNativeCompatibility(t *testing.T) {
