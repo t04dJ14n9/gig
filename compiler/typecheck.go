@@ -78,15 +78,23 @@ func containsUserDefinedTypeSeen(t types.Type, seen map[types.Type]bool) bool {
 	if isUserDefinedNamedType(t) {
 		return true
 	}
-	if typeParam, ok := t.(*types.TypeParam); ok {
-		return containsUserDefinedTypeSeen(typeParam.Constraint(), seen)
+	if containsUserDefinedTypeParamConstraint(t, seen) {
+		return true
 	}
+	return containsUserDefinedUnderlying(t.Underlying(), seen)
+}
 
-	switch tt := t.Underlying().(type) {
+func containsUserDefinedTypeParamConstraint(t types.Type, seen map[types.Type]bool) bool {
+	typeParam, ok := t.(*types.TypeParam)
+	return ok && containsUserDefinedTypeSeen(typeParam.Constraint(), seen)
+}
+
+func containsUserDefinedUnderlying(t types.Type, seen map[types.Type]bool) bool {
+	switch tt := t.(type) {
 	case *types.Slice:
 		return containsUserDefinedTypeSeen(tt.Elem(), seen)
 	case *types.Map:
-		return containsUserDefinedTypeSeen(tt.Key(), seen) || containsUserDefinedTypeSeen(tt.Elem(), seen)
+		return containsUserDefinedMap(tt, seen)
 	case *types.Pointer:
 		return containsUserDefinedTypeSeen(tt.Elem(), seen)
 	case *types.Array:
@@ -94,28 +102,45 @@ func containsUserDefinedTypeSeen(t types.Type, seen map[types.Type]bool) bool {
 	case *types.Chan:
 		return containsUserDefinedTypeSeen(tt.Elem(), seen)
 	case *types.Struct:
-		for i := 0; i < tt.NumFields(); i++ {
-			if containsUserDefinedTypeSeen(tt.Field(i).Type(), seen) {
-				return true
-			}
-		}
+		return containsUserDefinedStruct(tt, seen)
 	case *types.Signature:
-		if recv := tt.Recv(); recv != nil && containsUserDefinedTypeSeen(recv.Type(), seen) {
-			return true
-		}
-		if containsUserDefinedTuple(tt.Params(), seen) || containsUserDefinedTuple(tt.Results(), seen) {
-			return true
-		}
+		return containsUserDefinedSignature(tt, seen)
 	case *types.Interface:
-		for i := 0; i < tt.NumMethods(); i++ {
-			if containsUserDefinedTypeSeen(tt.Method(i).Type(), seen) {
-				return true
-			}
+		return containsUserDefinedInterface(tt, seen)
+	default:
+		return false
+	}
+}
+
+func containsUserDefinedMap(t *types.Map, seen map[types.Type]bool) bool {
+	return containsUserDefinedTypeSeen(t.Key(), seen) || containsUserDefinedTypeSeen(t.Elem(), seen)
+}
+
+func containsUserDefinedStruct(t *types.Struct, seen map[types.Type]bool) bool {
+	for i := 0; i < t.NumFields(); i++ {
+		if containsUserDefinedTypeSeen(t.Field(i).Type(), seen) {
+			return true
 		}
-		for i := 0; i < tt.NumEmbeddeds(); i++ {
-			if containsUserDefinedTypeSeen(tt.EmbeddedType(i), seen) {
-				return true
-			}
+	}
+	return false
+}
+
+func containsUserDefinedSignature(t *types.Signature, seen map[types.Type]bool) bool {
+	if recv := t.Recv(); recv != nil && containsUserDefinedTypeSeen(recv.Type(), seen) {
+		return true
+	}
+	return containsUserDefinedTuple(t.Params(), seen) || containsUserDefinedTuple(t.Results(), seen)
+}
+
+func containsUserDefinedInterface(t *types.Interface, seen map[types.Type]bool) bool {
+	for i := 0; i < t.NumMethods(); i++ {
+		if containsUserDefinedTypeSeen(t.Method(i).Type(), seen) {
+			return true
+		}
+	}
+	for i := 0; i < t.NumEmbeddeds(); i++ {
+		if containsUserDefinedTypeSeen(t.EmbeddedType(i), seen) {
+			return true
 		}
 	}
 	return false

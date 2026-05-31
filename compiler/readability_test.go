@@ -32,6 +32,13 @@ func TestCompileInstructionDispatchStaysShallow(t *testing.T) {
 	}
 }
 
+func TestContainsUserDefinedTypeSeenStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "typecheck.go", "containsUserDefinedTypeSeen")
+	if count > 10 {
+		t.Fatalf("containsUserDefinedTypeSeen has %d branch points, want <= 10; split composite type traversal helpers", count)
+	}
+}
+
 func assertCompilerFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)
@@ -66,6 +73,39 @@ func directTypeSwitchCaseCount(t *testing.T, path, funcName string) int {
 			count += len(sw.Body.List)
 		}
 	}
+	return count
+}
+
+func recursiveBranchCount(t *testing.T, path, funcName string) int {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+
+	fn := findFuncDecl(file, funcName)
+	if fn == nil || fn.Body == nil {
+		t.Fatalf("find function %s in %s", funcName, path)
+	}
+
+	count := 0
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		switch s := n.(type) {
+		case *ast.IfStmt:
+			count++
+		case *ast.ForStmt:
+			count++
+		case *ast.RangeStmt:
+			count++
+		case *ast.SwitchStmt:
+			count += len(s.Body.List)
+		case *ast.TypeSwitchStmt:
+			count += len(s.Body.List)
+		}
+		return true
+	})
 	return count
 }
 
