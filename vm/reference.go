@@ -123,34 +123,53 @@ func dereferenceValue(ptr value.Value) value.Value {
 	case value.KindInterface:
 		return ptr
 	case value.KindReflect:
-		rv, ok := ptr.ReflectValue()
-		if !ok || rv.Kind() != reflect.Ptr {
-			return ptr
-		}
-		if rv.IsNil() {
-			return nilDereferenceValue()
-		}
-		if slot, ok := valueSlotFromValue(ptr); ok {
-			return *slot
-		}
-		elem := rv.Elem()
-		if elem.Kind() == reflect.Ptr && elem.CanSet() && elem.CanInterface() {
-			return value.MakeFromReflect(reflect.ValueOf(elem.Interface()))
-		}
-		if elem.Kind() == reflect.Interface && elem.CanSet() && elem.Type().NumMethod() == 0 {
-			if elem.IsNil() {
-				return value.MakeNil()
-			}
-			concrete := elem.Elem()
-			return value.MakeFromReflect(reflect.ValueOf(concrete.Interface()))
-		}
-		if elem.CanAddr() {
-			return value.MakeFromReflect(cloneReflectValue(elem))
-		}
-		return value.MakeFromReflect(elem)
+		return dereferenceReflectValue(ptr)
 	default:
 		return dereferenceConcreteValue(ptr)
 	}
+}
+
+func dereferenceReflectValue(ptr value.Value) value.Value {
+	rv, ok := ptr.ReflectValue()
+	if !ok || rv.Kind() != reflect.Ptr {
+		return ptr
+	}
+	if rv.IsNil() {
+		return nilDereferenceValue()
+	}
+	if slot, ok := valueSlotFromValue(ptr); ok {
+		return *slot
+	}
+	return dereferenceReflectElement(rv.Elem())
+}
+
+func dereferenceReflectElement(elem reflect.Value) value.Value {
+	if isSettableReflectPointerElement(elem) {
+		return value.MakeFromReflect(reflect.ValueOf(elem.Interface()))
+	}
+	if isSettableEmptyInterfaceElement(elem) {
+		return dereferenceReflectInterfaceElement(elem)
+	}
+	if elem.CanAddr() {
+		return value.MakeFromReflect(cloneReflectValue(elem))
+	}
+	return value.MakeFromReflect(elem)
+}
+
+func isSettableReflectPointerElement(elem reflect.Value) bool {
+	return elem.Kind() == reflect.Ptr && elem.CanSet() && elem.CanInterface()
+}
+
+func isSettableEmptyInterfaceElement(elem reflect.Value) bool {
+	return elem.Kind() == reflect.Interface && elem.CanSet() && elem.Type().NumMethod() == 0
+}
+
+func dereferenceReflectInterfaceElement(elem reflect.Value) value.Value {
+	if elem.IsNil() {
+		return value.MakeNil()
+	}
+	concrete := elem.Elem()
+	return value.MakeFromReflect(reflect.ValueOf(concrete.Interface()))
 }
 
 func dereferencePointerValue(ptr value.Value) value.Value {

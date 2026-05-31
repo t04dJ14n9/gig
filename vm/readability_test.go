@@ -111,8 +111,8 @@ func TestExecuteMakeInterfaceStaysShallow(t *testing.T) {
 
 func TestDereferenceValueStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "reference.go", "dereferenceValue")
-	if count > 12 {
-		t.Fatalf("dereferenceValue has %d branch points, want <= 12; split reference and nil fallback paths", count)
+	if count > 8 {
+		t.Fatalf("dereferenceValue has %d branch points, want <= 8; split reference, reflect, pointer, and nil fallback domains", count)
 	}
 }
 
