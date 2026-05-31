@@ -165,6 +165,13 @@ func TestExecuteContainerStaysGrouped(t *testing.T) {
 	}
 }
 
+func TestExecuteMemoryStaysGrouped(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_memory.go", "executeMemory")
+	if count > 8 {
+		t.Fatalf("executeMemory has %d branch points, want <= 8; split variable, field, pointer, and allocation operation domains", count)
+	}
+}
+
 func TestExecuteControlStaysGrouped(t *testing.T) {
 	count := recursiveBranchCount(t, "ops_control.go", "executeControl")
 	if count > 8 {
