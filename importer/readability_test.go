@@ -21,6 +21,13 @@ func TestConvertReflectTypeForUnderlyingStaysShallow(t *testing.T) {
 	}
 }
 
+func TestAddMethodsFromTypeStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "typeconv_methods.go", "addMethodsFromType")
+	if count > 8 {
+		t.Fatalf("addMethodsFromType has %d branch points, want <= 8; split method eligibility, signature building, and receiver selection", count)
+	}
+}
+
 func recursiveBranchCount(t *testing.T, path, funcName string) int {
 	t.Helper()
 
