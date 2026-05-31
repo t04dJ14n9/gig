@@ -43,6 +43,13 @@ func TestExecuteTypeConvertStaysShallow(t *testing.T) {
 	}
 }
 
+func TestGenericSuperinstructionStaysGrouped(t *testing.T) {
+	count := directSwitchCaseCount(t, "run_super_generic.go", "runGenericSuperinstruction")
+	if count > 8 {
+		t.Fatalf("runGenericSuperinstruction has %d direct switch cases, want <= 8; route by superinstruction family", count)
+	}
+}
+
 func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)
