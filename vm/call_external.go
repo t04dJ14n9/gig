@@ -99,54 +99,84 @@ func resolveConstantFallback(prog *bytecode.CompiledProgram, funcIdx int) *bytec
 // buildReflectArgs converts []value.Value args to []reflect.Value for reflect.Call,
 // handling SSA-packed variadic slices. fnType is the target function type.
 func buildReflectArgs(args []value.Value, fnType reflect.Type) []reflect.Value {
-	numIn := fnType.NumIn()
-	isVariadic := fnType.IsVariadic()
-	numArgs := len(args)
-
-	if isVariadic && numArgs == numIn {
-		lastArg := args[numArgs-1]
-		if rv, ok := lastArg.ReflectValue(); ok && rv.Kind() == reflect.Slice {
-			sliceLen := rv.Len()
-			in := make([]reflect.Value, numIn-1+sliceLen)
-			for i := 0; i < numArgs-1; i++ {
-				in[i] = args[i].ToReflectValue(fnType.In(i))
-			}
-			elemType := fnType.In(numIn - 1).Elem()
-			for i := 0; i < sliceLen; i++ {
-				elem := rv.Index(i)
-				if elem.Kind() == reflect.Interface && !elem.IsNil() {
-					elem = elem.Elem()
-				}
-				if elem.Type().ConvertibleTo(elemType) {
-					in[numIn-1+i] = elem.Convert(elemType)
-				} else {
-					in[numIn-1+i] = elem
-				}
-			}
-			return in
-		}
-		in := make([]reflect.Value, numArgs)
-		for i, arg := range args {
-			if i >= numIn-1 {
-				variadicType := fnType.In(numIn - 1).Elem()
-				in[i] = arg.ToReflectValue(variadicType)
-			} else {
-				in[i] = arg.ToReflectValue(fnType.In(i))
-			}
-		}
-		return in
+	if variadicSlice, ok := packedVariadicReflectSlice(args, fnType); ok {
+		return buildPackedVariadicReflectArgs(args, fnType, variadicSlice)
 	}
 
-	in := make([]reflect.Value, numArgs)
+	return buildPositionalReflectArgs(args, fnType)
+}
+
+// SSA can encode f(xs...) as a single reflect-backed slice argument. reflect.Call
+// needs those elements flattened, so detect that shape before normal coercion.
+func packedVariadicReflectSlice(args []value.Value, fnType reflect.Type) (reflect.Value, bool) {
+	if !fnType.IsVariadic() || len(args) != fnType.NumIn() {
+		return reflect.Value{}, false
+	}
+
+	lastArg := args[len(args)-1]
+	rv, ok := lastArg.ReflectValue()
+	return rv, ok && rv.Kind() == reflect.Slice
+}
+
+func buildPackedVariadicReflectArgs(args []value.Value, fnType reflect.Type, variadicSlice reflect.Value) []reflect.Value {
+	fixedCount := fnType.NumIn() - 1
+	sliceLen := variadicSlice.Len()
+	in := make([]reflect.Value, fixedCount+sliceLen)
+
+	for i := 0; i < fixedCount; i++ {
+		in[i] = args[i].ToReflectValue(fnType.In(i))
+	}
+
+	elemType := fnType.In(fixedCount).Elem()
+	for i := 0; i < sliceLen; i++ {
+		in[fixedCount+i] = convertPackedVariadicElem(variadicSlice.Index(i), elemType)
+	}
+	return in
+}
+
+func convertPackedVariadicElem(elem reflect.Value, elemType reflect.Type) reflect.Value {
+	elem = unwrapReflectInterfaceElem(elem)
+	if elem.Type().ConvertibleTo(elemType) {
+		return elem.Convert(elemType)
+	}
+	return elem
+}
+
+func unwrapReflectInterfaceElem(elem reflect.Value) reflect.Value {
+	if elem.Kind() == reflect.Interface && !elem.IsNil() {
+		return elem.Elem()
+	}
+	return elem
+}
+
+func buildPositionalReflectArgs(args []value.Value, fnType reflect.Type) []reflect.Value {
+	in := make([]reflect.Value, len(args))
 	for i, arg := range args {
-		if i < numIn {
-			in[i] = arg.ToReflectValue(fnType.In(i))
-		} else if isVariadic {
-			variadicType := fnType.In(numIn - 1).Elem()
-			in[i] = arg.ToReflectValue(variadicType)
+		argType, ok := reflectArgType(fnType, i, len(args))
+		if ok {
+			in[i] = arg.ToReflectValue(argType)
 		}
 	}
 	return in
+}
+
+func reflectArgType(fnType reflect.Type, argIndex, argCount int) (reflect.Type, bool) {
+	numIn := fnType.NumIn()
+	if variadicArgUsesElemType(fnType, argIndex, argCount) {
+		return fnType.In(numIn - 1).Elem(), true
+	}
+	if argIndex < numIn {
+		return fnType.In(argIndex), true
+	}
+	return nil, false
+}
+
+func variadicArgUsesElemType(fnType reflect.Type, argIndex, argCount int) bool {
+	if !fnType.IsVariadic() {
+		return false
+	}
+	variadicStart := fnType.NumIn() - 1
+	return argIndex > variadicStart || (argIndex == variadicStart && argCount == fnType.NumIn())
 }
 
 // callExternalReflect executes an external function using reflect.Call.

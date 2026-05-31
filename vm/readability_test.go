@@ -50,6 +50,13 @@ func TestReflectTypeContainsInterfaceStaysShallow(t *testing.T) {
 	}
 }
 
+func TestBuildReflectArgsStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "call_external.go", "buildReflectArgs")
+	if count > 8 {
+		t.Fatalf("buildReflectArgs has %d decision points, want <= 8; split packed variadic, positional, and element conversion paths", count)
+	}
+}
+
 func TestReflectMethodTypeForBoundaryStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "call_external_method.go", "reflectMethodTypeForBoundary")
 	if count > 8 {

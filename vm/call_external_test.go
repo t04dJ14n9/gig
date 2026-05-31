@@ -2,6 +2,7 @@ package vm
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -72,5 +73,45 @@ func TestValidateExternalMethodBoundaryAllowsMissingReceiver(t *testing.T) {
 		MethodName: "AcceptAny",
 	}, nil); err != nil {
 		t.Fatalf("validateExternalMethodBoundary returned error for missing receiver: %v", err)
+	}
+}
+
+func TestBuildReflectArgsExactVariadicArgUsesElementType(t *testing.T) {
+	fnType := reflect.TypeOf(func(prefix string, parts ...string) {})
+
+	got := buildReflectArgs([]value.Value{
+		value.MakeString("p"),
+		value.MakeString("x"),
+	}, fnType)
+
+	if len(got) != 2 {
+		t.Fatalf("buildReflectArgs returned %d args, want 2", len(got))
+	}
+	if got[1].Type() != reflect.TypeOf("") {
+		t.Fatalf("exact variadic arg type = %v, want string element type", got[1].Type())
+	}
+	if got[1].String() != "x" {
+		t.Fatalf("exact variadic arg value = %q, want x", got[1].String())
+	}
+}
+
+func TestBuildReflectArgsExpandsPackedVariadicReflectSlice(t *testing.T) {
+	fnType := reflect.TypeOf(func(prefix string, parts ...string) {})
+
+	got := buildReflectArgs([]value.Value{
+		value.MakeString("p"),
+		value.FromInterface([]string{"x", "y"}),
+	}, fnType)
+
+	if len(got) != 3 {
+		t.Fatalf("buildReflectArgs returned %d args, want 3", len(got))
+	}
+	for i, arg := range got {
+		if arg.Type() != reflect.TypeOf("") {
+			t.Fatalf("arg %d type = %v, want string", i, arg.Type())
+		}
+	}
+	if got[1].String() != "x" || got[2].String() != "y" {
+		t.Fatalf("expanded variadic values = %q, %q; want x, y", got[1].String(), got[2].String())
 	}
 }
