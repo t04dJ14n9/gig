@@ -26,95 +26,133 @@ func (v Value) Elem() Value {
 
 // SetElem sets the value pointed to by a pointer.
 func (v Value) SetElem(val Value) {
-	// Fast path: *int64 pointer (from native int slice OpIndexAddr)
-	if ptr, ok := v.obj.(*int64); ok {
-		*ptr = val.num
-		return
-	}
-	// Fast path: *Value pointer (from OpFree for closure free vars)
-	if ptr, ok := v.obj.(*Value); ok {
-		*ptr = val
+	if setDirectElemPointer(v.obj, val) {
 		return
 	}
 	if rv, ok := v.obj.(reflect.Value); ok {
-		// Handle different reflect.Value kinds
-		kind := rv.Kind()
-		if kind == reflect.Ptr {
-			// Handle pointer case
-			elemType := rv.Type().Elem()
-			if elemType.Kind() == reflect.Func {
-				rv.Elem().Set(ReflectValueForSet(val, elemType))
-				return
-			}
-			if elemType.Name() == "Value" && elemType.PkgPath() == "github.com/t04dJ14n9/gig/model/value" {
-				ptr := rv.Interface().(*Value)
-				*ptr = val
-				return
-			}
-			// If val contains a pointer type and elemType is not, unwrap it
-			// But NOT if elemType is interface{} - interfaces can hold pointers
-			if val.Kind() == KindReflect {
-				if valRV, ok := val.obj.(reflect.Value); ok && valRV.Kind() == reflect.Ptr {
-					// Special case: if elemType is interface{}, we can assign any value to it
-					if elemType.Kind() == reflect.Interface {
-						rv.Elem().Set(valRV)
-						return
-					}
-					// val is a pointer, check if it points to elemType
-					if valRV.Type().Elem() == elemType {
-						rv.Elem().Set(valRV.Elem())
-						return
-					}
-				}
-			}
-			targetRV := rv.Elem()
-			if targetRV.CanSet() {
-				// Native int slice -> reflect conversion when assigning to *[]int
-				if val.kind == KindSlice {
-					if s, isInt := val.obj.([]int64); isInt && elemType.Kind() == reflect.Slice {
-						// Convert []int64 to the target slice type (e.g. []int)
-						target := reflect.MakeSlice(elemType, len(s), cap(s))
-						for i, n := range s {
-							target.Index(i).SetInt(n)
-						}
-						targetRV.Set(target)
-						return
-					}
-				}
-				valRV := ReflectValueForSet(val, elemType)
-				if !valRV.Type().AssignableTo(elemType) {
-					// Handle slice conversion: []*T -> []interface{} for cyclic struct fields
-					if elemType.Kind() == reflect.Slice && valRV.Kind() == reflect.Slice {
-						if elemType.Elem().Kind() == reflect.Interface && valRV.Type().Elem().Kind() != reflect.Interface {
-							// Convert slice of concrete types to slice of interface{}
-							convertedSlice := convertSliceToInterface(valRV, elemType)
-							if convertedSlice.Type().AssignableTo(elemType) {
-								targetRV.Set(convertedSlice)
-								return
-							}
-						}
-					}
-
-					// Auto-unwrap pointer if elem matches
-					if valRV.Kind() == reflect.Ptr && !valRV.IsNil() && valRV.Type().Elem().AssignableTo(elemType) {
-						targetRV.Set(valRV.Elem())
-						return
-					}
-				}
-				targetRV.Set(valRV)
-			}
-			return
-		}
-		if kind == reflect.Interface {
-			// For interface, just set the underlying value
-			rv.Set(ReflectValueForSet(val, rv.Type()))
-			return
-		}
-		if kind == reflect.Struct {
-			// For struct values, we can't set elements - this shouldn't happen
-			// but handle gracefully
+		if setReflectElem(rv, val) {
 			return
 		}
 	}
 	panic("invalid reflect.Value in SetElem()")
+}
+
+func setDirectElemPointer(obj any, val Value) bool {
+	if ptr, ok := obj.(*int64); ok {
+		*ptr = val.num
+		return true
+	}
+	if ptr, ok := obj.(*Value); ok {
+		*ptr = val
+		return true
+	}
+	return false
+}
+
+func setReflectElem(rv reflect.Value, val Value) bool {
+	switch rv.Kind() {
+	case reflect.Ptr:
+		setReflectPointerElem(rv, val)
+	case reflect.Interface:
+		rv.Set(ReflectValueForSet(val, rv.Type()))
+	case reflect.Struct:
+		// Struct values are not element-addresses; retain the previous graceful no-op.
+	default:
+		return false
+	}
+	return true
+}
+
+func setReflectPointerElem(rv reflect.Value, val Value) {
+	elemType := rv.Type().Elem()
+	if elemType.Kind() == reflect.Func {
+		rv.Elem().Set(ReflectValueForSet(val, elemType))
+		return
+	}
+	if elemType.Name() == "Value" && elemType.PkgPath() == "github.com/t04dJ14n9/gig/model/value" {
+		ptr := rv.Interface().(*Value)
+		*ptr = val
+		return
+	}
+	if setReflectPointerPayloadElem(rv, val, elemType) {
+		return
+	}
+
+	targetRV := rv.Elem()
+	if !targetRV.CanSet() {
+		return
+	}
+	if setNativeIntSliceTarget(targetRV, val, elemType) {
+		return
+	}
+
+	valRV := ReflectValueForSet(val, elemType)
+	if !valRV.Type().AssignableTo(elemType) {
+		if setConcreteSliceAsInterfaceSlice(targetRV, valRV, elemType) {
+			return
+		}
+		if setPointerValueElem(targetRV, valRV, elemType) {
+			return
+		}
+	}
+	targetRV.Set(valRV)
+}
+
+func setReflectPointerPayloadElem(rv reflect.Value, val Value, elemType reflect.Type) bool {
+	if val.Kind() != KindReflect {
+		return false
+	}
+	valRV, ok := val.obj.(reflect.Value)
+	if !ok || valRV.Kind() != reflect.Ptr {
+		return false
+	}
+	if elemType.Kind() == reflect.Interface {
+		rv.Elem().Set(valRV)
+		return true
+	}
+	if valRV.Type().Elem() == elemType {
+		rv.Elem().Set(valRV.Elem())
+		return true
+	}
+	return false
+}
+
+func setNativeIntSliceTarget(targetRV reflect.Value, val Value, elemType reflect.Type) bool {
+	if val.kind != KindSlice {
+		return false
+	}
+	s, isInt := val.obj.([]int64)
+	if !isInt || elemType.Kind() != reflect.Slice {
+		return false
+	}
+
+	target := reflect.MakeSlice(elemType, len(s), cap(s))
+	for i, n := range s {
+		target.Index(i).SetInt(n)
+	}
+	targetRV.Set(target)
+	return true
+}
+
+func setConcreteSliceAsInterfaceSlice(targetRV, valRV reflect.Value, elemType reflect.Type) bool {
+	if elemType.Kind() != reflect.Slice || valRV.Kind() != reflect.Slice {
+		return false
+	}
+	if elemType.Elem().Kind() != reflect.Interface || valRV.Type().Elem().Kind() == reflect.Interface {
+		return false
+	}
+	convertedSlice := convertSliceToInterface(valRV, elemType)
+	if !convertedSlice.Type().AssignableTo(elemType) {
+		return false
+	}
+	targetRV.Set(convertedSlice)
+	return true
+}
+
+func setPointerValueElem(targetRV, valRV reflect.Value, elemType reflect.Type) bool {
+	if valRV.Kind() != reflect.Ptr || valRV.IsNil() || !valRV.Type().Elem().AssignableTo(elemType) {
+		return false
+	}
+	targetRV.Set(valRV.Elem())
+	return true
 }

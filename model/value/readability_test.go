@@ -42,6 +42,13 @@ func TestValueInterfaceStaysShallow(t *testing.T) {
 	}
 }
 
+func TestSetElemStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "container_elem.go", "SetElem")
+	if count > 10 {
+		t.Fatalf("SetElem has %d branch points, want <= 10; split direct pointers, reflect pointers, and reflect containers", count)
+	}
+}
+
 func directBranchCount(t *testing.T, path, funcName string) int {
 	t.Helper()
 
