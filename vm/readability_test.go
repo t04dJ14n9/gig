@@ -123,6 +123,13 @@ func TestAppendValueStaysShallow(t *testing.T) {
 	}
 }
 
+func TestExecuteCopyStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_copy_delete.go", "executeCopy")
+	if count > 8 {
+		t.Fatalf("executeCopy has %d branch points, want <= 8; split byte, native int, and reflect copy domains", count)
+	}
+}
+
 func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)
