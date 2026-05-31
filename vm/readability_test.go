@@ -29,6 +29,16 @@ func TestCallBoundaryFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(t, "call_boundary.go", 140, "move reflect scanning and callable policy to focused files")
 }
 
+func TestReflectMethodTypeForBoundaryStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "call_external_method.go", "reflectMethodTypeForBoundary")
+	if count > 8 {
+		t.Fatalf(
+			"reflectMethodTypeForBoundary has %d branch points, want <= 8; reuse receiver normalization and method lookup helpers",
+			count,
+		)
+	}
+}
+
 func TestKindMatchesTypeStaysShallow(t *testing.T) {
 	count := directSwitchCaseCount(t, "ops_dispatch.go", "kindMatchesType")
 	if count > 8 {

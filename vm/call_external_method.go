@@ -68,56 +68,36 @@ func (v *vm) validateExternalMethodBoundary(methodInfo *external.ExternalMethodI
 }
 
 func reflectMethodTypeForBoundary(receiver value.Value, methodName string) reflect.Type {
+	rv, ok := reflectReceiverForBoundary(receiver)
+	if !ok {
+		return nil
+	}
+	method, found := findMethod(rv, methodName, nil)
+	if !found {
+		return nil
+	}
+	return method.Type()
+}
+
+func reflectReceiverForBoundary(receiver value.Value) (reflect.Value, bool) {
 	rv, ok := receiver.ReflectValue()
 	if !ok {
 		iface := receiver.Interface()
 		if iface == nil {
-			return nil
+			return reflect.Value{}, false
 		}
 		rv = reflect.ValueOf(iface)
 	}
 	if !rv.IsValid() {
-		return nil
+		return reflect.Value{}, false
 	}
 	if rv.Kind() == reflect.Interface {
 		if rv.IsNil() {
-			return nil
+			return reflect.Value{}, false
 		}
 		rv = rv.Elem()
 	}
-	if method := rv.MethodByName(methodName); method.IsValid() {
-		return method.Type()
-	}
-	if rv.CanAddr() {
-		if method := rv.Addr().MethodByName(methodName); method.IsValid() {
-			return method.Type()
-		}
-	}
-	if !rv.CanAddr() && rv.Kind() == reflect.Struct {
-		addrCopy := reflect.New(rv.Type()).Elem()
-		addrCopy.Set(rv)
-		if method := addrCopy.Addr().MethodByName(methodName); method.IsValid() {
-			return method.Type()
-		}
-	}
-	if rv.Kind() == reflect.Struct {
-		for i := 0; i < rv.NumField(); i++ {
-			field := rv.Field(i)
-			if field.Kind() != reflect.Interface || field.IsNil() {
-				continue
-			}
-			concrete := field.Elem()
-			if method := concrete.MethodByName(methodName); method.IsValid() {
-				return method.Type()
-			}
-			if concrete.CanAddr() {
-				if method := concrete.Addr().MethodByName(methodName); method.IsValid() {
-					return method.Type()
-				}
-			}
-		}
-	}
-	return nil
+	return rv, true
 }
 
 // callExternalMethodReflect dispatches a method call using reflection.
