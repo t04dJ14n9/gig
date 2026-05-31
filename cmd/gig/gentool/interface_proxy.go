@@ -35,11 +35,11 @@ func generateInterfaceProxy(named *types.Named, pkgRef string, typeName string) 
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("type %s struct {\n", proxyTypeName))
+	writeGeneratedf(&b, "type %s struct {\n", proxyTypeName)
 	b.WriteString("\tcall external.InterfaceMethodCaller\n")
 	b.WriteString("}\n\n")
-	b.WriteString(fmt.Sprintf("func %s(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {\n", factoryName))
-	b.WriteString(fmt.Sprintf("\treturn &%s{call: call}, true\n", proxyTypeName))
+	writeGeneratedf(&b, "func %s(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {\n", factoryName)
+	writeGeneratedf(&b, "\treturn &%s{call: call}, true\n", proxyTypeName)
 	b.WriteString("}\n\n")
 
 	for i := 0; i < iface.NumMethods(); i++ {
@@ -88,8 +88,8 @@ func generateInterfaceProxyMethod(proxyTypeName string, method *types.Func, pkgR
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("func (p *%s) %s(%s)%s {\n",
-		proxyTypeName, method.Name(), strings.Join(paramDecls, ", "), resultPart))
+	writeGeneratedf(&b, "func (p *%s) %s(%s)%s {\n",
+		proxyTypeName, method.Name(), strings.Join(paramDecls, ", "), resultPart)
 	callExpr := fmt.Sprintf("p.call(%q", method.Name())
 	if len(callArgs) > 0 {
 		callExpr += ", " + strings.Join(callArgs, ", ")
@@ -97,7 +97,7 @@ func generateInterfaceProxyMethod(proxyTypeName string, method *types.Func, pkgR
 	callExpr += ")"
 
 	if resultType == nil {
-		b.WriteString(fmt.Sprintf("\t_, _ = %s\n", callExpr))
+		writeGeneratedf(&b, "\t_, _ = %s\n", callExpr)
 		b.WriteString("}\n")
 		return b.String(), true
 	}
@@ -107,11 +107,11 @@ func generateInterfaceProxyMethod(proxyTypeName string, method *types.Func, pkgR
 	if zero == "" || extract == "" {
 		return "", false
 	}
-	b.WriteString(fmt.Sprintf("\tresult, ok := %s\n", callExpr))
+	writeGeneratedf(&b, "\tresult, ok := %s\n", callExpr)
 	b.WriteString("\tif !ok {\n")
-	b.WriteString(fmt.Sprintf("\t\treturn %s\n", zero))
+	writeGeneratedf(&b, "\t\treturn %s\n", zero)
 	b.WriteString("\t}\n")
-	b.WriteString(fmt.Sprintf("\treturn %s\n", extract))
+	writeGeneratedf(&b, "\treturn %s\n", extract)
 	b.WriteString("}\n")
 	return b.String(), true
 }

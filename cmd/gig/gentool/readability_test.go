@@ -23,12 +23,22 @@ func TestGeneratorFileStaysFocused(t *testing.T) {
 }
 
 func TestGeneratorEmitAvoidsNestedFormattedWriteString(t *testing.T) {
-	src, err := os.ReadFile("generator_emit.go")
+	assertNoNestedFormattedWriteString(t, "generator_emit.go")
+}
+
+func TestInterfaceProxyAvoidsNestedFormattedWriteString(t *testing.T) {
+	assertNoNestedFormattedWriteString(t, "interface_proxy.go")
+}
+
+func assertNoNestedFormattedWriteString(t *testing.T, path string) {
+	t.Helper()
+
+	src, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("read generator_emit.go: %v", err)
+		t.Fatalf("read %s: %v", path, err)
 	}
 	if count := bytes.Count(src, []byte("WriteString(fmt.Sprintf(")); count > 0 {
-		t.Fatalf("generator_emit.go has %d WriteString(fmt.Sprintf(...)) calls; use fmt.Fprintf on the builder instead", count)
+		t.Fatalf("%s has %d WriteString(fmt.Sprintf(...)) calls; use fmt.Fprintf on the builder instead", path, count)
 	}
 }
 
