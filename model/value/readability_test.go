@@ -28,6 +28,13 @@ func TestSprintfExternStaysShallow(t *testing.T) {
 	}
 }
 
+func TestGigErrorsIsStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "extern_errors_is.go", "GigErrorsIs")
+	if count > 10 {
+		t.Fatalf("GigErrorsIs has %d branch points, want <= 10; split match, custom Is, and unwrap traversal", count)
+	}
+}
+
 func directBranchCount(t *testing.T, path, funcName string) int {
 	t.Helper()
 
