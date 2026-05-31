@@ -30,33 +30,85 @@ func (v *vm) convertValueToType(val value.Value, targetType types.Type) value.Va
 }
 
 func convertBasicValue(val value.Value, kind types.BasicKind) value.Value {
-	switch kind {
-	case types.String:
+	switch {
+	case kind == types.String:
 		return convertValueToString(val)
+	case isSignedBasicKind(kind):
+		return convertSignedBasicValue(val, kind)
+	case isUnsignedBasicKind(kind):
+		return convertUnsignedBasicValue(val, kind)
+	case isFloatBasicKind(kind):
+		return convertFloatBasicValue(val, kind)
+	default:
+		return val
+	}
+}
+
+func isSignedBasicKind(kind types.BasicKind) bool {
+	switch kind {
+	case types.Int, types.Int8, types.Int16, types.Int32, types.Int64:
+		return true
+	default:
+		return false
+	}
+}
+
+func isUnsignedBasicKind(kind types.BasicKind) bool {
+	switch kind {
+	case types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64, types.Uintptr:
+		return true
+	default:
+		return false
+	}
+}
+
+func isFloatBasicKind(kind types.BasicKind) bool {
+	return kind == types.Float32 || kind == types.Float64
+}
+
+func convertSignedBasicValue(val value.Value, kind types.BasicKind) value.Value {
+	n := toInt64(val)
+	switch kind {
 	case types.Int:
-		return value.MakeInt(toInt64(val))
+		return value.MakeInt(n)
 	case types.Int8:
-		return value.MakeInt8(int8(toInt64(val)))
+		return value.MakeInt8(int8(n))
 	case types.Int16:
-		return value.MakeInt16(int16(toInt64(val)))
+		return value.MakeInt16(int16(n))
 	case types.Int32:
-		return value.MakeInt32(int32(toInt64(val)))
+		return value.MakeInt32(int32(n))
 	case types.Int64:
-		return value.MakeInt64(toInt64(val))
+		return value.MakeInt64(n)
+	default:
+		return val
+	}
+}
+
+func convertUnsignedBasicValue(val value.Value, kind types.BasicKind) value.Value {
+	n := toUint64(val)
+	switch kind {
 	case types.Uint:
-		return value.MakeUint(toUint64(val))
+		return value.MakeUint(n)
 	case types.Uint8:
-		return value.MakeUint8(uint8(toUint64(val)))
+		return value.MakeUint8(uint8(n))
 	case types.Uint16:
-		return value.MakeUint16(uint16(toUint64(val)))
+		return value.MakeUint16(uint16(n))
 	case types.Uint32:
-		return value.MakeUint32(uint32(toUint64(val)))
+		return value.MakeUint32(uint32(n))
 	case types.Uint64, types.Uintptr:
-		return value.MakeUint64(toUint64(val))
+		return value.MakeUint64(n)
+	default:
+		return val
+	}
+}
+
+func convertFloatBasicValue(val value.Value, kind types.BasicKind) value.Value {
+	n := toFloat64(val)
+	switch kind {
 	case types.Float32:
-		return value.MakeFloat32(float32(toFloat64(val)))
+		return value.MakeFloat32(float32(n))
 	case types.Float64:
-		return value.MakeFloat(toFloat64(val))
+		return value.MakeFloat(n)
 	default:
 		return val
 	}

@@ -67,6 +67,13 @@ func TestExecuteTypeConvertStaysShallow(t *testing.T) {
 	}
 }
 
+func TestConvertBasicValueStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_type_convert.go", "convertBasicValue")
+	if count > 8 {
+		t.Fatalf("convertBasicValue has %d branch points, want <= 8; split string, signed, unsigned, and float conversion domains", count)
+	}
+}
+
 func TestTypeToReflectInnerStaysGrouped(t *testing.T) {
 	count := directSwitchCaseCount(t, "typeconv.go", "typeToReflectInner")
 	if count > 8 {
