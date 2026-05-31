@@ -60,6 +60,13 @@ func TestGenericSuperinstructionStaysGrouped(t *testing.T) {
 	}
 }
 
+func TestIteratorNextStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "iterator.go", "next")
+	if count > 10 {
+		t.Fatalf("iterator.next has %d branch points, want <= 10; split native and reflected range domains", count)
+	}
+}
+
 func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)
