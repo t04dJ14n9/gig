@@ -18,6 +18,10 @@ func TestExtractFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(t, "extract.go", 180, "move argument extraction helpers to focused files")
 }
 
+func TestGeneratorFileStaysFocused(t *testing.T) {
+	assertFileLineLimit(t, "generator.go", 180, "move package generation helpers to focused files")
+}
+
 func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)

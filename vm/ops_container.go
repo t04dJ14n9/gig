@@ -53,7 +53,6 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 
 	case bytecode.OpDelete:
 		v.executeDelete()
-
 	}
 
 	return nil

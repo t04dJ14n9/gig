@@ -34,7 +34,7 @@ func (v *vm) executeRecover() {
 		v.push(value.MakeNil())
 		return
 	}
-	var i any = iface
+	i := iface
 	rv := reflect.ValueOf(&i).Elem()
 	v.push(value.MakeFromReflect(rv))
 }

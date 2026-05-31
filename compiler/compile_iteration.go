@@ -1,9 +1,11 @@
 package compiler
 
 import (
-	"github.com/t04dJ14n9/gig/model/bytecode"
 	"go/types"
+
 	"golang.org/x/tools/go/ssa"
+
+	"github.com/t04dJ14n9/gig/model/bytecode"
 )
 
 // compileMapUpdate compiles a MapUpdate instruction.

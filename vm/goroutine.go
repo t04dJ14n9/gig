@@ -103,13 +103,13 @@ func (v *vm) newChildVM() *vm {
 // This consolidates the 3 inline child VM construction sites for defers.
 func (v *vm) newDeferVM() *vm {
 	return &vm{
-		program:      v.program,
-		stack:        make([]value.Value, deferVMStackSize),
-		sp:           0,
-		frames:       make([]*Frame, initialFrameDepth),
-		fp:           0,
-		globals:      v.getGlobals(),
-		shared:       v.shared,
-		ctx:          v.ctx,
+		program: v.program,
+		stack:   make([]value.Value, deferVMStackSize),
+		sp:      0,
+		frames:  make([]*Frame, initialFrameDepth),
+		fp:      0,
+		globals: v.getGlobals(),
+		shared:  v.shared,
+		ctx:     v.ctx,
 	}
 }

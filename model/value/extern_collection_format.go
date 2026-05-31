@@ -41,7 +41,7 @@ func (s *gigSequenceFormatter) GoString() string {
 	var sb strings.Builder
 	if s.rv.Kind() == reflect.Array {
 		sb.WriteByte('[')
-		sb.WriteString(fmt.Sprint(s.rv.Len()))
+		_, _ = fmt.Fprintf(&sb, "%d", s.rv.Len())
 		sb.WriteByte(']')
 	} else {
 		sb.WriteString("[]")

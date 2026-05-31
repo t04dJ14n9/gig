@@ -52,7 +52,7 @@ func SprintfExtern(format string, args ...any) string {
 					}
 				}
 				if argIdx < len(args) {
-					result.WriteString(fmt.Sprintf(format[i:j+1], args[argIdx]))
+					_, _ = fmt.Fprintf(&result, format[i:j+1], args[argIdx])
 					argIdx++
 				} else {
 					result.WriteString(format[i : j+1])

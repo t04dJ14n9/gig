@@ -28,7 +28,14 @@ func structToReflect(tt *types.Struct, cache map[types.Type]reflect.Type, unique
 	return reflect.StructOf(fields)
 }
 
-func structFieldToReflect(tt *types.Struct, fieldIndex int, cache map[types.Type]reflect.Type, uniqueSuffix string, prog *bytecode.CompiledProgram, depth int) (reflect.StructField, bool, bool) {
+func structFieldToReflect(
+	tt *types.Struct,
+	fieldIndex int,
+	cache map[types.Type]reflect.Type,
+	uniqueSuffix string,
+	prog *bytecode.CompiledProgram,
+	depth int,
+) (reflect.StructField, bool, bool) {
 	f := tt.Field(fieldIndex)
 	ft := typeToReflectWithCache(f.Type(), cache, fieldTypeSuffix(f.Type()), prog, depth+1)
 	if ft == nil {

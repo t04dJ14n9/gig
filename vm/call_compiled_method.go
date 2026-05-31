@@ -40,7 +40,12 @@ const (
 	compiledMethodExactMatch
 )
 
-func selectCompiledMethodCandidate(program *bytecode.CompiledProgram, methodName, receiverTypeName string, receiver value.Value) (*bytecode.CompiledFunction, value.Value, bool) {
+func selectCompiledMethodCandidate(
+	program *bytecode.CompiledProgram,
+	methodName string,
+	receiverTypeName string,
+	receiver value.Value,
+) (*bytecode.CompiledFunction, value.Value, bool) {
 	if program == nil {
 		return nil, value.MakeNil(), false
 	}
@@ -70,12 +75,23 @@ func shouldPanicOnNilValueReceiver(receiver value.Value, fn *bytecode.CompiledFu
 	return ok && rv.Kind() == reflect.Ptr && rv.IsNil()
 }
 
-func receiverForCompiledMethodTarget(methodName string, receiver value.Value, fn *bytecode.CompiledFunction, prog *bytecode.CompiledProgram) (value.Value, bool) {
+func receiverForCompiledMethodTarget(
+	methodName string,
+	receiver value.Value,
+	fn *bytecode.CompiledFunction,
+	prog *bytecode.CompiledProgram,
+) (value.Value, bool) {
 	methodReceiver, score := receiverForCompiledMethodCandidate(methodName, "", receiver, fn, prog)
 	return methodReceiver, score != compiledMethodNoMatch
 }
 
-func receiverForCompiledMethodCandidate(methodName, receiverTypeName string, receiver value.Value, fn *bytecode.CompiledFunction, prog *bytecode.CompiledProgram) (value.Value, int) {
+func receiverForCompiledMethodCandidate(
+	methodName string,
+	receiverTypeName string,
+	receiver value.Value,
+	fn *bytecode.CompiledFunction,
+	prog *bytecode.CompiledProgram,
+) (value.Value, int) {
 	normalized := receiverForCompiledMethod(methodName, receiver)
 	if fn == nil {
 		return normalized, compiledMethodExactMatch
