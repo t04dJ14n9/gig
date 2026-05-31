@@ -33,6 +33,22 @@ func TestFmtWrapDetectsGigStructAndFormatsTypeName(t *testing.T) {
 	}
 }
 
+func TestGoStringValueFormatsGigStructSlices(t *testing.T) {
+	first := newExternTestGigStruct(t, "example.Widget")
+	first.FieldByName("Name").SetString("alpha")
+	second := newExternTestGigStruct(t, "example.Widget")
+	second.FieldByName("Name").SetString("beta")
+
+	slice := reflect.MakeSlice(reflect.SliceOf(first.Type()), 0, 2)
+	slice = reflect.Append(slice, first, second)
+
+	got := goStringValue(slice.Interface())
+	want := `[]example.Widget{example.Widget{Name:"alpha"}, example.Widget{Name:"beta"}}`
+	if got != want {
+		t.Fatalf("goStringValue(slice) = %q, want %q", got, want)
+	}
+}
+
 func TestIsGigStructDetectsPointersAndValues(t *testing.T) {
 	rv := newExternTestGigStruct(t, "example.Widget")
 

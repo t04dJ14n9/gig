@@ -84,6 +84,13 @@ func TestExternWrapperFormatStaysShallow(t *testing.T) {
 	}
 }
 
+func TestGoStringValueStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "extern_wrapper_gostring.go", "goStringValue")
+	if count > 8 {
+		t.Fatalf("goStringValue has %d branch points, want <= 8; split gig struct and gig slice rendering domains", count)
+	}
+}
+
 func directBranchCount(t *testing.T, path, funcName string) int {
 	t.Helper()
 
