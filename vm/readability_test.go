@@ -116,6 +116,13 @@ func TestDereferenceValueStaysShallow(t *testing.T) {
 	}
 }
 
+func TestAppendValueStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_append.go", "appendValue")
+	if count > 10 {
+		t.Fatalf("appendValue has %d branch points, want <= 10; split native int, byte, reflect, and nil append domains", count)
+	}
+}
+
 func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)

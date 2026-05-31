@@ -6,70 +6,75 @@ import (
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
-// intSliceToReflect converts a native []int64 to a reflect []int slice.
-func intSliceToReflect(s []int64) reflect.Value {
-	rs := reflect.MakeSlice(reflect.TypeOf([]int{}), len(s), cap(s))
-	for i, v := range s {
-		rs.Index(i).SetInt(v)
-	}
-	return rs
-}
-
 // appendValue implements the append builtin for the VM.
 // It handles native int slices, byte slices, reflect slices, and nil slices.
 func appendValue(slice, elem value.Value) value.Value {
-	// Fast path: native []int64 slice
 	if s, ok := slice.IntSlice(); ok {
 		return appendToIntSlice(s, elem)
 	}
 
-	// Byte slice ([]byte / KindBytes)
 	if slice.Kind() == value.KindBytes {
-		if b, ok := slice.Bytes(); ok {
-			if elem.Kind() == value.KindUint || elem.Kind() == value.KindInt {
-				return value.MakeBytes(append(b, byte(elem.Uint())))
-			}
-			// If elem is a byte slice (spread append)
-			if elem.Kind() == value.KindBytes {
-				if eb, ok := elem.Bytes(); ok {
-					return value.MakeBytes(append(b, eb...))
-				}
-			}
-			// If elem is a string (append(b, "str"...))
-			if elem.Kind() == value.KindString {
-				return value.MakeBytes(append(b, elem.String()...))
-			}
-			// Fallback: convert via interface
-			if v := elem.Interface(); v != nil {
-				if bv, ok := v.(byte); ok {
-					return value.MakeBytes(append(b, bv))
-				}
-				if bv, ok := v.(uint8); ok {
-					return value.MakeBytes(append(b, bv))
-				}
-			}
-		}
-		return slice
+		return appendToByteSlice(slice, elem)
 	}
 
-	// Native []int64 that needs reflect conversion (e.g., stored in [][]int)
-	if slice.Kind() == value.KindSlice {
-		if intSlice, ok := slice.IntSlice(); ok {
-			return appendIntSliceViaReflect(intSlice, elem)
-		}
-	}
-
-	// Reflect-based slice
 	if rv, ok := slice.ReflectValue(); ok {
 		return appendToReflectSlice(rv, elem)
 	}
 
-	// Nil slice: create a new slice
 	if slice.IsNil() || slice.Kind() == value.KindInvalid {
 		return appendToNilSlice(elem)
 	}
 
 	return slice
+}
+
+func appendToByteSlice(slice, elem value.Value) value.Value {
+	b, ok := slice.Bytes()
+	if !ok {
+		return slice
+	}
+	appended, ok := appendByteElement(b, elem)
+	if !ok {
+		return slice
+	}
+	return value.MakeBytes(appended)
+}
+
+func appendByteElement(b []byte, elem value.Value) ([]byte, bool) {
+	switch elem.Kind() {
+	case value.KindUint:
+		return append(b, byte(elem.Uint())), true
+	case value.KindInt:
+		return append(b, byte(elem.RawInt())), true
+	case value.KindBytes:
+		return appendByteSlice(b, elem)
+	case value.KindString:
+		return append(b, elem.String()...), true
+	default:
+		return appendByteInterface(b, elem)
+	}
+}
+
+func appendByteSlice(b []byte, elem value.Value) ([]byte, bool) {
+	eb, ok := elem.Bytes()
+	if !ok {
+		return b, false
+	}
+	return append(b, eb...), true
+}
+
+func appendByteInterface(b []byte, elem value.Value) ([]byte, bool) {
+	v := elem.Interface()
+	if v == nil {
+		return b, false
+	}
+	if bv, ok := v.(byte); ok {
+		return append(b, bv), true
+	}
+	if bv, ok := v.(uint8); ok {
+		return append(b, bv), true
+	}
+	return b, false
 }
 
 // appendToIntSlice appends to a native []int64.
@@ -85,20 +90,6 @@ func appendToIntSlice(s []int64, elem value.Value) value.Value {
 		return value.MakeIntSlice(s)
 	}
 	return value.MakeIntSlice(append(s, elem.RawInt()))
-}
-
-// appendIntSliceViaReflect converts []int64 to reflect []int and appends.
-func appendIntSliceViaReflect(intSlice []int64, elem value.Value) value.Value {
-	rv := intSliceToReflect(intSlice)
-	if elem.Kind() == value.KindInt {
-		return value.MakeFromReflect(reflect.Append(rv, reflect.ValueOf(int(elem.RawInt()))))
-	}
-	if elem.Kind() == value.KindSlice {
-		if elemIntSlice, ok := elem.IntSlice(); ok {
-			return value.MakeFromReflect(reflect.AppendSlice(rv, intSliceToReflect(elemIntSlice)))
-		}
-	}
-	return value.MakeFromReflect(reflect.Append(rv, elem.ToReflectValue(reflect.TypeOf(int(0)))))
 }
 
 var valueValueType = reflect.TypeOf(value.Value{})
