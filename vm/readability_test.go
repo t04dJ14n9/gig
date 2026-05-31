@@ -130,6 +130,13 @@ func TestExecuteArithmeticStaysShallow(t *testing.T) {
 	}
 }
 
+func TestExecuteCallStaysGrouped(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_call.go", "executeCall")
+	if count > 8 {
+		t.Fatalf("executeCall has %d branch points, want <= 8; split closure, goroutine, pack, and unpack operation domains", count)
+	}
+}
+
 func TestTypeToReflectInnerStaysGrouped(t *testing.T) {
 	count := directSwitchCaseCount(t, "typeconv.go", "typeToReflectInner")
 	if count > 8 {
