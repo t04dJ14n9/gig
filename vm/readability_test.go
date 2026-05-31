@@ -53,6 +53,13 @@ func TestExecuteTypeConvertStaysShallow(t *testing.T) {
 	}
 }
 
+func TestTypeToReflectInnerStaysGrouped(t *testing.T) {
+	count := directSwitchCaseCount(t, "typeconv.go", "typeToReflectInner")
+	if count > 8 {
+		t.Fatalf("typeToReflectInner has %d direct type-switch cases, want <= 8; split composite and named reflect-type domains", count)
+	}
+}
+
 func TestGenericSuperinstructionStaysGrouped(t *testing.T) {
 	count := directSwitchCaseCount(t, "run_super_generic.go", "runGenericSuperinstruction")
 	if count > 8 {
