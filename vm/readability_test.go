@@ -81,6 +81,13 @@ func TestExecuteAssertStaysShallow(t *testing.T) {
 	}
 }
 
+func TestDereferenceValueStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "reference.go", "dereferenceValue")
+	if count > 12 {
+		t.Fatalf("dereferenceValue has %d branch points, want <= 12; split reference and nil fallback paths", count)
+	}
+}
+
 func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)

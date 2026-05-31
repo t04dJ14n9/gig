@@ -11,6 +11,8 @@ var (
 	valueSlotType      = reflect.TypeOf((*value.Value)(nil))
 )
 
+const nilPointerDereference = "runtime error: invalid memory address or nil pointer dereference"
+
 // unwrapValueSlot resolves a *value.Value reference produced by OpGlobal,
 // OpAddr, or closure capture into the value currently stored in that slot.
 func unwrapValueSlot(v value.Value) (value.Value, bool) {
@@ -117,10 +119,7 @@ func dereferenceValue(ptr value.Value) value.Value {
 
 	switch ptr.Kind() {
 	case value.KindPointer:
-		if ptr.Elem().IsValid() {
-			return ptr.Elem()
-		}
-		panic("runtime error: invalid memory address or nil pointer dereference")
+		return dereferencePointerValue(ptr)
 	case value.KindInterface:
 		return ptr
 	case value.KindReflect:
@@ -129,7 +128,7 @@ func dereferenceValue(ptr value.Value) value.Value {
 			return ptr
 		}
 		if rv.IsNil() {
-			panic("runtime error: invalid memory address or nil pointer dereference")
+			return nilDereferenceValue()
 		}
 		if slot, ok := valueSlotFromValue(ptr); ok {
 			return *slot
@@ -150,17 +149,36 @@ func dereferenceValue(ptr value.Value) value.Value {
 		}
 		return value.MakeFromReflect(elem)
 	default:
-		if ptr.IsNil() || !ptr.IsValid() {
-			panic("runtime error: invalid memory address or nil pointer dereference")
-		}
-		return ptr
+		return dereferenceConcreteValue(ptr)
 	}
+}
+
+func dereferencePointerValue(ptr value.Value) value.Value {
+	if ptr.Elem().IsValid() {
+		return ptr.Elem()
+	}
+	return nilDereferenceValue()
+}
+
+func dereferenceConcreteValue(ptr value.Value) value.Value {
+	if ptr.IsNil() || !ptr.IsValid() {
+		return nilDereferenceValue()
+	}
+	return ptr
+}
+
+func panicNilDereference() {
+	panic(nilPointerDereference)
+}
+
+func nilDereferenceValue() value.Value {
+	panic(nilPointerDereference)
 }
 
 // setDereferenceValue implements OpSetDeref's store semantics.
 func (v *vm) setDereferenceValue(ptr value.Value, val value.Value) {
 	if ptr.IsNil() || !ptr.IsValid() {
-		panic("runtime error: invalid memory address or nil pointer dereference")
+		panicNilDereference()
 	}
 	if ref, ok := globalRefFromValue(ptr); ok {
 		ref.Store(val)
