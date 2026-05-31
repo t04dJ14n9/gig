@@ -14,6 +14,13 @@ func TestValueEqualStaysShallow(t *testing.T) {
 	}
 }
 
+func TestValueCmpStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "comparison.go", "Cmp")
+	if count > 8 {
+		t.Fatalf("Value.Cmp has %d branch points, want <= 8; split kind routing from primitive comparison mechanics", count)
+	}
+}
+
 func TestMakeFromReflectStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "reflect.go", "MakeFromReflect")
 	if count > 8 {

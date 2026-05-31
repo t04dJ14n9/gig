@@ -9,54 +9,41 @@ import (
 func (v Value) Cmp(other Value) int {
 	switch v.kind { //nolint:exhaustive
 	case KindBool:
-		a, b := v.Bool(), other.Bool()
-		if a == b {
-			return 0
-		}
-		if !a {
-			return -1
-		}
-		return 1
+		return cmpBool(v.Bool(), other.Bool())
 	case KindInt:
-		a, b := v.num, other.Int()
-		if a < b {
-			return -1
-		}
-		if a > b {
-			return 1
-		}
-		return 0
+		return cmpOrdered(v.num, other.Int())
 	case KindUint:
-		a, b := uint64(v.num), other.Uint()
-		if a < b {
-			return -1
-		}
-		if a > b {
-			return 1
-		}
-		return 0
+		return cmpOrdered(uint64(v.num), other.Uint())
 	case KindFloat:
-		a, b := v.Float(), other.Float()
-		if a < b {
-			return -1
-		}
-		if a > b {
-			return 1
-		}
-		return 0
+		return cmpOrdered(v.Float(), other.Float())
 	case KindString:
-		a := v.obj.(string)
-		b := other.obj.(string)
-		if a < b {
-			return -1
-		}
-		if a > b {
-			return 1
-		}
-		return 0
+		return cmpOrdered(v.obj.(string), other.obj.(string))
 	default:
 		panic(fmt.Sprintf("cannot compare %v", v.kind))
 	}
+}
+
+func cmpBool(a, b bool) int {
+	if a == b {
+		return 0
+	}
+	if !a {
+		return -1
+	}
+	return 1
+}
+
+// cmpOrdered centralizes the -1/0/1 contract used by comparison opcodes.
+// For floats this intentionally preserves the previous NaN behavior: both
+// ordering checks are false, so Cmp returns 0.
+func cmpOrdered[T ~int64 | ~uint64 | ~float64 | ~string](a, b T) int {
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
 }
 
 // unwrapForComparison converts a KindReflect/KindInterface value to its underlying
