@@ -64,12 +64,6 @@ linters:
           - gocyclo
           - lll
           - maintidx
-      - path: '^compiler/optimize/int_specialize\.go$'
-        linters:
-          - cyclop
-      - path: '^compiler/optimize/int_specialize\.go$'
-        linters:
-          - gocyclo
 
 formatters:
   enable:

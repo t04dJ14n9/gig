@@ -24,6 +24,18 @@ type intRule struct {
 	n    byte           // 2 or 3 operands
 }
 
+// intRuleTable gives each bytecode opcode an O(1) path to its int rewrite rule.
+// It is rebuilt per optimizer call so the table cannot drift from intRules.
+type intRuleTable [256]*intRule
+
+// intInstruction carries the decoded instruction bounds shared by both passes.
+// Keeping bounds in one small value avoids duplicating the truncate-at-end rule.
+type intInstruction struct {
+	op    bytecode.OpCode
+	start int
+	end   int
+}
+
 // intRules is the table of all int-specialization rules.
 // Grouped by operand count for clarity.
 var intRules = [...]intRule{
@@ -58,104 +70,154 @@ func flagsFor(k operandKind, localIsInt, constIsInt []bool) []bool {
 // when all involved locals and constants are int-typed. Two-pass: first pass
 // discovers which locals need int shadows, second pass rewrites opcodes.
 func IntSpecialize(code []byte, localIsInt, constIsInt []bool) ([]byte, bool) {
-	intUsed := make([]bool, len(localIsInt))
-	hasInt := false
-
-	// Build a lookup table: generic opcode -> rule index, for O(1) dispatch.
-	var ruleByOp [256]*intRule
-	for i := range intRules {
-		ruleByOp[intRules[i].from] = &intRules[i]
-	}
-
-	// Pass 1: discover which locals need int shadows.
-	i := 0
-	for i < len(code) {
-		op := bytecode.OpCode(code[i])
-		width := opcodeWidth(op)
-		instrEnd := i + 1 + width
-		if instrEnd > len(code) {
-			break
-		}
-
-		if r := ruleByOp[op]; r != nil {
-			allInt := true
-			for j := byte(0); j < r.n; j++ {
-				idx := int(bytecode.ReadU16(code, i+1+int(j)*2))
-				if !safeIdx(idx, flagsFor(r.ops[j], localIsInt, constIsInt)) {
-					allInt = false
-					break
-				}
-			}
-			if allInt {
-				hasInt = true
-				// Mark local-typed operands as needing int shadows.
-				for j := byte(0); j < r.n; j++ {
-					if r.ops[j] == opLocal {
-						intUsed[bytecode.ReadU16(code, i+1+int(j)*2)] = true
-					}
-				}
-			}
-		} else {
-			// Handle pre-fused slice ops from FuseSliceOps.
-			switch op {
-			case bytecode.OpIntSliceGet:
-				intUsed[bytecode.ReadU16(code, i+3)] = true // j
-				intUsed[bytecode.ReadU16(code, i+5)] = true // v
-				hasInt = true
-			case bytecode.OpIntSliceSet:
-				intUsed[bytecode.ReadU16(code, i+3)] = true // j
-				intUsed[bytecode.ReadU16(code, i+5)] = true // val
-				hasInt = true
-			case bytecode.OpIntSliceSetConst:
-				intUsed[bytecode.ReadU16(code, i+3)] = true // j
-				hasInt = true
-			}
-		}
-		i = instrEnd
-	}
+	ruleByOp := newIntRuleTable()
+	intUsed, hasInt := discoverIntShadowUses(code, localIsInt, constIsInt, ruleByOp)
 
 	if !hasInt {
 		return code, false
 	}
 
-	// Pass 2: rewrite opcodes and bridge OpLocal/OpSetLocal to int variants.
-	i = 0
-	for i < len(code) {
-		op := bytecode.OpCode(code[i])
-		width := opcodeWidth(op)
-		instrEnd := i + 1 + width
-		if instrEnd > len(code) {
+	rewriteIntSpecializedOps(code, localIsInt, constIsInt, intUsed, ruleByOp)
+	return code, true
+}
+
+// newIntRuleTable centralizes opcode-to-rule indexing for discovery and rewrite.
+func newIntRuleTable() intRuleTable {
+	var ruleByOp intRuleTable
+	for i := range intRules {
+		ruleByOp[intRules[i].from] = &intRules[i]
+	}
+	return ruleByOp
+}
+
+// discoverIntShadowUses is the first pass: find locals that need int shadow slots.
+// Rule-backed instructions mark all local operands; fused slice ops mark their int index/value locals.
+func discoverIntShadowUses(code []byte, localIsInt, constIsInt []bool, ruleByOp intRuleTable) ([]bool, bool) {
+	intUsed := make([]bool, len(localIsInt))
+	hasInt := false
+
+	for i := 0; i < len(code); {
+		instr, ok := nextIntInstruction(code, i)
+		if !ok {
 			break
 		}
 
-		if r := ruleByOp[op]; r != nil {
-			allInt := true
-			for j := byte(0); j < r.n; j++ {
-				idx := int(bytecode.ReadU16(code, i+1+int(j)*2))
-				if !safeIdx(idx, flagsFor(r.ops[j], localIsInt, constIsInt)) {
-					allInt = false
-					break
-				}
-			}
-			if allInt {
-				code[i] = byte(r.to)
-			}
-		} else {
-			switch op {
-			case bytecode.OpSetLocal:
-				a := int(bytecode.ReadU16(code, i+1))
-				if a < len(intUsed) && intUsed[a] {
-					code[i] = byte(bytecode.OpIntSetLocal)
-				}
-			case bytecode.OpLocal:
-				a := int(bytecode.ReadU16(code, i+1))
-				if a < len(intUsed) && intUsed[a] {
-					code[i] = byte(bytecode.OpIntLocal)
-				}
-			}
+		if markIntUsesForInstruction(code, instr, intUsed, localIsInt, constIsInt, ruleByOp) {
+			hasInt = true
 		}
-		i = instrEnd
+		i = instr.end
 	}
 
-	return code, hasInt
+	return intUsed, hasInt
+}
+
+// nextIntInstruction decodes only enough shape for this optimizer and preserves the old behavior of stopping at truncated bytecode.
+func nextIntInstruction(code []byte, start int) (intInstruction, bool) {
+	op := bytecode.OpCode(code[start])
+	end := start + 1 + opcodeWidth(op)
+	if end > len(code) {
+		return intInstruction{}, false
+	}
+	return intInstruction{op: op, start: start, end: end}, true
+}
+
+// markIntUsesForInstruction handles one first-pass instruction and reports whether any int specialization is present.
+func markIntUsesForInstruction(code []byte, instr intInstruction, intUsed []bool, localIsInt, constIsInt []bool, ruleByOp intRuleTable) bool {
+	if r := ruleByOp[instr.op]; r != nil {
+		if !ruleOperandsAreInt(code, instr.start, r, localIsInt, constIsInt) {
+			return false
+		}
+		markRuleLocalOperands(code, instr.start, r, intUsed)
+		return true
+	}
+
+	return markFusedSliceIntUses(code, instr.start, instr.op, intUsed)
+}
+
+// ruleOperandsAreInt is shared by both passes so the rewrite pass uses the same type predicate discovered in pass one.
+func ruleOperandsAreInt(code []byte, start int, r *intRule, localIsInt, constIsInt []bool) bool {
+	for j := byte(0); j < r.n; j++ {
+		idx := int(bytecode.ReadU16(code, intOperandOffset(start, j)))
+		if !safeIdx(idx, flagsFor(r.ops[j], localIsInt, constIsInt)) {
+			return false
+		}
+	}
+	return true
+}
+
+func markRuleLocalOperands(code []byte, start int, r *intRule, intUsed []bool) {
+	for j := byte(0); j < r.n; j++ {
+		if r.ops[j] == opLocal {
+			markIntLocalUse(code, intOperandOffset(start, j), intUsed)
+		}
+	}
+}
+
+// markFusedSliceIntUses covers slice superinstructions that were already converted by FuseSliceOps before this pass.
+func markFusedSliceIntUses(code []byte, start int, op bytecode.OpCode, intUsed []bool) bool {
+	switch op {
+	case bytecode.OpIntSliceGet:
+		markIntLocalUse(code, start+3, intUsed) // j
+		markIntLocalUse(code, start+5, intUsed) // v
+	case bytecode.OpIntSliceSet:
+		markIntLocalUse(code, start+3, intUsed) // j
+		markIntLocalUse(code, start+5, intUsed) // val
+	case bytecode.OpIntSliceSetConst:
+		markIntLocalUse(code, start+3, intUsed) // j
+	default:
+		return false
+	}
+	return true
+}
+
+// rewriteIntSpecializedOps is the second pass: rewrite eligible superinstructions and bridge OpLocal/OpSetLocal users.
+func rewriteIntSpecializedOps(code []byte, localIsInt, constIsInt, intUsed []bool, ruleByOp intRuleTable) {
+	for i := 0; i < len(code); {
+		instr, ok := nextIntInstruction(code, i)
+		if !ok {
+			break
+		}
+
+		rewriteIntInstruction(code, instr, localIsInt, constIsInt, intUsed, ruleByOp)
+		i = instr.end
+	}
+}
+
+func rewriteIntInstruction(code []byte, instr intInstruction, localIsInt, constIsInt, intUsed []bool, ruleByOp intRuleTable) {
+	if r := ruleByOp[instr.op]; r != nil {
+		if ruleOperandsAreInt(code, instr.start, r, localIsInt, constIsInt) {
+			code[instr.start] = byte(r.to)
+		}
+		return
+	}
+
+	rewriteIntLocalBridge(code, instr.start, instr.op, intUsed)
+}
+
+func rewriteIntLocalBridge(code []byte, start int, op bytecode.OpCode, intUsed []bool) {
+	switch op {
+	case bytecode.OpSetLocal:
+		if isIntShadowedLocal(code, start+1, intUsed) {
+			code[start] = byte(bytecode.OpIntSetLocal)
+		}
+	case bytecode.OpLocal:
+		if isIntShadowedLocal(code, start+1, intUsed) {
+			code[start] = byte(bytecode.OpIntLocal)
+		}
+	}
+}
+
+func intOperandOffset(start int, operand byte) int {
+	return start + 1 + int(operand)*2
+}
+
+// markIntLocalUse intentionally preserves the previous direct indexing semantics for compiler-emitted bytecode.
+// The rule path validates local operands before calling this; fused slice bytecode is generated internally by FuseSliceOps.
+func markIntLocalUse(code []byte, offset int, intUsed []bool) {
+	intUsed[bytecode.ReadU16(code, offset)] = true
+}
+
+func isIntShadowedLocal(code []byte, offset int, intUsed []bool) bool {
+	idx := int(bytecode.ReadU16(code, offset))
+	return idx < len(intUsed) && intUsed[idx]
 }

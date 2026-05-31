@@ -14,6 +14,13 @@ func TestFuseSliceOpsStaysShallow(t *testing.T) {
 	}
 }
 
+func TestIntSpecializeStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "int_specialize.go", "IntSpecialize")
+	if count > 10 {
+		t.Fatalf("IntSpecialize has %d branch points, want <= 10; split rule-table setup, int-use discovery, and rewrite passes", count)
+	}
+}
+
 func recursiveBranchCount(t *testing.T, path, funcName string) int {
 	t.Helper()
 
