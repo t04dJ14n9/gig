@@ -42,6 +42,13 @@ func TestReflectPrimitiveValueStaysShallow(t *testing.T) {
 	}
 }
 
+func TestValueToReflectValueStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "reflect_convert.go", "ToReflectValue")
+	if count > 10 {
+		t.Fatalf("Value.ToReflectValue has %d branch points, want <= 10; split nil, scalar, aggregate, and reflected payload conversion domains", count)
+	}
+}
+
 func TestIsGigStructStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "extern_type.go", "isGigStruct")
 	if count > 8 {

@@ -160,9 +160,27 @@ func isFmtStringerReflectType(t reflect.Type) bool {
 }
 
 func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
+	// Keep this top-level router shallow: call-boundary behavior is easier to
+	// audit when scalar, aggregate, interpreted-interface, and reflected payload
+	// conversion each own their type-specific edge cases.
 	switch v.kind {
 	case KindNil:
 		return reflect.Zero(typ)
+	case KindBool, KindInt, KindUint, KindFloat, KindString, KindComplex:
+		return v.toReflectScalar(typ)
+	case KindInterface:
+		return v.toReflectInterface(typ)
+	case KindFunc, KindBytes, KindSlice:
+		return v.toReflectAggregate(typ)
+	case KindReflect:
+		return v.toReflectReflect(typ)
+	default:
+		return v.toReflectObject()
+	}
+}
+
+func (v Value) toReflectScalar(typ reflect.Type) reflect.Value {
+	switch v.kind {
 	case KindBool:
 		return reflect.ValueOf(v.Bool())
 	case KindInt:
@@ -172,35 +190,50 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 	case KindFloat:
 		return reflect.ValueOf(v.Float()).Convert(typ)
 	case KindString:
-		rv := reflect.ValueOf(v.obj.(string))
-		if rv.Type() != typ {
-			rv = rv.Convert(typ)
-		}
-		return rv
+		return v.toReflectString(typ)
 	case KindComplex:
 		return reflect.ValueOf(v.obj.(complex128))
-	case KindInterface:
-		if dyn, ok := v.InterpretedInterface(); ok {
-			return dyn.Value.ToReflectValue(typ)
-		}
-		if rv, ok := v.obj.(reflect.Value); ok {
-			return rv
-		}
-		return reflect.ValueOf(v.obj)
+	default:
+		return v.toReflectObject()
+	}
+}
+
+func (v Value) toReflectString(typ reflect.Type) reflect.Value {
+	rv := reflect.ValueOf(v.obj.(string))
+	if rv.Type() != typ {
+		rv = rv.Convert(typ)
+	}
+	return rv
+}
+
+func (v Value) toReflectInterface(typ reflect.Type) reflect.Value {
+	if dyn, ok := v.InterpretedInterface(); ok {
+		return dyn.Value.ToReflectValue(typ)
+	}
+	if rv, ok := v.obj.(reflect.Value); ok {
+		return rv
+	}
+	return reflect.ValueOf(v.obj)
+}
+
+func (v Value) toReflectAggregate(typ reflect.Type) reflect.Value {
+	switch v.kind {
 	case KindFunc:
 		return v.toReflectFunc(typ)
 	case KindBytes:
 		return reflect.ValueOf(v.obj.([]byte))
 	case KindSlice:
 		return v.toReflectSlice(typ)
-	case KindReflect:
-		return v.toReflectReflect(typ)
 	default:
-		if rv, ok := v.obj.(reflect.Value); ok {
-			return rv
-		}
-		return reflect.ValueOf(v.obj)
+		return v.toReflectObject()
 	}
+}
+
+func (v Value) toReflectObject() reflect.Value {
+	if rv, ok := v.obj.(reflect.Value); ok {
+		return rv
+	}
+	return reflect.ValueOf(v.obj)
 }
 
 // ReflectValue returns the internal reflect.Value if stored.
