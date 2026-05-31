@@ -57,6 +57,13 @@ func TestBuildReflectArgsStaysShallow(t *testing.T) {
 	}
 }
 
+func TestUnpackVariadicArgsStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "call_runtime.go", "unpackVariadicArgs")
+	if count > 8 {
+		t.Fatalf("unpackVariadicArgs has %d decision points, want <= 8; split value slice, int slice, byte slice, and reflect slice unpacking", count)
+	}
+}
+
 func TestReflectMethodTypeForBoundaryStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "call_external_method.go", "reflectMethodTypeForBoundary")
 	if count > 8 {

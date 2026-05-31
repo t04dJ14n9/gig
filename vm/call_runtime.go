@@ -127,54 +127,95 @@ func convertClosureArgs(args []value.Value, fnType reflect.Type) {
 func unpackVariadicArgs(args []value.Value, numArgs int) []value.Value {
 	lastArg := args[numArgs-1]
 
-	// Fast path 1: native []value.Value slice (function slices, etc.)
-	if lastArg.Kind() == value.KindReflect || lastArg.Kind() == value.KindSlice {
-		if rawObj := lastArg.RawObj(); rawObj != nil {
-			if valSlice, ok := rawObj.([]value.Value); ok {
-				unpackedArgs := make([]value.Value, numArgs-1+len(valSlice))
-				copy(unpackedArgs, args[:numArgs-1])
-				copy(unpackedArgs[numArgs-1:], valSlice)
-				return unpackedArgs
-			}
-		}
+	// Keep native representations ahead of the reflect fallback; generated
+	// DirectCalls rely on these paths to avoid rv.Len/Index in hot variadics.
+	if unpackedArgs, ok := unpackNativeValueSlice(args, numArgs, lastArg); ok {
+		return unpackedArgs
 	}
-
-	// Fast path 2: native []int64 slice (int variadic args)
-	if lastArg.Kind() == value.KindSlice {
-		if intSlice, ok := lastArg.IntSlice(); ok {
-			unpackedArgs := make([]value.Value, numArgs-1+len(intSlice))
-			copy(unpackedArgs, args[:numArgs-1])
-			for i, n := range intSlice {
-				unpackedArgs[numArgs-1+i] = value.MakeInt(n)
-			}
-			return unpackedArgs
-		}
+	if unpackedArgs, ok := unpackNativeIntSlice(args, numArgs, lastArg); ok {
+		return unpackedArgs
 	}
-
-	// Fast path 3: KindBytes ([]byte variadic args)
-	if lastArg.Kind() == value.KindBytes {
-		if b, ok := lastArg.Bytes(); ok {
-			unpackedArgs := make([]value.Value, numArgs-1+len(b))
-			copy(unpackedArgs, args[:numArgs-1])
-			for i, byt := range b {
-				unpackedArgs[numArgs-1+i] = value.MakeUint(uint64(byt))
-			}
-			return unpackedArgs
-		}
+	if unpackedArgs, ok := unpackNativeBytes(args, numArgs, lastArg); ok {
+		return unpackedArgs
 	}
-
-	// Slow path: reflect.Value slice (most common for stdlib variadic functions)
-	if rv, ok := lastArg.ReflectValue(); ok && rv.Kind() == reflect.Slice {
-		sliceLen := rv.Len()
-		unpackedArgs := make([]value.Value, numArgs-1+sliceLen)
-		copy(unpackedArgs, args[:numArgs-1])
-		for i := 0; i < sliceLen; i++ {
-			unpackedArgs[numArgs-1+i] = value.MakeFromReflect(rv.Index(i))
-		}
+	if unpackedArgs, ok := unpackReflectSlice(args, numArgs, lastArg); ok {
 		return unpackedArgs
 	}
 
 	return args
+}
+
+func unpackNativeValueSlice(args []value.Value, numArgs int, lastArg value.Value) ([]value.Value, bool) {
+	if !canStoreNativeValueSlice(lastArg.Kind()) {
+		return nil, false
+	}
+
+	valSlice, ok := lastArg.RawObj().([]value.Value)
+	if !ok {
+		return nil, false
+	}
+
+	unpackedArgs := makeUnpackedVariadicArgs(args, numArgs, len(valSlice))
+	copy(unpackedArgs[numArgs-1:], valSlice)
+	return unpackedArgs, true
+}
+
+func canStoreNativeValueSlice(kind value.Kind) bool {
+	return kind == value.KindReflect || kind == value.KindSlice
+}
+
+func unpackNativeIntSlice(args []value.Value, numArgs int, lastArg value.Value) ([]value.Value, bool) {
+	if lastArg.Kind() != value.KindSlice {
+		return nil, false
+	}
+
+	intSlice, ok := lastArg.IntSlice()
+	if !ok {
+		return nil, false
+	}
+
+	unpackedArgs := makeUnpackedVariadicArgs(args, numArgs, len(intSlice))
+	for i, n := range intSlice {
+		unpackedArgs[numArgs-1+i] = value.MakeInt(n)
+	}
+	return unpackedArgs, true
+}
+
+func unpackNativeBytes(args []value.Value, numArgs int, lastArg value.Value) ([]value.Value, bool) {
+	if lastArg.Kind() != value.KindBytes {
+		return nil, false
+	}
+
+	b, ok := lastArg.Bytes()
+	if !ok {
+		return nil, false
+	}
+
+	unpackedArgs := makeUnpackedVariadicArgs(args, numArgs, len(b))
+	for i, byt := range b {
+		unpackedArgs[numArgs-1+i] = value.MakeUint(uint64(byt))
+	}
+	return unpackedArgs, true
+}
+
+func unpackReflectSlice(args []value.Value, numArgs int, lastArg value.Value) ([]value.Value, bool) {
+	rv, ok := lastArg.ReflectValue()
+	if !ok || rv.Kind() != reflect.Slice {
+		return nil, false
+	}
+
+	sliceLen := rv.Len()
+	unpackedArgs := makeUnpackedVariadicArgs(args, numArgs, sliceLen)
+	for i := 0; i < sliceLen; i++ {
+		unpackedArgs[numArgs-1+i] = value.MakeFromReflect(rv.Index(i))
+	}
+	return unpackedArgs, true
+}
+
+func makeUnpackedVariadicArgs(args []value.Value, numArgs, variadicLen int) []value.Value {
+	unpackedArgs := make([]value.Value, numArgs-1+variadicLen)
+	copy(unpackedArgs, args[:numArgs-1])
+	return unpackedArgs
 }
 
 // callCompiledFunction calls a compiled function by its index.
