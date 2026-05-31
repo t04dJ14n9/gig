@@ -36,6 +36,13 @@ func TestKindMatchesTypeStaysShallow(t *testing.T) {
 	}
 }
 
+func TestExecuteTypeConvertStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_type_convert.go", "executeTypeConvert")
+	if count > 12 {
+		t.Fatalf("executeTypeConvert has %d branch points, want <= 12; split conversion domains into named helpers", count)
+	}
+}
+
 func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)
@@ -71,6 +78,35 @@ func directSwitchCaseCount(t *testing.T, path, funcName string) int {
 			count += len(s.Body.List)
 		}
 	}
+	return count
+}
+
+func recursiveBranchCount(t *testing.T, path, funcName string) int {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+
+	fn := findFuncDecl(file, funcName)
+	if fn == nil || fn.Body == nil {
+		t.Fatalf("find function %s in %s", funcName, path)
+	}
+
+	count := 0
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		switch s := n.(type) {
+		case *ast.IfStmt:
+			count++
+		case *ast.SwitchStmt:
+			count += len(s.Body.List)
+		case *ast.TypeSwitchStmt:
+			count += len(s.Body.List)
+		}
+		return true
+	})
 	return count
 }
 
