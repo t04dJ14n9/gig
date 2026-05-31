@@ -83,32 +83,28 @@ func (c *compiler) compileUnOp(i *ssa.UnOp) {
 // Returns an any so it can be passed to addConstant, which calls FromInterface
 // to create the correct value.Kind (KindUint for unsigned, KindInt for signed).
 func allOnesConstant(t types.Type) any {
-	switch u := t.Underlying().(type) {
-	case *types.Basic:
-		switch u.Kind() {
-		case types.Uint8:
-			return uint8(0xFF)
-		case types.Uint16:
-			return uint16(0xFFFF)
-		case types.Uint32:
-			return uint32(0xFFFFFFFF)
-		case types.Uint:
-			return uint(^uint(0))
-		case types.Uint64:
-			return uint64(^uint64(0))
-		case types.Uintptr:
-			return uintptr(^uintptr(0))
-		case types.Int8:
-			return int8(-1)
-		case types.Int16:
-			return int16(-1)
-		case types.Int32:
-			return int32(-1)
-		case types.Int:
-			return int(^int(0))
-		case types.Int64:
-			return int64(-1)
-		}
+	basic, ok := t.Underlying().(*types.Basic)
+	if !ok {
+		return int64(-1)
+	}
+	if mask, ok := allOnesByBasicKind[basic.Kind()]; ok {
+		return mask
 	}
 	return int64(-1) // fallback
+}
+
+// allOnesByBasicKind is the unary-^ mask table. Values intentionally keep the
+// original Go width so addConstant records the same signed/unsigned Value kind.
+var allOnesByBasicKind = map[types.BasicKind]any{
+	types.Uint8:   uint8(0xFF),
+	types.Uint16:  uint16(0xFFFF),
+	types.Uint32:  uint32(0xFFFFFFFF),
+	types.Uint:    uint(^uint(0)),
+	types.Uint64:  uint64(^uint64(0)),
+	types.Uintptr: uintptr(^uintptr(0)),
+	types.Int8:    int8(-1),
+	types.Int16:   int16(-1),
+	types.Int32:   int32(-1),
+	types.Int:     int(^int(0)),
+	types.Int64:   int64(-1),
 }

@@ -74,6 +74,13 @@ func TestBasicConstValueStaysShallow(t *testing.T) {
 	}
 }
 
+func TestAllOnesConstantStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "compile_operator.go", "allOnesConstant")
+	if count > 5 {
+		t.Fatalf("allOnesConstant has %d branch points, want <= 5; move per-width masks into a lookup table", count)
+	}
+}
+
 func assertCompilerFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)
