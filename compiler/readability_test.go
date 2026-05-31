@@ -2,6 +2,9 @@ package compiler
 
 import (
 	"bytes"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"testing"
 )
@@ -22,6 +25,13 @@ func TestCompileConstFileStaysFocused(t *testing.T) {
 	assertCompilerFileLineLimit(t, "compile_const.go", 120, "move constant conversion helpers to focused files")
 }
 
+func TestCompileInstructionDispatchStaysShallow(t *testing.T) {
+	count := directTypeSwitchCaseCount(t, "compile_instr.go", "compileInstruction")
+	if count > 8 {
+		t.Fatalf("compileInstruction has %d direct type-switch cases, want <= 8; route through focused instruction families", count)
+	}
+}
+
 func assertCompilerFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	t.Helper()
 	src, err := os.ReadFile(path)
@@ -32,4 +42,39 @@ func assertCompilerFileLineLimit(t *testing.T, path string, maxLines int, hint s
 	if lines > maxLines {
 		t.Fatalf("%s has %d lines, want <= %d; %s", path, lines, maxLines, hint)
 	}
+}
+
+func directTypeSwitchCaseCount(t *testing.T, path, funcName string) int {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+
+	fn := findFuncDecl(file, funcName)
+	if fn == nil || fn.Body == nil {
+		t.Fatalf("find function %s in %s", funcName, path)
+	}
+
+	count := 0
+	for _, stmt := range fn.Body.List {
+		// The readability guard intentionally measures only direct routing
+		// in this function. Focused helpers may still use small type switches.
+		if sw, ok := stmt.(*ast.TypeSwitchStmt); ok {
+			count += len(sw.Body.List)
+		}
+	}
+	return count
+}
+
+func findFuncDecl(file *ast.File, name string) *ast.FuncDecl {
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if ok && fn.Name.Name == name {
+			return fn
+		}
+	}
+	return nil
 }
