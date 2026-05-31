@@ -64,10 +64,10 @@ linters:
           - gocyclo
           - lll
           - maintidx
-      - path: '^(compiler/compile_builtin\.go|compiler/optimize/int_specialize\.go|compiler/optimize/slice_fusion\.go|vm/ops_make_interface\.go|vm/vm\.go)$'
+      - path: '^(compiler/compile_builtin\.go|compiler/optimize/int_specialize\.go|compiler/optimize/slice_fusion\.go|vm/vm\.go)$'
         linters:
           - cyclop
-      - path: '^(compiler/compile_builtin\.go|compiler/optimize/int_specialize\.go|compiler/optimize/slice_fusion\.go|vm/ops_make_interface\.go|vm/vm\.go)$'
+      - path: '^(compiler/compile_builtin\.go|compiler/optimize/int_specialize\.go|compiler/optimize/slice_fusion\.go|vm/vm\.go)$'
         linters:
           - gocyclo
 

@@ -88,6 +88,13 @@ func TestExecuteAssertStaysShallow(t *testing.T) {
 	}
 }
 
+func TestExecuteMakeInterfaceStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_make_interface.go", "executeMakeInterface")
+	if count > 10 {
+		t.Fatalf("executeMakeInterface has %d branch points, want <= 10; split adapter, interpreted, pass-through, and typed-nil paths", count)
+	}
+}
+
 func TestDereferenceValueStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "reference.go", "dereferenceValue")
 	if count > 12 {

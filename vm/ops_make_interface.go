@@ -7,105 +7,165 @@ import (
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
+type makeInterfaceOperands struct {
+	targetType   types.Type
+	concreteType types.Type
+	val          value.Value
+}
+
 func (v *vm) executeMakeInterface(frame *Frame) {
 	// Wraps a concrete value in a Go interface, preserving type information.
 	// This is critical for typed nil: var p *T = nil; var e error = p → e is non-nil.
+	op := v.readMakeInterfaceOperands(frame)
+
+	if v.pushMakeInterfaceAdapter(op) {
+		return
+	}
+	if v.pushPreservedNonEmptyInterpretedInterface(op) {
+		return
+	}
+
+	ifaceRT := typeToReflect(op.targetType, v.program)
+	if ifaceRT == nil {
+		v.push(op.val)
+		return
+	}
+	if v.pushMakeInterfacePassThrough(op, ifaceRT) {
+		return
+	}
+
+	concreteRV, ok := v.makeInterfaceConcreteReflectValue(op, ifaceRT)
+	if !ok {
+		v.push(op.val)
+		return
+	}
+	v.pushReflectInterfaceValue(ifaceRT, concreteRV)
+}
+
+func (v *vm) readMakeInterfaceOperands(frame *Frame) makeInterfaceOperands {
 	ifaceTypeIdx := frame.readUint16()
 	concreteTypeIdx := frame.readUint16()
-	targetType := v.program.Types[ifaceTypeIdx]
-	concreteType := v.program.Types[concreteTypeIdx]
-	val := v.pop()
+	return makeInterfaceOperands{
+		targetType:   v.program.Types[ifaceTypeIdx],
+		concreteType: v.program.Types[concreteTypeIdx],
+		val:          v.pop(),
+	}
+}
 
-	if adapter, ok := v.makeInterpretedInterfaceAdapter(targetType, concreteType, val); ok {
-		v.push(value.MakeFromReflect(reflect.ValueOf(adapter)))
-		return
+func (v *vm) pushMakeInterfaceAdapter(op makeInterfaceOperands) bool {
+	adapter, ok := v.makeInterpretedInterfaceAdapter(op.targetType, op.concreteType, op.val)
+	if !ok {
+		return false
+	}
+	v.push(value.MakeFromReflect(reflect.ValueOf(adapter)))
+	return true
+}
+
+func (v *vm) pushPreservedNonEmptyInterpretedInterface(op makeInterfaceOperands) bool {
+	iface, ok := op.targetType.Underlying().(*types.Interface)
+	if !ok || iface.NumMethods() == 0 {
+		return false
+	}
+	dyn, ok := v.interpretedInterfacePayload(op, iface)
+	if !ok {
+		return false
+	}
+	v.push(value.MakeInterpretedInterface(dyn.Value, dyn.TypeName, dyn.IsPointer))
+	return true
+}
+
+func (v *vm) interpretedInterfacePayload(
+	op makeInterfaceOperands,
+	iface *types.Interface,
+) (*value.InterpretedInterfaceValue, bool) {
+	typeName := namedTypeName(op.concreteType)
+	if typeName == "" || !shouldPreserveInterpretedNamedType(op.concreteType, v.program) {
+		return nil, false
 	}
 
-	if iface, ok := targetType.Underlying().(*types.Interface); ok && iface.NumMethods() > 0 {
-		if typeName := namedTypeName(concreteType); typeName != "" && shouldPreserveInterpretedNamedType(concreteType, v.program) {
-			interfaceValue := val
-			if (val.IsNil() || !val.IsValid()) && isPointerType(concreteType) {
-				if concreteRT := typeToReflect(concreteType, v.program); concreteRT != nil {
-					interfaceValue = value.MakeFromReflect(reflect.Zero(concreteRT))
-				}
-			}
-			dyn := &value.InterpretedInterfaceValue{
-				Value:     interfaceValue,
-				TypeName:  typeName,
-				IsPointer: isPointerType(concreteType),
-			}
-			if v.interpretedTypeSatisfiesInterface(dyn, iface) {
-				v.push(value.MakeInterpretedInterface(interfaceValue, dyn.TypeName, dyn.IsPointer))
-				return
-			}
-		}
+	dyn := &value.InterpretedInterfaceValue{
+		Value:     v.interfaceValueForDynamicType(op),
+		TypeName:  typeName,
+		IsPointer: isPointerType(op.concreteType),
 	}
-
-	// Get the interface's reflect.Type
-	ifaceRT := typeToReflect(targetType, v.program)
-	if ifaceRT == nil {
-		// Can't determine interface type, pass through
-		v.push(val)
-		return
+	if !v.interpretedTypeSatisfiesInterface(dyn, iface) {
+		return nil, false
 	}
+	return dyn, true
+}
 
-	// If typeToReflect returned interface{} (any) but the target is a
-	// non-empty interface (e.g., io.Reader, error), try to look up the
-	// real type via the external type registry. typeToReflect converts
-	// all *types.Interface to interface{} which loses method information.
-	if ifaceRT.NumMethod() == 0 {
-		if iface, ok := targetType.(*types.Interface); ok && iface.NumMethods() > 0 {
-			// This is a real Go interface with methods, but typeToReflect
-			// returned interface{}. Try to get the real type from external registry.
-			if named, ok2 := targetType.(*types.Named); ok2 {
-				if rt, ok3 := v.program.TypeResolver.LookupExternalType(named); ok3 {
-					ifaceRT = rt
-				}
-			}
-		}
+func (v *vm) interfaceValueForDynamicType(op makeInterfaceOperands) value.Value {
+	if !needsTypedNilInterfaceValue(op.val, op.concreteType) {
+		return op.val
 	}
-
-	// If we still have interface{} for a non-empty interface, just pass through.
-	// The concrete value is already assignable to the target.
-	if ifaceRT.NumMethod() == 0 {
-		if iface, ok := targetType.(*types.Interface); ok && iface.NumMethods() > 0 {
-			v.push(val)
-			return
-		}
+	concreteRT := typeToReflect(op.concreteType, v.program)
+	if concreteRT == nil {
+		return op.val
 	}
+	return value.MakeFromReflect(reflect.Zero(concreteRT))
+}
 
-	// For empty interface (interface{}), wrapping is only needed for typed nil values.
-	// For non-nil concrete values, the existing value is already correct.
-	if ifaceRT.NumMethod() == 0 && !val.IsNil() && val.IsValid() {
-		if typeName := namedTypeName(concreteType); typeName != "" && shouldPreserveInterpretedNamedType(concreteType, v.program) {
-			v.push(value.MakeInterpretedInterface(val, typeName, isPointerType(concreteType)))
-			return
-		}
-		v.push(val)
-		return
+func needsTypedNilInterfaceValue(val value.Value, concreteType types.Type) bool {
+	return (val.IsNil() || !val.IsValid()) && isPointerType(concreteType)
+}
+
+func (v *vm) pushMakeInterfacePassThrough(op makeInterfaceOperands, ifaceRT reflect.Type) bool {
+	if unresolvedDirectNonEmptyInterface(op.targetType, ifaceRT) {
+		v.push(op.val)
+		return true
 	}
-
-	// Get the concrete value as a reflect.Value
-	var concreteRV reflect.Value
-	if val.IsNil() || !val.IsValid() {
-		// The value is nil, but we need a TYPED nil to create a non-nil interface.
-		// Use the concrete type from the MakeInterface instruction to create
-		// a properly typed nil reflect.Value.
-		concreteRT := typeToReflect(concreteType, v.program)
-		if concreteRT != nil {
-			concreteRV = reflect.Zero(concreteRT) // typed nil for pointers, nil slices, etc.
-		} else {
-			// Can't determine concrete type — the interface will be nil
-			v.push(val)
-			return
-		}
-	} else {
-		concreteRV = val.ToReflectValue(ifaceRT)
+	if !emptyInterfaceNeedsNoWrap(op.val, ifaceRT) {
+		return false
 	}
+	if v.pushPreservedEmptyInterface(op) {
+		return true
+	}
+	v.push(op.val)
+	return true
+}
 
-	// Create a new interface value and set it to the concrete value.
-	// This properly creates a (type, value) pair so that even a typed nil
-	// pointer results in a non-nil interface.
+func unresolvedDirectNonEmptyInterface(targetType types.Type, ifaceRT reflect.Type) bool {
+	if ifaceRT.NumMethod() != 0 {
+		return false
+	}
+	iface, ok := targetType.(*types.Interface)
+	return ok && iface.NumMethods() > 0
+}
+
+func emptyInterfaceNeedsNoWrap(val value.Value, ifaceRT reflect.Type) bool {
+	return ifaceRT.NumMethod() == 0 && !val.IsNil() && val.IsValid()
+}
+
+func (v *vm) pushPreservedEmptyInterface(op makeInterfaceOperands) bool {
+	typeName := namedTypeName(op.concreteType)
+	if typeName == "" || !shouldPreserveInterpretedNamedType(op.concreteType, v.program) {
+		return false
+	}
+	v.push(value.MakeInterpretedInterface(op.val, typeName, isPointerType(op.concreteType)))
+	return true
+}
+
+func (v *vm) makeInterfaceConcreteReflectValue(
+	op makeInterfaceOperands,
+	ifaceRT reflect.Type,
+) (reflect.Value, bool) {
+	if op.val.IsNil() || !op.val.IsValid() {
+		return v.typedNilInterfaceReflectValue(op.concreteType)
+	}
+	return op.val.ToReflectValue(ifaceRT), true
+}
+
+func (v *vm) typedNilInterfaceReflectValue(concreteType types.Type) (reflect.Value, bool) {
+	// A nil concrete value needs the instruction's static type to produce a
+	// non-nil interface pair, for example var p *T = nil; var e error = p.
+	concreteRT := typeToReflect(concreteType, v.program)
+	if concreteRT == nil {
+		return reflect.Value{}, false
+	}
+	return reflect.Zero(concreteRT), true
+}
+
+func (v *vm) pushReflectInterfaceValue(ifaceRT reflect.Type, concreteRV reflect.Value) {
 	ifaceVal := reflect.New(ifaceRT).Elem()
 	ifaceVal.Set(concreteRV)
 	v.push(value.MakeFromReflect(ifaceVal))
