@@ -164,50 +164,92 @@ func (v *vm) callExternalMethodReflect(methodInfo *external.ExternalMethodInfo, 
 // 3. Pointer receiver via addressable copy (for non-addressable structs)
 // 4. Methods on concrete values inside embedded interface fields
 func findMethod(rv reflect.Value, methodName string, args []value.Value) (reflect.Value, bool) {
-	method := rv.MethodByName(methodName)
-	if method.IsValid() {
+	if method, ok := directMethodValue(rv, methodName); ok {
 		return method, true
 	}
+	if method, ok := addressablePointerMethodValue(rv, methodName); ok {
+		return method, true
+	}
+	if method, ok := copiedStructPointerMethodValue(rv, methodName); ok {
+		return method, true
+	}
+	return embeddedInterfaceMethodValue(rv, methodName, args)
+}
 
-	if rv.CanAddr() {
-		method = rv.Addr().MethodByName(methodName)
-		if method.IsValid() {
+func directMethodValue(rv reflect.Value, methodName string) (reflect.Value, bool) {
+	method := rv.MethodByName(methodName)
+	return method, method.IsValid()
+}
+
+func addressablePointerMethodValue(rv reflect.Value, methodName string) (reflect.Value, bool) {
+	if !rv.CanAddr() {
+		return reflect.Value{}, false
+	}
+	method := rv.Addr().MethodByName(methodName)
+	return method, method.IsValid()
+}
+
+func copiedStructPointerMethodValue(rv reflect.Value, methodName string) (reflect.Value, bool) {
+	if rv.CanAddr() || rv.Kind() != reflect.Struct {
+		return reflect.Value{}, false
+	}
+	// Reflect values loaded from interfaces are often non-addressable. Copying
+	// to an addressable slot lets pointer-receiver methods follow Go call rules.
+	addrCopy := reflect.New(rv.Type()).Elem()
+	addrCopy.Set(rv)
+	method := addrCopy.Addr().MethodByName(methodName)
+	return method, method.IsValid()
+}
+
+func embeddedInterfaceMethodValue(rv reflect.Value, methodName string, args []value.Value) (reflect.Value, bool) {
+	if rv.Kind() != reflect.Struct {
+		return reflect.Value{}, false
+	}
+	for i := 0; i < rv.NumField(); i++ {
+		if method, ok := embeddedInterfaceFieldMethodValue(rv.Field(i), methodName, args); ok {
 			return method, true
 		}
 	}
-
-	if !rv.CanAddr() && rv.Kind() == reflect.Struct {
-		addrCopy := reflect.New(rv.Type()).Elem()
-		addrCopy.Set(rv)
-		method = addrCopy.Addr().MethodByName(methodName)
-		if method.IsValid() {
-			return method, true
-		}
-	}
-
-	if rv.Kind() == reflect.Struct {
-		for i := 0; i < rv.NumField(); i++ {
-			field := rv.Field(i)
-			if field.Kind() != reflect.Interface || field.IsNil() {
-				continue
-			}
-			concrete := field.Elem()
-			if m := concrete.MethodByName(methodName); m.IsValid() {
-				if len(args) > 0 {
-					args[0] = value.MakeFromReflect(concrete)
-				}
-				return m, true
-			}
-			if concrete.CanAddr() {
-				if m := concrete.Addr().MethodByName(methodName); m.IsValid() {
-					if len(args) > 0 {
-						args[0] = value.MakeFromReflect(concrete.Addr())
-					}
-					return m, true
-				}
-			}
-		}
-	}
-
 	return reflect.Value{}, false
+}
+
+func embeddedInterfaceFieldMethodValue(
+	field reflect.Value,
+	methodName string,
+	args []value.Value,
+) (reflect.Value, bool) {
+	if !usableEmbeddedInterfaceField(field) {
+		return reflect.Value{}, false
+	}
+	return concreteEmbeddedMethodValue(field.Elem(), methodName, args)
+}
+
+func usableEmbeddedInterfaceField(field reflect.Value) bool {
+	return field.Kind() == reflect.Interface && !field.IsNil()
+}
+
+func concreteEmbeddedMethodValue(
+	concrete reflect.Value,
+	methodName string,
+	args []value.Value,
+) (reflect.Value, bool) {
+	if method := concrete.MethodByName(methodName); method.IsValid() {
+		rewriteMethodReceiverArg(args, concrete)
+		return method, true
+	}
+	if !concrete.CanAddr() {
+		return reflect.Value{}, false
+	}
+	addr := concrete.Addr()
+	if method := addr.MethodByName(methodName); method.IsValid() {
+		rewriteMethodReceiverArg(args, addr)
+		return method, true
+	}
+	return reflect.Value{}, false
+}
+
+func rewriteMethodReceiverArg(args []value.Value, receiver reflect.Value) {
+	if len(args) > 0 {
+		args[0] = value.MakeFromReflect(receiver)
+	}
 }

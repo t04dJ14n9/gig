@@ -88,6 +88,13 @@ func TestReflectMethodTypeForBoundaryStaysShallow(t *testing.T) {
 	}
 }
 
+func TestFindMethodStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "call_external_method.go", "findMethod")
+	if count > 8 {
+		t.Fatalf("findMethod has %d decision points, want <= 8; split direct, addressable, copy-addressed, and embedded-interface lookup", count)
+	}
+}
+
 func TestKindMatchesTypeStaysShallow(t *testing.T) {
 	count := directSwitchCaseCount(t, "ops_dispatch.go", "kindMatchesType")
 	if count > 8 {
