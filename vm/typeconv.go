@@ -100,42 +100,15 @@ func typeToReflectInner(t types.Type, cache map[types.Type]reflect.Type, uniqueS
 func compositeTypeToReflect(t types.Type, cache map[types.Type]reflect.Type, prog *bytecode.CompiledProgram, depth int) (reflect.Type, bool) {
 	switch tt := t.(type) {
 	case *types.Slice:
-		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
-		if elem != nil {
-			return reflect.SliceOf(elem), true
-		}
-		// If elem is nil due to a cycle (e.g., []*TreeNode where TreeNode has cycle),
-		// use []any as a placeholder. The VM will convert slice elements
-		// at assignment time when the concrete type is known.
-		return reflect.SliceOf(reflect.TypeFor[any]()), true
+		return sliceTypeToReflect(tt, cache, prog, depth), true
 	case *types.Array:
-		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
-		if elem != nil {
-			return reflect.ArrayOf(int(tt.Len()), elem), true
-		}
-		return nil, true
+		return arrayTypeToReflect(tt, cache, prog, depth), true
 	case *types.Map:
-		key := typeToReflectWithCache(tt.Key(), cache, "", prog, depth+1)
-		val := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
-		if key != nil && val != nil {
-			return reflect.MapOf(key, val), true
-		}
-		return nil, true
+		return mapTypeToReflect(tt, cache, prog, depth), true
 	case *types.Chan:
-		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
-		if elem != nil {
-			return reflect.ChanOf(reflect.BothDir, elem), true
-		}
-		return nil, true
+		return chanTypeToReflect(tt, cache, prog, depth), true
 	case *types.Pointer:
-		elem := typeToReflectWithCache(tt.Elem(), cache, "", prog, depth+1)
-		if elem != nil {
-			return reflect.PointerTo(elem), true
-		}
-		// If elem is nil due to a cycle (self-referencing struct pointer),
-		// use any as a placeholder. The VM stores such values as
-		// reflect.Value internally, and any can hold any pointer value.
-		return reflect.TypeFor[any](), true
+		return pointerTypeToReflect(tt, cache, prog, depth), true
 	case *types.Interface:
 		// Interface type — use the empty interface (any) type
 		// For the VM, all interfaces are represented as any
@@ -143,4 +116,60 @@ func compositeTypeToReflect(t types.Type, cache map[types.Type]reflect.Type, pro
 	default:
 		return nil, false
 	}
+}
+
+// reflectElemType keeps composite recursion consistent: every nested element
+// advances the depth counter and intentionally ignores the named-struct suffix
+// because containers do not create a new named reflect.StructOf identity.
+func reflectElemType(t types.Type, cache map[types.Type]reflect.Type, prog *bytecode.CompiledProgram, depth int) reflect.Type {
+	return typeToReflectWithCache(t, cache, "", prog, depth+1)
+}
+
+func sliceTypeToReflect(t *types.Slice, cache map[types.Type]reflect.Type, prog *bytecode.CompiledProgram, depth int) reflect.Type {
+	elem := reflectElemType(t.Elem(), cache, prog, depth)
+	if elem != nil {
+		return reflect.SliceOf(elem)
+	}
+
+	// If elem is nil due to a cycle (e.g., []*TreeNode where TreeNode has cycle),
+	// use []any as a placeholder. The VM will convert slice elements
+	// at assignment time when the concrete type is known.
+	return reflect.SliceOf(reflect.TypeFor[any]())
+}
+
+func arrayTypeToReflect(t *types.Array, cache map[types.Type]reflect.Type, prog *bytecode.CompiledProgram, depth int) reflect.Type {
+	elem := reflectElemType(t.Elem(), cache, prog, depth)
+	if elem != nil {
+		return reflect.ArrayOf(int(t.Len()), elem)
+	}
+	return nil
+}
+
+func mapTypeToReflect(t *types.Map, cache map[types.Type]reflect.Type, prog *bytecode.CompiledProgram, depth int) reflect.Type {
+	key := reflectElemType(t.Key(), cache, prog, depth)
+	val := reflectElemType(t.Elem(), cache, prog, depth)
+	if key != nil && val != nil {
+		return reflect.MapOf(key, val)
+	}
+	return nil
+}
+
+func chanTypeToReflect(t *types.Chan, cache map[types.Type]reflect.Type, prog *bytecode.CompiledProgram, depth int) reflect.Type {
+	elem := reflectElemType(t.Elem(), cache, prog, depth)
+	if elem != nil {
+		return reflect.ChanOf(reflect.BothDir, elem)
+	}
+	return nil
+}
+
+func pointerTypeToReflect(t *types.Pointer, cache map[types.Type]reflect.Type, prog *bytecode.CompiledProgram, depth int) reflect.Type {
+	elem := reflectElemType(t.Elem(), cache, prog, depth)
+	if elem != nil {
+		return reflect.PointerTo(elem)
+	}
+
+	// If elem is nil due to a cycle (self-referencing struct pointer),
+	// use any as a placeholder. The VM stores such values as
+	// reflect.Value internally, and any can hold any pointer value.
+	return reflect.TypeFor[any]()
 }

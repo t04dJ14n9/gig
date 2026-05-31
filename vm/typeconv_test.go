@@ -168,6 +168,36 @@ func TestTypeToReflectInterface(t *testing.T) {
 	}
 }
 
+func TestTypeToReflectCompositeShapes(t *testing.T) {
+	prog := &bytecode.CompiledProgram{
+		Types: []types.Type{},
+	}
+	emptyInterface := types.NewInterfaceType(nil, nil)
+	emptyInterface.Complete()
+
+	tests := []struct {
+		name string
+		typ  types.Type
+		want reflect.Type
+	}{
+		{"slice", types.NewSlice(types.Typ[types.Int]), reflect.TypeFor[[]int]()},
+		{"array", types.NewArray(types.Typ[types.String], 3), reflect.TypeFor[[3]string]()},
+		{"map", types.NewMap(types.Typ[types.String], types.Typ[types.Int]), reflect.TypeFor[map[string]int]()},
+		{"channel", types.NewChan(types.SendRecv, types.Typ[types.Bool]), reflect.TypeFor[chan bool]()},
+		{"pointer", types.NewPointer(types.Typ[types.Int]), reflect.TypeFor[*int]()},
+		{"interface", emptyInterface, reflect.TypeFor[any]()},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rt := typeToReflect(tt.typ, prog)
+			if rt != tt.want {
+				t.Fatalf("typeToReflect(%s) = %v, want %v", tt.name, rt, tt.want)
+			}
+		})
+	}
+}
+
 func TestTypeToReflectNamed(t *testing.T) {
 	prog := &bytecode.CompiledProgram{
 		Types: []types.Type{},

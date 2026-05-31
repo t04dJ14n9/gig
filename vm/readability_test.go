@@ -130,6 +130,13 @@ func TestTypeToReflectInnerStaysGrouped(t *testing.T) {
 	}
 }
 
+func TestCompositeTypeToReflectStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "typeconv.go", "compositeTypeToReflect")
+	if count > 8 {
+		t.Fatalf("compositeTypeToReflect has %d decision points, want <= 8; split slice, array, map, channel, pointer, and interface conversion", count)
+	}
+}
+
 func TestGenericSuperinstructionStaysGrouped(t *testing.T) {
 	count := directSwitchCaseCount(t, "run_super_generic.go", "runGenericSuperinstruction")
 	if count > 8 {
