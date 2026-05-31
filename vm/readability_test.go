@@ -53,6 +53,13 @@ func TestKindMatchesTypeStaysShallow(t *testing.T) {
 	}
 }
 
+func TestSameReflectKindFamilyStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "ops_dispatch.go", "sameReflectKindFamily")
+	if count > 8 {
+		t.Fatalf("sameReflectKindFamily has %d decision points, want <= 8; split reflect.Kind family predicates", count)
+	}
+}
+
 func TestExecuteTypeConvertStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "ops_type_convert.go", "executeTypeConvert")
 	if count > 12 {
@@ -170,6 +177,39 @@ func recursiveBranchCount(t *testing.T, path, funcName string) int {
 			count += len(s.Body.List)
 		case *ast.TypeSwitchStmt:
 			count += len(s.Body.List)
+		}
+		return true
+	})
+	return count
+}
+
+func recursiveDecisionCount(t *testing.T, path, funcName string) int {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+
+	fn := findFuncDecl(file, funcName)
+	if fn == nil || fn.Body == nil {
+		t.Fatalf("find function %s in %s", funcName, path)
+	}
+
+	count := 0
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		switch s := n.(type) {
+		case *ast.IfStmt:
+			count++
+		case *ast.SwitchStmt:
+			count += len(s.Body.List)
+		case *ast.TypeSwitchStmt:
+			count += len(s.Body.List)
+		case *ast.BinaryExpr:
+			if s.Op == token.LAND || s.Op == token.LOR {
+				count++
+			}
 		}
 		return true
 	})

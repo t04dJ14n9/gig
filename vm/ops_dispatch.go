@@ -171,17 +171,49 @@ func kindMatchesType(k value.Kind, sz value.Size, t types.Type) bool {
 //   - Floats: float32, float64
 //   - Complex: complex64, complex128
 func sameReflectKindFamily(a, b reflect.Type) bool {
-	ak, bk := a.Kind(), b.Kind()
+	family := reflectNumericFamily(a.Kind())
+	return family != reflectFamilyNone && family == reflectNumericFamily(b.Kind())
+}
+
+type reflectKindFamily uint8
+
+// reflectKindFamily gives sameReflectKindFamily a stable vocabulary: two
+// reflect kinds match only when both classify into the same non-empty family.
+const (
+	reflectFamilyNone reflectKindFamily = iota
+	reflectFamilySignedInt
+	reflectFamilyUnsignedInt
+	reflectFamilyFloat
+	reflectFamilyComplex
+)
+
+func reflectNumericFamily(k reflect.Kind) reflectKindFamily {
 	switch {
-	case (ak >= reflect.Int && ak <= reflect.Int64) && (bk >= reflect.Int && bk <= reflect.Int64):
-		return true
-	case (ak >= reflect.Uint && ak <= reflect.Uintptr) && (bk >= reflect.Uint && bk <= reflect.Uintptr):
-		return true
-	case (ak == reflect.Float32 || ak == reflect.Float64) && (bk == reflect.Float32 || bk == reflect.Float64):
-		return true
-	case (ak == reflect.Complex64 || ak == reflect.Complex128) && (bk == reflect.Complex64 || bk == reflect.Complex128):
-		return true
+	case isSignedReflectKind(k):
+		return reflectFamilySignedInt
+	case isUnsignedReflectKind(k):
+		return reflectFamilyUnsignedInt
+	case isFloatReflectKind(k):
+		return reflectFamilyFloat
+	case isComplexReflectKind(k):
+		return reflectFamilyComplex
 	default:
-		return false
+		return reflectFamilyNone
 	}
+}
+
+func isSignedReflectKind(k reflect.Kind) bool {
+	return k >= reflect.Int && k <= reflect.Int64
+}
+
+func isUnsignedReflectKind(k reflect.Kind) bool {
+	return k >= reflect.Uint && k <= reflect.Uintptr
+}
+
+func isFloatReflectKind(k reflect.Kind) bool {
+	return k == reflect.Float32 || k == reflect.Float64
+}
+
+func isComplexReflectKind(k reflect.Kind) bool {
+	return k == reflect.Complex64 || k == reflect.Complex128
 }
