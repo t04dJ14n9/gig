@@ -329,6 +329,8 @@ func TestInterface(t *testing.T) {
 		{MakeUint64(8), uint64(8)},
 		{MakeFloat(1.5), 1.5},
 		{MakeFloat32(1.5), float32(1.5)},
+		{MakeComplex(1, 2), complex128(complex(1, 2))},
+		{MakeComplex64(1, 2), complex64(complex(1, 2))},
 		{MakeString("s"), "s"},
 	}
 	for _, tt := range tests {
@@ -337,6 +339,42 @@ func TestInterface(t *testing.T) {
 			t.Errorf("Interface() = %v (%T), want %v (%T)", got, got, tt.want, tt.want)
 		}
 	}
+}
+
+func TestInterfaceNonScalarPayloads(t *testing.T) {
+	fn := func() string { return "ok" }
+	tests := []struct {
+		name string
+		v    Value
+		want any
+	}{
+		{"func", Value{kind: KindFunc, obj: fn}, fn},
+		{"bytes", MakeBytes([]byte("ab")), []byte("ab")},
+		{"native int slice", MakeIntSlice([]int64{1, 2}), []int{1, 2}},
+		{"non-native slice payload", Value{kind: KindSlice, obj: []string{"a"}}, []string{"a"}},
+		{"reflected payload", Value{kind: KindReflect, obj: reflect.ValueOf("rv")}, "rv"},
+		{"interpreted interface", Value{kind: KindInterface, obj: &InterpretedInterfaceValue{Value: MakeInt8(9)}}, int8(9)},
+		{"reflected interface payload", Value{kind: KindInterface, obj: reflect.ValueOf("iface")}, "iface"},
+		{"default reflected payload", Value{kind: KindArray, obj: reflect.ValueOf([2]int{3, 4})}, [2]int{3, 4}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.v.Interface()
+			if !interfaceResultEqual(got, tt.want) {
+				t.Fatalf("Interface() = %#v (%T), want %#v (%T)", got, got, tt.want, tt.want)
+			}
+		})
+	}
+}
+
+func interfaceResultEqual(got, want any) bool {
+	gotRV := reflect.ValueOf(got)
+	wantRV := reflect.ValueOf(want)
+	if gotRV.Kind() == reflect.Func || wantRV.Kind() == reflect.Func {
+		return gotRV.Kind() == wantRV.Kind() && gotRV.Pointer() == wantRV.Pointer()
+	}
+	return reflect.DeepEqual(got, want)
 }
 
 // ---------------------------------------------------------------------------

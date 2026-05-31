@@ -59,9 +59,26 @@ func (v Value) Complex() complex128 {
 // For numeric kinds, the returned type matches the original Go type recorded
 // by the size field (e.g. int8, int32, int64, float32, etc.).
 func (v Value) Interface() any {
+	// Keep the public router grouped by representation domain; width-sensitive
+	// scalar conversion and native payload extraction stay in focused helpers.
 	switch v.kind {
 	case KindNil:
 		return nil
+	case KindBool, KindInt, KindUint, KindFloat, KindString, KindComplex:
+		return v.interfaceScalar()
+	case KindInterface:
+		return v.interfaceInterface()
+	case KindFunc, KindBytes, KindSlice:
+		return v.interfaceNativePayload()
+	case KindReflect:
+		return interfaceReflectOrObject(v.obj)
+	default:
+		return interfaceReflectOrObject(v.obj)
+	}
+}
+
+func (v Value) interfaceScalar() any {
+	switch v.kind {
 	case KindBool:
 		return v.Bool()
 	case KindInt:
@@ -74,16 +91,19 @@ func (v Value) Interface() any {
 		return v.obj.(string)
 	case KindComplex:
 		return interfaceComplex(v.obj.(complex128), v.size)
-	case KindInterface:
-		return v.interfaceInterface()
+	default:
+		return nil
+	}
+}
+
+func (v Value) interfaceNativePayload() any {
+	switch v.kind {
 	case KindFunc:
 		return v.obj
 	case KindBytes:
 		return v.obj.([]byte)
 	case KindSlice:
 		return interfaceSlice(v.obj)
-	case KindReflect:
-		return interfaceReflectOrObject(v.obj)
 	default:
 		return interfaceReflectOrObject(v.obj)
 	}
