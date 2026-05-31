@@ -49,43 +49,74 @@ func (c *compiler) externalFuncOriginsFromFunctionValue(v ssa.Value, seen map[ss
 }
 
 func (c *compiler) externalFuncOriginsFromSSAValue(v ssa.Value, seen map[ssa.Value]bool) []externalFuncOrigin {
+	// Route by SSA shape first; each helper owns one origin-flow domain.
+	if origins, ok := c.externalFuncOriginsThroughSSAValueAlias(v, seen); ok {
+		return origins
+	}
+	if origins, ok := c.externalFuncOriginsThroughSSAContainer(v, seen); ok {
+		return origins
+	}
+	if origins, ok := c.externalFuncOriginsFromSSAProducer(v, seen); ok {
+		return origins
+	}
+	return c.externalFuncOriginsStoredIn(v, seen)
+}
+
+// externalFuncOriginsThroughSSAValueAlias follows conversions that preserve the callable value.
+func (c *compiler) externalFuncOriginsThroughSSAValueAlias(v ssa.Value, seen map[ssa.Value]bool) ([]externalFuncOrigin, bool) {
 	switch val := v.(type) {
 	case *ssa.ChangeInterface:
-		return c.externalFuncOriginsThroughValueAlias(val.X, seen)
+		return c.externalFuncOriginsThroughValueAlias(val.X, seen), true
 	case *ssa.ChangeType:
-		return c.externalFuncOriginsThroughValueAlias(val.X, seen)
+		return c.externalFuncOriginsThroughValueAlias(val.X, seen), true
 	case *ssa.Convert:
-		return c.externalFuncOriginsThroughValueAlias(val.X, seen)
+		return c.externalFuncOriginsThroughValueAlias(val.X, seen), true
 	case *ssa.MakeInterface:
-		return c.externalFuncOriginsThroughValueAlias(val.X, seen)
-	case *ssa.MakeClosure:
-		return c.externalFuncOriginsSeen(val.Fn, seen)
-	case *ssa.Call:
-		return c.externalFuncOriginsFromCallResult(val, 0, seen)
-	case *ssa.Phi:
-		return c.externalFuncOriginsFromPhi(val, seen)
+		return c.externalFuncOriginsThroughValueAlias(val.X, seen), true
+	default:
+		return nil, false
+	}
+}
+
+// externalFuncOriginsThroughSSAContainer follows projections that retrieve a callable value from aggregate storage.
+func (c *compiler) externalFuncOriginsThroughSSAContainer(v ssa.Value, seen map[ssa.Value]bool) ([]externalFuncOrigin, bool) {
+	switch val := v.(type) {
 	case *ssa.Slice:
-		return c.externalFuncOriginsThroughContainer(val.X, seen)
+		return c.externalFuncOriginsThroughContainer(val.X, seen), true
 	case *ssa.Index:
-		return c.externalFuncOriginsThroughContainer(val.X, seen)
+		return c.externalFuncOriginsThroughContainer(val.X, seen), true
 	case *ssa.Lookup:
-		return c.externalFuncOriginsThroughContainer(val.X, seen)
+		return c.externalFuncOriginsThroughContainer(val.X, seen), true
 	case *ssa.IndexAddr:
-		return c.externalFuncOriginsThroughContainer(val.X, seen)
+		return c.externalFuncOriginsThroughContainer(val.X, seen), true
 	case *ssa.FieldAddr:
-		return c.externalFuncOriginsThroughContainer(val.X, seen)
+		return c.externalFuncOriginsThroughContainer(val.X, seen), true
 	case *ssa.UnOp:
-		return c.externalFuncOriginsThroughContainer(val.X, seen)
+		return c.externalFuncOriginsThroughContainer(val.X, seen), true
 	case *ssa.Field:
-		return c.externalFuncOriginsThroughContainer(val.X, seen)
+		return c.externalFuncOriginsThroughContainer(val.X, seen), true
+	default:
+		return nil, false
+	}
+}
+
+// externalFuncOriginsFromSSAProducer handles SSA values that directly produce callable values.
+func (c *compiler) externalFuncOriginsFromSSAProducer(v ssa.Value, seen map[ssa.Value]bool) ([]externalFuncOrigin, bool) {
+	switch val := v.(type) {
+	case *ssa.MakeClosure:
+		return c.externalFuncOriginsSeen(val.Fn, seen), true
+	case *ssa.Call:
+		return c.externalFuncOriginsFromCallResult(val, 0, seen), true
+	case *ssa.Phi:
+		return c.externalFuncOriginsFromPhi(val, seen), true
 	case *ssa.Extract:
 		if call, ok := val.Tuple.(*ssa.Call); ok {
-			return c.externalFuncOriginsFromCallResult(call, val.Index, seen)
+			return c.externalFuncOriginsFromCallResult(call, val.Index, seen), true
 		}
-		return c.externalFuncOriginsSeen(val.Tuple, seen)
+		return c.externalFuncOriginsSeen(val.Tuple, seen), true
+	default:
+		return nil, false
 	}
-
-	return c.externalFuncOriginsStoredIn(v, seen)
 }
 
 func (c *compiler) externalFuncOriginsThroughValueAlias(v ssa.Value, seen map[ssa.Value]bool) []externalFuncOrigin {

@@ -28,6 +28,13 @@ func TestExternalFuncOriginsSeenStaysShallow(t *testing.T) {
 	}
 }
 
+func TestExternalFuncOriginsFromSSAValueStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "external_func_origin.go", "externalFuncOriginsFromSSAValue")
+	if count > 8 {
+		t.Fatalf("externalFuncOriginsFromSSAValue has %d branch points, want <= 8; split alias, container, and producer routing domains", count)
+	}
+}
+
 func TestCompileConstFileStaysFocused(t *testing.T) {
 	assertCompilerFileLineLimit(t, "compile_const.go", 120, "move constant conversion helpers to focused files")
 }
