@@ -43,6 +43,13 @@ func TestGenerateDirectCallStaysShallow(t *testing.T) {
 	}
 }
 
+func TestWrapBasicReturnStaysShallow(t *testing.T) {
+	count := cyclomaticBranchCount(t, "wrap.go", "wrapBasicReturn")
+	if count > 18 {
+		t.Fatalf("wrapBasicReturn has complexity %d, want <= 18; split unsigned, signed, float, complex, and string wrapping", count)
+	}
+}
+
 func TestGeneratorEmitAvoidsNestedFormattedWriteString(t *testing.T) {
 	assertNoNestedFormattedWriteString(t, "generator_emit.go")
 }
@@ -111,9 +118,7 @@ func cyclomaticBranchCount(t *testing.T, path, funcName string) int {
 		case *ast.IfStmt, *ast.ForStmt, *ast.RangeStmt:
 			count++
 		case *ast.CaseClause:
-			if len(x.List) > 0 {
-				count++
-			}
+			count++
 		case *ast.BinaryExpr:
 			if x.Op.String() == "&&" || x.Op.String() == "||" {
 				count++

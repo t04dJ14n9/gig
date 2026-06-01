@@ -54,42 +54,11 @@ func wrapBasicReturn(bt *types.Basic, goExpr string) string {
 	case kind == types.Bool:
 		return fmt.Sprintf("value.MakeBool(%s)", goExpr)
 	case info&types.IsInteger != 0 && info&types.IsUnsigned != 0:
-		// Use sized Make* constructors to preserve the exact width across the
-		// VM boundary.  MakeUint uses SizePtr (returns uint via Interface()),
-		// while MakeUint64 uses Size64 (returns uint64 via Interface()).
-		switch kind {
-		case types.Uint8:
-			return fmt.Sprintf("value.MakeUint8(%s)", goExpr)
-		case types.Uint16:
-			return fmt.Sprintf("value.MakeUint16(%s)", goExpr)
-		case types.Uint32:
-			return fmt.Sprintf("value.MakeUint32(%s)", goExpr)
-		case types.Uint64:
-			return fmt.Sprintf("value.MakeUint64(%s)", goExpr)
-		default:
-			return fmt.Sprintf("value.MakeUint(uint64(%s))", goExpr)
-		}
+		return wrapUnsignedBasicReturn(kind, goExpr)
 	case info&types.IsInteger != 0:
-		// Use sized Make* constructors to preserve the exact width across the
-		// VM boundary.  MakeInt uses SizePtr (returns int via Interface()),
-		// while MakeInt64 uses Size64 (returns int64 via Interface()).
-		switch kind {
-		case types.Int8:
-			return fmt.Sprintf("value.MakeInt8(%s)", goExpr)
-		case types.Int16:
-			return fmt.Sprintf("value.MakeInt16(%s)", goExpr)
-		case types.Int32:
-			return fmt.Sprintf("value.MakeInt32(%s)", goExpr)
-		case types.Int64:
-			return fmt.Sprintf("value.MakeInt64(%s)", goExpr)
-		default:
-			return fmt.Sprintf("value.MakeInt(int64(%s))", goExpr)
-		}
+		return wrapSignedBasicReturn(kind, goExpr)
 	case info&types.IsFloat != 0:
-		if kind == types.Float32 {
-			return fmt.Sprintf("value.MakeFloat32(%s)", goExpr)
-		}
-		return fmt.Sprintf("value.MakeFloat(float64(%s))", goExpr)
+		return wrapFloatBasicReturn(kind, goExpr)
 	case info&types.IsComplex != 0:
 		return fmt.Sprintf("value.FromInterface(%s)", goExpr)
 	case info&types.IsString != 0:
@@ -97,4 +66,47 @@ func wrapBasicReturn(bt *types.Basic, goExpr string) string {
 	default:
 		return fmt.Sprintf("value.FromInterface(%s)", goExpr)
 	}
+}
+
+func wrapUnsignedBasicReturn(kind types.BasicKind, goExpr string) string {
+	// Preserve exact scalar width across the VM boundary. MakeUint uses SizePtr
+	// while MakeUint64 uses Size64, so each sized unsigned type needs its own
+	// constructor instead of a generic uint64 path.
+	switch kind {
+	case types.Uint8:
+		return fmt.Sprintf("value.MakeUint8(%s)", goExpr)
+	case types.Uint16:
+		return fmt.Sprintf("value.MakeUint16(%s)", goExpr)
+	case types.Uint32:
+		return fmt.Sprintf("value.MakeUint32(%s)", goExpr)
+	case types.Uint64:
+		return fmt.Sprintf("value.MakeUint64(%s)", goExpr)
+	default:
+		return fmt.Sprintf("value.MakeUint(uint64(%s))", goExpr)
+	}
+}
+
+func wrapSignedBasicReturn(kind types.BasicKind, goExpr string) string {
+	// Preserve exact scalar width across the VM boundary. MakeInt uses SizePtr
+	// while MakeInt64 uses Size64, so each sized signed type needs its own
+	// constructor instead of a generic int64 path.
+	switch kind {
+	case types.Int8:
+		return fmt.Sprintf("value.MakeInt8(%s)", goExpr)
+	case types.Int16:
+		return fmt.Sprintf("value.MakeInt16(%s)", goExpr)
+	case types.Int32:
+		return fmt.Sprintf("value.MakeInt32(%s)", goExpr)
+	case types.Int64:
+		return fmt.Sprintf("value.MakeInt64(%s)", goExpr)
+	default:
+		return fmt.Sprintf("value.MakeInt(int64(%s))", goExpr)
+	}
+}
+
+func wrapFloatBasicReturn(kind types.BasicKind, goExpr string) string {
+	if kind == types.Float32 {
+		return fmt.Sprintf("value.MakeFloat32(%s)", goExpr)
+	}
+	return fmt.Sprintf("value.MakeFloat(float64(%s))", goExpr)
 }
