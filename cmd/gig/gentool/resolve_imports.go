@@ -41,15 +41,7 @@ func collectTypeImports(t types.Type, selfPkgPath string, imports map[string]str
 	case *types.Alias:
 		collectObjectImport(tt.Obj(), selfPkgPath, imports)
 	case *types.Basic:
-		if tt.Kind() == types.UnsafePointer {
-			imports["unsafe"] = "unsafe"
-		}
-	case *types.Pointer:
-		collectTypeImports(tt.Elem(), selfPkgPath, imports)
-	case *types.Slice:
-		collectTypeImports(tt.Elem(), selfPkgPath, imports)
-	case *types.Array:
-		collectTypeImports(tt.Elem(), selfPkgPath, imports)
+		collectBasicImport(tt, imports)
 	case *types.Map:
 		collectTypeImports(tt.Key(), selfPkgPath, imports)
 		collectTypeImports(tt.Elem(), selfPkgPath, imports)
@@ -57,11 +49,38 @@ func collectTypeImports(t types.Type, selfPkgPath string, imports map[string]str
 		collectTupleImports(tt.Params(), selfPkgPath, imports)
 		collectTupleImports(tt.Results(), selfPkgPath, imports)
 	case *types.Interface:
-		for i := 0; i < tt.NumMethods(); i++ {
-			collectTypeImports(tt.Method(i).Type(), selfPkgPath, imports)
-		}
+		collectInterfaceImports(tt, selfPkgPath, imports)
+	default:
+		collectSingleElementTypeImports(t, selfPkgPath, imports)
+	}
+}
+
+func collectBasicImport(t *types.Basic, imports map[string]string) {
+	if t.Kind() == types.UnsafePointer {
+		imports["unsafe"] = "unsafe"
+	}
+}
+
+func collectSingleElementTypeImports(t types.Type, selfPkgPath string, imports map[string]string) {
+	// Pointers, slices, arrays, and channels all expose exactly one nested type.
+	// Keeping that shared recursion here leaves the main walker focused on the
+	// shapes that need special handling: objects, maps, signatures, interfaces,
+	// and unsafe.Pointer.
+	switch tt := t.(type) {
+	case *types.Pointer:
+		collectTypeImports(tt.Elem(), selfPkgPath, imports)
+	case *types.Slice:
+		collectTypeImports(tt.Elem(), selfPkgPath, imports)
+	case *types.Array:
+		collectTypeImports(tt.Elem(), selfPkgPath, imports)
 	case *types.Chan:
 		collectTypeImports(tt.Elem(), selfPkgPath, imports)
+	}
+}
+
+func collectInterfaceImports(t *types.Interface, selfPkgPath string, imports map[string]string) {
+	for i := 0; i < t.NumMethods(); i++ {
+		collectTypeImports(t.Method(i).Type(), selfPkgPath, imports)
 	}
 }
 

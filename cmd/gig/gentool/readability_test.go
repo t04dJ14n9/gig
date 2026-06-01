@@ -50,6 +50,13 @@ func TestWrapBasicReturnStaysShallow(t *testing.T) {
 	}
 }
 
+func TestCollectTypeImportsStaysShallow(t *testing.T) {
+	count := cyclomaticBranchCount(t, "resolve_imports.go", "collectTypeImports")
+	if count > 12 {
+		t.Fatalf("collectTypeImports has complexity %d, want <= 12; split object, element, tuple, and interface import walking", count)
+	}
+}
+
 func TestGeneratorEmitAvoidsNestedFormattedWriteString(t *testing.T) {
 	assertNoNestedFormattedWriteString(t, "generator_emit.go")
 }
