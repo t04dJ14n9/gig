@@ -2,8 +2,6 @@
 package vm
 
 import (
-	"fmt"
-
 	"github.com/t04dJ14n9/gig/model/bytecode"
 	"github.com/t04dJ14n9/gig/model/value"
 )
@@ -526,8 +524,7 @@ func (v *vm) run() (value.Value, error) {
 			if s, ok := locals[sIdx].IntSlice(); ok {
 				idx := intLocals[jIdx]
 				if idx < 0 || idx >= int64(len(s)) {
-					v.panicking = true
-					v.panicVal = value.FromInterface(fmt.Sprintf("runtime error: index out of range [%d] with length %d", idx, len(s)))
+					v.setIntSliceIndexPanic(idx, len(s))
 					continue
 				}
 				r := s[idx]
@@ -549,8 +546,7 @@ func (v *vm) run() (value.Value, error) {
 			if s, ok := locals[sIdx].IntSlice(); ok {
 				idx := intLocals[jIdx]
 				if idx < 0 || idx >= int64(len(s)) {
-					v.panicking = true
-					v.panicVal = value.FromInterface(fmt.Sprintf("runtime error: index out of range [%d] with length %d", idx, len(s)))
+					v.setIntSliceIndexPanic(idx, len(s))
 					continue
 				}
 				s[idx] = intLocals[valIdx]
@@ -570,8 +566,7 @@ func (v *vm) run() (value.Value, error) {
 			if s, ok := locals[sIdx].IntSlice(); ok {
 				idx := intLocals[jIdx]
 				if idx < 0 || idx >= int64(len(s)) {
-					v.panicking = true
-					v.panicVal = value.FromInterface(fmt.Sprintf("runtime error: index out of range [%d] with length %d", idx, len(s)))
+					v.setIntSliceIndexPanic(idx, len(s))
 					continue
 				}
 				s[idx] = intConsts[cIdx]

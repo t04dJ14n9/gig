@@ -10,7 +10,7 @@ import (
 )
 
 func TestRunLoopFileStaysFocused(t *testing.T) {
-	assertFileLineLimit(t, "run.go", 900, "move cold runtime paths to focused files")
+	assertFileLineLimit(t, "run.go", 630, "move int-slice panic formatting out of the run loop")
 }
 
 func TestRunLoopDecisionBudgetImproves(t *testing.T) {
