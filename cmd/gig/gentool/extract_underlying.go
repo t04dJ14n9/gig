@@ -12,10 +12,7 @@ func extractUnderlyingWithPkgRef(t types.Type, valExpr string, pkgRef string) st
 	case *types.Basic:
 		return extractBasic(ut, valExpr)
 	case *types.Slice:
-		if _, ok := ut.Elem().Underlying().(*types.Basic); ok {
-			return extractSlice(ut, valExpr, pkgRef)
-		}
-		return fmt.Sprintf("%s.Interface()", valExpr)
+		return extractUnderlyingSlice(ut, valExpr, pkgRef)
 	case *types.Interface:
 		return extractInterface(ut, valExpr, pkgRef)
 	case *types.Pointer:
@@ -27,20 +24,30 @@ func extractUnderlyingWithPkgRef(t types.Type, valExpr string, pkgRef string) st
 	case *types.Chan:
 		return extractChan(ut, valExpr, pkgRef)
 	case *types.Signature:
-		funcTypeName := resolveFuncTypeName(ut, pkgRef)
-		if funcTypeName != "" {
-			return fmt.Sprintf("%s.Interface().(%s)", valExpr, funcTypeName)
-		}
-		return fmt.Sprintf("%s.Interface()", valExpr)
+		return extractResolvedTypeAssertion(resolveFuncTypeName(ut, pkgRef), valExpr)
 	case *types.Array:
-		arrTypeName := resolveArrayTypeName(ut, pkgRef)
-		if arrTypeName != "" {
-			return fmt.Sprintf("%s.Interface().(%s)", valExpr, arrTypeName)
-		}
-		return fmt.Sprintf("%s.Interface()", valExpr)
+		return extractResolvedTypeAssertion(resolveArrayTypeName(ut, pkgRef), valExpr)
 	default:
 		return ""
 	}
+}
+
+func extractUnderlyingSlice(st *types.Slice, valExpr string, pkgRef string) string {
+	// extractSlice only has specialized zero-reflection paths for basic element
+	// slices. Composite element slices stay on Interface(), matching the prior
+	// fallback and avoiding generated casts for shapes resolveTypeName cannot
+	// express safely.
+	if _, ok := st.Elem().Underlying().(*types.Basic); ok {
+		return extractSlice(st, valExpr, pkgRef)
+	}
+	return fmt.Sprintf("%s.Interface()", valExpr)
+}
+
+func extractResolvedTypeAssertion(typeName string, valExpr string) string {
+	if typeName != "" {
+		return fmt.Sprintf("%s.Interface().(%s)", valExpr, typeName)
+	}
+	return fmt.Sprintf("%s.Interface()", valExpr)
 }
 
 func extractInterface(iface *types.Interface, valExpr string, pkgRef string) string {

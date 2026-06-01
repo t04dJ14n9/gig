@@ -57,6 +57,13 @@ func TestCollectTypeImportsStaysShallow(t *testing.T) {
 	}
 }
 
+func TestExtractUnderlyingWithPkgRefStaysShallow(t *testing.T) {
+	count := cyclomaticBranchCount(t, "extract_underlying.go", "extractUnderlyingWithPkgRef")
+	if count > 12 {
+		t.Fatalf("extractUnderlyingWithPkgRef has complexity %d, want <= 12; split slice fallback and type assertion extraction", count)
+	}
+}
+
 func TestGeneratorEmitAvoidsNestedFormattedWriteString(t *testing.T) {
 	assertNoNestedFormattedWriteString(t, "generator_emit.go")
 }
