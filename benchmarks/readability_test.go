@@ -21,6 +21,13 @@ func TestConcurrentGlobalsComparisonStaysShallow(t *testing.T) {
 	}
 }
 
+func TestStatefulStressStaysShallow(t *testing.T) {
+	count := benchmarkDecisionCount(t, "extreme_stress_test.go", "TestStatefulStress")
+	if count > 8 {
+		t.Fatalf("TestStatefulStress has %d decision points, want <= 8; split correctness, stress table, reporting, and counter verification", count)
+	}
+}
+
 func benchmarkDecisionCount(t *testing.T, path, funcName string) int {
 	t.Helper()
 

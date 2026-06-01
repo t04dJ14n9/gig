@@ -365,58 +365,77 @@ func GetCounter() int {
 // TestStatefulStress tests concurrent stateful execution with WithStatefulGlobals().
 // Uses 5 concurrency levels with 1 round each to keep test time reasonable.
 func TestStatefulStress(t *testing.T) {
+	cfg := defaultStatefulStressConfig()
+	verifyStatefulRuleCorrectness(t)
+	gigStats := runStatefulStressTable(t, cfg)
+	logStatefulStressResults(t, cfg, gigStats)
+	verifyStatefulCounter(t, cfg)
+}
+
+type statefulStressConfig struct {
+	levels            []int
+	duration          time.Duration
+	verifyConcurrency int
+	verifyOpsPerG     int
+}
+
+func defaultStatefulStressConfig() statefulStressConfig {
+	return statefulStressConfig{
+		levels:            []int{1, 100, 1000, 5000, 10000},
+		duration:          3 * time.Second,
+		verifyConcurrency: 100,
+		verifyOpsPerG:     100,
+	}
+}
+
+func buildStatefulStressProgram(t *testing.T) *gig.Program {
+	t.Helper()
 	prog, err := gig.Build(statefulRuleSource, gig.WithStatefulGlobals(), gig.WithAllowPanic())
 	if err != nil {
 		t.Fatal(err)
 	}
+	return prog
+}
+
+func verifyStatefulRuleCorrectness(t *testing.T) {
+	t.Helper()
+	prog := buildStatefulStressProgram(t)
 	defer prog.Close()
 
-	// Verify correctness
-	r, err := prog.Run("EvaluateRuleStateful", 1, " alice ", 81.0)
+	result, err := prog.Run("EvaluateRuleStateful", 1, " alice ", 81.0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("Correctness: %v", r)
+	t.Logf("Correctness: %v", result)
+}
 
-	levels := []int{1, 100, 1000, 5000, 10000}
-	duration := 3 * time.Second
+func runStatefulStressTable(t *testing.T, cfg statefulStressConfig) []extremeStressStats {
+	t.Helper()
+	t.Logf("Running stateful stress test (%d levels, %v/level)...", len(cfg.levels), cfg.duration)
 
-	type stats struct {
-		throughput float64
-		avgLatUs   float64
-		errors     int64
-		heapMB     float64
-		gcPauses   uint32
+	stats := make([]extremeStressStats, len(cfg.levels))
+	for li, concurrency := range cfg.levels {
+		stats[li] = runStatefulStressLevel(t, concurrency, cfg.duration)
 	}
+	return stats
+}
 
-	t.Logf("Running stateful stress test (%d levels, %v/level)...", len(levels), duration)
+func runStatefulStressLevel(t *testing.T, concurrency int, duration time.Duration) extremeStressStats {
+	t.Helper()
+	prog := buildStatefulStressProgram(t)
+	defer prog.Close()
 
-	gigStats := make([]stats, len(levels))
-	for li, concurrency := range levels {
-		// Rebuild for each level to reset counter
-		prog.Close()
-		prog, err = gig.Build(statefulRuleSource, gig.WithStatefulGlobals(), gig.WithAllowPanic())
-		if err != nil {
-			t.Fatal(err)
-		}
+	ops, errs, heap, gc := runStressLevel(concurrency, duration, func(gID, i int) error {
+		execCtx, execCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer execCancel()
+		_, err := prog.RunWithContext(execCtx, "EvaluateRuleStateful", gID*10000+i, " bob ", float64(30+i%70))
+		return err
+	})
+	return extremeStressStatsFromRun(concurrency, duration, ops, errs, heap, gc)
+}
 
-		ops, errs, heap, gc := runStressLevel(concurrency, duration, func(gID, i int) error {
-			execCtx, execCancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer execCancel()
-			_, err := prog.RunWithContext(execCtx, "EvaluateRuleStateful", gID*10000+i, " bob ", float64(30+i%70))
-			return err
-		})
-		tp := float64(ops) / duration.Seconds()
-		gigStats[li] = stats{
-			throughput: tp,
-			avgLatUs:   1e6 / tp * float64(concurrency),
-			errors:     errs,
-			heapMB:     heap,
-			gcPauses:   gc,
-		}
-	}
-
-	// Print results
+func logStatefulStressResults(t *testing.T, cfg statefulStressConfig, gigStats []extremeStressStats) {
+	t.Helper()
 	t.Logf("")
 	t.Logf("╔══════════════════════════════════════════════════════════════════════════════╗")
 	t.Logf("║           STATEFUL STRESS TEST (WithStatefulGlobals)                       ║")
@@ -425,7 +444,7 @@ func TestStatefulStress(t *testing.T) {
 	t.Logf("║ Goroutin ║  Throughput   ║  Avg Lat   ║ Errors ║ Heap(MB) ║   GC Pauses    ║")
 	t.Logf("╠══════════╬═══════════════╬════════════╬════════╬══════════╬════════════════╣")
 
-	for li, concurrency := range levels {
+	for li, concurrency := range cfg.levels {
 		s := gigStats[li]
 		t.Logf("║ %8d ║ %11.0f/s ║ %8.1f μs ║ %6d ║ %6.0f MB ║ %14.0f ║",
 			concurrency, s.throughput, s.avgLatUs, s.errors, s.heapMB, float64(s.gcPauses))
@@ -434,22 +453,19 @@ func TestStatefulStress(t *testing.T) {
 		}
 	}
 	t.Logf("╚══════════╩═══════════════╩════════════╩════════╩══════════╩════════════════╝")
+}
 
-	// Verify counter correctness with a controlled test.
-	prog.Close()
-	prog, err = gig.Build(statefulRuleSource, gig.WithStatefulGlobals(), gig.WithAllowPanic())
-	if err != nil {
-		t.Fatal(err)
-	}
+func verifyStatefulCounter(t *testing.T, cfg statefulStressConfig) {
+	t.Helper()
+	prog := buildStatefulStressProgram(t)
+	defer prog.Close()
 
-	const verifyConcurrency = 100
-	const verifyOpsPerG = 100
 	var wg sync.WaitGroup
-	for g := 0; g < verifyConcurrency; g++ {
+	for g := 0; g < cfg.verifyConcurrency; g++ {
 		wg.Add(1)
 		go func(gID int) {
 			defer wg.Done()
-			for i := 0; i < verifyOpsPerG; i++ {
+			for i := 0; i < cfg.verifyOpsPerG; i++ {
 				prog.Run("EvaluateRuleStateful", gID*1000+i, "test", 50.0)
 			}
 		}(g)
@@ -464,13 +480,12 @@ func TestStatefulStress(t *testing.T) {
 	if !ok {
 		t.Fatalf("GetCounter returned %T, want int", result)
 	}
-	expected := verifyConcurrency * verifyOpsPerG
+	expected := cfg.verifyConcurrency * cfg.verifyOpsPerG
 	if counterVal != expected {
 		t.Errorf("Counter = %d, want %d (lost %d updates)", counterVal, expected, expected-counterVal)
 	} else {
 		t.Logf("Counter verification: %d ops = %d (correct, no lost updates)", counterVal, expected)
 	}
-	prog.Close()
 }
 
 // ============================================================================
