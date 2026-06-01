@@ -75,15 +75,13 @@ func (v *vm) run() (value.Value, error) {
 		// Allow panic handling at any defer depth — this enables nested panics
 		// (panic inside a deferred function) to be properly recovered.
 		if v.panicking {
-			disposition, nextSP, retVal, err := v.handlePendingPanic(frame, sp)
-			sp = nextSP
+			ret := v.runPanicStep(frame, sp)
+			sp = ret.sp
 			stack = v.stack
-			if err != nil || disposition == runReturn {
-				return retVal, err
+			if ret.done {
+				return ret.retVal, ret.err
 			}
-			if v.fp > 0 {
-				loadFrame()
-			}
+			frame, ins, locals, intLocals = ret.frame, ret.ins, ret.locals, ret.intLocals
 			continue
 		}
 

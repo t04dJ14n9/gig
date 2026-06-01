@@ -22,6 +22,17 @@ type runFrameReturnResult struct {
 	intLocals []int64
 }
 
+type runPanicStepResult struct {
+	sp        int
+	done      bool
+	retVal    value.Value
+	err       error
+	frame     *Frame
+	ins       []byte
+	locals    []value.Value
+	intLocals []int64
+}
+
 func (v *vm) runFrameReturn(frame *Frame, stack []value.Value, sp int, retVal value.Value) runFrameReturnResult {
 	v.fpool.put(frame)
 	v.fp--
@@ -50,6 +61,31 @@ func (v *vm) runFrameReturn(frame *Frame, stack []value.Value, sp int, retVal va
 		locals:    next.locals,
 		intLocals: next.intLocals,
 	}
+}
+
+func (v *vm) runPanicStep(frame *Frame, sp int) runPanicStepResult {
+	// Panic unwinding is cold, but it mutates the frame stack and therefore must
+	// return refreshed cached fields for the main loop before execution resumes.
+	disposition, nextSP, retVal, err := v.handlePendingPanic(frame, sp)
+	result := runPanicStepResult{
+		sp:     nextSP,
+		retVal: retVal,
+		err:    err,
+	}
+	if err != nil || disposition == runReturn {
+		result.done = true
+		return result
+	}
+	if v.fp == 0 {
+		return result
+	}
+
+	next := v.frames[v.fp-1]
+	result.frame = next
+	result.ins = next.fn.Instructions
+	result.locals = next.locals
+	result.intLocals = next.intLocals
+	return result
 }
 
 func (v *vm) runFinalStackValue(stack []value.Value, sp int) value.Value {
