@@ -87,12 +87,11 @@ func (v *vm) run() (value.Value, error) {
 
 		// Check for end of function
 		if frame.ip >= len(ins) {
-			if v.handleFrameEnd(frame) == runReturn {
+			ret := v.runFrameEndStep(frame)
+			if ret.done {
 				return value.MakeNil(), nil
 			}
-			if v.fp > 0 {
-				loadFrame()
-			}
+			frame, ins, locals, intLocals = ret.frame, ret.ins, ret.locals, ret.intLocals
 			continue
 		}
 
@@ -300,18 +299,12 @@ func (v *vm) run() (value.Value, error) {
 			loadFrame()
 			continue
 
-		case bytecode.OpReturn:
+		case bytecode.OpReturn, bytecode.OpReturnVal:
 			retVal := value.MakeNil()
-			ret := v.runFrameReturn(frame, stack, sp, retVal)
-			if ret.done {
-				return retVal, nil
+			if op == bytecode.OpReturnVal {
+				sp--
+				retVal = stack[sp]
 			}
-			sp, frame, ins, locals, intLocals = ret.sp, ret.frame, ret.ins, ret.locals, ret.intLocals
-			continue
-
-		case bytecode.OpReturnVal:
-			sp--
-			retVal := stack[sp]
 			ret := v.runFrameReturn(frame, stack, sp, retVal)
 			if ret.done {
 				return retVal, nil

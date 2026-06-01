@@ -22,6 +22,14 @@ type runFrameReturnResult struct {
 	intLocals []int64
 }
 
+type runFrameEndResult struct {
+	done      bool
+	frame     *Frame
+	ins       []byte
+	locals    []value.Value
+	intLocals []int64
+}
+
 type runPanicStepResult struct {
 	sp        int
 	done      bool
@@ -56,6 +64,23 @@ func (v *vm) runFrameReturn(frame *Frame, stack []value.Value, sp int, retVal va
 	}
 	return runFrameReturnResult{
 		sp:        sp,
+		frame:     next,
+		ins:       next.fn.Instructions,
+		locals:    next.locals,
+		intLocals: next.intLocals,
+	}
+}
+
+func (v *vm) runFrameEndStep(frame *Frame) runFrameEndResult {
+	if v.handleFrameEnd(frame) == runReturn {
+		return runFrameEndResult{done: true}
+	}
+	if v.fp == 0 {
+		return runFrameEndResult{}
+	}
+
+	next := v.frames[v.fp-1]
+	return runFrameEndResult{
 		frame:     next,
 		ins:       next.fn.Instructions,
 		locals:    next.locals,
