@@ -255,17 +255,13 @@ func (v *vm) run() (value.Value, error) {
 		case bytecode.OpJumpTrue:
 			offset := readU16()
 			sp--
-			if stack[sp].RawBool() {
-				frame.ip = int(offset)
-			}
+			runJumpIf(frame, offset, stack[sp].RawBool())
 			continue
 
 		case bytecode.OpJumpFalse:
 			offset := readU16()
 			sp--
-			if !stack[sp].RawBool() {
-				frame.ip = int(offset)
-			}
+			runJumpIf(frame, offset, !stack[sp].RawBool())
 			continue
 
 		case bytecode.OpNot:
@@ -471,45 +467,35 @@ func (v *vm) run() (value.Value, error) {
 			idxA := readU16()
 			idxB := readU16()
 			offset := readU16()
-			if intLocals[idxA] >= intConsts[idxB] {
-				frame.ip = int(offset)
-			}
+			runJumpIf(frame, offset, intLocals[idxA] >= intConsts[idxB])
 			continue
 
 		case bytecode.OpIntLessEqLocalConstJumpTrue:
 			idxA := readU16()
 			idxB := readU16()
 			offset := readU16()
-			if intLocals[idxA] <= intConsts[idxB] {
-				frame.ip = int(offset)
-			}
+			runJumpIf(frame, offset, intLocals[idxA] <= intConsts[idxB])
 			continue
 
 		case bytecode.OpIntLessEqLocalConstJumpFalse:
 			idxA := readU16()
 			idxB := readU16()
 			offset := readU16()
-			if intLocals[idxA] > intConsts[idxB] {
-				frame.ip = int(offset)
-			}
+			runJumpIf(frame, offset, intLocals[idxA] > intConsts[idxB])
 			continue
 
 		case bytecode.OpIntLessLocalLocalJumpFalse:
 			idxA := readU16()
 			idxB := readU16()
 			offset := readU16()
-			if intLocals[idxA] >= intLocals[idxB] {
-				frame.ip = int(offset)
-			}
+			runJumpIf(frame, offset, intLocals[idxA] >= intLocals[idxB])
 			continue
 
 		case bytecode.OpIntGreaterLocalLocalJumpTrue:
 			idxA := readU16()
 			idxB := readU16()
 			offset := readU16()
-			if intLocals[idxA] > intLocals[idxB] {
-				frame.ip = int(offset)
-			}
+			runJumpIf(frame, offset, intLocals[idxA] > intLocals[idxB])
 			continue
 
 		case bytecode.OpIntSetLocal:
@@ -530,18 +516,14 @@ func (v *vm) run() (value.Value, error) {
 			idxA := readU16()
 			idxB := readU16()
 			offset := readU16()
-			if intLocals[idxA] < intConsts[idxB] {
-				frame.ip = int(offset)
-			}
+			runJumpIf(frame, offset, intLocals[idxA] < intConsts[idxB])
 			continue
 
 		case bytecode.OpIntLessLocalLocalJumpTrue:
 			idxA := readU16()
 			idxB := readU16()
 			offset := readU16()
-			if intLocals[idxA] < intLocals[idxB] {
-				frame.ip = int(offset)
-			}
+			runJumpIf(frame, offset, intLocals[idxA] < intLocals[idxB])
 			continue
 
 		case bytecode.OpIntMoveLocal:

@@ -15,8 +15,8 @@ func TestRunLoopFileStaysFocused(t *testing.T) {
 
 func TestRunLoopDecisionBudgetImproves(t *testing.T) {
 	count := recursiveDecisionCount(t, "run.go", "run")
-	if count > 124 {
-		t.Fatalf("vm.run has %d decision points, want <= 124; move repeated inline memory-op completion branches into a focused helper", count)
+	if count > 116 {
+		t.Fatalf("vm.run has %d decision points, want <= 116; move repeated conditional jump branches into a focused helper", count)
 	}
 }
 
