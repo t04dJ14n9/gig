@@ -672,8 +672,22 @@ func BenchmarkNative_JsonMarshal(b *testing.B) {
 // ============================================================================
 
 func TestBenchmarkSummary(t *testing.T) {
-	// Get CPU info
-	numCPU := runtime.NumCPU()
+	logBenchmarkSummaryIntro(t, benchmarkCPUModel())
+
+	results := getHardcodedResults()
+	categorySlowdowns := logBenchmarkRows(t, results)
+
+	logBenchmarkBuildLatency(t)
+	logBenchmarkCategorySummary(t, categorySlowdowns)
+	logBenchmarkOptimizationNotes(t)
+
+	// Suppress unused warnings
+	_ = strconv.Itoa
+	_ = sort.Ints
+	_ = time.Now()
+}
+
+func benchmarkCPUModel() string {
 	var cpuModel string
 	if data, err := os.ReadFile("/proc/cpuinfo"); err == nil {
 		lines := strings.Split(string(data), "\n")
@@ -687,11 +701,15 @@ func TestBenchmarkSummary(t *testing.T) {
 	if cpuModel == "" {
 		cpuModel = "Unknown"
 	}
+	return strings.TrimSpace(cpuModel)
+}
 
+func logBenchmarkSummaryIntro(t *testing.T, cpuModel string) {
+	t.Helper()
 	t.Log("=============================================================================")
 	t.Log("  GIG Performance Comparison: Interpreted (Gig) vs Native Go")
 	t.Logf("  CPU: %s | Cores: %d | GOOS: %s | GOARCH: %s",
-		strings.TrimSpace(cpuModel), numCPU, runtime.GOOS, runtime.GOARCH)
+		cpuModel, runtime.NumCPU(), runtime.GOOS, runtime.GOARCH)
 	t.Log("  Optimizations: DirectCall wrappers, Inline caching, Typed external functions")
 	t.Log("=============================================================================")
 	t.Log("")
@@ -701,11 +719,10 @@ func TestBenchmarkSummary(t *testing.T) {
 	t.Log("  NOTE: To regenerate these stats with current hardware, run:")
 	t.Log("    go test -bench . -benchmem -count=1 ./tests/ -run='^$' | tee /tmp/bench.txt")
 	t.Log("")
+}
 
-	// Use hardcoded results (can be regenerated via command above)
-	results := getHardcodedResults()
-
-	// Print header
+func logBenchmarkRows(t *testing.T, results []benchmarkResult) map[string][]float64 {
+	t.Helper()
 	t.Logf("  %-22s %14s %14s %10s %s", "Workload", "Gig (ns/op)", "Native (ns/op)", "Slowdown", "Category")
 	t.Logf("  %-22s %14s %14s %10s %s",
 		strings.Repeat("-", 22),
@@ -714,68 +731,95 @@ func TestBenchmarkSummary(t *testing.T) {
 		strings.Repeat("-", 10),
 		strings.Repeat("-", 16))
 
-	// Calculate category statistics
 	categorySlowdowns := make(map[string][]float64)
-
-	// Print each result
 	for _, r := range results {
 		ratio := r.gigNs / r.nativeNs
-		t.Logf("  %-22s %14.0f %14.1f %9.0fx %s",
-			r.name, r.gigNs, r.nativeNs, ratio, categorize(r.name))
-
 		cat := categorize(r.name)
+		t.Logf("  %-22s %14.0f %14.1f %9.0fx %s", r.name, r.gigNs, r.nativeNs, ratio, cat)
 		categorySlowdowns[cat] = append(categorySlowdowns[cat], ratio)
 	}
+	return categorySlowdowns
+}
 
-	// Build latency (special case - no native comparison)
+func logBenchmarkBuildLatency(t *testing.T) {
+	t.Helper()
 	t.Log("")
 	t.Logf("  %-22s %14s", "BuildAndRun", "~43,434 ns/op (compile + single execution)")
 	t.Log("")
+}
 
-	// Print summary by category with computed statistics
+type benchmarkCategoryStats struct {
+	min float64
+	max float64
+	avg float64
+}
+
+func logBenchmarkCategorySummary(t *testing.T, categorySlowdowns map[string][]float64) {
+	t.Helper()
 	t.Log("  Summary (computed from actual benchmark data):")
 	t.Log("  ┌─────────────────────────────────────────────────────────┐")
 
+	for cat, stats := range benchmarkCategoryStatsByName(categorySlowdowns) {
+		logBenchmarkCategoryStats(t, cat, stats)
+	}
+	logBenchmarkOverallAverage(t, categorySlowdowns)
+
+	t.Log("  └─────────────────────────────────────────────────────────┘")
+}
+
+func benchmarkCategoryStatsByName(categorySlowdowns map[string][]float64) map[string]benchmarkCategoryStats {
+	stats := make(map[string]benchmarkCategoryStats, len(categorySlowdowns))
 	for cat, ratios := range categorySlowdowns {
 		if len(ratios) == 0 {
 			continue
 		}
-		min, max, avg := ratios[0], ratios[0], 0.0
+		stat := benchmarkCategoryStats{min: ratios[0], max: ratios[0]}
 		for _, r := range ratios {
-			if r < min {
-				min = r
-			}
-			if r > max {
-				max = r
-			}
-			avg += r
+			stat.min = min(stat.min, r)
+			stat.max = max(stat.max, r)
+			stat.avg += r
 		}
-		avg = avg / float64(len(ratios))
-
-		switch cat {
-		case "Compute":
-			t.Logf("  │ Pure Computation (loops, arithmetic):      ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "Recursion":
-			t.Logf("  │ Recursion (function call heavy):           ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "Data Struct":
-			t.Logf("  │ Data Structures (slice, map):              ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "Closure":
-			t.Logf("  │ Closures (capture + invoke):              ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "Algorithm":
-			t.Logf("  │ Algorithms (sort, GCD, sieve):             ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "External Call":
-			t.Logf("  │ External Calls (fmt, strings):             ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "Call Overhead":
-			t.Logf("  │ Function Call Overhead (10K calls):        ~%.0fx (avg: %.0fx)         │", max, avg)
-		case "String":
-			t.Logf("  │ String Operations:                         ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "Complex Syntax":
-			t.Logf("  │ Complex Syntax (interface, struct, etc):    ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "Third-party":
-			t.Logf("  │ Third-party Libs (sort, json, math/big):   ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		}
+		stat.avg /= float64(len(ratios))
+		stats[cat] = stat
 	}
+	return stats
+}
 
+func logBenchmarkCategoryStats(t *testing.T, cat string, stats benchmarkCategoryStats) {
+	t.Helper()
+	switch cat {
+	case "Compute":
+		t.Logf("  │ Pure Computation (loops, arithmetic):      ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "Recursion":
+		t.Logf("  │ Recursion (function call heavy):           ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "Data Struct":
+		t.Logf("  │ Data Structures (slice, map):              ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "Closure":
+		t.Logf("  │ Closures (capture + invoke):              ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "Algorithm":
+		t.Logf("  │ Algorithms (sort, GCD, sieve):             ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "External Call":
+		t.Logf("  │ External Calls (fmt, strings):             ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "Call Overhead":
+		t.Logf("  │ Function Call Overhead (10K calls):        ~%.0fx (avg: %.0fx)         │", stats.max, stats.avg)
+	case "String":
+		t.Logf("  │ String Operations:                         ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "Complex Syntax":
+		t.Logf("  │ Complex Syntax (interface, struct, etc):    ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "Third-party":
+		t.Logf("  │ Third-party Libs (sort, json, math/big):   ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	}
+}
+
+func logBenchmarkOverallAverage(t *testing.T, categorySlowdowns map[string][]float64) {
+	t.Helper()
+	avgAll, count := benchmarkOverallAverage(categorySlowdowns)
+	if count > 0 {
+		t.Logf("  │ Overall Average:                             ~%.0fx         │", avgAll)
+	}
+}
+
+func benchmarkOverallAverage(categorySlowdowns map[string][]float64) (float64, int) {
 	avgAll := 0.0
 	count := 0
 	for _, ratios := range categorySlowdowns {
@@ -784,12 +828,14 @@ func TestBenchmarkSummary(t *testing.T) {
 			count++
 		}
 	}
-	if count > 0 {
-		avgAll /= float64(count)
-		t.Logf("  │ Overall Average:                             ~%.0fx         │", avgAll)
+	if count == 0 {
+		return 0, 0
 	}
+	return avgAll / float64(count), count
+}
 
-	t.Log("  └─────────────────────────────────────────────────────────┘")
+func logBenchmarkOptimizationNotes(t *testing.T) {
+	t.Helper()
 	t.Log("")
 	t.Log("  Optimizations Applied:")
 	t.Log("  • DirectCall typed wrappers: Avoid reflect.Call for external functions")
@@ -800,11 +846,6 @@ func TestBenchmarkSummary(t *testing.T) {
 	t.Log("  • Third-party benchmarks use Go stdlib as proxy for external libraries")
 	t.Log("  • Complex syntax tests cover interfaces, methods, type assertions,")
 	t.Log("    panic/recover, defer, select, and composite literals")
-
-	// Suppress unused warnings
-	_ = strconv.Itoa
-	_ = sort.Ints
-	_ = time.Now()
 }
 
 // categorize returns the category for a benchmark name

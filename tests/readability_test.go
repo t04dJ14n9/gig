@@ -14,6 +14,13 @@ func TestGetBenchmarksSrcStaysShallow(t *testing.T) {
 	}
 }
 
+func TestBenchmarkSummaryStaysShallow(t *testing.T) {
+	count := benchmarkTestDecisionCount(t, "TestBenchmarkSummary")
+	if count > 8 {
+		t.Fatalf("TestBenchmarkSummary has %d decision points, want <= 8; split report sections into focused helpers", count)
+	}
+}
+
 func benchmarkTestDecisionCount(t *testing.T, funcName string) int {
 	t.Helper()
 
