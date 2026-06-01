@@ -119,8 +119,8 @@ func (v *vm) run() (value.Value, error) {
 			idx := readU16()
 			if int(idx) < len(prebaked) {
 				stack[sp] = prebaked[idx]
-			} else if int(idx) < len(v.program.Constants) {
-				stack[sp] = value.FromInterface(v.program.Constants[idx])
+			} else {
+				stack[sp] = v.runSlowConst(idx)
 			}
 			sp++
 			continue
