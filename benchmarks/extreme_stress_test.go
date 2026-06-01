@@ -98,7 +98,31 @@ func runStressLevel(concurrency int, duration time.Duration, fn func(gID, i int)
 		memAfter.NumGC - memBefore.NumGC
 }
 
+type extremeStressConfig struct {
+	levels       []int
+	nativeLevels []int
+	duration     time.Duration
+	rounds       int
+}
+
+type extremeStressStats struct {
+	throughput float64
+	avgLatUs   float64
+	errors     int64
+	heapMB     float64
+	gcPauses   uint32
+}
+
+type extremeStressRollup struct {
+	medianThroughput float64
+	medianLatencyUs  float64
+	totalErrors      int64
+	avgHeapMB        float64
+	avgGCPauses      float64
+}
+
 func TestExtremeStress(t *testing.T) {
+	cfg := defaultExtremeStressConfig()
 	prog, err := gig.Build(extremeRuleSource)
 	if err != nil {
 		t.Fatal(err)
@@ -111,105 +135,106 @@ func TestExtremeStress(t *testing.T) {
 	}
 	t.Logf("Correctness: %v", r)
 
-	levels := []int{1, 10, 100, 500, 1000, 2000, 5000, 10000}
-	duration := 3 * time.Second
-	rounds := 3
+	gigStats := runGigExtremeStress(t, prog, cfg)
+	logGigExtremeResults(t, cfg, gigStats)
+	nativeStats := runNativeExtremeStress(cfg)
+	logNativeExtremeResults(t, cfg, nativeStats)
+	logExtremeThroughputRatios(t, cfg, gigStats, nativeStats)
+}
 
-	// Collect stats: [level][round]
-	type stats struct {
-		throughput float64
-		avgLatUs   float64
-		errors     int64
-		heapMB     float64
-		gcPauses   uint32
+func defaultExtremeStressConfig() extremeStressConfig {
+	return extremeStressConfig{
+		levels:       []int{1, 10, 100, 500, 1000, 2000, 5000, 10000},
+		nativeLevels: []int{1, 100, 1000, 10000},
+		duration:     3 * time.Second,
+		rounds:       3,
 	}
+}
 
-	gigStats := make([][]stats, len(levels))
-	for i := range gigStats {
-		gigStats[i] = make([]stats, rounds)
+func newExtremeStressTable(levels []int, rounds int) [][]extremeStressStats {
+	stats := make([][]extremeStressStats, len(levels))
+	for i := range stats {
+		stats[i] = make([]extremeStressStats, rounds)
 	}
+	return stats
+}
 
-	t.Logf("Running %d rounds × %d levels...", rounds, len(levels))
+func runGigExtremeStress(t *testing.T, prog *gig.Program, cfg extremeStressConfig) [][]extremeStressStats {
+	t.Helper()
+	stats := newExtremeStressTable(cfg.levels, cfg.rounds)
+	t.Logf("Running %d rounds × %d levels...", cfg.rounds, len(cfg.levels))
 
-	for round := 0; round < rounds; round++ {
-		for li, concurrency := range levels {
-			ops, errs, heap, gc := runStressLevel(concurrency, duration, func(gID, i int) error {
-			execCtx, execCancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer execCancel()
-			_, err := prog.RunWithContext(execCtx, "EvaluateRule", gID*10000+i, " bob ", float64(30+i%70))
-			return err
-			})
-			tp := float64(ops) / duration.Seconds()
-			gigStats[li][round] = stats{
-				throughput: tp,
-				avgLatUs:   1e6 / tp * float64(concurrency),
-				errors:     errs,
-				heapMB:     heap,
-				gcPauses:   gc,
-			}
+	for round := 0; round < cfg.rounds; round++ {
+		for li, concurrency := range cfg.levels {
+			stats[li][round] = runGigExtremeStressLevel(prog, concurrency, cfg.duration)
 		}
 	}
+	return stats
+}
 
-	// Print Gig results (median of 3 rounds)
+func runGigExtremeStressLevel(prog *gig.Program, concurrency int, duration time.Duration) extremeStressStats {
+	ops, errs, heap, gc := runStressLevel(concurrency, duration, func(gID, i int) error {
+		execCtx, execCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer execCancel()
+		_, err := prog.RunWithContext(execCtx, "EvaluateRule", gID*10000+i, " bob ", float64(30+i%70))
+		return err
+	})
+	return extremeStressStatsFromRun(concurrency, duration, ops, errs, heap, gc)
+}
+
+func runNativeExtremeStress(cfg extremeStressConfig) [][]extremeStressStats {
+	stats := newExtremeStressTable(cfg.nativeLevels, cfg.rounds)
+	for round := 0; round < cfg.rounds; round++ {
+		for li, concurrency := range cfg.nativeLevels {
+			stats[li][round] = runNativeExtremeStressLevel(concurrency, cfg.duration)
+		}
+	}
+	return stats
+}
+
+func runNativeExtremeStressLevel(concurrency int, duration time.Duration) extremeStressStats {
+	ops, _, heap, gc := runStressLevel(concurrency, duration, func(gID, i int) error {
+		_ = nativeRule(gID*10000+i, " bob ", float64(30+i%70))
+		return nil
+	})
+	return extremeStressStatsFromRun(concurrency, duration, ops, 0, heap, gc)
+}
+
+func extremeStressStatsFromRun(concurrency int, duration time.Duration, ops, errs int64, heap float64, gc uint32) extremeStressStats {
+	throughput := float64(ops) / duration.Seconds()
+	return extremeStressStats{
+		throughput: throughput,
+		avgLatUs:   1e6 / throughput * float64(concurrency),
+		errors:     errs,
+		heapMB:     heap,
+		gcPauses:   gc,
+	}
+}
+
+func logGigExtremeResults(t *testing.T, cfg extremeStressConfig, gigStats [][]extremeStressStats) {
+	t.Helper()
 	t.Logf("")
 	t.Logf("╔══════════════════════════════════════════════════════════════════════════════╗")
-	t.Logf("║              GIG EXTREME STRESS TEST (%d rounds, %v/round)              ║", rounds, duration)
+	t.Logf("║              GIG EXTREME STRESS TEST (%d rounds, %v/round)              ║", cfg.rounds, cfg.duration)
 	t.Logf("║  Workload: rule engine (strings + math + stdlib)  |  CPU: %2d cores        ║", runtime.NumCPU())
 	t.Logf("╠══════════╦═══════════════╦════════════╦════════╦══════════╦════════════════╣")
 	t.Logf("║ Goroutin ║  Throughput   ║  Avg Lat   ║ Errors ║ Heap(MB) ║   GC Pauses    ║")
 	t.Logf("╠══════════╬═══════════════╬════════════╬════════╬══════════╬════════════════╣")
 
-	for li, concurrency := range levels {
-		// Take median throughput
-		var tps, lats []float64
-		var totalErrs int64
-		var totalHeap float64
-		var totalGC uint32
-		for round := 0; round < rounds; round++ {
-			s := gigStats[li][round]
-			tps = append(tps, s.throughput)
-			lats = append(lats, s.avgLatUs)
-			totalErrs += s.errors
-			totalHeap += s.heapMB
-			totalGC += s.gcPauses
-		}
-		// Simple median: sort 3 values, pick middle
-		medTP := median3(tps[0], tps[1], tps[2])
-		medLat := median3(lats[0], lats[1], lats[2])
-		avgHeap := totalHeap / float64(rounds)
-		avgGC := float64(totalGC) / float64(rounds)
-
+	for li, concurrency := range cfg.levels {
+		rollup := rollupExtremeStress(gigStats[li], cfg.rounds)
 		t.Logf("║ %8d ║ %11.0f/s ║ %8.1f μs ║ %6d ║ %6.0f MB ║ %14.0f ║",
-			concurrency, medTP, medLat, totalErrs, avgHeap, avgGC)
+			concurrency, rollup.medianThroughput, rollup.medianLatencyUs, rollup.totalErrors, rollup.avgHeapMB, rollup.avgGCPauses)
 
-		if totalErrs > 0 {
-			t.Errorf("  ⚠ %d errors at concurrency=%d", totalErrs, concurrency)
+		if rollup.totalErrors > 0 {
+			t.Errorf("  ⚠ %d errors at concurrency=%d", rollup.totalErrors, concurrency)
 		}
 	}
 	t.Logf("╚══════════╩═══════════════╩════════════╩════════╩══════════╩════════════════╝")
+}
 
-	// Native baseline (just throughput, no latency comparison)
-	nativeStats := make([][]stats, 4)
-	nativeLevels := []int{1, 100, 1000, 10000}
-	for i := range nativeStats {
-		nativeStats[i] = make([]stats, rounds)
-	}
-
-	for round := 0; round < rounds; round++ {
-		for li, concurrency := range nativeLevels {
-			ops, _, heap, gc := runStressLevel(concurrency, duration, func(gID, i int) error {
-				_ = nativeRule(gID*10000+i, " bob ", float64(30+i%70))
-				return nil
-			})
-			tp := float64(ops) / duration.Seconds()
-			nativeStats[li][round] = stats{
-				throughput: tp,
-				heapMB:     heap,
-				gcPauses:   gc,
-			}
-		}
-	}
-
+func logNativeExtremeResults(t *testing.T, cfg extremeStressConfig, nativeStats [][]extremeStressStats) {
+	t.Helper()
 	t.Logf("")
 	t.Logf("╔══════════════════════════════════════════════════════════════════════════════╗")
 	t.Logf("║                    NATIVE GO BASELINE (throughput only)                     ║")
@@ -217,48 +242,59 @@ func TestExtremeStress(t *testing.T) {
 	t.Logf("║ Goroutin ║  Throughput   ║ Heap(MB) ║   GC Pauses    ║")
 	t.Logf("╠══════════╬═══════════════╬══════════╬════════════════╣")
 
-	for li, concurrency := range nativeLevels {
-		var tps []float64
-		var totalHeap float64
-		var totalGC uint32
-		for round := 0; round < rounds; round++ {
-			s := nativeStats[li][round]
-			tps = append(tps, s.throughput)
-			totalHeap += s.heapMB
-			totalGC += s.gcPauses
-		}
-		medTP := median3(tps[0], tps[1], tps[2])
-		avgHeap := totalHeap / float64(rounds)
-		avgGC := float64(totalGC) / float64(rounds)
-
+	for li, concurrency := range cfg.nativeLevels {
+		rollup := rollupExtremeStress(nativeStats[li], cfg.rounds)
 		t.Logf("║ %8d ║ %11.0f/s ║ %6.0f MB ║ %14.0f ║",
-			concurrency, medTP, avgHeap, avgGC)
+			concurrency, rollup.medianThroughput, rollup.avgHeapMB, rollup.avgGCPauses)
 	}
 	t.Logf("╚══════════╩═══════════════╩══════════╩════════════════╝")
+}
 
-	// Ratio summary
+func logExtremeThroughputRatios(
+	t *testing.T,
+	cfg extremeStressConfig,
+	gigStats [][]extremeStressStats,
+	nativeStats [][]extremeStressStats,
+) {
+	t.Helper()
 	t.Logf("")
 	t.Logf("Throughput ratio (Native / Gig):")
-	for li, concurrency := range nativeLevels {
-		var gigTP float64
-		for gli, gc := range levels {
-			if gc == concurrency {
-				var tps []float64
-				for round := 0; round < rounds; round++ {
-					tps = append(tps, gigStats[gli][round].throughput)
-				}
-				gigTP = median3(tps[0], tps[1], tps[2])
-				break
-			}
-		}
+	for li, concurrency := range cfg.nativeLevels {
+		gigTP := gigExtremeThroughputAt(cfg, gigStats, concurrency)
 		if gigTP > 0 {
-			var ntps []float64
-			for round := 0; round < rounds; round++ {
-				ntps = append(ntps, nativeStats[li][round].throughput)
-			}
-			nativeTP := median3(ntps[0], ntps[1], ntps[2])
+			nativeTP := rollupExtremeStress(nativeStats[li], cfg.rounds).medianThroughput
 			t.Logf("  %5dG: Native %.0f/s vs Gig %.0f/s = %.1fx", concurrency, nativeTP, gigTP, nativeTP/gigTP)
 		}
+	}
+}
+
+func gigExtremeThroughputAt(cfg extremeStressConfig, gigStats [][]extremeStressStats, concurrency int) float64 {
+	for li, level := range cfg.levels {
+		if level == concurrency {
+			return rollupExtremeStress(gigStats[li], cfg.rounds).medianThroughput
+		}
+	}
+	return 0
+}
+
+func rollupExtremeStress(samples []extremeStressStats, rounds int) extremeStressRollup {
+	var tps, lats []float64
+	var totalErrs int64
+	var totalHeap float64
+	var totalGC uint32
+	for _, s := range samples {
+		tps = append(tps, s.throughput)
+		lats = append(lats, s.avgLatUs)
+		totalErrs += s.errors
+		totalHeap += s.heapMB
+		totalGC += s.gcPauses
+	}
+	return extremeStressRollup{
+		medianThroughput: median3(tps[0], tps[1], tps[2]),
+		medianLatencyUs:  median3(lats[0], lats[1], lats[2]),
+		totalErrors:      totalErrs,
+		avgHeapMB:        totalHeap / float64(rounds),
+		avgGCPauses:      float64(totalGC) / float64(rounds),
 	}
 }
 
