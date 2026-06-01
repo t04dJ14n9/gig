@@ -15,6 +15,14 @@ type methodDirectCallInfo struct {
 	Code       string
 }
 
+type methodDirectCallShape struct {
+	params     *types.Tuple
+	results    *types.Tuple
+	recv       *types.Var
+	fixedCount int
+	isVariadic bool
+}
+
 // generateMethodDirectCalls generates DirectCall wrappers for all eligible methods of a named type.
 func generateMethodDirectCalls(named *types.Named, pkgRef string, typeName string) []*methodDirectCallInfo {
 	var results []*methodDirectCallInfo
@@ -59,66 +67,103 @@ func generateMethodDirectCalls(named *types.Named, pkgRef string, typeName strin
 // generateSingleMethodDirectCall generates a DirectCall wrapper for a single method.
 // args[0] is the receiver, args[1:] are method arguments.
 func generateSingleMethodDirectCall(sig *types.Signature, pkgRef string, typeName string, methodName string) string {
-	params := sig.Params()
-	results := sig.Results()
-	recv := sig.Recv()
-	if recv == nil {
+	shape, ok := analyzeMethodDirectCallSignature(sig)
+	if !ok {
 		return ""
 	}
 
-	isVariadic := sig.Variadic()
-	fixedCount := params.Len()
-	if isVariadic {
-		fixedCount--
-	}
-	for i := 0; i < fixedCount; i++ {
-		if !canWrapParam(params.At(i).Type()) {
-			return ""
-		}
-	}
-	if isVariadic {
-		sliceType := params.At(params.Len() - 1).Type().(*types.Slice)
-		elemType := sliceType.Elem()
-		if !canWrapParam(elemType) && !isEmptyInterface(elemType) {
-			return ""
-		}
-	}
-	if results.Len() > 6 {
-		return ""
-	}
-
-	recvType := recv.Type()
-	isPtr := false
-	if _, ok := recvType.(*types.Pointer); ok {
-		isPtr = true
-	}
-
-	var recvExpr string
-	if isPtr {
-		recvExpr = fmt.Sprintf("args[0].Interface().(*%s.%s)", pkgRef, typeName)
-	} else {
-		// Named-basic receivers are stored by the VM as their underlying basic kind.
-		namedType := recvType
-		if pt, ok := namedType.(*types.Pointer); ok {
-			namedType = pt.Elem()
-		}
-		if bt, ok := namedType.Underlying().(*types.Basic); ok {
-			basicExpr := extractBasic(bt, "args[0]")
-			if basicExpr != "" {
-				recvExpr = fmt.Sprintf("%s.%s(%s)", pkgRef, typeName, basicExpr)
-			} else {
-				recvExpr = fmt.Sprintf("args[0].Interface().(%s.%s)", pkgRef, typeName)
-			}
-		} else {
-			recvExpr = fmt.Sprintf("args[0].Interface().(%s.%s)", pkgRef, typeName)
-		}
-	}
+	recvExpr := methodReceiverExpr(shape.recv.Type(), pkgRef, typeName)
 
 	funcName := fmt.Sprintf("direct_method_%s_%s_%s", pkgRef, typeName, methodName)
 	b := &strings.Builder{}
 	fmt.Fprintf(b, "func %s(args []value.Value) value.Value {\n", funcName)
 	fmt.Fprintf(b, "\trecv := %s\n", recvExpr)
 
+	argExprs, writebacks, ok := emitMethodFixedArgs(b, shape.params, shape.fixedCount, pkgRef)
+	if !ok {
+		return ""
+	}
+	argExprs, ok = emitMethodVariadicArg(b, shape, argExprs, pkgRef)
+	if !ok {
+		return ""
+	}
+
+	callExpr := fmt.Sprintf("recv.%s(%s)", methodName, strings.Join(argExprs, ", "))
+
+	if emitCallResults(b, shape.results, callExpr, writebacks) == "" {
+		return ""
+	}
+
+	b.WriteString("}\n")
+	return b.String()
+}
+
+func analyzeMethodDirectCallSignature(sig *types.Signature) (methodDirectCallShape, bool) {
+	shape := methodDirectCallShape{
+		params:     sig.Params(),
+		results:    sig.Results(),
+		recv:       sig.Recv(),
+		isVariadic: sig.Variadic(),
+	}
+	if shape.recv == nil {
+		return methodDirectCallShape{}, false
+	}
+
+	shape.fixedCount = shape.params.Len()
+	if shape.isVariadic {
+		shape.fixedCount--
+	}
+	if !methodFixedParamsSupported(shape.params, shape.fixedCount) {
+		return methodDirectCallShape{}, false
+	}
+	if shape.isVariadic && !methodVariadicParamSupported(shape.params) {
+		return methodDirectCallShape{}, false
+	}
+	if shape.results.Len() > 6 {
+		return methodDirectCallShape{}, false
+	}
+	return shape, true
+}
+
+func methodFixedParamsSupported(params *types.Tuple, fixedCount int) bool {
+	for i := 0; i < fixedCount; i++ {
+		if !canWrapParam(params.At(i).Type()) {
+			return false
+		}
+	}
+	return true
+}
+
+func methodVariadicParamSupported(params *types.Tuple) bool {
+	sliceType := params.At(params.Len() - 1).Type().(*types.Slice)
+	elemType := sliceType.Elem()
+	return canWrapParam(elemType) || isEmptyInterface(elemType)
+}
+
+func methodReceiverExpr(recvType types.Type, pkgRef, typeName string) string {
+	if _, ok := recvType.(*types.Pointer); ok {
+		return fmt.Sprintf("args[0].Interface().(*%s.%s)", pkgRef, typeName)
+	}
+	return valueMethodReceiverExpr(recvType, pkgRef, typeName)
+}
+
+func valueMethodReceiverExpr(recvType types.Type, pkgRef, typeName string) string {
+	// Named-basic receivers are stored by the VM as their underlying basic kind,
+	// so generated wrappers rebuild the named value before dispatching.
+	if bt, ok := recvType.Underlying().(*types.Basic); ok {
+		if basicExpr := extractBasic(bt, "args[0]"); basicExpr != "" {
+			return fmt.Sprintf("%s.%s(%s)", pkgRef, typeName, basicExpr)
+		}
+	}
+	return fmt.Sprintf("args[0].Interface().(%s.%s)", pkgRef, typeName)
+}
+
+func emitMethodFixedArgs(
+	b *strings.Builder,
+	params *types.Tuple,
+	fixedCount int,
+	pkgRef string,
+) ([]string, []*intSliceWriteback, bool) {
 	var argExprs []string
 	var writebacks []*intSliceWriteback
 	for i := 0; i < fixedCount; i++ {
@@ -136,34 +181,34 @@ func generateSingleMethodDirectCall(sig *types.Signature, pkgRef string, typeNam
 
 		expr := extractArg(paramType, valExpr, pkgRef)
 		if expr == "" {
-			return ""
+			return nil, nil, false
 		}
 		fmt.Fprintf(b, "\t%s := %s\n", argName, expr)
 		argExprs = append(argExprs, argName)
 	}
+	return argExprs, writebacks, true
+}
 
-	if isVariadic {
-		sliceType := params.At(params.Len() - 1).Type().(*types.Slice)
-		elemType := sliceType.Elem()
-		varArgExpr := emitVariadicArgs(b, variadicConfig{
-			elemType: elemType,
-			pkgRef:   pkgRef,
-			fixedCnt: fixedCount,
-			argsOff:  1,
-			isMethod: true,
-		})
-		if varArgExpr == "" {
-			return ""
-		}
-		argExprs = append(argExprs, varArgExpr)
+func emitMethodVariadicArg(
+	b *strings.Builder,
+	shape methodDirectCallShape,
+	argExprs []string,
+	pkgRef string,
+) ([]string, bool) {
+	if !shape.isVariadic {
+		return argExprs, true
 	}
 
-	callExpr := fmt.Sprintf("recv.%s(%s)", methodName, strings.Join(argExprs, ", "))
-
-	if emitCallResults(b, results, callExpr, writebacks) == "" {
-		return ""
+	sliceType := shape.params.At(shape.params.Len() - 1).Type().(*types.Slice)
+	varArgExpr := emitVariadicArgs(b, variadicConfig{
+		elemType: sliceType.Elem(),
+		pkgRef:   pkgRef,
+		fixedCnt: shape.fixedCount,
+		argsOff:  1,
+		isMethod: true,
+	})
+	if varArgExpr == "" {
+		return nil, false
 	}
-
-	b.WriteString("}\n")
-	return b.String()
+	return append(argExprs, varArgExpr), true
 }

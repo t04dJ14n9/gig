@@ -2,6 +2,9 @@ package gentool
 
 import (
 	"bytes"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"testing"
 )
@@ -24,6 +27,13 @@ func TestExtractBasicLinesStayReadable(t *testing.T) {
 
 func TestGeneratorFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(t, "generator.go", 180, "move package generation helpers to focused files")
+}
+
+func TestGenerateSingleMethodDirectCallStaysShallow(t *testing.T) {
+	count := cyclomaticBranchCount(t, "directcall_method.go", "generateSingleMethodDirectCall")
+	if count > 20 {
+		t.Fatalf("generateSingleMethodDirectCall has complexity %d, want <= 20; split eligibility, receiver extraction, arguments, variadics, and result emission", count)
+	}
 }
 
 func TestGeneratorEmitAvoidsNestedFormattedWriteString(t *testing.T) {
@@ -73,4 +83,46 @@ func assertMaxLineLength(t *testing.T, path string, maxColumns int) {
 			t.Fatalf("%s:%d has %d columns, want <= %d", path, i+1, len(line), maxColumns)
 		}
 	}
+}
+
+func cyclomaticBranchCount(t *testing.T, path, funcName string) int {
+	t.Helper()
+
+	file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+
+	fn := findReadabilityFunc(file, funcName)
+	if fn == nil || fn.Body == nil {
+		t.Fatalf("find function %s in %s", funcName, path)
+	}
+
+	count := 1
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.IfStmt, *ast.ForStmt, *ast.RangeStmt:
+			count++
+		case *ast.CaseClause:
+			if len(x.List) > 0 {
+				count++
+			}
+		case *ast.BinaryExpr:
+			if x.Op.String() == "&&" || x.Op.String() == "||" {
+				count++
+			}
+		}
+		return true
+	})
+	return count
+}
+
+func findReadabilityFunc(file *ast.File, name string) *ast.FuncDecl {
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if ok && fn.Name.Name == name {
+			return fn
+		}
+	}
+	return nil
 }
