@@ -32,6 +32,16 @@ func (v *vm) runExternalCall(funcIdx, numArgs, sp int) (int, []value.Value, bool
 	return v.sp, v.stack, v.fp != prevFP, nil
 }
 
+func (v *vm) runCallComplete(err error, frameChanged bool, reloadOnPanic bool) (bool, error) {
+	if err != nil {
+		return false, err
+	}
+	if v.panicking {
+		return reloadOnPanic && v.fp > 0, nil
+	}
+	return frameChanged, nil
+}
+
 func (v *vm) runIndirectCall(sp, numArgs int) (int, []value.Value, bool, error) {
 	stack := v.stack
 	var argsBuf [8]value.Value

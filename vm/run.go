@@ -634,16 +634,11 @@ func (v *vm) run() (value.Value, error) {
 			frameChanged := false
 			var err error
 			sp, stack, frameChanged, err = v.runExternalCall(int(funcIdx), numArgs, sp)
+			reloadFrame, err := v.runCallComplete(err, frameChanged, true)
 			if err != nil {
 				return value.MakeNil(), err
 			}
-			if v.panicking {
-				if v.fp > 0 {
-					loadFrame()
-				}
-				continue
-			}
-			if frameChanged {
+			if reloadFrame {
 				loadFrame()
 			}
 			continue
@@ -653,10 +648,11 @@ func (v *vm) run() (value.Value, error) {
 			frameChanged := false
 			var err error
 			sp, stack, frameChanged, err = v.runIndirectCall(sp, numArgs)
+			reloadFrame, err := v.runCallComplete(err, frameChanged, false)
 			if err != nil {
 				return value.MakeNil(), err
 			}
-			if frameChanged {
+			if reloadFrame {
 				loadFrame()
 			}
 			continue
@@ -666,33 +662,18 @@ func (v *vm) run() (value.Value, error) {
 		}
 
 		// Non-hot-path: dispatch to the full handler.
-		// Sync sp back before calling executeOp (it uses v.push/v.pop).
-		v.sp = sp
-		if err := v.executeOp(op, frame); err != nil {
+		var reloadFrame bool
+		var err error
+		sp, stack, reloadFrame, err = v.runColdOp(frame, op, sp)
+		if err != nil {
 			return value.MakeNil(), err
 		}
-		if v.panicking {
-			sp = v.sp
-			stack = v.stack
-			if v.fp > 0 {
-				loadFrame()
-			}
-			continue
-		}
-		sp = v.sp
-		stack = v.stack
-		// Reload frame state in case executeOp changed it (call/return within executeOp)
-		if v.fp > 0 {
+		if reloadFrame {
 			loadFrame()
 		}
+		continue
 	}
 
 	// Return top of stack (or nil if empty)
-	v.sp = sp
-	if sp > 0 {
-		sp--
-		v.sp = sp
-		return stack[sp], nil
-	}
-	return value.MakeNil(), nil
+	return v.runFinalStackValue(stack, sp), nil
 }

@@ -52,6 +52,16 @@ func (v *vm) runFrameReturn(frame *Frame, stack []value.Value, sp int, retVal va
 	}
 }
 
+func (v *vm) runFinalStackValue(stack []value.Value, sp int) value.Value {
+	v.sp = sp
+	if sp == 0 {
+		return value.MakeNil()
+	}
+	sp--
+	v.sp = sp
+	return stack[sp]
+}
+
 func (v *vm) handlePendingPanic(frame *Frame, sp int) (runDisposition, int, value.Value, error) {
 	// Sync sp so runDefersDuringPanic can use v.sp for recursive run() calls.
 	v.sp = sp
