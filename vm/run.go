@@ -126,10 +126,8 @@ func (v *vm) run() (value.Value, error) {
 			continue
 
 		case bytecode.OpAdd:
-			sp--
-			b := stack[sp]
-			sp--
-			a := stack[sp]
+			sp -= 2
+			a, b := stack[sp], stack[sp+1]
 			if runBothInts(a, b) {
 				stack[sp] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
 			} else {
@@ -139,10 +137,8 @@ func (v *vm) run() (value.Value, error) {
 			continue
 
 		case bytecode.OpSub:
-			sp--
-			b := stack[sp]
-			sp--
-			a := stack[sp]
+			sp -= 2
+			a, b := stack[sp], stack[sp+1]
 			if runBothInts(a, b) {
 				stack[sp] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
 			} else {
@@ -152,10 +148,8 @@ func (v *vm) run() (value.Value, error) {
 			continue
 
 		case bytecode.OpMul:
-			sp--
-			b := stack[sp]
-			sp--
-			a := stack[sp]
+			sp -= 2
+			a, b := stack[sp], stack[sp+1]
 			if runBothInts(a, b) {
 				stack[sp] = value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize())
 			} else {
@@ -165,10 +159,8 @@ func (v *vm) run() (value.Value, error) {
 			continue
 
 		case bytecode.OpLess:
-			sp--
-			b := stack[sp]
-			sp--
-			a := stack[sp]
+			sp -= 2
+			a, b := stack[sp], stack[sp+1]
 			if runBothInts(a, b) {
 				stack[sp] = value.MakeBool(a.RawInt() < b.RawInt())
 			} else {
@@ -178,10 +170,8 @@ func (v *vm) run() (value.Value, error) {
 			continue
 
 		case bytecode.OpLessEq:
-			sp--
-			b := stack[sp]
-			sp--
-			a := stack[sp]
+			sp -= 2
+			a, b := stack[sp], stack[sp+1]
 			if runBothInts(a, b) {
 				stack[sp] = value.MakeBool(a.RawInt() <= b.RawInt())
 			} else {
@@ -191,10 +181,8 @@ func (v *vm) run() (value.Value, error) {
 			continue
 
 		case bytecode.OpGreater:
-			sp--
-			b := stack[sp]
-			sp--
-			a := stack[sp]
+			sp -= 2
+			a, b := stack[sp], stack[sp+1]
 			if runBothInts(a, b) {
 				stack[sp] = value.MakeBool(a.RawInt() > b.RawInt())
 			} else {
@@ -204,10 +192,8 @@ func (v *vm) run() (value.Value, error) {
 			continue
 
 		case bytecode.OpGreaterEq:
-			sp--
-			b := stack[sp]
-			sp--
-			a := stack[sp]
+			sp -= 2
+			a, b := stack[sp], stack[sp+1]
 			if runBothInts(a, b) {
 				stack[sp] = value.MakeBool(a.RawInt() >= b.RawInt())
 			} else {
@@ -217,10 +203,8 @@ func (v *vm) run() (value.Value, error) {
 			continue
 
 		case bytecode.OpEqual:
-			sp--
-			b := stack[sp]
-			sp--
-			a := stack[sp]
+			sp -= 2
+			a, b := stack[sp], stack[sp+1]
 			if runSameSizedInts(a, b) {
 				stack[sp] = value.MakeBool(a.RawInt() == b.RawInt())
 			} else {
@@ -230,10 +214,8 @@ func (v *vm) run() (value.Value, error) {
 			continue
 
 		case bytecode.OpNotEqual:
-			sp--
-			b := stack[sp]
-			sp--
-			a := stack[sp]
+			sp -= 2
+			a, b := stack[sp], stack[sp+1]
 			if runSameSizedInts(a, b) {
 				stack[sp] = value.MakeBool(a.RawInt() != b.RawInt())
 			} else {
@@ -265,18 +247,8 @@ func (v *vm) run() (value.Value, error) {
 			sp++
 			continue
 
-		case bytecode.OpNil:
-			stack[sp] = value.MakeNil()
-			sp++
-			continue
-
-		case bytecode.OpTrue:
-			stack[sp] = value.MakeBool(true)
-			sp++
-			continue
-
-		case bytecode.OpFalse:
-			stack[sp] = value.MakeBool(false)
+		case bytecode.OpNil, bytecode.OpTrue, bytecode.OpFalse:
+			stack[sp] = runLiteralValue(op)
 			sp++
 			continue
 

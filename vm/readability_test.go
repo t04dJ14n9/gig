@@ -10,13 +10,13 @@ import (
 )
 
 func TestRunLoopFileStaysFocused(t *testing.T) {
-	assertFileLineLimit(t, "run.go", 590, "combine adjacent operand reads and keep specialized opcode details compact")
+	assertFileLineLimit(t, "run.go", 580, "compact repeated stack pops and literal dispatch")
 }
 
 func TestRunLoopDecisionBudgetImproves(t *testing.T) {
 	count := recursiveDecisionCount(t, "run.go", "run")
-	if count > 92 {
-		t.Fatalf("vm.run has %d decision points, want <= 92; move slow constant lookup into a focused helper", count)
+	if count > 90 {
+		t.Fatalf("vm.run has %d decision points, want <= 90; group literal routing outside the main dispatch", count)
 	}
 }
 
