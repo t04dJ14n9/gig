@@ -534,27 +534,11 @@ func (v *vm) run() (value.Value, error) {
 				intLocals[vIdx] = r
 				locals[vIdx] = value.MakeInt(r)
 			} else {
-				// Fallback: execute as IndexAddr + Deref manually
-				v.sp = sp
-				v.push(locals[sIdx])
-				v.push(value.MakeInt(intLocals[jIdx]))
-				if err := v.executeOp(bytecode.OpIndexAddr, frame); err != nil {
+				var err error
+				sp, stack, err = v.runIntSliceGetFallback(frame, locals, intLocals, sIdx, jIdx, vIdx, sp)
+				if err != nil {
 					return value.MakeNil(), err
 				}
-				if v.panicking {
-					continue
-				}
-				if err := v.executeOp(bytecode.OpDeref, frame); err != nil {
-					return value.MakeNil(), err
-				}
-				if v.panicking {
-					continue
-				}
-				ret := v.pop()
-				intLocals[vIdx] = ret.RawInt()
-				locals[vIdx] = ret
-				sp = v.sp
-				stack = v.stack
 			}
 			continue
 
@@ -571,25 +555,11 @@ func (v *vm) run() (value.Value, error) {
 				}
 				s[idx] = intLocals[valIdx]
 			} else {
-				// Fallback: execute as IndexAddr + SetDeref manually
-				v.sp = sp
-				v.push(locals[sIdx])
-				v.push(value.MakeInt(intLocals[jIdx]))
-				if err := v.executeOp(bytecode.OpIndexAddr, frame); err != nil {
+				var err error
+				sp, stack, err = v.runIntSliceSetFallback(frame, locals, intLocals, sIdx, jIdx, valIdx, sp)
+				if err != nil {
 					return value.MakeNil(), err
 				}
-				if v.panicking {
-					continue
-				}
-				v.push(value.MakeInt(intLocals[valIdx]))
-				if err := v.executeOp(bytecode.OpSetDeref, frame); err != nil {
-					return value.MakeNil(), err
-				}
-				if v.panicking {
-					continue
-				}
-				sp = v.sp
-				stack = v.stack
 			}
 			continue
 
@@ -606,25 +576,11 @@ func (v *vm) run() (value.Value, error) {
 				}
 				s[idx] = intConsts[cIdx]
 			} else {
-				// Fallback: execute as IndexAddr + SetDeref manually
-				v.sp = sp
-				v.push(locals[sIdx])
-				v.push(value.MakeInt(intLocals[jIdx]))
-				if err := v.executeOp(bytecode.OpIndexAddr, frame); err != nil {
+				var err error
+				sp, stack, err = v.runIntSliceSetConstFallback(frame, locals, intLocals, prebaked, sIdx, jIdx, cIdx, sp)
+				if err != nil {
 					return value.MakeNil(), err
 				}
-				if v.panicking {
-					continue
-				}
-				v.push(prebaked[cIdx])
-				if err := v.executeOp(bytecode.OpSetDeref, frame); err != nil {
-					return value.MakeNil(), err
-				}
-				if v.panicking {
-					continue
-				}
-				sp = v.sp
-				stack = v.stack
 			}
 			continue
 
