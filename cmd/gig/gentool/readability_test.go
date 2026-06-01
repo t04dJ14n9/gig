@@ -18,6 +18,10 @@ func TestExtractFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(t, "extract.go", 180, "move argument extraction helpers to focused files")
 }
 
+func TestExtractBasicLinesStayReadable(t *testing.T) {
+	assertMaxLineLength(t, "extract_basic.go", 160)
+}
+
 func TestGeneratorFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(t, "generator.go", 180, "move package generation helpers to focused files")
 }
@@ -55,5 +59,18 @@ func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
 	lines := bytes.Count(src, []byte{'\n'})
 	if lines > maxLines {
 		t.Fatalf("%s has %d lines, want <= %d; %s", path, lines, maxLines, hint)
+	}
+}
+
+func assertMaxLineLength(t *testing.T, path string, maxColumns int) {
+	t.Helper()
+	src, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	for i, line := range bytes.Split(src, []byte{'\n'}) {
+		if len(line) > maxColumns {
+			t.Fatalf("%s:%d has %d columns, want <= %d", path, i+1, len(line), maxColumns)
+		}
 	}
 }

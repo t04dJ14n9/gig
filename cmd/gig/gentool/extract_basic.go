@@ -5,6 +5,13 @@ import (
 	"go/types"
 )
 
+const byteSliceExtractionFormat = "func() []byte { " +
+	"if b, ok := (%s).Bytes(); ok { return b }; " +
+	"v := (%s).Interface(); " +
+	"if v == nil { return nil }; " +
+	"return v.([]byte) " +
+	"}()"
+
 // extractBasic generates the Go expression to extract a basic typed value from a value.Value.
 // Returns "" for unsupported types such as unsafe.Pointer.
 func extractBasic(bt *types.Basic, valExpr string) string {
@@ -86,7 +93,7 @@ func extractSlice(st *types.Slice, valExpr string, pkgRef string) string {
 	if bt, ok := st.Elem().Underlying().(*types.Basic); ok {
 		switch bt.Kind() {
 		case types.Byte:
-			return fmt.Sprintf("func() []byte { if b, ok := (%s).Bytes(); ok { return b }; v := (%s).Interface(); if v == nil { return nil }; return v.([]byte) }()", valExpr, valExpr)
+			return fmt.Sprintf(byteSliceExtractionFormat, valExpr, valExpr)
 		case types.String:
 			return fmt.Sprintf("%s.Interface().([]string)", valExpr)
 		default:
