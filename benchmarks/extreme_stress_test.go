@@ -514,168 +514,197 @@ func GetCounter() int {
 }
 `
 
+type concurrentGlobalsConfig struct {
+	concurrency     int
+	opsPerGoroutine int
+	totalOps        int
+}
+
+type counterRunResult struct {
+	counter int64
+	elapsed time.Duration
+}
+
 // TestConcurrentGlobals_GoNative_vs_Gig compares Go native and Gig
 // behavior when concurrently accessing global variables.
 // Uses moderate concurrency to keep test time reasonable.
 func TestConcurrentGlobals_GoNative_vs_Gig(t *testing.T) {
+	cfg := defaultConcurrentGlobalsConfig()
+	logConcurrentGlobalsIntro(t, cfg)
+
+	nativeUnprotected := runNativeUnprotectedGlobal(cfg)
+	logUnprotectedGlobalReport(t, "Go Native: Unprotected Global", cfg, nativeUnprotected, time.Microsecond)
+
+	nativeMutex := runNativeMutexGlobal(cfg)
+	logPreciseGlobalReport(t, "Go Native: *sync.Mutex Protected Global", cfg, nativeMutex, time.Microsecond)
+
+	nativeAtomic := runNativeAtomicGlobal(cfg)
+	logPreciseGlobalReport(t, "Go Native: sync/atomic Protected Global", cfg, nativeAtomic, time.Microsecond)
+
+	gigUnprotected := runGigGlobalCounter(t, unprotectedGlobalSource, cfg)
+	logUnprotectedGlobalReport(
+		t,
+		"Gig (Stateful): Unprotected Global",
+		cfg,
+		gigUnprotected,
+		time.Millisecond,
+		"│ Note: SharedGlobals RWMutex prevents torn reads,   │",
+		"│       but read-modify-write still has lost updates  │",
+	)
+
+	gigMutex := runGigGlobalCounter(t, mutexProtectedGlobalSource, cfg)
+	logPreciseGlobalReport(t, "Gig (Stateful): *sync.Mutex Protected Global", cfg, gigMutex, time.Millisecond)
+
+	logConcurrentGlobalsSummary(t, cfg, nativeUnprotected, nativeMutex, nativeAtomic, gigUnprotected, gigMutex)
+	logMutexProtectedEquivalence(t, cfg, nativeMutex, gigMutex)
+}
+
+func defaultConcurrentGlobalsConfig() concurrentGlobalsConfig {
 	const concurrency = 50
 	const opsPerGoroutine = 100
-	const totalOps = concurrency * opsPerGoroutine
+	return concurrentGlobalsConfig{
+		concurrency:     concurrency,
+		opsPerGoroutine: opsPerGoroutine,
+		totalOps:        concurrency * opsPerGoroutine,
+	}
+}
 
+func logConcurrentGlobalsIntro(t *testing.T, cfg concurrentGlobalsConfig) {
+	t.Helper()
 	t.Logf("")
 	t.Logf("╔══════════════════════════════════════════════════════════════════════════════╗")
-	t.Logf("║    CONCURRENT GLOBALS: Go Native vs Gig (%dG × %d ops)               ║", concurrency, opsPerGoroutine)
+	t.Logf("║    CONCURRENT GLOBALS: Go Native vs Gig (%dG × %d ops)               ║", cfg.concurrency, cfg.opsPerGoroutine)
 	t.Logf("╚══════════════════════════════════════════════════════════════════════════════╝")
+}
 
-	// --- Go Native: unprotected global ---
-	var nativeCounterUnprotected int
-	var nativeWg sync.WaitGroup
-	nativeStart := time.Now()
-	for g := 0; g < concurrency; g++ {
-		nativeWg.Add(1)
+func runNativeUnprotectedGlobal(cfg concurrentGlobalsConfig) counterRunResult {
+	var counter int
+	var wg sync.WaitGroup
+	start := time.Now()
+	for g := 0; g < cfg.concurrency; g++ {
+		wg.Add(1)
 		go func() {
-			defer nativeWg.Done()
-			for i := 0; i < opsPerGoroutine; i++ {
-				nativeCounterUnprotected++
+			defer wg.Done()
+			for i := 0; i < cfg.opsPerGoroutine; i++ {
+				counter++
 			}
 		}()
 	}
-	nativeWg.Wait()
-	nativeElapsedUnprotected := time.Since(nativeStart)
+	wg.Wait()
+	return counterRunResult{counter: int64(counter), elapsed: time.Since(start)}
+}
 
-	t.Logf("")
-	t.Logf("┌─────────────────────────────────────────────────────┐")
-	t.Logf("│ Go Native: Unprotected Global                      │")
-	t.Logf("├─────────────────────────────────────────────────────┤")
-	t.Logf("│ Total ops:      %10d                        │", totalOps)
-	t.Logf("│ Final counter:  %10d (lost %d updates)       │", nativeCounterUnprotected, totalOps-nativeCounterUnprotected)
-	t.Logf("│ Has data race:  %10v                        │", nativeCounterUnprotected != totalOps)
-	t.Logf("│ Elapsed:        %10v                        │", nativeElapsedUnprotected.Round(time.Microsecond))
-	t.Logf("└─────────────────────────────────────────────────────┘")
-
-	// --- Go Native: mutex-protected global ---
-	var nativeCounterMutex int
-	var nativeMu sync.Mutex
-	nativeStart = time.Now()
-	for g := 0; g < concurrency; g++ {
-		nativeWg.Add(1)
+func runNativeMutexGlobal(cfg concurrentGlobalsConfig) counterRunResult {
+	var counter int
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	start := time.Now()
+	for g := 0; g < cfg.concurrency; g++ {
+		wg.Add(1)
 		go func() {
-			defer nativeWg.Done()
-			for i := 0; i < opsPerGoroutine; i++ {
-				nativeMu.Lock()
-				nativeCounterMutex++
-				nativeMu.Unlock()
+			defer wg.Done()
+			for i := 0; i < cfg.opsPerGoroutine; i++ {
+				mu.Lock()
+				counter++
+				mu.Unlock()
 			}
 		}()
 	}
-	nativeWg.Wait()
-	nativeElapsedMutex := time.Since(nativeStart)
+	wg.Wait()
+	return counterRunResult{counter: int64(counter), elapsed: time.Since(start)}
+}
 
-	t.Logf("")
-	t.Logf("┌─────────────────────────────────────────────────────┐")
-	t.Logf("│ Go Native: *sync.Mutex Protected Global             │")
-	t.Logf("├─────────────────────────────────────────────────────┤")
-	t.Logf("│ Total ops:      %10d                        │", totalOps)
-	t.Logf("│ Final counter:  %10d                        │", nativeCounterMutex)
-	t.Logf("│ Is precise:     %10v                        │", nativeCounterMutex == totalOps)
-	t.Logf("│ Elapsed:        %10v                        │", nativeElapsedMutex.Round(time.Microsecond))
-	t.Logf("└─────────────────────────────────────────────────────┘")
-
-	// --- Go Native: atomic-protected global ---
-	var nativeCounterAtomic int64
-	nativeStart = time.Now()
-	for g := 0; g < concurrency; g++ {
-		nativeWg.Add(1)
+func runNativeAtomicGlobal(cfg concurrentGlobalsConfig) counterRunResult {
+	var counter int64
+	var wg sync.WaitGroup
+	start := time.Now()
+	for g := 0; g < cfg.concurrency; g++ {
+		wg.Add(1)
 		go func() {
-			defer nativeWg.Done()
-			for i := 0; i < opsPerGoroutine; i++ {
-				atomic.AddInt64(&nativeCounterAtomic, 1)
+			defer wg.Done()
+			for i := 0; i < cfg.opsPerGoroutine; i++ {
+				atomic.AddInt64(&counter, 1)
 			}
 		}()
 	}
-	nativeWg.Wait()
-	nativeElapsedAtomic := time.Since(nativeStart)
+	wg.Wait()
+	return counterRunResult{counter: counter, elapsed: time.Since(start)}
+}
 
-	t.Logf("")
-	t.Logf("┌─────────────────────────────────────────────────────┐")
-	t.Logf("│ Go Native: sync/atomic Protected Global             │")
-	t.Logf("├─────────────────────────────────────────────────────┤")
-	t.Logf("│ Total ops:      %10d                        │", totalOps)
-	t.Logf("│ Final counter:  %10d                        │", nativeCounterAtomic)
-	t.Logf("│ Is precise:     %10v                        │", nativeCounterAtomic == int64(totalOps))
-	t.Logf("│ Elapsed:        %10v                        │", nativeElapsedAtomic.Round(time.Microsecond))
-	t.Logf("└─────────────────────────────────────────────────────┘")
-
-	// --- Gig: unprotected global (stateful mode, SharedGlobals provides RWMutex) ---
-	progUnprotected, err := gig.Build(unprotectedGlobalSource, gig.WithStatefulGlobals(), gig.WithAllowPanic())
+func runGigGlobalCounter(t *testing.T, source string, cfg concurrentGlobalsConfig) counterRunResult {
+	t.Helper()
+	prog, err := gig.Build(source, gig.WithStatefulGlobals(), gig.WithAllowPanic())
 	if err != nil {
-		t.Fatalf("Build unprotected source: %v", err)
+		t.Fatalf("Build source: %v", err)
 	}
-	defer progUnprotected.Close()
+	defer prog.Close()
 
-	gigStart := time.Now()
-	var gigWg sync.WaitGroup
-	for g := 0; g < concurrency; g++ {
-		gigWg.Add(1)
+	var wg sync.WaitGroup
+	start := time.Now()
+	for g := 0; g < cfg.concurrency; g++ {
+		wg.Add(1)
 		go func() {
-			defer gigWg.Done()
-			for i := 0; i < opsPerGoroutine; i++ {
-				progUnprotected.Run("Increment")
+			defer wg.Done()
+			for i := 0; i < cfg.opsPerGoroutine; i++ {
+				prog.Run("Increment")
 			}
 		}()
 	}
-	gigWg.Wait()
-	gigElapsedUnprotected := time.Since(gigStart)
+	wg.Wait()
 
-	gigResultUnprotected, _ := progUnprotected.Run("GetCounter")
-	gigCounterUnprotected, _ := gigResultUnprotected.(int)
-
-	t.Logf("")
-	t.Logf("┌─────────────────────────────────────────────────────┐")
-	t.Logf("│ Gig (Stateful): Unprotected Global                 │")
-	t.Logf("├─────────────────────────────────────────────────────┤")
-	t.Logf("│ Total ops:      %10d                        │", totalOps)
-	t.Logf("│ Final counter:  %10d (lost %d updates)       │", gigCounterUnprotected, totalOps-gigCounterUnprotected)
-	t.Logf("│ Has data race:  %10v                        │", gigCounterUnprotected != totalOps)
-	t.Logf("│ Elapsed:        %10v                        │", gigElapsedUnprotected.Round(time.Millisecond))
-	t.Logf("│ Note: SharedGlobals RWMutex prevents torn reads,   │")
-	t.Logf("│       but read-modify-write still has lost updates  │")
-	t.Logf("└─────────────────────────────────────────────────────┘")
-
-	// --- Gig: mutex-protected global (stateful mode) ---
-	progMutex, err := gig.Build(mutexProtectedGlobalSource, gig.WithStatefulGlobals(), gig.WithAllowPanic())
+	result, err := prog.Run("GetCounter")
 	if err != nil {
-		t.Fatalf("Build mutex source: %v", err)
+		t.Fatalf("GetCounter failed: %v", err)
 	}
-	defer progMutex.Close()
-
-	gigStart = time.Now()
-	for g := 0; g < concurrency; g++ {
-		gigWg.Add(1)
-		go func() {
-			defer gigWg.Done()
-			for i := 0; i < opsPerGoroutine; i++ {
-				progMutex.Run("Increment")
-			}
-		}()
+	counter, ok := result.(int)
+	if !ok {
+		t.Fatalf("GetCounter returned %T, want int", result)
 	}
-	gigWg.Wait()
-	gigElapsedMutex := time.Since(gigStart)
+	return counterRunResult{counter: int64(counter), elapsed: time.Since(start)}
+}
 
-	gigResultMutex, _ := progMutex.Run("GetCounter")
-	gigCounterMutex, _ := gigResultMutex.(int)
-
+func logUnprotectedGlobalReport(
+	t *testing.T,
+	title string,
+	cfg concurrentGlobalsConfig,
+	result counterRunResult,
+	round time.Duration,
+	noteLines ...string,
+) {
+	t.Helper()
 	t.Logf("")
 	t.Logf("┌─────────────────────────────────────────────────────┐")
-	t.Logf("│ Gig (Stateful): *sync.Mutex Protected Global        │")
+	t.Logf("│ %-51s │", title)
 	t.Logf("├─────────────────────────────────────────────────────┤")
-	t.Logf("│ Total ops:      %10d                        │", totalOps)
-	t.Logf("│ Final counter:  %10d                        │", gigCounterMutex)
-	t.Logf("│ Is precise:     %10v                        │", gigCounterMutex == totalOps)
-	t.Logf("│ Elapsed:        %10v                        │", gigElapsedMutex.Round(time.Millisecond))
+	t.Logf("│ Total ops:      %10d                        │", cfg.totalOps)
+	t.Logf("│ Final counter:  %10d (lost %d updates)       │", result.counter, int64(cfg.totalOps)-result.counter)
+	t.Logf("│ Has data race:  %10v                        │", result.counter != int64(cfg.totalOps))
+	t.Logf("│ Elapsed:        %10v                        │", result.elapsed.Round(round))
+	for _, line := range noteLines {
+		t.Logf("%s", line)
+	}
 	t.Logf("└─────────────────────────────────────────────────────┘")
+}
 
-	// --- Summary table ---
+func logPreciseGlobalReport(t *testing.T, title string, cfg concurrentGlobalsConfig, result counterRunResult, round time.Duration) {
+	t.Helper()
+	t.Logf("")
+	t.Logf("┌─────────────────────────────────────────────────────┐")
+	t.Logf("│ %-51s │", title)
+	t.Logf("├─────────────────────────────────────────────────────┤")
+	t.Logf("│ Total ops:      %10d                        │", cfg.totalOps)
+	t.Logf("│ Final counter:  %10d                        │", result.counter)
+	t.Logf("│ Is precise:     %10v                        │", result.counter == int64(cfg.totalOps))
+	t.Logf("│ Elapsed:        %10v                        │", result.elapsed.Round(round))
+	t.Logf("└─────────────────────────────────────────────────────┘")
+}
+
+func logConcurrentGlobalsSummary(
+	t *testing.T,
+	cfg concurrentGlobalsConfig,
+	nativeUnprotected, nativeMutex, nativeAtomic, gigUnprotected, gigMutex counterRunResult,
+) {
+	t.Helper()
 	t.Logf("")
 	t.Logf("╔══════════════════════════════════════════════════════════════════════════════╗")
 	t.Logf("║                         COMPARISON SUMMARY                                 ║")
@@ -683,19 +712,21 @@ func TestConcurrentGlobals_GoNative_vs_Gig(t *testing.T) {
 	t.Logf("║ Mode                                 ║ Counter    ║ Precise?  ║ Has Race?  ║")
 	t.Logf("╠══════════════════════════════════════╬════════════╬═══════════╬════════════╣")
 	t.Logf("║ Go Native: Unprotected               ║ %10d ║ %9v ║ %10v ║",
-		nativeCounterUnprotected, nativeCounterUnprotected == totalOps, nativeCounterUnprotected != totalOps)
+		nativeUnprotected.counter, nativeUnprotected.counter == int64(cfg.totalOps), nativeUnprotected.counter != int64(cfg.totalOps))
 	t.Logf("║ Go Native: *sync.Mutex               ║ %10d ║ %9v ║ %10v ║",
-		nativeCounterMutex, nativeCounterMutex == totalOps, nativeCounterMutex != totalOps)
+		nativeMutex.counter, nativeMutex.counter == int64(cfg.totalOps), nativeMutex.counter != int64(cfg.totalOps))
 	t.Logf("║ Go Native: sync/atomic               ║ %10d ║ %9v ║ %10v ║",
-		nativeCounterAtomic, nativeCounterAtomic == int64(totalOps), nativeCounterAtomic != int64(totalOps))
+		nativeAtomic.counter, nativeAtomic.counter == int64(cfg.totalOps), nativeAtomic.counter != int64(cfg.totalOps))
 	t.Logf("║ Gig Stateful: Unprotected            ║ %10d ║ %9v ║ %10v ║",
-		gigCounterUnprotected, gigCounterUnprotected == totalOps, gigCounterUnprotected != totalOps)
+		gigUnprotected.counter, gigUnprotected.counter == int64(cfg.totalOps), gigUnprotected.counter != int64(cfg.totalOps))
 	t.Logf("║ Gig Stateful: *sync.Mutex            ║ %10d ║ %9v ║ %10v ║",
-		gigCounterMutex, gigCounterMutex == totalOps, gigCounterMutex != totalOps)
+		gigMutex.counter, gigMutex.counter == int64(cfg.totalOps), gigMutex.counter != int64(cfg.totalOps))
 	t.Logf("╚══════════════════════════════════════╩════════════╩═══════════╩════════════╝")
+}
 
-	// Verify the key semantic equivalence: mutex-protected Gig == mutex-protected Go
-	if gigCounterMutex == totalOps && nativeCounterMutex == totalOps {
+func logMutexProtectedEquivalence(t *testing.T, cfg concurrentGlobalsConfig, nativeMutex, gigMutex counterRunResult) {
+	t.Helper()
+	if gigMutex.counter == int64(cfg.totalOps) && nativeMutex.counter == int64(cfg.totalOps) {
 		t.Logf("✓ Mutex-protected globals: Gig and Go native both produce precise results")
 	}
 }

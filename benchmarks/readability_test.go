@@ -14,6 +14,13 @@ func TestExtremeStressStaysShallow(t *testing.T) {
 	}
 }
 
+func TestConcurrentGlobalsComparisonStaysShallow(t *testing.T) {
+	count := benchmarkDecisionCount(t, "extreme_stress_test.go", "TestConcurrentGlobals_GoNative_vs_Gig")
+	if count > 8 {
+		t.Fatalf("TestConcurrentGlobals_GoNative_vs_Gig has %d decision points, want <= 8; split native, gig, report, and assertion phases", count)
+	}
+}
+
 func benchmarkDecisionCount(t *testing.T, path, funcName string) int {
 	t.Helper()
 
