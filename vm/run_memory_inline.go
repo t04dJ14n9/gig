@@ -86,6 +86,16 @@ func (v *vm) runLen(frame *Frame, sp int) (int, []value.Value, error) {
 	}
 }
 
+func (v *vm) runInlineStackOpComplete(err error) (bool, error) {
+	if err != nil {
+		return false, err
+	}
+	if v.panicking {
+		return false, nil
+	}
+	return v.fp > 0, nil
+}
+
 func (v *vm) runSlowStackOp(frame *Frame, op bytecode.OpCode, sp int, operands ...value.Value) (int, []value.Value, error) {
 	v.sp = sp
 	for _, operand := range operands {

@@ -348,13 +348,11 @@ func (v *vm) run() (value.Value, error) {
 		case bytecode.OpIndexAddr:
 			var err error
 			sp, stack, err = v.runIndexAddr(frame, sp)
+			reloadFrame, err := v.runInlineStackOpComplete(err)
 			if err != nil {
 				return value.MakeNil(), err
 			}
-			if v.panicking {
-				continue
-			}
-			if v.fp > 0 {
+			if reloadFrame {
 				loadFrame()
 			}
 			continue
@@ -362,13 +360,11 @@ func (v *vm) run() (value.Value, error) {
 		case bytecode.OpDeref:
 			var err error
 			sp, stack, err = v.runDeref(frame, sp)
+			reloadFrame, err := v.runInlineStackOpComplete(err)
 			if err != nil {
 				return value.MakeNil(), err
 			}
-			if v.panicking {
-				continue
-			}
-			if v.fp > 0 {
+			if reloadFrame {
 				loadFrame()
 			}
 			continue
@@ -376,13 +372,11 @@ func (v *vm) run() (value.Value, error) {
 		case bytecode.OpLen:
 			var err error
 			sp, stack, err = v.runLen(frame, sp)
+			reloadFrame, err := v.runInlineStackOpComplete(err)
 			if err != nil {
 				return value.MakeNil(), err
 			}
-			if v.panicking {
-				continue
-			}
-			if v.fp > 0 {
+			if reloadFrame {
 				loadFrame()
 			}
 			continue
