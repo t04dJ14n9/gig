@@ -8,31 +8,38 @@ import (
 )
 
 func TestGetBenchmarksSrcStaysShallow(t *testing.T) {
-	count := benchmarkTestDecisionCount(t, "getBenchmarksSrc")
+	count := testFileDecisionCount(t, "benchmark_test.go", "getBenchmarksSrc")
 	if count > 8 {
 		t.Fatalf("getBenchmarksSrc has %d decision points, want <= 8; parse benchmark files with focused helpers", count)
 	}
 }
 
 func TestBenchmarkSummaryStaysShallow(t *testing.T) {
-	count := benchmarkTestDecisionCount(t, "TestBenchmarkSummary")
+	count := testFileDecisionCount(t, "benchmark_test.go", "TestBenchmarkSummary")
 	if count > 8 {
 		t.Fatalf("TestBenchmarkSummary has %d decision points, want <= 8; split report sections into focused helpers", count)
 	}
 }
 
-func benchmarkTestDecisionCount(t *testing.T, funcName string) int {
+func TestStressMemoryLeakRunnerStaysShallow(t *testing.T) {
+	count := testFileDecisionCount(t, "stress_leak_test.go", "runStressMemoryLeak")
+	if count > 8 {
+		t.Fatalf("runStressMemoryLeak has %d decision points, want <= 8; split setup, monitoring, shutdown, and reporting", count)
+	}
+}
+
+func testFileDecisionCount(t *testing.T, path, funcName string) int {
 	t.Helper()
 
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "benchmark_test.go", nil, 0)
+	file, err := parser.ParseFile(fset, path, nil, 0)
 	if err != nil {
-		t.Fatalf("parse benchmark_test.go: %v", err)
+		t.Fatalf("parse %s: %v", path, err)
 	}
 
-	fn := benchmarkTestFuncDecl(file, funcName)
+	fn := testFileFuncDecl(file, funcName)
 	if fn == nil || fn.Body == nil {
-		t.Fatalf("find function %s in benchmark_test.go", funcName)
+		t.Fatalf("find function %s in %s", funcName, path)
 	}
 
 	count := 0
@@ -54,7 +61,7 @@ func benchmarkTestDecisionCount(t *testing.T, funcName string) int {
 	return count
 }
 
-func benchmarkTestFuncDecl(file *ast.File, name string) *ast.FuncDecl {
+func testFileFuncDecl(file *ast.File, name string) *ast.FuncDecl {
 	for _, decl := range file.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
 		if ok && fn.Name.Name == name {
