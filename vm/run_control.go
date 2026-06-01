@@ -13,6 +13,45 @@ const (
 	runReturn
 )
 
+type runFrameReturnResult struct {
+	sp        int
+	done      bool
+	frame     *Frame
+	ins       []byte
+	locals    []value.Value
+	intLocals []int64
+}
+
+func (v *vm) runFrameReturn(frame *Frame, stack []value.Value, sp int, retVal value.Value) runFrameReturnResult {
+	v.fpool.put(frame)
+	v.fp--
+
+	// Deferred functions are executed by a child run loop. Returning here hands
+	// control back to the caller instead of continuing in the parent frame.
+	if v.deferDepth > 0 {
+		return runFrameReturnResult{sp: sp, done: true}
+	}
+
+	var next *Frame
+	if v.fp > 0 {
+		next = v.frames[v.fp-1]
+		sp = next.basePtr
+	}
+	stack[sp] = retVal
+	sp++
+
+	if next == nil {
+		return runFrameReturnResult{sp: sp}
+	}
+	return runFrameReturnResult{
+		sp:        sp,
+		frame:     next,
+		ins:       next.fn.Instructions,
+		locals:    next.locals,
+		intLocals: next.intLocals,
+	}
+}
+
 func (v *vm) handlePendingPanic(frame *Frame, sp int) (runDisposition, int, value.Value, error) {
 	// Sync sp so runDefersDuringPanic can use v.sp for recursive run() calls.
 	v.sp = sp

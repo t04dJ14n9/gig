@@ -305,36 +305,22 @@ func (v *vm) run() (value.Value, error) {
 			continue
 
 		case bytecode.OpReturn:
-			v.fpool.put(frame)
-			v.fp--
-			// If running a deferred function, return immediately.
-			// Don't continue with the caller's frame - that's handled by the outer run().
-			if v.deferDepth > 0 {
-				return value.MakeNil(), nil
+			retVal := value.MakeNil()
+			ret := v.runFrameReturn(frame, stack, sp, retVal)
+			if ret.done {
+				return retVal, nil
 			}
-			if v.fp > 0 {
-				loadFrame()
-				sp = frame.basePtr
-			}
-			stack[sp] = value.MakeNil()
-			sp++
+			sp, frame, ins, locals, intLocals = ret.sp, ret.frame, ret.ins, ret.locals, ret.intLocals
 			continue
 
 		case bytecode.OpReturnVal:
 			sp--
 			retVal := stack[sp]
-			v.fpool.put(frame)
-			v.fp--
-			// If running a deferred function, return immediately.
-			if v.deferDepth > 0 {
+			ret := v.runFrameReturn(frame, stack, sp, retVal)
+			if ret.done {
 				return retVal, nil
 			}
-			if v.fp > 0 {
-				loadFrame()
-				sp = frame.basePtr
-			}
-			stack[sp] = retVal
-			sp++
+			sp, frame, ins, locals, intLocals = ret.sp, ret.frame, ret.ins, ret.locals, ret.intLocals
 			continue
 
 		case bytecode.OpSetDeref:
