@@ -135,7 +135,7 @@ func (v *vm) run() (value.Value, error) {
 			b := stack[sp]
 			sp--
 			a := stack[sp]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			if runBothInts(a, b) {
 				stack[sp] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
 			} else {
 				stack[sp] = a.Add(b)
@@ -148,7 +148,7 @@ func (v *vm) run() (value.Value, error) {
 			b := stack[sp]
 			sp--
 			a := stack[sp]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			if runBothInts(a, b) {
 				stack[sp] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
 			} else {
 				stack[sp] = a.Sub(b)
@@ -161,7 +161,7 @@ func (v *vm) run() (value.Value, error) {
 			b := stack[sp]
 			sp--
 			a := stack[sp]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			if runBothInts(a, b) {
 				stack[sp] = value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize())
 			} else {
 				stack[sp] = a.Mul(b)
@@ -174,7 +174,7 @@ func (v *vm) run() (value.Value, error) {
 			b := stack[sp]
 			sp--
 			a := stack[sp]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			if runBothInts(a, b) {
 				stack[sp] = value.MakeBool(a.RawInt() < b.RawInt())
 			} else {
 				stack[sp] = value.MakeBool(a.Cmp(b) < 0)
@@ -187,7 +187,7 @@ func (v *vm) run() (value.Value, error) {
 			b := stack[sp]
 			sp--
 			a := stack[sp]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			if runBothInts(a, b) {
 				stack[sp] = value.MakeBool(a.RawInt() <= b.RawInt())
 			} else {
 				stack[sp] = value.MakeBool(lessEqCmp(a, b))
@@ -200,7 +200,7 @@ func (v *vm) run() (value.Value, error) {
 			b := stack[sp]
 			sp--
 			a := stack[sp]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			if runBothInts(a, b) {
 				stack[sp] = value.MakeBool(a.RawInt() > b.RawInt())
 			} else {
 				stack[sp] = value.MakeBool(a.Cmp(b) > 0)
@@ -213,7 +213,7 @@ func (v *vm) run() (value.Value, error) {
 			b := stack[sp]
 			sp--
 			a := stack[sp]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+			if runBothInts(a, b) {
 				stack[sp] = value.MakeBool(a.RawInt() >= b.RawInt())
 			} else {
 				stack[sp] = value.MakeBool(greaterEqCmp(a, b))
@@ -226,7 +226,7 @@ func (v *vm) run() (value.Value, error) {
 			b := stack[sp]
 			sp--
 			a := stack[sp]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt && a.RawSize() == b.RawSize() {
+			if runSameSizedInts(a, b) {
 				stack[sp] = value.MakeBool(a.RawInt() == b.RawInt())
 			} else {
 				stack[sp] = value.MakeBool(a.Equal(b))
@@ -239,7 +239,7 @@ func (v *vm) run() (value.Value, error) {
 			b := stack[sp]
 			sp--
 			a := stack[sp]
-			if a.Kind() == value.KindInt && b.Kind() == value.KindInt && a.RawSize() == b.RawSize() {
+			if runSameSizedInts(a, b) {
 				stack[sp] = value.MakeBool(a.RawInt() != b.RawInt())
 			} else {
 				stack[sp] = value.MakeBool(!a.Equal(b))

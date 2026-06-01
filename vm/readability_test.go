@@ -13,6 +13,13 @@ func TestRunLoopFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(t, "run.go", 900, "move cold runtime paths to focused files")
 }
 
+func TestRunLoopDecisionBudgetImproves(t *testing.T) {
+	count := recursiveDecisionCount(t, "run.go", "run")
+	if count > 130 {
+		t.Fatalf("vm.run has %d decision points, want <= 130; move repeated hot-path arithmetic decisions into focused helpers", count)
+	}
+}
+
 func TestVMFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(t, "vm.go", 360, "move execution entry and argument preparation to focused files")
 }
