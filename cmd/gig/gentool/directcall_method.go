@@ -113,10 +113,10 @@ func analyzeMethodDirectCallSignature(sig *types.Signature) (methodDirectCallSha
 	if shape.isVariadic {
 		shape.fixedCount--
 	}
-	if !methodFixedParamsSupported(shape.params, shape.fixedCount) {
+	if !fixedDirectCallParamsSupported(shape.params, shape.fixedCount) {
 		return methodDirectCallShape{}, false
 	}
-	if shape.isVariadic && !methodVariadicParamSupported(shape.params) {
+	if shape.isVariadic && !variadicDirectCallParamSupported(shape.params) {
 		return methodDirectCallShape{}, false
 	}
 	if shape.results.Len() > 6 {
@@ -125,7 +125,7 @@ func analyzeMethodDirectCallSignature(sig *types.Signature) (methodDirectCallSha
 	return shape, true
 }
 
-func methodFixedParamsSupported(params *types.Tuple, fixedCount int) bool {
+func fixedDirectCallParamsSupported(params *types.Tuple, fixedCount int) bool {
 	for i := 0; i < fixedCount; i++ {
 		if !canWrapParam(params.At(i).Type()) {
 			return false
@@ -134,7 +134,7 @@ func methodFixedParamsSupported(params *types.Tuple, fixedCount int) bool {
 	return true
 }
 
-func methodVariadicParamSupported(params *types.Tuple) bool {
+func variadicDirectCallParamSupported(params *types.Tuple) bool {
 	sliceType := params.At(params.Len() - 1).Type().(*types.Slice)
 	elemType := sliceType.Elem()
 	return canWrapParam(elemType) || isEmptyInterface(elemType)

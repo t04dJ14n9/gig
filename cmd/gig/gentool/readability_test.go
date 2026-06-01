@@ -36,6 +36,13 @@ func TestGenerateSingleMethodDirectCallStaysShallow(t *testing.T) {
 	}
 }
 
+func TestGenerateDirectCallStaysShallow(t *testing.T) {
+	count := cyclomaticBranchCount(t, "directcall.go", "generateDirectCall")
+	if count > 18 {
+		t.Fatalf("generateDirectCall has complexity %d, want <= 18; split eligibility, argument emission, variadics, call selection, and result emission", count)
+	}
+}
+
 func TestGeneratorEmitAvoidsNestedFormattedWriteString(t *testing.T) {
 	assertNoNestedFormattedWriteString(t, "generator_emit.go")
 }
