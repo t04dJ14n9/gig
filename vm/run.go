@@ -277,11 +277,21 @@ func (v *vm) run() (value.Value, error) {
 				sp--
 				retVal = stack[sp]
 			}
-			ret := v.runFrameReturn(frame, stack, sp, retVal)
-			if ret.done {
+
+			// Keep normal returns inline: recursive workloads execute this path
+			// constantly, and routing it through a result-struct helper costs
+			// measurable dispatch-loop performance.
+			v.fpool.put(frame)
+			v.fp--
+			if v.deferDepth > 0 {
 				return retVal, nil
 			}
-			sp, frame, ins, locals, intLocals = ret.sp, ret.frame, ret.ins, ret.locals, ret.intLocals
+			if v.fp > 0 {
+				loadFrame()
+				sp = frame.basePtr
+			}
+			stack[sp] = retVal
+			sp++
 			continue
 
 		case bytecode.OpSetDeref:
@@ -537,9 +547,6 @@ func (v *vm) run() (value.Value, error) {
 				loadFrame()
 			}
 			continue
-
-		default:
-			// Fall through to executeOp for all other opcodes
 		}
 
 		// Non-hot-path: dispatch to the full handler.
