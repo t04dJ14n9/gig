@@ -45,8 +45,10 @@ func (v *vm) callResolvedExternal(rc *bytecode.ResolvedCall, args []value.Value)
 	if rc == nil {
 		return fmt.Errorf("unresolved external call")
 	}
-	if err := v.validateExternalBoundary(rc, args); err != nil {
-		return err
+	if !v.program.AllowUnsafeTypePass && !rc.IsStdlib && !isStdlibExternalPath(rc.PkgPath) {
+		if err := v.validateExternalBoundary(rc, args); err != nil {
+			return err
+		}
 	}
 
 	// Fast path: DirectCall available
@@ -54,8 +56,18 @@ func (v *vm) callResolvedExternal(rc *bytecode.ResolvedCall, args []value.Value)
 		if rc.IsVariadic && len(args) == rc.NumIn {
 			args = unpackVariadicArgs(args, len(args))
 		}
-		if rc.FnType != nil {
+		hasClosureArg := false
+		for i := range args {
+			if args[i].Kind() == value.KindFunc {
+				hasClosureArg = true
+				break
+			}
+		}
+		if hasClosureArg && rc.FnType != nil {
 			convertClosureArgs(args, rc.FnType)
+		}
+		if hasClosureArg {
+			return v.callRecoveredDirectExternal(rc.DirectCall, args)
 		}
 		v.push(rc.DirectCall(args))
 		return v.checkCtx()
@@ -63,6 +75,18 @@ func (v *vm) callResolvedExternal(rc *bytecode.ResolvedCall, args []value.Value)
 
 	// Slow path: reflect.Call
 	return v.callExternalReflect(rc, args)
+}
+
+func (v *vm) callRecoveredDirectExternal(directCall func([]value.Value) value.Value, args []value.Value) (callErr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			v.panicking = true
+			v.panicVal = value.FromInterface(r)
+			callErr = nil
+		}
+	}()
+	v.push(directCall(args))
+	return v.checkCtx()
 }
 
 // externCall returns the pre-resolved call entry for the given constant pool index.

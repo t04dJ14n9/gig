@@ -9,6 +9,7 @@ import (
 var (
 	referenceValueType = reflect.TypeOf(value.Value{})
 	valueSlotType      = reflect.TypeOf((*value.Value)(nil))
+	globalRefType      = reflect.TypeOf((*GlobalRef)(nil))
 )
 
 const nilPointerDereference = "runtime error: invalid memory address or nil pointer dereference"
@@ -26,12 +27,20 @@ func unwrapValueSlot(v value.Value) (value.Value, bool) {
 // valueSlotFromValue detects a *value.Value without calling Interface on
 // non-interfaceable reflect.Values such as unexported embedded fields.
 func valueSlotFromValue(v value.Value) (*value.Value, bool) {
+	if rv, ok := v.ReflectValue(); ok {
+		// Reflect-backed values are common on slice/field address paths. Return
+		// false as soon as the reflect shape cannot be a VM slot; falling through
+		// to Value.Interface would materialize the wrapped Go value on every index.
+		if !rv.IsValid() || rv.Kind() != reflect.Ptr || rv.IsNil() || rv.Type() != valueSlotType || !rv.CanInterface() {
+			return nil, false
+		}
+		return rv.Interface().(*value.Value), true
+	}
 	if !v.IsValid() || v.IsNil() {
 		return nil, false
 	}
-	if rv, ok := v.ReflectValue(); ok && rv.IsValid() && rv.Kind() == reflect.Ptr && !rv.IsNil() && rv.Type() == valueSlotType && rv.CanInterface() {
-		slot, ok := rv.Interface().(*value.Value)
-		return slot, ok
+	if slot, ok := v.RawObj().(*value.Value); ok {
+		return slot, true
 	}
 	if !v.CanInterface() {
 		return nil, false
@@ -43,7 +52,22 @@ func valueSlotFromValue(v value.Value) (*value.Value, bool) {
 // globalRefFromValue detects a shared-global reference. Shared stateful
 // execution must go through GlobalRef so load/store operations remain locked.
 func globalRefFromValue(v value.Value) (*GlobalRef, bool) {
-	if !v.IsValid() || v.IsNil() || !v.CanInterface() {
+	if rv, ok := v.ReflectValue(); ok {
+		// Most reflect-backed values are not shared globals. Avoid converting
+		// arbitrary reflect.Values to interfaces unless the type is exactly the
+		// GlobalRef pointer wrapper used by shared global storage.
+		if !rv.IsValid() || rv.Kind() != reflect.Ptr || rv.IsNil() || rv.Type() != globalRefType || !rv.CanInterface() {
+			return nil, false
+		}
+		return rv.Interface().(*GlobalRef), true
+	}
+	if !v.IsValid() || v.IsNil() {
+		return nil, false
+	}
+	if ref, ok := v.RawObj().(*GlobalRef); ok {
+		return ref, true
+	}
+	if !v.CanInterface() {
 		return nil, false
 	}
 	ref, ok := v.Interface().(*GlobalRef)
@@ -78,24 +102,15 @@ func fieldAddressValue(structPtr value.Value, fieldIdx int) value.Value {
 
 // indexAddressValue implements OpIndexAddr's reference semantics.
 func indexAddressValue(container value.Value, idx int) value.Value {
+	if direct, ok := directIndexAddressValue(container, idx); ok {
+		return direct
+	}
+
 	if slotVal, ok := unwrapValueSlot(container); ok {
+		if direct, ok := directIndexAddressValue(slotVal, idx); ok {
+			return direct
+		}
 		container = slotVal
-	}
-
-	if s, ok := container.IntSlice(); ok {
-		return value.MakeIntPtr(&s[idx])
-	}
-
-	if container.Kind() == value.KindBytes {
-		b, ok := container.Bytes()
-		if !ok {
-			return value.MakeNil()
-		}
-		if idx < 0 || idx >= len(b) {
-			return value.MakeNil()
-		}
-		elem := reflect.ValueOf(b).Index(idx)
-		return addressableValue(elem)
 	}
 
 	rv, ok := container.ReflectValue()
@@ -109,6 +124,25 @@ func indexAddressValue(container value.Value, idx int) value.Value {
 		}
 	}
 	return addressableValue(rv.Index(idx))
+}
+
+func directIndexAddressValue(container value.Value, idx int) (value.Value, bool) {
+	if s, ok := container.IntSlice(); ok {
+		return value.MakeIntPtr(&s[idx]), true
+	}
+
+	if container.Kind() == value.KindBytes {
+		b, ok := container.Bytes()
+		if !ok {
+			return value.MakeNil(), true
+		}
+		if idx < 0 || idx >= len(b) {
+			return value.MakeNil(), true
+		}
+		elem := reflect.ValueOf(b).Index(idx)
+		return addressableValue(elem), true
+	}
+	return value.Value{}, false
 }
 
 // dereferenceValue implements OpDeref's load semantics.
@@ -150,10 +184,23 @@ func dereferenceReflectElement(elem reflect.Value) value.Value {
 	if isSettableEmptyInterfaceElement(elem) {
 		return dereferenceReflectInterfaceElement(elem)
 	}
-	if elem.CanAddr() {
+	if elem.CanAddr() && !isReflectScalar(elem.Kind()) {
 		return value.MakeFromReflect(cloneReflectValue(elem))
 	}
 	return value.MakeFromReflect(elem)
+}
+
+func isReflectScalar(kind reflect.Kind) bool {
+	switch kind {
+	case reflect.Bool, reflect.String,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64,
+		reflect.Complex64, reflect.Complex128:
+		return true
+	default:
+		return false
+	}
 }
 
 func isSettableReflectPointerElement(elem reflect.Value) bool {
@@ -265,9 +312,20 @@ func unwrapValueStruct(rv reflect.Value) reflect.Value {
 
 func addressableValue(rv reflect.Value) value.Value {
 	if rv.CanAddr() {
-		return value.MakeFromReflect(reflect.NewAt(rv.Type(), value.UnsafeAddrOf(rv)))
+		return value.MakeFromReflect(addressableReflectValue(rv))
 	}
 	return value.MakeFromReflect(rv)
+}
+
+func addressableReflectValue(rv reflect.Value) reflect.Value {
+	if rv.CanInterface() {
+		// Normal slice/array elements can use Addr directly. This is the common
+		// indexed-write path and avoids reflect.NewAt's slower type/unsafe setup.
+		return rv.Addr()
+	}
+	// Unexported fields cannot be interfaced through Addr. NewAt deliberately
+	// keeps the old ability to mutate such fields through VM pointer operations.
+	return reflect.NewAt(rv.Type(), value.UnsafeAddrOf(rv))
 }
 
 // cloneReflectValue creates an independent copy of a reflect.Value that

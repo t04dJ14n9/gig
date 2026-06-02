@@ -14,6 +14,10 @@ type ExternalMethodInfo struct {
 	// FuncName is the exported method name used for diagnostics.
 	FuncName string
 
+	// IsStdlib records whether PkgPath belongs to the Go standard library.
+	// It lets the VM skip repeated string classification in method hot paths.
+	IsStdlib bool
+
 	// ReceiverTypeName is the fully qualified name of the receiver type
 	// (e.g., "GetterImpl", "AdderStruct"). Used by callCompiledMethod
 	// to disambiguate when multiple compiled methods share the same name.

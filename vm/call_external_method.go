@@ -26,13 +26,28 @@ func (v *vm) callExternalMethod(methodInfo *external.ExternalMethodInfo, args []
 		}
 	}
 
-	if err := v.validateExternalMethodBoundary(methodInfo, args); err != nil {
-		return err
+	if !v.program.AllowUnsafeTypePass && !methodInfo.IsStdlib && !isStdlibExternalPath(methodInfo.PkgPath) {
+		if err := v.validateExternalMethodBoundary(methodInfo, args); err != nil {
+			return err
+		}
 	}
 
 	// Fast path: DirectCall wrapper resolved at compile time
 	if methodInfo.DirectCall != nil {
-		convertClosureArgsForMethod(methodInfo.MethodName, args)
+		hasClosureArg := false
+		// Method calls usually do not carry interpreted closures. Scan inline so
+		// stdlib method DirectCalls avoid a helper call on the common path; only
+		// closure-bearing calls pay the reflect-based signature lookup.
+		for i := 1; i < len(args); i++ {
+			if args[i].Kind() == value.KindFunc {
+				hasClosureArg = true
+				convertClosureArgsForMethod(methodInfo.MethodName, args)
+				break
+			}
+		}
+		if hasClosureArg {
+			return v.callRecoveredDirectExternal(methodInfo.DirectCall, args)
+		}
 		v.push(methodInfo.DirectCall(args))
 		return v.checkCtx()
 	}
@@ -42,7 +57,7 @@ func (v *vm) callExternalMethod(methodInfo *external.ExternalMethodInfo, args []
 }
 
 func (v *vm) validateExternalMethodBoundary(methodInfo *external.ExternalMethodInfo, args []value.Value) error {
-	if methodInfo == nil || v.program.AllowUnsafeTypePass || isStdlibExternalPath(methodInfo.PkgPath) {
+	if methodInfo == nil || v.program.AllowUnsafeTypePass || methodInfo.IsStdlib || isStdlibExternalPath(methodInfo.PkgPath) {
 		return nil
 	}
 	if len(args) == 0 {

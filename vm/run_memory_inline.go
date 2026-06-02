@@ -22,6 +22,10 @@ func (v *vm) runSetDeref(sp int) int {
 		*p = val.RawInt()
 		return sp
 	}
+	if slot, ok := valueSlotFromValue(ptr); ok {
+		*slot = val
+		return sp
+	}
 	if iface := ptr.Interface(); iface != nil {
 		if ref, ok := iface.(*GlobalRef); ok {
 			ref.Store(val)
@@ -67,7 +71,10 @@ func (v *vm) runDeref(frame *Frame, sp int) (int, []value.Value, error) {
 		stack[sp] = value.MakeInt(*p)
 		return sp + 1, stack, nil
 	}
-	return v.runSlowStackOp(frame, bytecode.OpDeref, sp, ptr)
+	if v.runDerefFallback(stack, sp, ptr) {
+		return sp, stack, nil
+	}
+	return sp + 1, stack, nil
 }
 
 func (v *vm) runLen(frame *Frame, sp int) (int, []value.Value, error) {
@@ -105,4 +112,16 @@ func (v *vm) runSlowStackOp(frame *Frame, op bytecode.OpCode, sp int, operands .
 		return v.sp, v.stack, err
 	}
 	return v.sp, v.stack, nil
+}
+
+func (v *vm) runDerefFallback(stack []value.Value, sp int, ptr value.Value) (panicked bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			v.panicking = true
+			v.panicVal = value.FromInterface(r)
+			panicked = true
+		}
+	}()
+	stack[sp] = dereferenceValue(ptr)
+	return false
 }

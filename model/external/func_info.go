@@ -16,6 +16,11 @@ type ExternalFuncInfo struct {
 	// FuncName is the exported function name used for diagnostics.
 	FuncName string
 
+	// IsStdlib records whether PkgPath belongs to the Go standard library.
+	// The compiler computes this once so each VM call avoids reparsing PkgPath
+	// while still enforcing third-party boundary checks for non-stdlib calls.
+	IsStdlib bool
+
 	// Func is the actual function value.
 	Func any
 

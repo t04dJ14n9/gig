@@ -43,6 +43,7 @@ func (c *compiler) compileDeferInvoke(i *ssa.Defer) {
 	}
 	methodInfo := &external.ExternalMethodInfo{
 		MethodName: i.Call.Method.Name(),
+		IsStdlib:   true,
 	}
 	if recvType := i.Call.Value.Type(); recvType != nil {
 		if named := extractNamedType(recvType); named != nil {

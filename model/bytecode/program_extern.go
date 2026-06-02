@@ -18,6 +18,11 @@ type ResolvedCall struct {
 	// FuncName is the exported function name used for diagnostics.
 	FuncName string
 
+	// IsStdlib is true when PkgPath belongs to the Go standard library.
+	// Boundary validation is skipped for stdlib calls; storing the decision here
+	// avoids repeated string scans in tight external-call loops.
+	IsStdlib bool
+
 	// DirectCall is the fast-path wrapper. Nil means use reflect.
 	DirectCall func(args []value.Value) value.Value
 
@@ -59,6 +64,7 @@ func ResolveConstant(c any) *ResolvedCall {
 		return &ResolvedCall{
 			DirectCall: info.DirectCall,
 			MethodName: info.MethodName,
+			IsStdlib:   info.IsStdlib,
 		}
 	default:
 		return resolveLegacyFunc(c)
@@ -69,6 +75,7 @@ func resolveExternalFunc(info *external.ExternalFuncInfo) *ResolvedCall {
 	rc := &ResolvedCall{
 		PkgPath:    info.PkgPath,
 		FuncName:   info.FuncName,
+		IsStdlib:   info.IsStdlib,
 		DirectCall: info.DirectCall,
 		IsVariadic: info.IsVariadic,
 		NumIn:      info.NumIn,
@@ -101,5 +108,6 @@ func resolveLegacyFunc(c any) *ResolvedCall {
 		FnType:     ft,
 		IsVariadic: ft.IsVariadic(),
 		NumIn:      ft.NumIn(),
+		IsStdlib:   true,
 	}
 }

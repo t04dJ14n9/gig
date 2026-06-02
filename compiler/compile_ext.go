@@ -48,6 +48,7 @@ func (c *compiler) lookupExternalFuncInfo(fn *ssa.Function) *external.ExternalFu
 	info := &external.ExternalFuncInfo{
 		PkgPath:    pkgPath,
 		FuncName:   fn.Name(),
+		IsStdlib:   isStdlibPath(pkgPath),
 		Func:       fnVal,
 		DirectCall: directCall,
 	}
@@ -66,10 +67,12 @@ func (c *compiler) lookupExternalMethodInfo(fn *ssa.Function) *external.External
 		return nil
 	}
 	methodName := extractMethodName(fn.Name())
+	pkgPath := methodOwnerPkgPath(fn)
 	info := &external.ExternalMethodInfo{
-		PkgPath:    methodOwnerPkgPath(fn),
+		PkgPath:    pkgPath,
 		MethodName: methodName,
 		FuncName:   methodName,
+		IsStdlib:   isStdlibPath(pkgPath),
 	}
 	if c.lookup != nil {
 		typeName := extractReceiverTypeName(fn.Signature.Recv().Type())

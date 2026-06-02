@@ -115,6 +115,24 @@ func (v *vm) run() (value.Value, error) {
 			locals[idx] = stack[sp]
 			continue
 
+		case bytecode.OpFree:
+			idx := frame.readByte()
+			if int(idx) < len(frame.freeVars) && frame.freeVars[idx] != nil {
+				stack[sp] = *frame.freeVars[idx]
+			} else {
+				stack[sp] = value.MakeNil()
+			}
+			sp++
+			continue
+
+		case bytecode.OpSetFree:
+			idx := frame.readByte()
+			sp--
+			if int(idx) < len(frame.freeVars) && frame.freeVars[idx] != nil {
+				*frame.freeVars[idx] = stack[sp]
+			}
+			continue
+
 		case bytecode.OpConst:
 			idx := readU16()
 			if int(idx) < len(prebaked) {
@@ -232,13 +250,17 @@ func (v *vm) run() (value.Value, error) {
 		case bytecode.OpJumpTrue:
 			offset := readU16()
 			sp--
-			runJumpIf(frame, offset, stack[sp].RawBool())
+			if stack[sp].RawBool() {
+				frame.ip = int(offset)
+			}
 			continue
 
 		case bytecode.OpJumpFalse:
 			offset := readU16()
 			sp--
-			runJumpIf(frame, offset, !stack[sp].RawBool())
+			if !stack[sp].RawBool() {
+				frame.ip = int(offset)
+			}
 			continue
 
 		case bytecode.OpNot:
@@ -338,27 +360,249 @@ func (v *vm) run() (value.Value, error) {
 		// Superinstructions: fused ops for hot loops
 		// ========================================
 
-		case bytecode.OpAddLocalLocal,
-			bytecode.OpSubLocalLocal,
-			bytecode.OpMulLocalLocal,
-			bytecode.OpAddLocalConst,
-			bytecode.OpSubLocalConst,
-			bytecode.OpLessLocalLocalJumpTrue,
-			bytecode.OpLessLocalConstJumpTrue,
-			bytecode.OpLessEqLocalConstJumpTrue,
-			bytecode.OpGreaterLocalLocalJumpTrue,
-			bytecode.OpLessLocalLocalJumpFalse,
-			bytecode.OpLessLocalConstJumpFalse,
-			bytecode.OpLessEqLocalConstJumpFalse,
-			bytecode.OpAddSetLocal,
-			bytecode.OpSubSetLocal,
-			bytecode.OpLocalLocalAddSetLocal,
-			bytecode.OpLocalConstAddSetLocal,
-			bytecode.OpLocalConstSubSetLocal,
-			bytecode.OpLocalLocalSubSetLocal,
-			bytecode.OpLocalLocalMulSetLocal,
-			bytecode.OpLocalConstMulSetLocal:
-			sp = v.runGenericSuperinstruction(op, frame, sp, locals, intLocals, prebaked)
+		case bytecode.OpAddLocalLocal:
+			idxA, idxB := readU16(), readU16()
+			a, b := locals[idxA], locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				stack[sp] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
+			} else {
+				stack[sp] = a.Add(b)
+			}
+			sp++
+			continue
+
+		case bytecode.OpSubLocalLocal:
+			idxA, idxB := readU16(), readU16()
+			a, b := locals[idxA], locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				stack[sp] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
+			} else {
+				stack[sp] = a.Sub(b)
+			}
+			sp++
+			continue
+
+		case bytecode.OpMulLocalLocal:
+			idxA, idxB := readU16(), readU16()
+			a, b := locals[idxA], locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				stack[sp] = value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize())
+			} else {
+				stack[sp] = a.Mul(b)
+			}
+			sp++
+			continue
+
+		case bytecode.OpAddLocalConst:
+			idxA, idxB := readU16(), readU16()
+			a, b := locals[idxA], prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				stack[sp] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
+			} else {
+				stack[sp] = a.Add(b)
+			}
+			sp++
+			continue
+
+		case bytecode.OpSubLocalConst:
+			idxA, idxB := readU16(), readU16()
+			a, b := locals[idxA], prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				stack[sp] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
+			} else {
+				stack[sp] = a.Sub(b)
+			}
+			sp++
+			continue
+
+		case bytecode.OpLessLocalLocalJumpTrue:
+			idxA, idxB, offset := readU16(), readU16(), readU16()
+			a, b := locals[idxA], locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				if a.RawInt() < b.RawInt() {
+					frame.ip = int(offset)
+				}
+			} else {
+				if a.Cmp(b) < 0 {
+					frame.ip = int(offset)
+				}
+			}
+			continue
+
+		case bytecode.OpLessLocalConstJumpTrue:
+			idxA, idxB, offset := readU16(), readU16(), readU16()
+			a, b := locals[idxA], prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				if a.RawInt() < b.RawInt() {
+					frame.ip = int(offset)
+				}
+			} else {
+				if a.Cmp(b) < 0 {
+					frame.ip = int(offset)
+				}
+			}
+			continue
+
+		case bytecode.OpLessEqLocalConstJumpTrue:
+			idxA, idxB, offset := readU16(), readU16(), readU16()
+			a, b := locals[idxA], prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				if a.RawInt() <= b.RawInt() {
+					frame.ip = int(offset)
+				}
+			} else {
+				if lessEqCmp(a, b) {
+					frame.ip = int(offset)
+				}
+			}
+			continue
+
+		case bytecode.OpGreaterLocalLocalJumpTrue:
+			idxA, idxB, offset := readU16(), readU16(), readU16()
+			a, b := locals[idxA], locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				if a.RawInt() > b.RawInt() {
+					frame.ip = int(offset)
+				}
+			} else {
+				if a.Cmp(b) > 0 {
+					frame.ip = int(offset)
+				}
+			}
+			continue
+
+		case bytecode.OpLessLocalLocalJumpFalse:
+			idxA, idxB, offset := readU16(), readU16(), readU16()
+			a, b := locals[idxA], locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				if a.RawInt() >= b.RawInt() {
+					frame.ip = int(offset)
+				}
+			} else {
+				if a.Cmp(b) >= 0 {
+					frame.ip = int(offset)
+				}
+			}
+			continue
+
+		case bytecode.OpLessLocalConstJumpFalse:
+			idxA, idxB, offset := readU16(), readU16(), readU16()
+			a, b := locals[idxA], prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				if a.RawInt() >= b.RawInt() {
+					frame.ip = int(offset)
+				}
+			} else {
+				if a.Cmp(b) >= 0 {
+					frame.ip = int(offset)
+				}
+			}
+			continue
+
+		case bytecode.OpLessEqLocalConstJumpFalse:
+			idxA, idxB, offset := readU16(), readU16(), readU16()
+			a, b := locals[idxA], prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				if a.RawInt() > b.RawInt() {
+					frame.ip = int(offset)
+				}
+			} else {
+				if !lessEqCmp(a, b) {
+					frame.ip = int(offset)
+				}
+			}
+			continue
+
+		case bytecode.OpAddSetLocal:
+			idx := readU16()
+			sp--
+			b := stack[sp]
+			sp--
+			a := stack[sp]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idx] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
+				if intLocals != nil {
+					intLocals[idx] = locals[idx].RawInt()
+				}
+			} else {
+				locals[idx] = a.Add(b)
+			}
+			continue
+
+		case bytecode.OpSubSetLocal:
+			idx := readU16()
+			sp--
+			b := stack[sp]
+			sp--
+			a := stack[sp]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idx] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
+				if intLocals != nil {
+					intLocals[idx] = locals[idx].RawInt()
+				}
+			} else {
+				locals[idx] = a.Sub(b)
+			}
+			continue
+
+		case bytecode.OpLocalLocalAddSetLocal:
+			idxA, idxB, idxC := readU16(), readU16(), readU16()
+			a, b := locals[idxA], locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idxC] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
+			} else {
+				locals[idxC] = a.Add(b)
+			}
+			continue
+
+		case bytecode.OpLocalConstAddSetLocal:
+			idxA, idxB, idxC := readU16(), readU16(), readU16()
+			a, b := locals[idxA], prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idxC] = value.MakeIntSized(a.RawInt()+b.RawInt(), a.RawSize())
+			} else {
+				locals[idxC] = a.Add(b)
+			}
+			continue
+
+		case bytecode.OpLocalConstSubSetLocal:
+			idxA, idxB, idxC := readU16(), readU16(), readU16()
+			a, b := locals[idxA], prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idxC] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
+			} else {
+				locals[idxC] = a.Sub(b)
+			}
+			continue
+
+		case bytecode.OpLocalLocalSubSetLocal:
+			idxA, idxB, idxC := readU16(), readU16(), readU16()
+			a, b := locals[idxA], locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idxC] = value.MakeIntSized(a.RawInt()-b.RawInt(), a.RawSize())
+			} else {
+				locals[idxC] = a.Sub(b)
+			}
+			continue
+
+		case bytecode.OpLocalLocalMulSetLocal:
+			idxA, idxB, idxC := readU16(), readU16(), readU16()
+			a, b := locals[idxA], locals[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idxC] = value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize())
+			} else {
+				locals[idxC] = a.Mul(b)
+			}
+			continue
+
+		case bytecode.OpLocalConstMulSetLocal:
+			idxA, idxB, idxC := readU16(), readU16(), readU16()
+			a, b := locals[idxA], prebaked[idxB]
+			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
+				locals[idxC] = value.MakeIntSized(a.RawInt()*b.RawInt(), a.RawSize())
+			} else {
+				locals[idxC] = a.Mul(b)
+			}
 			continue
 
 		// ========================================
@@ -367,70 +611,102 @@ func (v *vm) run() (value.Value, error) {
 		// ========================================
 
 		case bytecode.OpIntLocalConstAddSetLocal:
-			idxA, idxB, idxC := readU16(), readU16(), readU16()
+			idxA := readU16()
+			idxB := readU16()
+			idxC := readU16()
 			r := intLocals[idxA] + intConsts[idxB]
 			intLocals[idxC] = r
 			locals[idxC] = value.MakeInt(r)
 			continue
 
 		case bytecode.OpIntLocalConstSubSetLocal:
-			idxA, idxB, idxC := readU16(), readU16(), readU16()
+			idxA := readU16()
+			idxB := readU16()
+			idxC := readU16()
 			r := intLocals[idxA] - intConsts[idxB]
 			intLocals[idxC] = r
 			locals[idxC] = value.MakeInt(r)
 			continue
 
 		case bytecode.OpIntLocalLocalAddSetLocal:
-			idxA, idxB, idxC := readU16(), readU16(), readU16()
+			idxA := readU16()
+			idxB := readU16()
+			idxC := readU16()
 			r := intLocals[idxA] + intLocals[idxB]
 			intLocals[idxC] = r
 			locals[idxC] = value.MakeInt(r)
 			continue
 
 		case bytecode.OpIntLocalLocalSubSetLocal:
-			idxA, idxB, idxC := readU16(), readU16(), readU16()
+			idxA := readU16()
+			idxB := readU16()
+			idxC := readU16()
 			r := intLocals[idxA] - intLocals[idxB]
 			intLocals[idxC] = r
 			locals[idxC] = value.MakeInt(r)
 			continue
 
 		case bytecode.OpIntLocalLocalMulSetLocal:
-			idxA, idxB, idxC := readU16(), readU16(), readU16()
+			idxA := readU16()
+			idxB := readU16()
+			idxC := readU16()
 			r := intLocals[idxA] * intLocals[idxB]
 			intLocals[idxC] = r
 			locals[idxC] = value.MakeInt(r)
 			continue
 
 		case bytecode.OpIntLocalConstMulSetLocal:
-			idxA, idxB, idxC := readU16(), readU16(), readU16()
+			idxA := readU16()
+			idxB := readU16()
+			idxC := readU16()
 			r := intLocals[idxA] * intConsts[idxB]
 			intLocals[idxC] = r
 			locals[idxC] = value.MakeInt(r)
 			continue
 
 		case bytecode.OpIntLessLocalConstJumpFalse:
-			idxA, idxB, offset := readU16(), readU16(), readU16()
-			runJumpIf(frame, offset, intLocals[idxA] >= intConsts[idxB])
+			idxA := readU16()
+			idxB := readU16()
+			offset := readU16()
+			if intLocals[idxA] >= intConsts[idxB] {
+				frame.ip = int(offset)
+			}
 			continue
 
 		case bytecode.OpIntLessEqLocalConstJumpTrue:
-			idxA, idxB, offset := readU16(), readU16(), readU16()
-			runJumpIf(frame, offset, intLocals[idxA] <= intConsts[idxB])
+			idxA := readU16()
+			idxB := readU16()
+			offset := readU16()
+			if intLocals[idxA] <= intConsts[idxB] {
+				frame.ip = int(offset)
+			}
 			continue
 
 		case bytecode.OpIntLessEqLocalConstJumpFalse:
-			idxA, idxB, offset := readU16(), readU16(), readU16()
-			runJumpIf(frame, offset, intLocals[idxA] > intConsts[idxB])
+			idxA := readU16()
+			idxB := readU16()
+			offset := readU16()
+			if intLocals[idxA] > intConsts[idxB] {
+				frame.ip = int(offset)
+			}
 			continue
 
 		case bytecode.OpIntLessLocalLocalJumpFalse:
-			idxA, idxB, offset := readU16(), readU16(), readU16()
-			runJumpIf(frame, offset, intLocals[idxA] >= intLocals[idxB])
+			idxA := readU16()
+			idxB := readU16()
+			offset := readU16()
+			if intLocals[idxA] >= intLocals[idxB] {
+				frame.ip = int(offset)
+			}
 			continue
 
 		case bytecode.OpIntGreaterLocalLocalJumpTrue:
-			idxA, idxB, offset := readU16(), readU16(), readU16()
-			runJumpIf(frame, offset, intLocals[idxA] > intLocals[idxB])
+			idxA := readU16()
+			idxB := readU16()
+			offset := readU16()
+			if intLocals[idxA] > intLocals[idxB] {
+				frame.ip = int(offset)
+			}
 			continue
 
 		case bytecode.OpIntSetLocal:
@@ -448,23 +724,34 @@ func (v *vm) run() (value.Value, error) {
 			continue
 
 		case bytecode.OpIntLessLocalConstJumpTrue:
-			idxA, idxB, offset := readU16(), readU16(), readU16()
-			runJumpIf(frame, offset, intLocals[idxA] < intConsts[idxB])
+			idxA := readU16()
+			idxB := readU16()
+			offset := readU16()
+			if intLocals[idxA] < intConsts[idxB] {
+				frame.ip = int(offset)
+			}
 			continue
 
 		case bytecode.OpIntLessLocalLocalJumpTrue:
-			idxA, idxB, offset := readU16(), readU16(), readU16()
-			runJumpIf(frame, offset, intLocals[idxA] < intLocals[idxB])
+			idxA := readU16()
+			idxB := readU16()
+			offset := readU16()
+			if intLocals[idxA] < intLocals[idxB] {
+				frame.ip = int(offset)
+			}
 			continue
 
 		case bytecode.OpIntMoveLocal:
-			src, dst := readU16(), readU16()
+			src := readU16()
+			dst := readU16()
 			intLocals[dst] = intLocals[src]
 			locals[dst] = locals[src]
 			continue
 
 		case bytecode.OpIntSliceGet:
-			sIdx, jIdx, vIdx := readU16(), readU16(), readU16()
+			sIdx := readU16()
+			jIdx := readU16()
+			vIdx := readU16()
 			if s, ok := locals[sIdx].IntSlice(); ok {
 				idx := intLocals[jIdx]
 				if idx < 0 || idx >= int64(len(s)) {
@@ -484,7 +771,9 @@ func (v *vm) run() (value.Value, error) {
 			continue
 
 		case bytecode.OpIntSliceSet:
-			sIdx, jIdx, valIdx := readU16(), readU16(), readU16()
+			sIdx := readU16()
+			jIdx := readU16()
+			valIdx := readU16()
 			if s, ok := locals[sIdx].IntSlice(); ok {
 				idx := intLocals[jIdx]
 				if idx < 0 || idx >= int64(len(s)) {
@@ -502,7 +791,9 @@ func (v *vm) run() (value.Value, error) {
 			continue
 
 		case bytecode.OpIntSliceSetConst:
-			sIdx, jIdx, cIdx := readU16(), readU16(), readU16()
+			sIdx := readU16()
+			jIdx := readU16()
+			cIdx := readU16()
 			if s, ok := locals[sIdx].IntSlice(); ok {
 				idx := intLocals[jIdx]
 				if idx < 0 || idx >= int64(len(s)) {
@@ -522,23 +813,51 @@ func (v *vm) run() (value.Value, error) {
 		case bytecode.OpCallExternal:
 			funcIdx := readU16()
 			numArgs := int(frame.readByte())
-			frameChanged := false
-			var err error
-			sp, stack, frameChanged, err = v.runExternalCall(int(funcIdx), numArgs, sp)
-			reloadFrame, err := v.runCallComplete(err, frameChanged, true)
-			if err != nil {
+			prevFP := v.fp
+			v.sp = sp
+			if err := v.callExternal(int(funcIdx), numArgs); err != nil {
 				return value.MakeNil(), err
 			}
-			if reloadFrame {
+			sp = v.sp
+			stack = v.stack
+			if v.fp != prevFP {
 				loadFrame()
 			}
 			continue
 
 		case bytecode.OpCallIndirect:
 			numArgs := int(frame.readByte())
+			var argsBuf [8]value.Value
+			var args []value.Value
+			if numArgs <= len(argsBuf) {
+				args = argsBuf[:numArgs]
+			} else {
+				args = make([]value.Value, numArgs)
+			}
+			spLocal := sp
+			for i := numArgs - 1; i >= 0; i-- {
+				spLocal--
+				args[i] = stack[spLocal]
+			}
+			spLocal--
+			callee := stack[spLocal]
+			sp = spLocal
+
+			// Keep interpreted closure dispatch inline. Closure-heavy programs
+			// execute this path once per call, and the helper extraction alone
+			// shows up as a measurable ClosureCalls regression.
+			if closure, ok := callee.RawObj().(*Closure); ok {
+				v.sp = sp
+				v.callFunction(closure.Fn, args, closure.FreeVars)
+				sp = v.sp
+				stack = v.stack
+				loadFrame()
+				continue
+			}
+
 			frameChanged := false
 			var err error
-			sp, stack, frameChanged, err = v.runIndirectCall(sp, numArgs)
+			sp, stack, frameChanged, err = v.runIndirectCallFallback(callee, args, sp)
 			reloadFrame, err := v.runCallComplete(err, frameChanged, false)
 			if err != nil {
 				return value.MakeNil(), err

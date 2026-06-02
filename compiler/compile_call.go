@@ -25,6 +25,7 @@ func (c *compiler) compileCall(i *ssa.Call) {
 		}
 		methodInfo := &external.ExternalMethodInfo{
 			MethodName: i.Call.Method.Name(),
+			IsStdlib:   true,
 		}
 		// For invoke calls, try to extract the concrete receiver type from the
 		// interface value. This helps callCompiledMethod disambiguate methods

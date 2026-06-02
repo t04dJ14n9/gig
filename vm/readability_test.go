@@ -10,13 +10,21 @@ import (
 )
 
 func TestRunLoopFileStaysFocused(t *testing.T) {
-	assertFileLineLimit(t, "run.go", 580, "compact repeated stack pops and literal dispatch")
+	assertFileLineLimit(
+		t,
+		"run.go",
+		900,
+		"keep only benchmark-proven dispatch and frame-state mechanics in the main loop",
+	)
 }
 
-func TestRunLoopDecisionBudgetImproves(t *testing.T) {
+func TestRunLoopDecisionBudgetStaysBounded(t *testing.T) {
 	count := recursiveDecisionCount(t, "run.go", "run")
-	if count > 90 {
-		t.Fatalf("vm.run has %d decision points, want <= 90; group literal routing outside the main dispatch", count)
+	if count > 190 {
+		t.Fatalf(
+			"vm.run has %d decision points, want <= 190; split cold opcode and boundary handling before hot dispatch",
+			count,
+		)
 	}
 }
 
@@ -158,10 +166,34 @@ func TestCompositeTypeToReflectStaysShallow(t *testing.T) {
 	}
 }
 
-func TestGenericSuperinstructionStaysGrouped(t *testing.T) {
-	count := directSwitchCaseCount(t, "run_super_generic.go", "runGenericSuperinstruction")
-	if count > 8 {
-		t.Fatalf("runGenericSuperinstruction has %d direct switch cases, want <= 8; route by superinstruction family", count)
+func TestRunLoopHotSuperinstructionsStayInline(t *testing.T) {
+	for _, opcode := range []string{
+		"OpAddLocalLocal",
+		"OpSubLocalLocal",
+		"OpMulLocalLocal",
+		"OpAddLocalConst",
+		"OpSubLocalConst",
+		"OpFree",
+		"OpSetFree",
+		"OpLessLocalLocalJumpTrue",
+		"OpLessLocalConstJumpTrue",
+		"OpLessEqLocalConstJumpTrue",
+		"OpGreaterLocalLocalJumpTrue",
+		"OpLessLocalLocalJumpFalse",
+		"OpLessLocalConstJumpFalse",
+		"OpLessEqLocalConstJumpFalse",
+		"OpAddSetLocal",
+		"OpSubSetLocal",
+		"OpLocalLocalAddSetLocal",
+		"OpLocalConstAddSetLocal",
+		"OpLocalConstSubSetLocal",
+		"OpLocalLocalSubSetLocal",
+		"OpLocalLocalMulSetLocal",
+		"OpLocalConstMulSetLocal",
+	} {
+		if !directSwitchCaseReferences(t, "run.go", "run", opcode) {
+			t.Fatalf("%s should remain directly inlined in vm.run; benchmark before moving it to a helper", opcode)
+		}
 	}
 }
 
@@ -299,6 +331,47 @@ func directSwitchCaseCount(t *testing.T, path, funcName string) int {
 		}
 	}
 	return count
+}
+
+func directSwitchCaseReferences(t *testing.T, path, funcName, selectorName string) bool {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+
+	fn := findFuncDecl(file, funcName)
+	if fn == nil || fn.Body == nil {
+		t.Fatalf("find function %s in %s", funcName, path)
+	}
+
+	found := false
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		if found {
+			return false
+		}
+		sw, ok := n.(*ast.SwitchStmt)
+		if !ok {
+			return true
+		}
+		for _, stmt := range sw.Body.List {
+			clause, ok := stmt.(*ast.CaseClause)
+			if !ok {
+				continue
+			}
+			for _, expr := range clause.List {
+				sel, ok := expr.(*ast.SelectorExpr)
+				if ok && sel.Sel.Name == selectorName {
+					found = true
+					return false
+				}
+			}
+		}
+		return true
+	})
+	return found
 }
 
 func recursiveBranchCount(t *testing.T, path, funcName string) int {

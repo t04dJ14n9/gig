@@ -125,6 +125,20 @@ func TestDereferenceValueLoadsGlobalRefAndValueSlot(t *testing.T) {
 	}
 }
 
+func TestDereferenceValueScalarReflectPointerAvoidsCloneAllocation(t *testing.T) {
+	n := 42
+	ptr := value.MakeFromReflect(reflect.ValueOf(&n))
+
+	allocs := testing.AllocsPerRun(1000, func() {
+		if got := dereferenceValue(ptr); got.Int() != 42 {
+			t.Fatalf("dereferenceValue(*int) = %d, want 42", got.Int())
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("dereferenceValue(*int) allocated %.0f times; scalar reflect loads should not clone", allocs)
+	}
+}
+
 func TestSetDereferenceValueStoresGlobalRefAndInterfaceSlot(t *testing.T) {
 	prog := &bytecode.CompiledProgram{}
 	v := New(prog).(*vm)

@@ -9,7 +9,7 @@ import (
 )
 
 func (v *vm) validateExternalBoundary(rc *bytecode.ResolvedCall, args []value.Value) error {
-	if rc == nil || v.program.AllowUnsafeTypePass || isStdlibExternalPath(rc.PkgPath) {
+	if rc == nil || v.program.AllowUnsafeTypePass || rc.IsStdlib || isStdlibExternalPath(rc.PkgPath) {
 		return nil
 	}
 	for i, arg := range args {
