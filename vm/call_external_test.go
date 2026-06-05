@@ -11,6 +11,10 @@ import (
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
+type externalBoundaryPolicyHost struct{}
+
+func (externalBoundaryPolicyHost) AcceptAny(any) {}
+
 func TestCallExternalMissingResolvedCallReturnsError(t *testing.T) {
 	v := &vm{
 		program: &bytecode.CompiledProgram{},
@@ -53,6 +57,137 @@ func TestCallExternalInvalidFunctionReturnsError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "invalid external function") {
 		t.Fatalf("error = %q, want invalid external function", err.Error())
+	}
+}
+
+func TestExternalBoundaryPolicyTrustsStdlib(t *testing.T) {
+	v := &vm{program: &bytecode.CompiledProgram{}}
+	arg := value.MakeInterpretedInterface(value.MakeInt(1), "ScriptStruct", false)
+
+	for _, rc := range []*bytecode.ResolvedCall{
+		{PkgPath: "fmt", FuncName: "Sprint", IsStdlib: true, FnType: reflect.TypeOf(func(any) {})},
+		{PkgPath: "strings", FuncName: "Contains", FnType: reflect.TypeOf(func(any) {})},
+		{PkgPath: "main", FuncName: "F", FnType: reflect.TypeOf(func(any) {})},
+	} {
+		if err := v.validateExternalBoundary(rc, []value.Value{arg}); err != nil {
+			t.Fatalf("trusted call %s.%s was rejected: %v", rc.PkgPath, rc.FuncName, err)
+		}
+	}
+
+	methodInfo := &external.ExternalMethodInfo{PkgPath: "strings", MethodName: "Len", IsStdlib: true}
+	args := []value.Value{value.FromInterface(externalBoundaryPolicyHost{}), arg}
+	if err := v.validateExternalMethodBoundary(methodInfo, args); err != nil {
+		t.Fatalf("trusted method was rejected: %v", err)
+	}
+}
+
+func TestExternalBoundaryPolicyRequiresThirdPartyValidation(t *testing.T) {
+	v := &vm{program: &bytecode.CompiledProgram{}}
+	arg := value.MakeInterpretedInterface(value.MakeInt(1), "ScriptStruct", false)
+
+	rc := &bytecode.ResolvedCall{
+		PkgPath:  "example.com/host",
+		FuncName: "AcceptAny",
+		FnType:   reflect.TypeOf(func(any) {}),
+	}
+	if err := v.validateExternalBoundary(rc, []value.Value{arg}); err == nil {
+		t.Fatal("third-party call skipped boundary validation")
+	}
+
+	methodInfo := &external.ExternalMethodInfo{PkgPath: "example.com/host", MethodName: "AcceptAny"}
+	args := []value.Value{value.FromInterface(externalBoundaryPolicyHost{}), arg}
+	if err := v.validateExternalMethodBoundary(methodInfo, args); err == nil {
+		t.Fatal("third-party method skipped boundary validation")
+	}
+}
+
+func TestExternalBoundaryPolicyUnsafeOverrideSkipsValidation(t *testing.T) {
+	v := &vm{program: &bytecode.CompiledProgram{AllowUnsafeTypePass: true}}
+	arg := value.MakeInterpretedInterface(value.MakeInt(1), "ScriptStruct", false)
+
+	rc := &bytecode.ResolvedCall{
+		PkgPath:  "example.com/host",
+		FuncName: "AcceptAny",
+		FnType:   reflect.TypeOf(func(any) {}),
+	}
+	if err := v.validateExternalBoundary(rc, []value.Value{arg}); err != nil {
+		t.Fatalf("unsafe override should skip function boundary validation: %v", err)
+	}
+
+	methodInfo := &external.ExternalMethodInfo{PkgPath: "example.com/host", MethodName: "AcceptAny"}
+	args := []value.Value{value.FromInterface(externalBoundaryPolicyHost{}), arg}
+	if err := v.validateExternalMethodBoundary(methodInfo, args); err != nil {
+		t.Fatalf("unsafe override should skip method boundary validation: %v", err)
+	}
+}
+
+func TestValidateExternalBoundaryRejectsInterpretedInterfaceToThirdPartyAny(t *testing.T) {
+	v := &vm{program: &bytecode.CompiledProgram{}}
+	rc := &bytecode.ResolvedCall{
+		PkgPath:  "example.com/host",
+		FuncName: "AcceptAny",
+		FnType:   reflect.TypeOf(func(any) {}),
+	}
+	arg := value.MakeInterpretedInterface(value.MakeInt(1), "ScriptStruct", false)
+
+	err := v.validateExternalBoundary(rc, []value.Value{arg})
+	if err == nil {
+		t.Fatal("expected interpreted interface to be rejected")
+	}
+	if !strings.Contains(err.Error(), `interpreter-defined type "ScriptStruct"`) {
+		t.Fatalf("error = %q, want ScriptStruct boundary diagnostic", err.Error())
+	}
+}
+
+func TestValidateExternalBoundaryRejectsInterpretedFuncToThirdPartyAny(t *testing.T) {
+	v := &vm{program: &bytecode.CompiledProgram{}}
+	rc := &bytecode.ResolvedCall{
+		PkgPath:  "example.com/host",
+		FuncName: "AcceptAny",
+		FnType:   reflect.TypeOf(func(any) {}),
+	}
+	arg := value.MakeFunc(&Closure{Fn: &bytecode.CompiledFunction{Name: "Callback"}})
+
+	err := v.validateExternalBoundary(rc, []value.Value{arg})
+	if err == nil {
+		t.Fatal("expected interpreted function to be rejected")
+	}
+	if !strings.Contains(err.Error(), `interpreter-defined type "func Callback"`) {
+		t.Fatalf("error = %q, want func Callback boundary diagnostic", err.Error())
+	}
+}
+
+func TestValidateExternalBoundaryAllowsTypedInterpretedFuncCallback(t *testing.T) {
+	v := &vm{program: &bytecode.CompiledProgram{}}
+	rc := &bytecode.ResolvedCall{
+		PkgPath:  "example.com/host",
+		FuncName: "AcceptIntFunc",
+		FnType:   reflect.TypeOf(func(func(int) int) {}),
+	}
+	arg := value.MakeFunc(&Closure{Fn: &bytecode.CompiledFunction{Name: "Callback"}})
+
+	if err := v.validateExternalBoundary(rc, []value.Value{arg}); err != nil {
+		t.Fatalf("typed callback should be allowed: %v", err)
+	}
+}
+
+func TestValidateExternalMethodBoundaryRejectsInterpretedInterfaceArg(t *testing.T) {
+	v := &vm{program: &bytecode.CompiledProgram{}}
+	methodInfo := &external.ExternalMethodInfo{
+		PkgPath:    "example.com/host",
+		MethodName: "AcceptAny",
+	}
+	args := []value.Value{
+		value.FromInterface(externalBoundaryPolicyHost{}),
+		value.MakeInterpretedInterface(value.MakeInt(1), "ScriptStruct", false),
+	}
+
+	err := v.validateExternalMethodBoundary(methodInfo, args)
+	if err == nil {
+		t.Fatal("expected interpreted method argument to be rejected")
+	}
+	if !strings.Contains(err.Error(), `interpreter-defined type "ScriptStruct"`) {
+		t.Fatalf("error = %q, want ScriptStruct boundary diagnostic", err.Error())
 	}
 }
 

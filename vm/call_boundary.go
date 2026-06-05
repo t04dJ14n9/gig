@@ -9,6 +9,13 @@ import (
 )
 
 func (v *vm) validateExternalBoundary(rc *bytecode.ResolvedCall, args []value.Value) error {
+	// Boundary policy:
+	// - stdlib, main, and command-line-arguments are trusted interpreter domains.
+	// - third-party packages may receive native Go values, typed callbacks, and
+	//   registered externals whose conversion path is owned by the registry.
+	// - third-party packages must not receive interpreter-defined structs or
+	//   functions through interface-shaped parameters unless an explicit registry
+	//   proxy, or the unsafe override, owns that adaptation.
 	if rc == nil || v.program.AllowUnsafeTypePass || rc.IsStdlib || isStdlibExternalPath(rc.PkgPath) {
 		return nil
 	}
