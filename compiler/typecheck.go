@@ -178,20 +178,31 @@ func validateExternalCallBoundary(pkgPath, funcName string, args []externalCallA
 		return nil
 	}
 	for i, arg := range args {
-		if arg.AllowInterfaceProxy {
-			continue
-		}
-		if containsUserDefinedType(arg.SourceType) {
-			typeName := describeType(arg.SourceType)
-			return fmt.Errorf(
-				"cannot pass interpreter-defined type %q to third-party function %s.%s (argument %d): "+
-					"custom types are not compatible with external libraries that use reflection. "+
-					"Use primitive types, slices, maps, types from registered packages, or a registered interface proxy instead",
-				typeName, pkgPath, funcName, i+1,
-			)
+		if err := validateExternalCallArgBoundary(pkgPath, funcName, i, arg); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// validateExternalCallArgBoundary applies the per-argument policy after the
+// caller has established that the destination package is third-party code.
+func validateExternalCallArgBoundary(pkgPath, funcName string, argIndex int, arg externalCallArg) error {
+	if arg.AllowInterfaceProxy || !containsUserDefinedType(arg.SourceType) {
+		return nil
+	}
+	return externalCallBoundaryError(pkgPath, funcName, argIndex, describeType(arg.SourceType))
+}
+
+// externalCallBoundaryError keeps the diagnostic text centralized so proxy,
+// type-scan, and package-trust decisions do not duplicate user-facing wording.
+func externalCallBoundaryError(pkgPath, funcName string, argIndex int, typeName string) error {
+	return fmt.Errorf(
+		"cannot pass interpreter-defined type %q to third-party function %s.%s (argument %d): "+
+			"custom types are not compatible with external libraries that use reflection. "+
+			"Use primitive types, slices, maps, types from registered packages, or a registered interface proxy instead",
+		typeName, pkgPath, funcName, argIndex+1,
+	)
 }
 
 // describeType returns a human-readable name for a type for error messages.

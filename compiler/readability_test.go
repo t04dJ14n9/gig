@@ -67,6 +67,16 @@ func TestContainsUserDefinedTypeSeenStaysShallow(t *testing.T) {
 	}
 }
 
+func TestValidateExternalCallBoundaryStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "typecheck.go", "validateExternalCallBoundary")
+	if count > 3 {
+		t.Fatalf(
+			"validateExternalCallBoundary has %d branch points, want <= 3; split package trust, argument policy, and diagnostics",
+			count,
+		)
+	}
+}
+
 func TestBasicConstValueStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "compile_const_basic.go", "basicConstValue")
 	if count > 5 {
