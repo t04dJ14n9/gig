@@ -45,6 +45,16 @@ func TestLookupExternalFuncInfoStaysShallow(t *testing.T) {
 	}
 }
 
+func TestCompileExternalStaticCallStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "compile_ext.go", "compileExternalStaticCall")
+	if count > 4 {
+		t.Fatalf(
+			"compileExternalStaticCall has %d branch points, want <= 4; split argument emission, method dispatch, unresolved init stubs, and call emission",
+			count,
+		)
+	}
+}
+
 func TestCompileConstFileStaysFocused(t *testing.T) {
 	assertCompilerFileLineLimit(t, "compile_const.go", 120, "move constant conversion helpers to focused files")
 }

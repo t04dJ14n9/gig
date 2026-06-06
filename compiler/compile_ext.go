@@ -103,41 +103,60 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 		c.validateExternalFuncBoundary(origin, i.Call.Args)
 	}
 
-	for _, arg := range i.Call.Args {
-		c.compileValue(arg)
-	}
+	c.compileExternalCallArgs(i.Call.Args)
 
 	sig := fn.Signature
 	if sig.Recv() != nil {
-		methodInfo := c.lookupExternalMethodInfo(fn)
-		funcIdx := c.addConstant(methodInfo)
-		numArgs := len(i.Call.Args)
-		c.emitCallOp(bytecode.OpCallExternal, funcIdx, numArgs)
-		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+		c.compileResolvedExternalMethodCall(fn, len(i.Call.Args), resultIdx)
 		return
 	}
 
 	// Use injected PackageLookup instead of direct importer access
 	extFuncInfo := c.lookupExternalFuncInfo(fn)
 	if extFuncInfo == nil {
-		pkgPath := ""
-		if fn.Pkg != nil && fn.Pkg.Pkg != nil {
-			pkgPath = fn.Pkg.Pkg.Path()
-		}
-		if fn.Name() == "init" && pkgPath != "" && pkgPath != "main" && pkgPath != "command-line-arguments" {
-			// Imported binary packages are registered after their Go init functions
-			// have already run. SSA still includes init stubs for import ordering;
-			// treating those as external reflect calls produces invalid call entries.
-			return
-		}
-		c.addError(fmt.Errorf("unresolved external function %s.%s", pkgPath, fn.Name()))
-		c.emit(bytecode.OpNil)
-		c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+		c.compileUnresolvedExternalFunction(fn, resultIdx)
 		return
 	}
 
-	funcIdx := c.addConstant(extFuncInfo)
-	numArgs := len(i.Call.Args)
+	c.emitExternalCallResult(extFuncInfo, len(i.Call.Args), resultIdx)
+}
+
+func (c *compiler) compileExternalCallArgs(args []ssa.Value) {
+	for _, arg := range args {
+		c.compileValue(arg)
+	}
+}
+
+func (c *compiler) compileResolvedExternalMethodCall(fn *ssa.Function, numArgs int, resultIdx int) {
+	c.emitExternalCallResult(c.lookupExternalMethodInfo(fn), numArgs, resultIdx)
+}
+
+func (c *compiler) compileUnresolvedExternalFunction(fn *ssa.Function, resultIdx int) {
+	pkgPath := externalFunctionPkgPath(fn)
+	if shouldSkipUnresolvedExternalFunction(fn.Name(), pkgPath) {
+		return
+	}
+	c.addError(fmt.Errorf("unresolved external function %s.%s", pkgPath, fn.Name()))
+	c.emit(bytecode.OpNil)
+	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
+}
+
+func externalFunctionPkgPath(fn *ssa.Function) string {
+	if fn != nil && fn.Pkg != nil && fn.Pkg.Pkg != nil {
+		return fn.Pkg.Pkg.Path()
+	}
+	return ""
+}
+
+func shouldSkipUnresolvedExternalFunction(funcName, pkgPath string) bool {
+	// Imported binary packages are registered after their Go init functions have
+	// already run. SSA still includes init stubs for import ordering; treating
+	// those as external reflect calls produces invalid call entries.
+	return funcName == "init" && pkgPath != "" && pkgPath != "main" && pkgPath != "command-line-arguments"
+}
+
+func (c *compiler) emitExternalCallResult(callInfo any, numArgs int, resultIdx int) {
+	funcIdx := c.addConstant(callInfo)
 	c.emitCallOp(bytecode.OpCallExternal, funcIdx, numArgs)
 	c.emit(bytecode.OpSetLocal, uint16(resultIdx))
 }
