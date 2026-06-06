@@ -157,11 +157,19 @@ func containsUserDefinedSignature(t *types.Signature, seen map[types.Type]bool) 
 }
 
 func containsUserDefinedInterface(t *types.Interface, seen map[types.Type]bool) bool {
+	return containsUserDefinedInterfaceMethods(t, seen) || containsUserDefinedEmbeddedInterfaces(t, seen)
+}
+
+func containsUserDefinedInterfaceMethods(t *types.Interface, seen map[types.Type]bool) bool {
 	for i := 0; i < t.NumMethods(); i++ {
 		if containsUserDefinedTypeSeen(t.Method(i).Type(), seen) {
 			return true
 		}
 	}
+	return false
+}
+
+func containsUserDefinedEmbeddedInterfaces(t *types.Interface, seen map[types.Type]bool) bool {
 	for i := 0; i < t.NumEmbeddeds(); i++ {
 		if containsUserDefinedTypeSeen(t.EmbeddedType(i), seen) {
 			return true

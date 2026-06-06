@@ -117,6 +117,16 @@ func TestContainsUserDefinedUnderlyingStaysShallow(t *testing.T) {
 	}
 }
 
+func TestContainsUserDefinedInterfaceStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "typecheck.go", "containsUserDefinedInterface")
+	if count > 2 {
+		t.Fatalf(
+			"containsUserDefinedInterface has %d branch points, want <= 2; split method and embedded interface scans",
+			count,
+		)
+	}
+}
+
 func TestValidateExternalCallBoundaryStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "typecheck.go", "validateExternalCallBoundary")
 	if count > 3 {
