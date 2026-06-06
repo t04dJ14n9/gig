@@ -35,6 +35,16 @@ func TestExternalFuncOriginsFromSSAValueStaysShallow(t *testing.T) {
 	}
 }
 
+func TestLookupExternalFuncInfoStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "compile_ext.go", "lookupExternalFuncInfo")
+	if count > 3 {
+		t.Fatalf(
+			"lookupExternalFuncInfo has %d branch points, want <= 3; split lookup, descriptor construction, and reflect metadata",
+			count,
+		)
+	}
+}
+
 func TestCompileConstFileStaysFocused(t *testing.T) {
 	assertCompilerFileLineLimit(t, "compile_const.go", 120, "move constant conversion helpers to focused files")
 }

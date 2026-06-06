@@ -52,14 +52,24 @@ func (c *compiler) lookupExternalFuncInfo(fn *ssa.Function) *external.ExternalFu
 		Func:       fnVal,
 		DirectCall: directCall,
 	}
-	if fnVal != nil {
-		if rv := reflect.ValueOf(fnVal); rv.Kind() == reflect.Func {
-			rt := rv.Type()
-			info.IsVariadic = rt.IsVariadic()
-			info.NumIn = rt.NumIn()
-		}
-	}
+	attachExternalFuncReflectMetadata(info, fnVal)
 	return info
+}
+
+// attachExternalFuncReflectMetadata precomputes metadata the VM needs for
+// variadic DirectCall unpacking and reflect fallback. DirectCall identity stays
+// owned by the registry lookup; this helper only mirrors reflect.Type facts.
+func attachExternalFuncReflectMetadata(info *external.ExternalFuncInfo, fnVal any) {
+	if fnVal == nil {
+		return
+	}
+	rv := reflect.ValueOf(fnVal)
+	if rv.Kind() != reflect.Func {
+		return
+	}
+	rt := rv.Type()
+	info.IsVariadic = rt.IsVariadic()
+	info.NumIn = rt.NumIn()
 }
 
 func (c *compiler) lookupExternalMethodInfo(fn *ssa.Function) *external.ExternalMethodInfo {
