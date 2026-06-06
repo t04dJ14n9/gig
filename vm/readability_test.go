@@ -13,7 +13,7 @@ func TestRunLoopFileStaysFocused(t *testing.T) {
 	assertFileLineLimit(
 		t,
 		"run.go",
-		900,
+		880,
 		"keep only benchmark-proven dispatch and frame-state mechanics in the main loop",
 	)
 }

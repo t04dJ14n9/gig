@@ -15,7 +15,6 @@ import (
 // Hot-path instructions (OpLocal, OpSetLocal, OpConst, arithmetic, comparisons,
 // jumps) are inlined directly in the loop to avoid per-instruction function call
 // overhead. Less frequent opcodes fall through to executeOp.
-//
 
 //nolint:gocyclo,cyclop,funlen,maintidx,gocognit
 func (v *vm) run() (value.Value, error) {
@@ -58,7 +57,6 @@ func (v *vm) run() (value.Value, error) {
 	}
 
 	for v.fp > 0 {
-		// Periodic context check counter
 		instructionCount++
 		if instructionCount&contextCheckMask == 0 {
 			select {
@@ -85,7 +83,6 @@ func (v *vm) run() (value.Value, error) {
 			continue
 		}
 
-		// Check for end of function
 		if frame.ip >= len(ins) {
 			ret := v.runFrameEndStep(frame)
 			if ret.done {
@@ -95,7 +92,6 @@ func (v *vm) run() (value.Value, error) {
 			continue
 		}
 
-		// Fetch opcode
 		op := bytecode.OpCode(ins[frame.ip])
 		frame.ip++
 
@@ -356,9 +352,7 @@ func (v *vm) run() (value.Value, error) {
 			}
 			continue
 
-		// ========================================
 		// Superinstructions: fused ops for hot loops
-		// ========================================
 
 		case bytecode.OpAddLocalLocal:
 			idxA, idxB := readU16(), readU16()
@@ -605,10 +599,8 @@ func (v *vm) run() (value.Value, error) {
 			}
 			continue
 
-		// ========================================
 		// Integer-specialized superinstructions
 		// Operate on intLocals []int64 directly (8 bytes vs 32 bytes per op)
-		// ========================================
 
 		case bytecode.OpIntLocalConstAddSetLocal:
 			idxA := readU16()
@@ -881,6 +873,5 @@ func (v *vm) run() (value.Value, error) {
 		continue
 	}
 
-	// Return top of stack (or nil if empty)
 	return v.runFinalStackValue(stack, sp), nil
 }
