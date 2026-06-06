@@ -18,18 +18,31 @@ import (
 // It looks up the actual Go function and stores it as a constant,
 // so OpCallIndirect can call it via reflection later.
 func (c *compiler) compileExternalFuncValue(fn *ssa.Function) {
-	var fnVal any
-	if fn.Pkg != nil && c.lookup != nil {
-		pkgPath := fn.Pkg.Pkg.Path()
-		if f, _, ok := c.lookup.LookupExternalFunc(pkgPath, fn.Name()); ok {
-			fnVal = f
-		}
-	}
+	fnVal := c.lookupExternalFuncValue(fn)
 	if fnVal == nil {
 		// Could not resolve — emit nil (best effort)
 		c.emit(bytecode.OpNil)
 		return
 	}
+	c.emitExternalFuncValue(fnVal)
+}
+
+func (c *compiler) lookupExternalFuncValue(fn *ssa.Function) any {
+	return externalFuncValueFromLookup(c.lookup, externalFunctionPkgPath(fn), externalFunctionName(fn))
+}
+
+func externalFuncValueFromLookup(lookup PackageLookup, pkgPath string, funcName string) any {
+	if lookup == nil || pkgPath == "" || funcName == "" {
+		return nil
+	}
+	fnVal, _, ok := lookup.LookupExternalFunc(pkgPath, funcName)
+	if !ok {
+		return nil
+	}
+	return fnVal
+}
+
+func (c *compiler) emitExternalFuncValue(fnVal any) {
 	// Store the Go function as a constant; OpConst will push it as a
 	// value.FromInterface which preserves the reflect.Func type.
 	// OpCallIndirect's reflect.Func branch handles calling it.
@@ -155,6 +168,13 @@ func externalFunctionPkgPath(fn *ssa.Function) string {
 		return fn.Pkg.Pkg.Path()
 	}
 	return ""
+}
+
+func externalFunctionName(fn *ssa.Function) string {
+	if fn == nil {
+		return ""
+	}
+	return fn.Name()
 }
 
 func shouldSkipUnresolvedExternalFunction(funcName, pkgPath string) bool {

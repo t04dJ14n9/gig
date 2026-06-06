@@ -45,6 +45,16 @@ func TestLookupExternalFuncInfoStaysShallow(t *testing.T) {
 	}
 }
 
+func TestCompileExternalFuncValueStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "compile_ext.go", "compileExternalFuncValue")
+	if count > 2 {
+		t.Fatalf(
+			"compileExternalFuncValue has %d branch points, want <= 2; split external value lookup from fallback and constant emission",
+			count,
+		)
+	}
+}
+
 func TestLookupExternalMethodInfoStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "compile_ext.go", "lookupExternalMethodInfo")
 	if count > 3 {

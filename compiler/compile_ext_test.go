@@ -33,6 +33,43 @@ func TestAttachExternalFuncReflectMetadataIgnoresNonFunctions(t *testing.T) {
 	}
 }
 
+func TestExternalFuncValueFromLookupReturnsRegisteredFunction(t *testing.T) {
+	fn := func() int { return 42 }
+	lookup := &externalFuncValueLookup{
+		pkgPath:  "example.com/host",
+		funcName: "Answer",
+		fn:       fn,
+	}
+
+	got := externalFuncValueFromLookup(lookup, "example.com/host", "Answer")
+
+	gotFn, ok := got.(func() int)
+	if !ok {
+		t.Fatalf("lookup returned %T, want func() int", got)
+	}
+	if gotFn() != 42 {
+		t.Fatalf("lookup function returned %d, want 42", gotFn())
+	}
+}
+
+func TestExternalFuncValueFromLookupReturnsNilWithoutMatch(t *testing.T) {
+	lookup := &externalFuncValueLookup{
+		pkgPath:  "example.com/host",
+		funcName: "Answer",
+		fn:       func() int { return 42 },
+	}
+
+	if got := externalFuncValueFromLookup(nil, "example.com/host", "Answer"); got != nil {
+		t.Fatalf("nil lookup returned %T, want nil", got)
+	}
+	if got := externalFuncValueFromLookup(lookup, "", "Answer"); got != nil {
+		t.Fatalf("empty package returned %T, want nil", got)
+	}
+	if got := externalFuncValueFromLookup(lookup, "example.com/host", "Missing"); got != nil {
+		t.Fatalf("missing function returned %T, want nil", got)
+	}
+}
+
 func TestAttachExternalMethodDirectCallUsesQualifiedReceiverName(t *testing.T) {
 	directCall := func([]value.Value) value.Value { return value.MakeInt(7) }
 	lookup := &methodDirectCallLookup{
@@ -88,6 +125,35 @@ func TestShouldSkipUnresolvedExternalFunctionOnlySkipsImportedInitStubs(t *testi
 	}
 }
 
+type externalFuncValueLookup struct {
+	pkgPath  string
+	funcName string
+	fn       any
+}
+
+func (m *externalFuncValueLookup) LookupExternalFunc(pkgPath, funcName string) (any, func([]value.Value) value.Value, bool) {
+	if pkgPath == m.pkgPath && funcName == m.funcName {
+		return m.fn, nil, true
+	}
+	return nil, nil, false
+}
+
+func (m *externalFuncValueLookup) LookupMethodDirectCall(string, string) (func([]value.Value) value.Value, bool) {
+	return nil, false
+}
+
+func (m *externalFuncValueLookup) LookupExternalVar(string, string) (any, bool) {
+	return nil, false
+}
+
+func (m *externalFuncValueLookup) LookupExternalType(types.Type) (reflect.Type, bool) {
+	return nil, false
+}
+
+func (m *externalFuncValueLookup) LookupExternalTypeByName(string, string) (reflect.Type, bool) {
+	return nil, false
+}
+
 type methodDirectCallLookup struct {
 	typeName   string
 	methodName string
@@ -123,4 +189,5 @@ func namedReceiverType(pkgPath, pkgName, typeName string) *types.Named {
 	return types.NewNamed(obj, types.NewStruct(nil, nil), nil)
 }
 
+var _ PackageLookup = (*externalFuncValueLookup)(nil)
 var _ PackageLookup = (*methodDirectCallLookup)(nil)
