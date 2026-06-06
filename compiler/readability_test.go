@@ -107,6 +107,16 @@ func TestContainsUserDefinedTypeSeenStaysShallow(t *testing.T) {
 	}
 }
 
+func TestIsUserDefinedNamedTypeStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "typecheck.go", "isUserDefinedNamedType")
+	if count > 3 {
+		t.Fatalf(
+			"isUserDefinedNamedType has %d branch points, want <= 3; split pointer unwrapping, named-type extraction, and package classification",
+			count,
+		)
+	}
+}
+
 func TestContainsUserDefinedUnderlyingStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "typecheck.go", "containsUserDefinedUnderlying")
 	if count > 5 {

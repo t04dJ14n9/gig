@@ -33,29 +33,41 @@ func isStdlibPath(path string) bool {
 // external registered package.
 // Unwraps pointers: *MyStruct → MyStruct → check package.
 func isUserDefinedNamedType(t types.Type) bool {
-	if t == nil {
-		return false
-	}
-	for {
-		if ptr, ok := t.(*types.Pointer); ok {
-			t = ptr.Elem()
-		} else {
-			break
-		}
-	}
-	named, ok := t.(*types.Named)
+	named, ok := namedTypeAfterPointerUnwrap(t)
 	if !ok {
 		return false
 	}
+	return isScriptPackagePath(namedTypePackagePath(named))
+}
+
+func namedTypeAfterPointerUnwrap(t types.Type) (*types.Named, bool) {
+	if t == nil {
+		return nil, false
+	}
+	named, ok := unwrapPointerType(t).(*types.Named)
+	return named, ok
+}
+
+func unwrapPointerType(t types.Type) types.Type {
+	for ptr, ok := t.(*types.Pointer); ok; ptr, ok = t.(*types.Pointer) {
+		t = ptr.Elem()
+	}
+	return t
+}
+
+func namedTypePackagePath(named *types.Named) string {
 	obj := named.Obj()
 	if obj == nil {
-		return false
+		return ""
 	}
 	pkg := obj.Pkg()
 	if pkg == nil {
-		return false
+		return ""
 	}
-	pkgPath := pkg.Path()
+	return pkg.Path()
+}
+
+func isScriptPackagePath(pkgPath string) bool {
 	return pkgPath == "command-line-arguments" || pkgPath == "main"
 }
 
