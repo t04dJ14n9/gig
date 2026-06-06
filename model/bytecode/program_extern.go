@@ -84,9 +84,17 @@ func resolveExternalFunc(info *external.ExternalFuncInfo) *ResolvedCall {
 		return rc
 	}
 
-	rc.Fn = reflect.ValueOf(info.Func)
+	attachReflectFuncMetadata(rc, info.Func)
+	return rc
+}
+
+// attachReflectFuncMetadata completes the slow-path portion of a resolved call.
+// Compiler-provided DirectCall metadata remains authoritative; reflection only
+// fills fields needed when the VM cannot use a generated direct wrapper.
+func attachReflectFuncMetadata(rc *ResolvedCall, fn any) {
+	rc.Fn = reflect.ValueOf(fn)
 	if rc.Fn.Kind() != reflect.Func {
-		return rc
+		return
 	}
 
 	rc.FnType = rc.Fn.Type()
@@ -94,7 +102,6 @@ func resolveExternalFunc(info *external.ExternalFuncInfo) *ResolvedCall {
 		rc.IsVariadic = true
 		rc.NumIn = rc.FnType.NumIn()
 	}
-	return rc
 }
 
 func resolveLegacyFunc(c any) *ResolvedCall {
