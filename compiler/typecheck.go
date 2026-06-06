@@ -150,9 +150,15 @@ func containsUserDefinedStruct(t *types.Struct, seen map[types.Type]bool) bool {
 }
 
 func containsUserDefinedSignature(t *types.Signature, seen map[types.Type]bool) bool {
-	if recv := t.Recv(); recv != nil && containsUserDefinedTypeSeen(recv.Type(), seen) {
-		return true
-	}
+	return containsUserDefinedSignatureReceiver(t, seen) || containsUserDefinedSignatureTuples(t, seen)
+}
+
+func containsUserDefinedSignatureReceiver(t *types.Signature, seen map[types.Type]bool) bool {
+	recv := t.Recv()
+	return recv != nil && containsUserDefinedTypeSeen(recv.Type(), seen)
+}
+
+func containsUserDefinedSignatureTuples(t *types.Signature, seen map[types.Type]bool) bool {
 	return containsUserDefinedTuple(t.Params(), seen) || containsUserDefinedTuple(t.Results(), seen)
 }
 

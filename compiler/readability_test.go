@@ -117,6 +117,16 @@ func TestContainsUserDefinedUnderlyingStaysShallow(t *testing.T) {
 	}
 }
 
+func TestContainsUserDefinedSignatureDelegatesTupleScans(t *testing.T) {
+	count := directCallCount(t, "typecheck.go", "containsUserDefinedSignature", "containsUserDefinedTuple")
+	if count > 0 {
+		t.Fatalf(
+			"containsUserDefinedSignature calls containsUserDefinedTuple %d times; split receiver, parameter, and result scans",
+			count,
+		)
+	}
+}
+
 func TestContainsUserDefinedInterfaceStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "typecheck.go", "containsUserDefinedInterface")
 	if count > 2 {
@@ -185,6 +195,35 @@ func directTypeSwitchCaseCount(t *testing.T, path, funcName string) int {
 			count += len(sw.Body.List)
 		}
 	}
+	return count
+}
+
+func directCallCount(t *testing.T, path, funcName string, callee string) int {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+
+	fn := findFuncDecl(file, funcName)
+	if fn == nil || fn.Body == nil {
+		t.Fatalf("find function %s in %s", funcName, path)
+	}
+
+	count := 0
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		ident, ok := call.Fun.(*ast.Ident)
+		if ok && ident.Name == callee {
+			count++
+		}
+		return true
+	})
 	return count
 }
 
