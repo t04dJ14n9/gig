@@ -45,6 +45,16 @@ func TestLookupExternalFuncInfoStaysShallow(t *testing.T) {
 	}
 }
 
+func TestLookupExternalMethodInfoStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "compile_ext.go", "lookupExternalMethodInfo")
+	if count > 3 {
+		t.Fatalf(
+			"lookupExternalMethodInfo has %d branch points, want <= 3; split descriptor construction from direct-call lookup",
+			count,
+		)
+	}
+}
+
 func TestCompileExternalStaticCallStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "compile_ext.go", "compileExternalStaticCall")
 	if count > 4 {

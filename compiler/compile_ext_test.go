@@ -1,9 +1,12 @@
 package compiler
 
 import (
+	"go/types"
+	"reflect"
 	"testing"
 
 	"github.com/t04dJ14n9/gig/model/external"
+	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func TestAttachExternalFuncReflectMetadataRecordsVariadicShape(t *testing.T) {
@@ -30,6 +33,37 @@ func TestAttachExternalFuncReflectMetadataIgnoresNonFunctions(t *testing.T) {
 	}
 }
 
+func TestAttachExternalMethodDirectCallUsesQualifiedReceiverName(t *testing.T) {
+	directCall := func([]value.Value) value.Value { return value.MakeInt(7) }
+	lookup := &methodDirectCallLookup{
+		typeName:   "example.com/host.Widget",
+		methodName: "Close",
+		directCall: directCall,
+	}
+	info := &external.ExternalMethodInfo{MethodName: "Close"}
+	recvType := namedReceiverType("example.com/host", "host", "Widget")
+
+	attachExternalMethodDirectCall(info, lookup, types.NewPointer(recvType))
+
+	if info.DirectCall == nil {
+		t.Fatal("DirectCall was not attached")
+	}
+	if got := info.DirectCall(nil).RawInt(); got != 7 {
+		t.Fatalf("DirectCall result = %d, want 7", got)
+	}
+}
+
+func TestAttachExternalMethodDirectCallLeavesInfoUnchangedWithoutLookup(t *testing.T) {
+	info := &external.ExternalMethodInfo{MethodName: "Close"}
+	recvType := namedReceiverType("example.com/host", "host", "Widget")
+
+	attachExternalMethodDirectCall(info, nil, recvType)
+
+	if info.DirectCall != nil {
+		t.Fatal("DirectCall changed without lookup")
+	}
+}
+
 func TestShouldSkipUnresolvedExternalFunctionOnlySkipsImportedInitStubs(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -53,3 +87,40 @@ func TestShouldSkipUnresolvedExternalFunctionOnlySkipsImportedInitStubs(t *testi
 		})
 	}
 }
+
+type methodDirectCallLookup struct {
+	typeName   string
+	methodName string
+	directCall func([]value.Value) value.Value
+}
+
+func (m *methodDirectCallLookup) LookupExternalFunc(string, string) (any, func([]value.Value) value.Value, bool) {
+	return nil, nil, false
+}
+
+func (m *methodDirectCallLookup) LookupMethodDirectCall(typeName, methodName string) (func([]value.Value) value.Value, bool) {
+	if typeName == m.typeName && methodName == m.methodName {
+		return m.directCall, true
+	}
+	return nil, false
+}
+
+func (m *methodDirectCallLookup) LookupExternalVar(string, string) (any, bool) {
+	return nil, false
+}
+
+func (m *methodDirectCallLookup) LookupExternalType(types.Type) (reflect.Type, bool) {
+	return nil, false
+}
+
+func (m *methodDirectCallLookup) LookupExternalTypeByName(string, string) (reflect.Type, bool) {
+	return nil, false
+}
+
+func namedReceiverType(pkgPath, pkgName, typeName string) *types.Named {
+	pkg := types.NewPackage(pkgPath, pkgName)
+	obj := types.NewTypeName(0, pkg, typeName, nil)
+	return types.NewNamed(obj, types.NewStruct(nil, nil), nil)
+}
+
+var _ PackageLookup = (*methodDirectCallLookup)(nil)

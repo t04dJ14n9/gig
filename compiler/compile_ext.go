@@ -3,6 +3,7 @@ package compiler
 
 import (
 	"fmt"
+	"go/types"
 	"reflect"
 
 	"golang.org/x/tools/go/ssa"
@@ -84,15 +85,23 @@ func (c *compiler) lookupExternalMethodInfo(fn *ssa.Function) *external.External
 		FuncName:   methodName,
 		IsStdlib:   isStdlibPath(pkgPath),
 	}
-	if c.lookup != nil {
-		typeName := extractReceiverTypeName(fn.Signature.Recv().Type())
-		if typeName != "" {
-			if dc, ok := c.lookup.LookupMethodDirectCall(typeName, methodName); ok {
-				info.DirectCall = dc
-			}
-		}
-	}
+	attachExternalMethodDirectCall(info, c.lookup, fn.Signature.Recv().Type())
 	return info
+}
+
+// attachExternalMethodDirectCall preserves the method descriptor's identity
+// while letting the registry supply an optional fast-path wrapper.
+func attachExternalMethodDirectCall(info *external.ExternalMethodInfo, lookup PackageLookup, recvType types.Type) {
+	if lookup == nil {
+		return
+	}
+	typeName := extractReceiverTypeName(recvType)
+	if typeName == "" {
+		return
+	}
+	if dc, ok := lookup.LookupMethodDirectCall(typeName, info.MethodName); ok {
+		info.DirectCall = dc
+	}
 }
 
 // compileExternalStaticCall compiles a call to an external package function.
