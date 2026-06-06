@@ -160,7 +160,11 @@ These are disabled in `stdlib/pkgs.go` to maintain sandbox isolation.
 
 3. **Keep third-party boundaries explicit** - Script-defined types are rejected
    at third-party calls unless they are passed through a registered interface
-   proxy or the host deliberately opts into `WithAllowUnsafeTypePass()`.
+   proxy or the host deliberately opts into `WithAllowUnsafeTypePass()`. Gig must
+   not synthesize ad-hoc wrappers for arbitrary third-party interfaces at runtime:
+   every allowed third-party interface crossing needs registered proxy metadata
+   so the host-visible Go type, callback methods, and boundary checks stay owned
+   by the registry.
 
 4. **Method dispatch** - The `MethodResolverFunc` registry uses `sync.Map` with
    program pointer keys. Clean up programs properly to avoid memory leaks.
@@ -170,3 +174,11 @@ These are disabled in `stdlib/pkgs.go` to maintain sandbox isolation.
 
 6. **Timeout** - Always use `RunWithContext` with a timeout to prevent infinite
    loops from hanging the interpreter.
+
+7. **Readability refactors need performance evidence** - Compiler, model, and
+   documentation splits are safe places to improve readability. Changes inside
+   `vm/run.go`, external-call dispatch, or value conversion must be treated as
+   hot-path work and compared with `benchstat` before merging. The June 6, 2026
+   audit compared current `feature/dev_youngjin` against the pre-refactor
+   merge-base `46fa08a` on `BenchmarkGig_(ArithSum|BubbleSort|ClosureCalls|ExtCallMixed)`
+   and found no geomean slowdown (`-0.28%`, allocations unchanged).

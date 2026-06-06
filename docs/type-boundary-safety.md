@@ -293,7 +293,10 @@ interpreter-defined argument types.
 1. **Explicit proxy registration.** A user-defined type can cross into a
    third-party interface only when the registry contains proxy metadata for the
    target interface. Plain `any`, concrete third-party parameters, and unproxied
-   interfaces remain rejected.
+   interfaces remain rejected. Gig does not build best-effort wrappers from a
+   script struct's method set when an arbitrary third-party library asks for an
+   interface; that would let host reflection observe interpreter-owned types
+   outside the registry contract.
 
 2. **Swap tries compiled method first, falls back to direct slice swap.** This
    handles types with auxiliary state (counters, parallel arrays) that must be
