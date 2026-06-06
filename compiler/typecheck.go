@@ -90,19 +90,43 @@ func containsUserDefinedTypeParamConstraint(t types.Type, seen map[types.Type]bo
 }
 
 func containsUserDefinedUnderlying(t types.Type, seen map[types.Type]bool) bool {
+	if containsUserDefinedElementContainer(t, seen) {
+		return true
+	}
+	if containsUserDefinedAggregateContainer(t, seen) {
+		return true
+	}
+	return containsUserDefinedCallableOrInterface(t, seen)
+}
+
+func containsUserDefinedElementContainer(t types.Type, seen map[types.Type]bool) bool {
 	switch tt := t.(type) {
 	case *types.Slice:
 		return containsUserDefinedTypeSeen(tt.Elem(), seen)
-	case *types.Map:
-		return containsUserDefinedMap(tt, seen)
 	case *types.Pointer:
 		return containsUserDefinedTypeSeen(tt.Elem(), seen)
 	case *types.Array:
 		return containsUserDefinedTypeSeen(tt.Elem(), seen)
 	case *types.Chan:
 		return containsUserDefinedTypeSeen(tt.Elem(), seen)
+	default:
+		return false
+	}
+}
+
+func containsUserDefinedAggregateContainer(t types.Type, seen map[types.Type]bool) bool {
+	switch tt := t.(type) {
+	case *types.Map:
+		return containsUserDefinedMap(tt, seen)
 	case *types.Struct:
 		return containsUserDefinedStruct(tt, seen)
+	default:
+		return false
+	}
+}
+
+func containsUserDefinedCallableOrInterface(t types.Type, seen map[types.Type]bool) bool {
+	switch tt := t.(type) {
 	case *types.Signature:
 		return containsUserDefinedSignature(tt, seen)
 	case *types.Interface:
