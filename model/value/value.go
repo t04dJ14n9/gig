@@ -28,7 +28,7 @@ type Value struct {
 	kind Kind
 	size Size  // original Go bit-width (lives in padding, zero extra memory)
 	num  int64 // Stores: bool (0/1), int, uint bits, float64 bits
-	obj  any   // string, complex128, reflect.Value, native Go composites, or nil for primitives
+	obj  any   // string, complex128, reflect.Value, native Go composites, external host objects, or nil for primitives
 }
 
 // InterpretedInterfaceValue preserves the dynamic type of a script-defined
@@ -77,8 +77,8 @@ func (v Value) IsNil() bool {
 	if v.kind == KindNil {
 		return true
 	}
-	if v.kind == KindReflect {
-		if rv, ok := v.obj.(reflect.Value); ok {
+	if v.kind == KindReflect || v.kind == KindExternal {
+		if rv, ok := v.ReflectValue(); ok {
 			if !rv.IsValid() {
 				return true
 			}

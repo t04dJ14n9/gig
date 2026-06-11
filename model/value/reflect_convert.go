@@ -174,6 +174,8 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 		return v.toReflectAggregate(typ)
 	case KindReflect:
 		return v.toReflectReflect(typ)
+	case KindExternal:
+		return v.toReflectExternal(typ)
 	default:
 		return v.toReflectObject()
 	}
@@ -236,8 +238,20 @@ func (v Value) toReflectObject() reflect.Value {
 	return reflect.ValueOf(v.obj)
 }
 
-// ReflectValue returns the internal reflect.Value if stored.
+func (v Value) toReflectExternal(typ reflect.Type) reflect.Value {
+	if v.obj == nil {
+		return reflect.Zero(typ)
+	}
+	return reflect.ValueOf(v.obj)
+}
+
+// ReflectValue returns a reflect.Value when the value can be reflected.
 func (v Value) ReflectValue() (reflect.Value, bool) {
-	rv, ok := v.obj.(reflect.Value)
-	return rv, ok
+	if rv, ok := v.obj.(reflect.Value); ok {
+		return rv, true
+	}
+	if v.kind == KindExternal && v.obj != nil {
+		return reflect.ValueOf(v.obj), true
+	}
+	return reflect.Value{}, false
 }

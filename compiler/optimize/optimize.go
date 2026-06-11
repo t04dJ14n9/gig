@@ -1,6 +1,7 @@
-// Package optimize implements a 4-pass bytecode optimization pipeline.
+// Package optimize implements compiler-side bytecode optimization passes.
 //
-// The passes run in order after SSA→bytecode compilation:
+// FoldConstants runs first while the compiler can still append to the constant
+// pool. Optimize then runs the dispatch-oriented passes in order:
 //  1. Peephole — pattern-based superinstruction fusion (17 rules)
 //  2. Slice fusion — OpIntSliceGet/Set/SetConst for native []int64
 //  3. Int specialization — generic ops → OpInt* variants for int-typed locals

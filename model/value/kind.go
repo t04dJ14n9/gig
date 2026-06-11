@@ -22,6 +22,7 @@ const (
 	KindInterface
 	KindReflect // fallback to reflect.Value
 	KindBytes   // []byte stored natively (zero reflection)
+	KindExternal
 )
 
 // kindNameTable maps Kind values to their string representations.
@@ -44,6 +45,7 @@ var kindNameTable = [256]string{
 	KindString:    "string",
 	KindStruct:    "struct",
 	KindUint:      "uint",
+	KindExternal:  "external",
 }
 
 // String returns the name of the kind.

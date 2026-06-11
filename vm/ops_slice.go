@@ -122,11 +122,7 @@ func sliceReflectValue(rv reflect.Value, low, high, max int, hasMax bool) reflec
 }
 
 func (v *vm) executeReflectIntSlice(rv reflect.Value, low, high, max int, hasMax bool) bool {
-	// Native int array/slice -> []int64 fast path
-	// SSA compiles make([]int, N) with constant N as Alloc([N]int) + Slice,
-	// so we intercept it here to produce a native []int64.
-	//
-	// IMPORTANT: For arrays, we must NOT copy to []int64 because that
+	// IMPORTANT: For reflected arrays, we must NOT copy to []int64 because that
 	// breaks shared-underlying-array semantics (e.g., a[1:3] and a[2:4]
 	// must share memory). Use rv.Slice() instead which preserves sharing.
 	// For slices from reflect, also use rv.Slice() to preserve sharing.

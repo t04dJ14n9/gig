@@ -86,6 +86,20 @@ func TestCompileBuiltinCallStaysShallow(t *testing.T) {
 	}
 }
 
+func TestCompileMakeSliceLoweringFileStaysFocused(t *testing.T) {
+	assertCompilerFileLineLimit(t, "compile_make_slice_lowering.go", 160, "keep synthetic make-slice guards close to the lowering")
+}
+
+func TestSyntheticMakeSliceArrayAllocStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "compile_make_slice_lowering.go", "syntheticMakeSliceArrayAlloc")
+	if count > 4 {
+		t.Fatalf(
+			"syntheticMakeSliceArrayAlloc has %d branch points, want <= 4; split referrer scanning from allocation shape checks",
+			count,
+		)
+	}
+}
+
 func TestPackedVarargsValuesStaysShallow(t *testing.T) {
 	count := recursiveBranchCount(t, "compile_builtin.go", "packedVarargsValues")
 	if count > 10 {

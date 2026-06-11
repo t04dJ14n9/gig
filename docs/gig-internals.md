@@ -97,7 +97,7 @@ gig/
 │   ├── parser/               # go/parser + security validation
 │   ├── ssa/                  # go/ssa builder wrapper
 │   ├── peephole/             # Pattern-based superinstruction fusion
-│   └── optimize/             # 4-pass bytecode optimization pipeline
+│   └── optimize/             # constant folding + bytecode optimization passes
 ├── vm/
 │   ├── vm.go                 # VM struct, Execute() entry point
 │   ├── run.go                # Main fetch-decode-execute loop (hot path)
@@ -435,9 +435,13 @@ the merge point.
 
 ### Phase 4: Optimization
 
-After initial bytecode generation, four optimization passes run:
+After initial bytecode generation, constant folding runs while the compiler can
+still append folded values to the constant pool. The dispatch-oriented optimizer
+then runs four more bytecode passes:
 
 ```go
+code = optimize.FoldConstants(code, &constants)              // semantic constant folding
+
 // compiler/optimize/optimize.go
 func Optimize(code []byte, localIsInt, constIsInt, localIsIntSlice []bool) ([]byte, bool) {
     code = Peephole(code)                                    // Pass 1: superinstruction fusion
@@ -447,6 +451,16 @@ func Optimize(code []byte, localIsInt, constIsInt, localIsIntSlice []bool) ([]by
     return code, hasInt
 }
 ```
+
+#### Pre-pass: Constant Folding
+
+`FoldConstants` tracks local constants inside straight-line bytecode regions and
+folds pure integer constant expressions. It also folds known boolean branches:
+taken branches become `OpJump`, and untaken branches are deleted. The pass
+then removes unreachable bytecode after unconditional jumps until the next jump
+target. It resets state at control-flow boundaries and refuses to fold across
+jump targets, so it preserves Go control flow and runtime panics such as divide
+by zero.
 
 #### Pass 1: Peephole — Superinstruction Fusion
 

@@ -172,6 +172,9 @@ func equalDifferentKinds(a, b Value) bool {
 	if a.kind == KindNil || b.kind == KindNil {
 		return a.IsNil() && b.IsNil()
 	}
+	if result, handled := equalReflectPointerIdentity(a, b); handled {
+		return result
+	}
 	return false
 }
 
@@ -217,11 +220,11 @@ func equalValuePointerIdentity(a, b Value) (bool, bool) {
 }
 
 func equalReflectPointerIdentity(a, b Value) (bool, bool) {
-	rv, ok := a.obj.(reflect.Value)
+	rv, ok := a.ReflectValue()
 	if !ok || rv.Kind() != reflect.Ptr {
 		return false, false
 	}
-	orv, ok := b.obj.(reflect.Value)
+	orv, ok := b.ReflectValue()
 	if !ok || orv.Kind() != reflect.Ptr {
 		return false, true
 	}

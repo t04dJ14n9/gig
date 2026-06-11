@@ -60,6 +60,46 @@ func TestCallExternalInvalidFunctionReturnsError(t *testing.T) {
 	}
 }
 
+func TestCallExternalSmallArityDoesNotAllocateArgSlice(t *testing.T) {
+	prog := &bytecode.CompiledProgram{
+		Constants: []any{
+			&external.ExternalFuncInfo{
+				PkgPath:  "testing",
+				FuncName: "Add",
+				IsStdlib: true,
+				DirectCall: func(args []value.Value) value.Value {
+					return value.MakeInt(args[0].RawInt() + args[1].RawInt())
+				},
+				NumIn: 2,
+			},
+		},
+	}
+	prog.ResolveExternCalls()
+
+	v := &vm{
+		program: prog,
+		stack:   make([]value.Value, initialStackSize),
+		ctx:     context.Background(),
+	}
+
+	allocs := testing.AllocsPerRun(1000, func() {
+		v.sp = 2
+		v.stack[0] = value.MakeInt(20)
+		v.stack[1] = value.MakeInt(22)
+		if err := v.callExternal(0, 2); err != nil {
+			panic(err)
+		}
+		got := v.pop()
+		if got.RawInt() != 42 {
+			panic("unexpected direct external result")
+		}
+	})
+
+	if allocs != 0 {
+		t.Fatalf("callExternal allocations per small-arity call = %v, want 0", allocs)
+	}
+}
+
 func TestExternalBoundaryPolicyTrustsStdlib(t *testing.T) {
 	v := &vm{program: &bytecode.CompiledProgram{}}
 	arg := value.MakeInterpretedInterface(value.MakeInt(1), "ScriptStruct", false)

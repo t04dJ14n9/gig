@@ -57,7 +57,7 @@ func fixJumpTargets(code []byte, offsetMap []int, oldLen int) {
 		// Simple jumps: target at offset +1
 		case bytecode.OpJump, bytecode.OpJumpTrue, bytecode.OpJumpFalse:
 			oldTarget := int(bytecode.ReadU16(code, i+1))
-			if oldTarget < oldLen {
+			if oldTarget <= oldLen {
 				bytecode.WriteU16(code, i+1, uint16(offsetMap[oldTarget]))
 			}
 		// Fused compare-jump: target at offset +5
@@ -70,7 +70,7 @@ func fixJumpTargets(code []byte, offsetMap []int, oldLen int) {
 			bytecode.OpIntLessLocalLocalJumpFalse, bytecode.OpIntGreaterLocalLocalJumpTrue,
 			bytecode.OpIntLessLocalConstJumpTrue, bytecode.OpIntLessLocalLocalJumpTrue:
 			oldTarget := int(bytecode.ReadU16(code, i+5))
-			if oldTarget < oldLen {
+			if oldTarget <= oldLen {
 				bytecode.WriteU16(code, i+5, uint16(offsetMap[oldTarget]))
 			}
 		}

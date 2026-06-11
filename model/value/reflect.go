@@ -32,6 +32,9 @@ func FromInterface(v any) Value {
 	if val, ok := specialInterfaceValue(v); ok {
 		return val
 	}
+	if val, ok := externalInterfaceValue(v); ok {
+		return val
+	}
 	return MakeFromReflect(reflect.ValueOf(v))
 }
 
@@ -230,6 +233,13 @@ func specialInterfaceValue(v any) (Value, bool) {
 	default:
 		return Value{}, false
 	}
+}
+
+func externalInterfaceValue(v any) (Value, bool) {
+	if reflect.TypeOf(v).Kind() != reflect.Ptr {
+		return Value{}, false
+	}
+	return MakeExternal(v), true
 }
 
 func makeReflectValue(rv reflect.Value) Value {

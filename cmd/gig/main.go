@@ -5,6 +5,7 @@
 //	gig init -package <name>    Create a new dependency package directory
 //	gig gen <dir>               Generate registration code from <dir>/pkgs.go
 //	gig repl                    Start interactive Go REPL
+//	gig dump <file|->           Print readable SSA and bytecode
 //
 // # Workflow
 //
@@ -51,6 +52,7 @@ func main() {
 		{Name: "init", Usage: "gig init -package <name>", Run: commands.RunInit},
 		{Name: "gen", Usage: "gig gen <dir>", Run: commands.RunGen},
 		{Name: "repl", Usage: "gig repl", Run: commands.RunREPL},
+		{Name: "dump", Usage: "gig dump [flags] <file|->", Run: commands.RunDump},
 	}
 
 	flag.Usage = printUsage(cmds)
@@ -92,5 +94,7 @@ func printUsage(cmds []command) func() {
 		fmt.Fprintf(os.Stderr, "  4. import _ \"myapp/mydep/packages\"      # Use in your program\n")
 		fmt.Fprintf(os.Stderr, "\nREPL:\n")
 		fmt.Fprintf(os.Stderr, "  gig repl                           # Start interactive Go REPL\n")
+		fmt.Fprintf(os.Stderr, "\nDebugging:\n")
+		fmt.Fprintf(os.Stderr, "  gig dump ./program.go              # Print SSA and bytecode\n")
 	}
 }

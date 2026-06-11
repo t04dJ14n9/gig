@@ -156,7 +156,7 @@ func dereferenceValue(ptr value.Value) value.Value {
 		return dereferencePointerValue(ptr)
 	case value.KindInterface:
 		return ptr
-	case value.KindReflect:
+	case value.KindReflect, value.KindExternal:
 		return dereferenceReflectValue(ptr)
 	default:
 		return dereferenceConcreteValue(ptr)

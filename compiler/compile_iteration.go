@@ -63,6 +63,9 @@ func (c *compiler) compileSelect(i *ssa.Select) {
 
 // compileSlice compiles a Slice instruction.
 func (c *compiler) compileSlice(i *ssa.Slice) {
+	if c.compileSyntheticMakeSlice(i) {
+		return
+	}
 	resultIdx := c.symbolTable.AllocLocal(i)
 
 	c.compileValue(i.X)

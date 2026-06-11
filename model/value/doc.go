@@ -39,6 +39,7 @@
 //   - KindPointer, KindSlice, KindArray, KindMap, KindChan, KindFunc, KindStruct, KindInterface:
 //     stored in obj as reflect.Value or native Go value
 //   - KindReflect: fallback for types not directly supported
+//   - KindExternal: raw host Go pointer stored without eager reflect.Value boxing
 //
 // # Example Usage
 //

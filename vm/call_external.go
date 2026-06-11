@@ -18,11 +18,12 @@ import (
 //
 // Flow: OpCallExternal → callExternal → ExternCalls[funcIdx] → DirectCall | reflect
 func (v *vm) callExternal(funcIdx, numArgs int) error {
-	// Pop arguments first
-	args := make([]value.Value, numArgs)
-	for i := numArgs - 1; i >= 0; i-- {
-		args[i] = v.pop()
-	}
+	// Arguments are already contiguous on the operand stack in call order.
+	// Slice the stack directly so DirectCall paths avoid per-call arg-slice
+	// allocation; lowering sp marks those slots as consumed.
+	argStart := v.sp - numArgs
+	args := v.stack[argStart:v.sp]
+	v.sp = argStart
 
 	// Method calls use the ExternalMethodInfo constant directly (not ExternCalls).
 	// This is because method dispatch needs the ReceiverTypeName hint and

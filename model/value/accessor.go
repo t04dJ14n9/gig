@@ -72,6 +72,8 @@ func (v Value) Interface() any {
 		return v.interfaceNativePayload()
 	case KindReflect:
 		return interfaceReflectOrObject(v.obj)
+	case KindExternal:
+		return v.obj
 	default:
 		return interfaceReflectOrObject(v.obj)
 	}

@@ -143,6 +143,71 @@ func TestFromInterface(t *testing.T) {
 	}
 }
 
+type externalPointerObject struct {
+	n int
+}
+
+var fromInterfaceSink Value
+
+func TestFromInterfaceExternalPointerUsesExternalKind(t *testing.T) {
+	obj := &externalPointerObject{n: 7}
+
+	v := FromInterface(obj)
+
+	if v.Kind() != KindExternal {
+		t.Fatalf("FromInterface(%T).Kind() = %s, want %s", obj, v.Kind(), KindExternal)
+	}
+	if got := v.Interface(); got != obj {
+		t.Fatalf("Interface() = %p, want original object %p", got, obj)
+	}
+	if _, ok := v.RawObj().(reflect.Value); ok {
+		t.Fatal("external pointer stored reflect.Value, want raw object")
+	}
+	rv, ok := v.ReflectValue()
+	if !ok {
+		t.Fatal("ReflectValue() failed for external pointer")
+	}
+	if got := rv.Interface(); got != obj {
+		t.Fatalf("ReflectValue().Interface() = %p, want original object %p", got, obj)
+	}
+}
+
+func TestFromInterfaceExternalPointerDoesNotAllocate(t *testing.T) {
+	obj := &externalPointerObject{n: 7}
+
+	allocs := testing.AllocsPerRun(1000, func() {
+		fromInterfaceSink = FromInterface(obj)
+	})
+
+	if allocs != 0 {
+		t.Fatalf("FromInterface(external pointer) allocations = %.0f, want 0", allocs)
+	}
+}
+
+func TestExternalPointerEqualityUsesPointerIdentity(t *testing.T) {
+	a := &externalPointerObject{n: 7}
+	b := &externalPointerObject{n: 7}
+
+	if !FromInterface(a).Equal(FromInterface(a)) {
+		t.Fatal("same external pointer should be equal")
+	}
+	if FromInterface(a).Equal(FromInterface(b)) {
+		t.Fatal("distinct external pointers with equal contents should not be equal")
+	}
+}
+
+func TestExternalPointerEqualityMatchesReflectInterfacePayload(t *testing.T) {
+	obj := &externalPointerObject{n: 7}
+	var iface any = obj
+
+	reflectedIface := MakeFromReflect(reflect.ValueOf(&iface).Elem())
+	external := FromInterface(obj)
+
+	if !reflectedIface.Equal(external) {
+		t.Fatal("reflect-wrapped interface payload should equal same external pointer")
+	}
+}
+
 func TestIsValid(t *testing.T) {
 	var zero Value
 	if zero.IsValid() {

@@ -30,6 +30,7 @@ package main
 
 import (
     "fmt"
+
     "reflect"
 )
 
@@ -118,12 +119,12 @@ interface conversion: struct{...} is not sort.Interface: missing method Len
 This is not limited to `sort`. **Any** third-party library that inspects types at
 the Go boundary can break. Common patterns:
 
-| Pattern | Example | What Breaks |
-|---------|---------|-------------|
-| Interface assertion | `sort.Sort`, `heap.Init` | `v.(Iface)` panics |
-| Reflection on methods | `reflect.MethodByName` | Returns zero `Value` |
-| Interface check | `reflect.Type.Implements` | Returns `false` |
-| Type switch on concrete type | ORM field mapping | Never matches |
+| Pattern                         | Example                              | What Breaks              |
+| ------------------------------- | ------------------------------------ | ------------------------ |
+| Interface assertion             | `sort.Sort`, `heap.Init`             | `v.(Iface)` panics       |
+| Reflection on methods           | `reflect.MethodByName`               | Returns zero `Value`     |
+| Interface check                 | `reflect.Type.Implements`            | Returns `false`          |
+| Type switch on concrete type    | ORM field mapping                    | Never matches            |
 | Generic constraint satisfaction | `json.Marshal` with custom marshaler | Falls through to default |
 
 **The fundamental issue**: gig's runtime-synthesized types are structurally
@@ -218,6 +219,7 @@ func isStdlibPath(path string) bool {
 ```
 
 **What's always allowed**:
+
 - Primitives (`int`, `string`, `float64`, `bool`, etc.) → any function
 - Slices, maps of primitives → any function
 - Types from registered packages (`sort.IntSlice`, `time.Time`) → any function
@@ -232,6 +234,7 @@ func isStdlibPath(path string) bool {
   metadata, including simple passthrough helpers
 
 **What's rejected**:
+
 - User-defined named types (`type MyStruct struct{...}`) → third-party functions
 - Pointers to user-defined types → third-party functions
 - Slices/maps of user-defined types → third-party functions
@@ -327,6 +330,7 @@ prog, err := gig.Build(source, gig.WithAllowUnsafeTypePass())
 ```
 
 This disables both compile-time and runtime boundary checks. Use cases:
+
 - The third-party library does NOT use reflection on argument types
 - The user has verified type compatibility manually
 - Prototyping/MVP where the risk is acceptable

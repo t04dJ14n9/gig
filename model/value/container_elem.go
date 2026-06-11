@@ -12,7 +12,7 @@ func (v Value) Elem() Value {
 	if ptr, ok := v.obj.(*Value); ok {
 		return *ptr
 	}
-	if rv, ok := v.obj.(reflect.Value); ok {
+	if rv, ok := v.ReflectValue(); ok {
 		// If the reflect.Value points to a value.Value struct, unwrap it directly.
 		if rv.Kind() == reflect.Ptr && !rv.IsNil() {
 			if vp, ok2 := rv.Interface().(*Value); ok2 {
@@ -29,7 +29,7 @@ func (v Value) SetElem(val Value) {
 	if setDirectElemPointer(v.obj, val) {
 		return
 	}
-	if rv, ok := v.obj.(reflect.Value); ok {
+	if rv, ok := v.ReflectValue(); ok {
 		if setReflectElem(rv, val) {
 			return
 		}

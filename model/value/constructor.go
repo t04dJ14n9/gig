@@ -120,6 +120,14 @@ func MakeIntPtr(p *int64) Value {
 	return Value{kind: KindPointer, obj: p}
 }
 
+// MakeExternal stores a host Go object directly for external-call fast paths.
+func MakeExternal(v any) Value {
+	if v == nil {
+		return MakeNil()
+	}
+	return Value{kind: KindExternal, obj: v}
+}
+
 // MakeBytes creates a Value backed by a native []byte (KindBytes).
 // This avoids reflect overhead for []byte arguments and return values.
 func MakeBytes(b []byte) Value {
