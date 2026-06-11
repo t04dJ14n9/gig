@@ -515,3 +515,100 @@ func DeferPanicRecoverChain() int {
 	}()
 	panic("outer")
 }
+
+// ============================================================================
+// Missing Corner Case Tests
+// ============================================================================
+
+// DeferExternalMethod tests defer of external method (e.g., mu.Unlock)
+func DeferExternalMethod() int {
+	mu := &syncMutex{}
+	mu.Lock()
+	defer mu.Unlock()
+	return 42
+}
+
+// Minimal mutex implementation for testing defer external method
+type syncMutex struct{ locked int32 }
+
+func (m *syncMutex) Lock()   { m.locked = 1 }
+func (m *syncMutex) Unlock() { m.locked = 0 }
+
+// MultipleNamedReturnPanicRecover tests multiple named returns modified during panic recovery
+func MultipleNamedReturnPanicRecover() (a int, b int) {
+	defer func() {
+		if recover() != nil {
+			a = 100
+			b = 200
+		}
+	}()
+	panic("test")
+	return // never reached
+}
+
+// MultipleNamedReturnPanicRecoverCombined returns combined result for easy comparison
+func MultipleNamedReturnPanicRecoverCombined() int {
+	a, b := MultipleNamedReturnPanicRecover()
+	return a + b
+}
+
+// DeferIndirectFunction tests defer with a function variable (indirect call)
+func DeferIndirectFunction() int {
+	result := 0
+	fn := func() {
+		result += 42
+	}
+	defer fn()
+	result += 1
+	return result
+}
+
+// SendOnClosedChannelRecover tests recovering from send on closed channel
+func SendOnClosedChannelRecover() int {
+	var result int
+	defer func() {
+		if r := recover(); r != nil {
+			result = 99
+		}
+	}()
+	ch := make(chan int, 1)
+	close(ch)
+	ch <- 42 // will panic: send on closed channel
+	return result
+}
+
+// ============================================================================
+// Previously Known Issues (now fixed)
+// ============================================================================
+
+// DoublePanicReplacesValue tests that a panic in defer replaces original panic value
+func DoublePanicReplacesValue() (result string) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = r.(string)
+		}
+	}()
+	defer func() {
+		panic("second") // replaces "first"
+	}()
+	panic("first")
+}
+
+// PostRecoveryDeferRepanic tests panic propagation after recovery
+// Note: This test demonstrates that after a defer recovers, remaining defers
+// run in normal (non-panic) mode. The outermost defer should NOT see the panic
+// because it was already recovered by the middle defer.
+func PostRecoveryDeferRepanic() (result int) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = r.(int) * 10
+		}
+	}()
+	defer func() {
+		recover() // recover from first panic
+	}()
+	defer func() {
+		panic(7) // replaces "first"
+	}()
+	panic("first")
+}

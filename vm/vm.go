@@ -33,8 +33,10 @@
 // The vm package is split across files by responsibility:
 //
 //   - vm.go          — VM struct, constructor, Execute entry points
+//   - vm_execute.go  — Execute entry points and entry-frame setup
+//   - vm_entry_args.go — External entry argument validation and variadic packing
+//   - vm_lifecycle.go  — Reset, frame growth, shared globals, and global access
 //   - pool.go        — VMPool, ResolveCompiledMethod
-//   - cache.go       — External function call cache
 //   - interfaces.go  — VM interface and constructors
 //   - run.go         — Main fetch-decode-execute loop with hot-path inlined instructions
 //   - frame.go       — Frame (call stack entry) and DeferInfo (deferred call metadata)
@@ -58,7 +60,8 @@ package vm
 
 import (
 	"context"
-	"fmt"
+	"go/types"
+	"reflect"
 
 	"github.com/t04dJ14n9/gig/model/bytecode"
 	"github.com/t04dJ14n9/gig/model/value"
@@ -122,14 +125,16 @@ type vm struct {
 	// is recovered, the outer panic is restored from the stack.
 	panicStack []panicState
 
+	// lastPanicVal preserves the original panic value after run() returns an error.
+	// When run() reaches the top frame with an active panic, it formats the panic
+	// into an error string (losing type info) and clears panicVal. lastPanicVal
+	// keeps the original typed value so callers (e.g. OpRunDefers) can recover it.
+	lastPanicVal value.Value
+
 	// deferDepth tracks the nesting level of deferred function execution.
 	// 0 = normal execution, 1+ = inside deferred function(s).
 	// Replaces the boolean runningDefer flag to support nested defer panics.
 	deferDepth int
-
-	// extCallCache caches resolved external function info for fast dispatch.
-	// Uses a shared cache pointer for concurrent access from goroutines.
-	extCallCache *externalCallCache
 
 	// initialGlobals is the post-init globals snapshot.
 	// Used by Reset() to restore globals to their initial state.
@@ -144,30 +149,7 @@ type vm struct {
 
 // newVM creates a new VM for executing the given program.
 func newVM(program *bytecode.CompiledProgram, initialGlobals []value.Value, goroutines *GoroutineTracker) *vm {
-	globals := make([]value.Value, len(program.Globals))
-	if len(initialGlobals) == len(globals) {
-		copy(globals, initialGlobals)
-	}
-	// Initialize external variable values
-	for idx, ptr := range program.ExternalVarValues {
-		if idx < len(globals) {
-			globals[idx] = value.FromInterface(ptr)
-		}
-	}
-
-	// Initialize zero-valued struct globals to their proper zero reflect.Value.
-	// Go SSA may store nil constants for zero-valued struct globals (sync.Mutex{})
-	// which results in KindNil values. We replace these with the actual zero
-	// reflect.Value so pointer-receiver methods (e.g. mu.Lock()) can work.
-	// This must run AFTER init snapshot copy AND external var init.
-	for idx, zeroRV := range program.GlobalZeroValues {
-		if idx < len(globals) {
-			g := globals[idx]
-			if !g.IsValid() || g.IsNil() {
-				globals[idx] = value.MakeFromReflect(zeroRV)
-			}
-		}
-	}
+	globals := initializeVMGlobals(program, initialGlobals)
 
 	return &vm{
 		program:        program,
@@ -178,169 +160,85 @@ func newVM(program *bytecode.CompiledProgram, initialGlobals []value.Value, goro
 		globals:        globals,
 		initialGlobals: initialGlobals,
 		goroutines:     goroutines,
-		extCallCache: &externalCallCache{
-			cache: make([]*extCallCacheEntry, len(program.Constants)),
-		},
 	}
 }
 
-// Reset prepares the VM for reuse by clearing execution state.
-func (v *vm) Reset() {
-	v.sp = 0
-	v.fp = 0
-	v.panicking = false
-	v.panicVal = value.MakeNil()
-	v.panicStack = v.panicStack[:0]
-	v.deferDepth = 0
-	v.ctx = nil
-	// Clear all frames (prevents stale frame references from previous execution).
-	for i := range v.frames {
-		v.frames[i] = nil
+func initializeVMGlobals(program *bytecode.CompiledProgram, initialGlobals []value.Value) []value.Value {
+	globals := copyInitialGlobals(program, initialGlobals)
+	applyExternalVarGlobals(globals, program)
+	applyZeroValueGlobals(globals, program)
+	applyPointerTypeGlobals(globals, program)
+	applyElementTypeGlobals(globals, program)
+	return globals
+}
+
+func copyInitialGlobals(program *bytecode.CompiledProgram, initialGlobals []value.Value) []value.Value {
+	globals := make([]value.Value, len(program.Globals))
+	if len(initialGlobals) == len(globals) {
+		copy(globals, initialGlobals)
 	}
-	// If shared globals are set (stateful mode or goroutine),
-	// do not restore the local globals copy — the caller manages the shared state.
-	if v.shared != nil {
-		v.shared = nil
+	return globals
+}
+
+func applyExternalVarGlobals(globals []value.Value, program *bytecode.CompiledProgram) {
+	for idx, ptr := range program.ExternalVarValues {
+		if idx < len(globals) {
+			globals[idx] = value.FromInterface(ptr)
+		}
+	}
+}
+
+func applyZeroValueGlobals(globals []value.Value, program *bytecode.CompiledProgram) {
+	for idx, zeroRV := range program.GlobalZeroValues {
+		if idx < len(globals) {
+			if shouldInitializeGlobal(globals[idx]) {
+				globals[idx] = value.MakeFromReflect(zeroRV)
+			}
+		}
+	}
+}
+
+func applyPointerTypeGlobals(globals []value.Value, program *bytecode.CompiledProgram) {
+	for idx, typeIdx := range program.GlobalTypes {
+		if idx >= len(globals) || typeIdx >= len(program.Types) {
+			continue
+		}
+		if shouldInitializeGlobal(globals[idx]) {
+			initializePointerTypeGlobal(globals, program, idx, typeIdx)
+		}
+	}
+}
+
+func initializePointerTypeGlobal(globals []value.Value, program *bytecode.CompiledProgram, idx, typeIdx int) {
+	t := program.Types[typeIdx]
+	if rt := typeToReflect(t, program); rt != nil && rt.Kind() == reflect.Ptr {
+		globals[idx] = value.MakeFromReflect(reflect.New(rt.Elem()))
+	}
+}
+
+func applyElementTypeGlobals(globals []value.Value, program *bytecode.CompiledProgram) {
+	// For globals with element types but no pre-computed zero values (anonymous
+	// structs, arrays, user-defined named types), compute the zero value using
+	// typeToReflect. This must run AFTER GlobalZeroValues so it doesn't override
+	// pre-computed values for external types like sync.Mutex.
+	for idx, elemType := range program.GlobalElemTypes {
+		if idx < len(globals) {
+			if shouldInitializeGlobal(globals[idx]) {
+				initializeElementTypeGlobal(globals, program, idx, elemType)
+			}
+		}
+	}
+}
+
+func initializeElementTypeGlobal(globals []value.Value, program *bytecode.CompiledProgram, idx int, elemType types.Type) {
+	if _, hasZero := program.GlobalZeroValues[idx]; hasZero {
 		return
 	}
-	// Stateless mode: restore globals to post-init snapshot, or zero them.
-	if len(v.initialGlobals) == len(v.globals) {
-		copy(v.globals, v.initialGlobals)
-	} else {
-		for i := range v.globals {
-			v.globals[i] = value.Value{}
-		}
-	}
-	// Restore external variable values (they should always be the same)
-	for idx, ptr := range v.program.ExternalVarValues {
-		if idx < len(v.globals) {
-			v.globals[idx] = value.FromInterface(ptr)
-		}
-	}
-	// Re-apply zero-valued struct globals (may have been overwritten by SSA init nil stores).
-	for idx, zeroRV := range v.program.GlobalZeroValues {
-		if idx < len(v.globals) {
-			g := v.globals[idx]
-			if !g.IsValid() || g.IsNil() {
-				v.globals[idx] = value.MakeFromReflect(zeroRV)
-			}
-		}
+	if rt := typeToReflect(elemType, program); rt != nil {
+		globals[idx] = value.MakeFromReflect(reflect.New(rt))
 	}
 }
 
-// growFrames doubles the frame stack capacity up to maxFrameDepth.
-// Called when fp reaches the current slice length.
-// Returns false if the stack is already at maximum capacity (stack overflow).
-func (v *vm) growFrames() bool {
-	cur := len(v.frames)
-	if cur >= maxFrameDepth {
-		return false
-	}
-	newCap := cur * 2
-	if newCap > maxFrameDepth {
-		newCap = maxFrameDepth
-	}
-	grown := make([]*Frame, newCap)
-	copy(grown, v.frames)
-	v.frames = grown
-	return true
-}
-
-// BindSharedGlobals makes this VM execute against the provided SharedGlobals.
-// All global loads/stores will go through the shared (locked) globals.
-func (v *vm) BindSharedGlobals(sg *SharedGlobals) {
-	v.shared = sg
-}
-
-// UnbindSharedGlobals detaches the VM from shared globals so that Reset (called
-// when the VM is returned to the pool) does not clobber the shared state.
-func (v *vm) UnbindSharedGlobals() {
-	v.shared = nil
-}
-
-// Globals returns the VM's global variable slice.
-func (v *vm) Globals() []value.Value {
-	return v.globals
-}
-
-// Execute runs the specified function with the given arguments.
-// A Go-level recover() safety net catches any host-level panics (nil map write,
-// slice OOB, type assertion, etc.) and converts them to error returns, ensuring
-// sandboxed execution never crashes the host process.
-func (v *vm) Execute(funcName string, ctx context.Context, args ...value.Value) (result value.Value, err error) {
-	v.ctx = ctx
-
-	fn, ok := v.program.Functions[funcName]
-	if !ok {
-		return value.MakeNil(), fmt.Errorf("function %q not found", funcName)
-	}
-
-	valArgs := make([]value.Value, len(args))
-	copy(valArgs, args)
-
-	frame := v.fpool.get(fn, 0, nil)
-	for i, arg := range valArgs {
-		if i < fn.NumLocals {
-			frame.locals[i] = arg
-			if frame.intLocals != nil {
-				frame.intLocals[i] = arg.RawInt()
-			}
-		}
-	}
-	v.frames[0] = frame
-	v.fp = 1
-
-	// Safety net: catch Go-level panics from VM execution
-	defer func() {
-		if r := recover(); r != nil {
-			result = value.MakeNil()
-			err = fmt.Errorf("runtime panic: %v", r)
-		}
-	}()
-
-	result, err = v.run()
-	return result, err
-}
-
-// ExecuteWithValues runs the specified function with pre-converted Value arguments.
-// Includes the same Go-level panic safety net as Execute.
-func (v *vm) ExecuteWithValues(funcName string, ctx context.Context, args []value.Value) (result value.Value, err error) {
-	v.ctx = ctx
-
-	fn, ok := v.program.Functions[funcName]
-	if !ok {
-		return value.MakeNil(), fmt.Errorf("function %q not found", funcName)
-	}
-
-	frame := v.fpool.get(fn, 0, nil)
-	for i, arg := range args {
-		if i < fn.NumLocals {
-			frame.locals[i] = arg
-			if frame.intLocals != nil {
-				frame.intLocals[i] = arg.RawInt()
-			}
-		}
-	}
-	v.frames[0] = frame
-	v.fp = 1
-
-	// Safety net: catch Go-level panics from VM execution
-	defer func() {
-		if r := recover(); r != nil {
-			result = value.MakeNil()
-			err = fmt.Errorf("runtime panic: %v", r)
-		}
-	}()
-
-	return v.run()
-}
-
-// getGlobals returns the globals slice for non-locked access.
-// For shared mode, returns the raw slice from SharedGlobals.
-// Individual OpGlobal/OpSetGlobal use locked methods directly.
-func (v *vm) getGlobals() []value.Value {
-	if v.shared != nil {
-		return v.shared.Globals()
-	}
-	return v.globals
+func shouldInitializeGlobal(g value.Value) bool {
+	return !g.IsValid() || g.IsNil()
 }

@@ -119,7 +119,7 @@ func BenchmarkFmtChain(b *testing.B) {
 
 	b.Run("Native/Direct", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			fmt.Sprintf("%v", native)
+			_ = fmt.Sprintf("%v", native)
 		}
 	})
 

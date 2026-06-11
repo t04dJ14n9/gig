@@ -9,6 +9,8 @@ import (
 	"github.com/t04dJ14n9/gig"
 )
 
+var replCommands = []string{":help", ":quit", ":clear", ":imports", ":vars", ":env", ":source", ":timeout", ":plugins"}
+
 // completer provides tab completion for the REPL.
 func (s *Session) completer(line string) []string {
 	var completions []string
@@ -68,55 +70,68 @@ func (s *Session) completeSelector(word, prefix string) []string {
 
 // completeIdentifier completes simple identifiers (variables, packages, commands).
 func (s *Session) completeIdentifier(word, prefix string) []string {
-	var completions []string
-
-	// Check if this is a command (starts with :)
 	if strings.HasPrefix(word, ":") {
-		commands := []string{":help", ":quit", ":clear", ":imports", ":vars", ":env", ":source", ":timeout", ":plugins"}
-		for _, cmd := range commands {
-			if strings.HasPrefix(cmd, word) {
-				completions = append(completions, prefix+cmd)
-			}
-		}
-		return completions
+		return prefixedMatches(replCommands, word, prefix)
 	}
 
-	// Add variable names
-	for name := range s.vars {
-		if strings.HasPrefix(name, word) {
-			completions = append(completions, prefix+name)
-		}
-	}
+	// Keep each domain explicit: REPL variables, current imports, known auto-imports,
+	// then registered packages. The order mirrors the old single-loop implementation.
+	completions := prefixedMapKeyMatches(s.vars, word, prefix)
+	completions = append(completions, s.importPackageCompletions(word, prefix)...)
+	completions = append(completions, prefixedMapKeyMatches(knownPackages, word, prefix)...)
+	completions = append(completions, registeredPackageCompletions(word, prefix)...)
 
-	// Add package names (from imports)
+	return completions
+}
+
+func (s *Session) importPackageCompletions(word, prefix string) []string {
+	var completions []string
 	for path := range s.imports {
-		pkgName := path
-		if idx := strings.LastIndex(path, "/"); idx >= 0 {
-			pkgName = path[idx+1:]
-		}
-		// Check for known packages with different names
-		if name, ok := pkgNameFromPath(path); ok {
-			pkgName = name
-		}
+		pkgName := completionPackageName(path)
 		if strings.HasPrefix(pkgName, word) {
 			completions = append(completions, prefix+pkgName)
 		}
 	}
+	return completions
+}
 
-	// Add known packages
-	for name := range knownPackages {
+func completionPackageName(path string) string {
+	if name, ok := pkgNameFromPath(path); ok {
+		return name
+	}
+	if idx := strings.LastIndex(path, "/"); idx >= 0 {
+		return path[idx+1:]
+	}
+	return path
+}
+
+func prefixedMapKeyMatches[V any](values map[string]V, word, prefix string) []string {
+	var completions []string
+	for name := range values {
 		if strings.HasPrefix(name, word) {
 			completions = append(completions, prefix+name)
 		}
 	}
+	return completions
+}
 
-	// Add registered packages
+func registeredPackageCompletions(word, prefix string) []string {
+	var completions []string
 	for _, pkg := range gig.GetAllPackages() {
 		if strings.HasPrefix(pkg.Name, word) {
 			completions = append(completions, prefix+pkg.Name)
 		}
 	}
+	return completions
+}
 
+func prefixedMatches(values []string, word, prefix string) []string {
+	var completions []string
+	for _, value := range values {
+		if strings.HasPrefix(value, word) {
+			completions = append(completions, prefix+value)
+		}
+	}
 	return completions
 }
 

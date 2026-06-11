@@ -676,3 +676,87 @@ func Range_SingleElement() int {
 	}
 	return count
 }
+
+// ------------------------------------------------------------------------
+// Additional Corner Case Tests
+// ------------------------------------------------------------------------
+
+// Slice_ThreeIndexSlice tests 3-index slice expression s[low:high:max] with cap control
+func Slice_ThreeIndexSlice() int {
+	s := []int{1, 2, 3, 4, 5}
+	sub := s[1:3:3] // len=2, cap=2
+	return len(sub)*10 + cap(sub)
+}
+
+// Slice_ThreeIndexSliceCapIsolation tests 3-index slice doesn't share cap with original
+func Slice_ThreeIndexSliceCapIsolation() int {
+	s := []int{1, 2, 3, 4, 5}
+	sub := s[1:3:3] // cap limited to 2
+	_ = append(sub, 10)
+	// s[3] should still be 4, not modified by append to sub
+	return s[3]
+}
+
+// Slice_AppendToNilString tests append to nil slice with non-int type
+func Slice_AppendToNilString() int {
+	var s []string
+	s = append(s, "hello")
+	s = append(s, "world")
+	return len(s)
+}
+
+// Slice_AppendToNilFloat tests append to nil slice with float type
+func Slice_AppendToNilFloat() float64 {
+	var s []float64
+	s = append(s, 1.5)
+	s = append(s, 2.5)
+	return s[0] + s[1]
+}
+
+// Map_NilMapReadOk tests reading from nil map with comma-ok
+func Map_NilMapReadOk() int {
+	var m map[string]int
+	_, ok := m["key"]
+	if ok {
+		return 1
+	}
+	return 0
+}
+
+// Map_DeleteNilMap tests delete on nil map (should be no-op)
+func Map_DeleteNilMap() int {
+	var m map[string]int
+	delete(m, "key")
+	return 0 // no panic
+}
+
+// ComplexTypeAssertion tests type assertion with complex64/128
+func ComplexTypeAssertion() int {
+	var i interface{} = complex(3.0, 4.0)
+	switch v := i.(type) {
+	case complex64:
+		_ = v
+		return 1
+	case complex128:
+		_ = v
+		return 2
+	default:
+		_ = v
+		return 0
+	}
+}
+
+// CrossKindTypeAssertion tests type assertion across numeric kinds
+func CrossKindTypeAssertion() int {
+	var i interface{} = int64(42)
+	switch i.(type) {
+	case int:
+		return 1
+	case int64:
+		return 2
+	case int32:
+		return 3
+	default:
+		return 0
+	}
+}

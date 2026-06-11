@@ -583,3 +583,78 @@ func JsonEncodeResolved() int {
 	encoder.Encode(map[string]int{"y": 20})
 	return buf.Len()
 }
+
+// ── Resolved Issue 36: Nil slice to interface preserves type info ───────────
+// Previously, returning a nil slice as interface{} lost type information.
+// In native Go, a nil slice retains its type when assigned to interface{}.
+// Fix: OpReturn properly boxes nil typed values (slices, maps, channels, funcs)
+// into a typed interface value instead of returning untyped nil.
+
+// NilSliceToInterfaceResolved tests nil slice preserved in interface return.
+func NilSliceToInterfaceResolved() interface{} {
+	var s []int
+	return s
+}
+
+// ── Resolved Issue 37: Nil map access returns zero value ────────────────────
+// Previously, accessing a non-existent key in a nil map returned nil instead
+// of the zero value for the value type. Go spec: m["key"] on nil map returns 0.
+// Fix: OpIndex for KindMap returns zero value via reflect.Zero for nil maps.
+
+// NilMapAccessResolved tests nil map access returns zero value.
+func NilMapAccessResolved() int {
+	var m map[string]int
+	return m["key"]
+}
+
+// ── Resolved Issue 38: Delete on nil map is no-op ──────────────────────────
+// Previously, delete on nil map panicked with "invalid reflect.Value in SetMapIndex()".
+// Go spec: delete on nil map is a no-op. Fix: OpDelete checks m.IsNil() first.
+
+// NilMapDeleteResolved tests delete on nil map is a no-op.
+func NilMapDeleteResolved() int {
+	var m map[string]int
+	delete(m, "key")
+	return 0
+}
+
+// ── Resolved Issue 39: Blank expression preserves type in interface return ─
+// Previously, returning []interface{} (nil) from a function after a blank
+// identifier expression lost type information. Fix: proper nil slice boxing.
+
+// BlankExprInterfaceReturnResolved tests blank expr doesn't lose type info.
+func BlankExprInterfaceReturnResolved() interface{} {
+	_ = 42
+	var s []interface{}
+	return s
+}
+
+// ── Resolved Issue 40: Send on closed channel panic is recoverable ─────────
+// Previously, sending on a closed channel panicked but the panic was not
+// properly recoverable. Fix: panic/recover mechanism in vm/run.go correctly
+// handles channel operation panics with full defer execution.
+
+// ChannelClosedSendRecovered tests send on closed channel is recoverable.
+func ChannelClosedSendRecovered() int {
+	ch := make(chan int, 1)
+	close(ch)
+	defer func() {
+		if r := recover(); r != nil {
+			// Recovered from panic
+		}
+	}()
+	ch <- 1 // Will panic
+	return 0
+}
+
+// ── Resolved Issue 41: Nil function return preserves type info ─────────────
+// Previously, returning nil as a function type lost the function type information.
+// Fix: proper nil function boxing into typed interface on return.
+
+// NilFuncReturnResolved tests nil function return preserves type.
+func NilFuncReturnResolved() func() int {
+	if false {
+		return func() int { return 1 }
+	}
+	return nil
+}

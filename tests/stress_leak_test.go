@@ -62,179 +62,295 @@ func runStressMemoryLeak(b *testing.B, duration time.Duration) {
 
 	b.Logf("Starting %v memory leak stress benchmark", duration)
 
-	// Build program once
+	prog := buildStressMemoryProgram(b)
+	defer prog.Close()
+
+	baseline := captureStressMemoryBaseline()
+	logStressMemoryBaseline(b, baseline)
+
+	logFile := createStressMemoryLog(b)
+	defer logFile.Close()
+
+	config := stressMemoryConfig{
+		concurrency:    20, // Reduced from 50 to lower mutex contention.
+		reportInterval: time.Minute,
+		duration:       duration,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), duration)
+	defer cancel()
+
+	counters := &stressMemoryCounters{}
+	var wg sync.WaitGroup
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	defer workerCancel()
+	stopCh := make(chan struct{})
+
+	startStressMemoryWorkers(prog, config, counters, workerCtx, stopCh, &wg)
+	monitorDone := startStressMemoryMonitor(b, ctx, logFile, baseline, config, counters)
+	<-ctx.Done()
+
+	stopStressMemoryWorkers(b, stopCh, workerCancel, &wg)
+	<-monitorDone
+
+	final := captureStressMemoryFinal()
+	logStressMemoryFinalReport(b, duration, baseline, final, counters)
+	checkStressMemoryFinalThresholds(b, baseline, final)
+}
+
+type stressMemoryConfig struct {
+	concurrency    int
+	reportInterval time.Duration
+	duration       time.Duration
+}
+
+type stressMemoryBaseline struct {
+	heapAlloc  uint64
+	heapSys    uint64
+	goroutines int
+}
+
+type stressMemoryCounters struct {
+	totalOps   atomic.Int64
+	ongoingOps atomic.Int64
+	errors     atomic.Int64
+}
+
+type stressMemorySnapshot struct {
+	heapAllocMB       float64
+	heapSysMB         float64
+	heapInUseMB       float64
+	heapIdleMB        float64
+	stackInUseMB      float64
+	heapGrowthMB      float64
+	heapGrowthPercent float64
+	numGC             uint32
+	goroutines        int
+	totalOps          int64
+	ongoingOps        int64
+	errors            int64
+}
+
+type stressMemoryFinal struct {
+	memStats   runtime.MemStats
+	goroutines int
+}
+
+func buildStressMemoryProgram(b *testing.B) *gig.Program {
+	b.Helper()
 	prog, err := gig.Build(ruleEngineSource)
 	if err != nil {
 		b.Fatalf("Build error: %v", err)
 	}
-	defer prog.Close()
+	return prog
+}
 
-	// Memory tracking
+func captureStressMemoryBaseline() stressMemoryBaseline {
 	var memStats runtime.MemStats
 	runtime.GC()
 	runtime.ReadMemStats(&memStats)
+	return stressMemoryBaseline{
+		heapAlloc:  memStats.HeapAlloc,
+		heapSys:    memStats.HeapSys,
+		goroutines: runtime.NumGoroutine(),
+	}
+}
 
-	// Baseline measurements
-	baselineHeapAlloc := memStats.HeapAlloc
-	baselineHeapSys := memStats.HeapSys
-	baselineGoroutines := runtime.NumGoroutine()
-
+func logStressMemoryBaseline(b *testing.B, baseline stressMemoryBaseline) {
+	b.Helper()
 	b.Logf("══════════════════════════════════════════════════════════════")
 	b.Logf("BASELINE MEASUREMENTS")
 	b.Logf("══════════════════════════════════════════════════════════════")
-	b.Logf("  HeapAlloc:    %d MB", baselineHeapAlloc/1024/1024)
-	b.Logf("  HeapSys:      %d MB", baselineHeapSys/1024/1024)
-	b.Logf("  Goroutines:   %d", baselineGoroutines)
+	b.Logf("  HeapAlloc:    %d MB", baseline.heapAlloc/1024/1024)
+	b.Logf("  HeapSys:      %d MB", baseline.heapSys/1024/1024)
+	b.Logf("  Goroutines:   %d", baseline.goroutines)
 	b.Logf("══════════════════════════════════════════════════════════════")
+}
 
-	// Create log file for memory tracking
+func createStressMemoryLog(b *testing.B) *os.File {
+	b.Helper()
 	logFile, err := os.Create("stress_memory_leak.log")
 	if err != nil {
 		b.Fatalf("Failed to create log file: %v", err)
 	}
-	defer logFile.Close()
-
-	// Write header to log file
 	fmt.Fprintf(logFile, "Timestamp,HeapAllocMB,HeapSysMB,HeapInUseMB,HeapIdleMB,StackInUseMB,NumGC,Goroutines,TotalOps,OngoingOps,Errors\n")
+	return logFile
+}
 
-	// Test configuration
-	concurrency := 20 // Reduced from 50 to lower mutex contention
-	reportInterval := 1 * time.Minute
-	ctx, cancel := context.WithTimeout(context.Background(), duration)
-	defer cancel()
-
-	// Metrics
-	var totalOps atomic.Int64
-	var ongoingOps atomic.Int64
-	var errors atomic.Int64
-
-	// Start worker goroutines
-	var wg sync.WaitGroup
-	workerCtx, workerCancel := context.WithCancel(context.Background())
-	defer workerCancel()
-
-	// Channel for graceful shutdown
-	stopCh := make(chan struct{})
-
-	for i := 0; i < concurrency; i++ {
+func startStressMemoryWorkers(
+	prog *gig.Program,
+	config stressMemoryConfig,
+	counters *stressMemoryCounters,
+	workerCtx context.Context,
+	stopCh <-chan struct{},
+	wg *sync.WaitGroup,
+) {
+	for i := 0; i < config.concurrency; i++ {
 		wg.Add(1)
-		go func(workerID int) {
-			defer wg.Done()
-			opCounter := 0
-			for {
-				select {
-				case <-workerCtx.Done():
-					return
-				case <-stopCh:
-					return
-				default:
-					ongoingOps.Add(1)
-					opCounter++
-
-					// Execute with timeout to prevent stuck operations
-					execCtx, execCancel := context.WithTimeout(context.Background(), 5*time.Second)
-					_, err := prog.RunWithContext(execCtx, "EvaluateRule", workerID*100000+opCounter, " test_user ", float64(25+opCounter%50))
-					execCancel()
-
-					if err != nil {
-						errors.Add(1)
-					}
-					totalOps.Add(1)
-					ongoingOps.Add(-1)
-				}
-			}
-		}(i)
+		go runStressMemoryWorker(prog, counters, workerCtx, stopCh, wg, i)
 	}
+}
 
-	// Monitor goroutine - runs every minute
-	monitorDone := make(chan struct{})
+func runStressMemoryWorker(
+	prog *gig.Program,
+	counters *stressMemoryCounters,
+	workerCtx context.Context,
+	stopCh <-chan struct{},
+	wg *sync.WaitGroup,
+	workerID int,
+) {
+	defer wg.Done()
+	opCounter := 0
+	for {
+		select {
+		case <-workerCtx.Done():
+			return
+		case <-stopCh:
+			return
+		default:
+			opCounter++
+			runStressMemoryOperation(prog, counters, workerID, opCounter)
+		}
+	}
+}
+
+func runStressMemoryOperation(prog *gig.Program, counters *stressMemoryCounters, workerID, opCounter int) {
+	counters.ongoingOps.Add(1)
+	defer counters.ongoingOps.Add(-1)
+
+	execCtx, execCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	_, err := prog.RunWithContext(execCtx, "EvaluateRule", workerID*100000+opCounter, " test_user ", float64(25+opCounter%50))
+	execCancel()
+
+	if err != nil {
+		counters.errors.Add(1)
+	}
+	counters.totalOps.Add(1)
+}
+
+func startStressMemoryMonitor(
+	b *testing.B,
+	ctx context.Context,
+	logFile *os.File,
+	baseline stressMemoryBaseline,
+	config stressMemoryConfig,
+	counters *stressMemoryCounters,
+) <-chan struct{} {
+	done := make(chan struct{})
 	go func() {
-		defer close(monitorDone)
-		ticker := time.NewTicker(reportInterval)
+		defer close(done)
+		ticker := time.NewTicker(config.reportInterval)
 		defer ticker.Stop()
 
 		startTime := time.Now()
 		iteration := 0
-
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
 				iteration++
-				runtime.GC()
-				runtime.ReadMemStats(&memStats)
-
 				elapsed := time.Since(startTime)
-				heapAllocMB := float64(memStats.HeapAlloc) / 1024 / 1024
-				heapSysMB := float64(memStats.HeapSys) / 1024 / 1024
-				heapInUseMB := float64(memStats.HeapInuse) / 1024 / 1024
-				heapIdleMB := float64(memStats.HeapIdle) / 1024 / 1024
-				stackInUseMB := float64(memStats.StackInuse) / 1024 / 1024
-				numGC := memStats.NumGC
-				goroutines := runtime.NumGoroutine()
-
-				ops := totalOps.Load()
-				errCount := errors.Load()
-				ongoing := ongoingOps.Load()
-
-				// Calculate growth rate
-				heapGrowthMB := float64(memStats.HeapAlloc-baselineHeapAlloc) / 1024 / 1024
-				heapGrowthPercent := float64(memStats.HeapAlloc-baselineHeapAlloc) / float64(baselineHeapAlloc) * 100
-
-				// Log to file
-				fmt.Fprintf(logFile, "%s,%.2f,%.2f,%.2f,%.2f,%.2f,%d,%d,%d,%d,%d\n",
-					time.Now().Format(time.RFC3339),
-					heapAllocMB, heapSysMB, heapInUseMB, heapIdleMB,
-					stackInUseMB, numGC, goroutines, ops, ongoing, errCount)
-
-				// Log to test output
-				b.Logf("══════════════════════════════════════════════════════════════")
-				b.Logf("ITERATION %d | Elapsed: %v", iteration, elapsed.Round(time.Second))
-				b.Logf("══════════════════════════════════════════════════════════════")
-				b.Logf("  HeapAlloc:    %.2f MB (growth: %.2f MB, %.1f%%)", heapAllocMB, heapGrowthMB, heapGrowthPercent)
-				b.Logf("  HeapSys:      %.2f MB", heapSysMB)
-				b.Logf("  HeapInUse:    %.2f MB", heapInUseMB)
-				b.Logf("  HeapIdle:     %.2f MB", heapIdleMB)
-				b.Logf("  StackInUse:   %.2f MB", stackInUseMB)
-				b.Logf("  NumGC:        %d", numGC)
-				b.Logf("  Goroutines:   %d (baseline: %d)", goroutines, baselineGoroutines)
-				b.Logf("  TotalOps:     %d", ops)
-				b.Logf("  OngoingOps:   %d", ongoing)
-				b.Logf("  Errors:       %d", errCount)
-				b.Logf("══════════════════════════════════════════════════════════════")
-
-				// Leak detection thresholds
-				// After 30 minutes, if heap has grown more than 100MB, warn
-				if elapsed > 30*time.Minute && heapGrowthMB > 100 {
-					b.Logf("⚠️  WARNING: Potential memory leak detected!")
-					b.Logf("   Heap has grown %.2f MB in %v", heapGrowthMB, elapsed)
-				}
-
-				// If heap growth exceeds 200MB, fail the test
-				if heapGrowthMB > 200 {
-					b.Errorf("🚨 CRITICAL: Memory leak detected! Heap grew %.2f MB", heapGrowthMB)
-				}
-
-				// Check for goroutine leak
-				// Expected goroutines: baseline + workers + monitor (up to 3)
-				expectedGoroutines := baselineGoroutines + concurrency + 3
-				// Only warn if goroutines exceed expected count significantly
-				if goroutines > expectedGoroutines+10 {
-					b.Errorf("🚨 CRITICAL: Goroutine leak detected! %d goroutines (expected max %d)", goroutines, expectedGoroutines)
-				}
+				snapshot := captureStressMemorySnapshot(baseline, counters)
+				writeStressMemorySnapshot(logFile, snapshot)
+				logStressMemorySnapshot(b, iteration, elapsed, baseline, snapshot)
+				checkStressMemoryMonitorThresholds(b, elapsed, baseline, config, snapshot)
 			}
 		}
 	}()
+	return done
+}
 
-	// Wait for test duration
-	<-ctx.Done()
+func captureStressMemorySnapshot(baseline stressMemoryBaseline, counters *stressMemoryCounters) stressMemorySnapshot {
+	var memStats runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&memStats)
 
-	// Graceful shutdown
+	return stressMemorySnapshot{
+		heapAllocMB:       float64(memStats.HeapAlloc) / 1024 / 1024,
+		heapSysMB:         float64(memStats.HeapSys) / 1024 / 1024,
+		heapInUseMB:       float64(memStats.HeapInuse) / 1024 / 1024,
+		heapIdleMB:        float64(memStats.HeapIdle) / 1024 / 1024,
+		stackInUseMB:      float64(memStats.StackInuse) / 1024 / 1024,
+		heapGrowthMB:      float64(memStats.HeapAlloc-baseline.heapAlloc) / 1024 / 1024,
+		heapGrowthPercent: float64(memStats.HeapAlloc-baseline.heapAlloc) / float64(baseline.heapAlloc) * 100,
+		numGC:             memStats.NumGC,
+		goroutines:        runtime.NumGoroutine(),
+		totalOps:          counters.totalOps.Load(),
+		ongoingOps:        counters.ongoingOps.Load(),
+		errors:            counters.errors.Load(),
+	}
+}
+
+func writeStressMemorySnapshot(logFile *os.File, snapshot stressMemorySnapshot) {
+	fmt.Fprintf(logFile, "%s,%.2f,%.2f,%.2f,%.2f,%.2f,%d,%d,%d,%d,%d\n",
+		time.Now().Format(time.RFC3339),
+		snapshot.heapAllocMB,
+		snapshot.heapSysMB,
+		snapshot.heapInUseMB,
+		snapshot.heapIdleMB,
+		snapshot.stackInUseMB,
+		snapshot.numGC,
+		snapshot.goroutines,
+		snapshot.totalOps,
+		snapshot.ongoingOps,
+		snapshot.errors)
+}
+
+func logStressMemorySnapshot(
+	b *testing.B,
+	iteration int,
+	elapsed time.Duration,
+	baseline stressMemoryBaseline,
+	snapshot stressMemorySnapshot,
+) {
+	b.Helper()
+	b.Logf("══════════════════════════════════════════════════════════════")
+	b.Logf("ITERATION %d | Elapsed: %v", iteration, elapsed.Round(time.Second))
+	b.Logf("══════════════════════════════════════════════════════════════")
+	b.Logf("  HeapAlloc:    %.2f MB (growth: %.2f MB, %.1f%%)", snapshot.heapAllocMB, snapshot.heapGrowthMB, snapshot.heapGrowthPercent)
+	b.Logf("  HeapSys:      %.2f MB", snapshot.heapSysMB)
+	b.Logf("  HeapInUse:    %.2f MB", snapshot.heapInUseMB)
+	b.Logf("  HeapIdle:     %.2f MB", snapshot.heapIdleMB)
+	b.Logf("  StackInUse:   %.2f MB", snapshot.stackInUseMB)
+	b.Logf("  NumGC:        %d", snapshot.numGC)
+	b.Logf("  Goroutines:   %d (baseline: %d)", snapshot.goroutines, baseline.goroutines)
+	b.Logf("  TotalOps:     %d", snapshot.totalOps)
+	b.Logf("  OngoingOps:   %d", snapshot.ongoingOps)
+	b.Logf("  Errors:       %d", snapshot.errors)
+	b.Logf("══════════════════════════════════════════════════════════════")
+}
+
+func checkStressMemoryMonitorThresholds(
+	b *testing.B,
+	elapsed time.Duration,
+	baseline stressMemoryBaseline,
+	config stressMemoryConfig,
+	snapshot stressMemorySnapshot,
+) {
+	b.Helper()
+	if elapsed > 30*time.Minute && snapshot.heapGrowthMB > 100 {
+		b.Logf("⚠️  WARNING: Potential memory leak detected!")
+		b.Logf("   Heap has grown %.2f MB in %v", snapshot.heapGrowthMB, elapsed)
+	}
+	if snapshot.heapGrowthMB > 200 {
+		b.Errorf("🚨 CRITICAL: Memory leak detected! Heap grew %.2f MB", snapshot.heapGrowthMB)
+	}
+	expectedGoroutines := baseline.goroutines + config.concurrency + 3
+	if snapshot.goroutines > expectedGoroutines+10 {
+		b.Errorf("🚨 CRITICAL: Goroutine leak detected! %d goroutines (expected max %d)", snapshot.goroutines, expectedGoroutines)
+	}
+}
+
+func stopStressMemoryWorkers(
+	b *testing.B,
+	stopCh chan<- struct{},
+	workerCancel context.CancelFunc,
+	wg *sync.WaitGroup,
+) {
+	b.Helper()
 	b.Logf("Stopping workers...")
-	close(stopCh) // Signal workers to stop
+	close(stopCh)
 
-	// Give workers time to finish current operations
 	done := make(chan struct{})
 	go func() {
 		wg.Wait()
@@ -249,38 +365,53 @@ func runStressMemoryLeak(b *testing.B, duration time.Duration) {
 		workerCancel()
 		wg.Wait()
 	}
+}
 
-	<-monitorDone
-
-	// Final measurement
+func captureStressMemoryFinal() stressMemoryFinal {
+	var memStats runtime.MemStats
 	runtime.GC()
 	runtime.ReadMemStats(&memStats)
+	return stressMemoryFinal{
+		memStats:   memStats,
+		goroutines: runtime.NumGoroutine(),
+	}
+}
 
+func logStressMemoryFinalReport(
+	b *testing.B,
+	duration time.Duration,
+	baseline stressMemoryBaseline,
+	final stressMemoryFinal,
+	counters *stressMemoryCounters,
+) {
+	b.Helper()
 	b.Logf("\n")
 	b.Logf("══════════════════════════════════════════════════════════════")
 	b.Logf("FINAL REPORT")
 	b.Logf("══════════════════════════════════════════════════════════════")
 	b.Logf("  Duration:          %v", duration)
-	b.Logf("  Total Operations:  %d", totalOps.Load())
-	b.Logf("  Errors:            %d", errors.Load())
-	b.Logf("  Ops/Second:        %.0f", float64(totalOps.Load())/duration.Seconds())
+	b.Logf("  Total Operations:  %d", counters.totalOps.Load())
+	b.Logf("  Errors:            %d", counters.errors.Load())
+	b.Logf("  Ops/Second:        %.0f", float64(counters.totalOps.Load())/duration.Seconds())
 	b.Logf("────────────────────────────────────────────────────────────────")
-	b.Logf("  Baseline HeapAlloc:  %d MB", baselineHeapAlloc/1024/1024)
-	b.Logf("  Final HeapAlloc:     %d MB", memStats.HeapAlloc/1024/1024)
-	b.Logf("  Heap Growth:         %.2f MB", float64(memStats.HeapAlloc-baselineHeapAlloc)/1024/1024)
+	b.Logf("  Baseline HeapAlloc:  %d MB", baseline.heapAlloc/1024/1024)
+	b.Logf("  Final HeapAlloc:     %d MB", final.memStats.HeapAlloc/1024/1024)
+	b.Logf("  Heap Growth:         %.2f MB", stressHeapGrowthMB(baseline, final))
 	b.Logf("────────────────────────────────────────────────────────────────")
-	b.Logf("  Baseline Goroutines: %d", baselineGoroutines)
-	b.Logf("  Final Goroutines:    %d", runtime.NumGoroutine())
-	b.Logf("  Goroutine Growth:    %d", runtime.NumGoroutine()-baselineGoroutines)
+	b.Logf("  Baseline Goroutines: %d", baseline.goroutines)
+	b.Logf("  Final Goroutines:    %d", final.goroutines)
+	b.Logf("  Goroutine Growth:    %d", stressGoroutineGrowth(baseline, final))
 	b.Logf("────────────────────────────────────────────────────────────────")
-	b.Logf("  NumGC:               %d", memStats.NumGC)
-	b.Logf("  GCSys:               %d MB", memStats.GCSys/1024/1024)
+	b.Logf("  NumGC:               %d", final.memStats.NumGC)
+	b.Logf("  GCSys:               %d MB", final.memStats.GCSys/1024/1024)
 	b.Logf("══════════════════════════════════════════════════════════════")
 	b.Logf("Log file saved to: stress_memory_leak.log")
+}
 
-	// Determine pass/fail
-	heapGrowthMB := float64(memStats.HeapAlloc-baselineHeapAlloc) / 1024 / 1024
-	goroutineGrowth := runtime.NumGoroutine() - baselineGoroutines
+func checkStressMemoryFinalThresholds(b *testing.B, baseline stressMemoryBaseline, final stressMemoryFinal) {
+	b.Helper()
+	heapGrowthMB := stressHeapGrowthMB(baseline, final)
+	goroutineGrowth := stressGoroutineGrowth(baseline, final)
 
 	if heapGrowthMB > 50 {
 		b.Errorf("FAIL: Heap growth %.2f MB exceeds 50 MB threshold", heapGrowthMB)
@@ -293,6 +424,14 @@ func runStressMemoryLeak(b *testing.B, duration time.Duration) {
 	if heapGrowthMB <= 50 && goroutineGrowth <= 5 {
 		b.Logf("✅ PASS: No memory leaks detected!")
 	}
+}
+
+func stressHeapGrowthMB(baseline stressMemoryBaseline, final stressMemoryFinal) float64 {
+	return float64(final.memStats.HeapAlloc-baseline.heapAlloc) / 1024 / 1024
+}
+
+func stressGoroutineGrowth(baseline stressMemoryBaseline, final stressMemoryFinal) int {
+	return final.goroutines - baseline.goroutines
 }
 
 // ============================================================================

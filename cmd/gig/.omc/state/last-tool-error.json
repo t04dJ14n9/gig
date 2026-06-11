@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"go test -count=1 -timeout 120s ./compiler/ ./vm/ ./tests/ 2>&1\",\"timeout\":180000,\"description\":\"Run key packages tests\"}",
+  "error": "Exit code 1\n# ./compiler\nstat /Users/t04dj14n9/Code/gig/cmd/gig/compiler: directory not found\nFAIL\t./compiler [setup failed]\n# ./vm\nstat /Users/t04dj14n9/Code/gig/cmd/gig/vm: directory not found\nFAIL\t./vm [setup failed]\n# ./tests\nstat /Users/t04dj14n9/Code/gig/cmd/gig/tests: directory not found\nFAIL\t./tests [setup failed]\nFAIL",
+  "timestamp": "2026-05-25T14:19:31.304Z",
+  "retry_count": 1
+}

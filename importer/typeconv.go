@@ -2,11 +2,8 @@
 package importer
 
 import (
-	"go/constant"
-	"go/token"
 	"go/types"
 	"reflect"
-	"strings"
 	"sync"
 
 	"github.com/t04dJ14n9/gig/model/bytecode"
@@ -24,158 +21,31 @@ func init() {
 // typeCache caches converted types to prevent infinite recursion for self-referential types.
 var typeCache sync.Map // map[reflect.Type]types.Type
 
-// convertToConstantValue converts a Go value to a constant.Value for use in types.Const.
-// Uses reflection to handle all basic types uniformly.
-func convertToConstantValue(val any) constant.Value {
-	rv := reflect.ValueOf(val)
-	switch rv.Kind() {
-	case reflect.Bool:
-		return constant.MakeBool(rv.Bool())
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return constant.MakeInt64(rv.Int())
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return constant.MakeUint64(rv.Uint())
-	case reflect.Float32, reflect.Float64:
-		return constant.MakeFloat64(rv.Float())
-	case reflect.Complex64, reflect.Complex128:
-		c := rv.Complex()
-		re := constant.MakeFloat64(real(c))
-		im := constant.MakeFloat64(imag(c))
-		return constant.BinaryOp(re, token.ADD, constant.BinaryOp(im, token.MUL, constant.MakeImag(constant.MakeInt64(1))))
-	case reflect.String:
-		return constant.MakeString(rv.String())
-	default:
-		return constant.MakeUnknown()
-	}
-}
+type reflectInterfaceConverter func(reflect.Type) types.Type
 
 // convertReflectType converts a reflect.Type to types.Type.
-// This is the main entry point for type conversion, handling all Go types.
-// Uses a cache to prevent infinite recursion for self-referential types.
+// This entry point only coordinates the high-level policy decisions:
+// cache lookup, universe aliases, named type identity, then structural shape.
+// Keeping those boundaries explicit matters because named recursive types must
+// install a cache placeholder before their fields or methods are converted.
 func convertReflectType(rt reflect.Type) types.Type {
 	if rt == nil {
 		return types.Typ[types.Invalid]
 	}
 
-	// Check cache first to prevent infinite recursion
-	if cached, ok := typeCache.Load(rt); ok {
-		return cached.(types.Type)
+	if cached, ok := cachedReflectType(rt); ok {
+		return cached
 	}
 
-	// For named types, handle specially to support self-referential types.
-	// Named types include types like "time.Duration" which has Kind() == reflect.Int64
-	// but has a distinct name. We must preserve the named type, not collapse to the
-	// underlying basic type.
-	// However, basic type aliases like "byte" (alias for uint8) have Name() != "" but
-	// are NOT true named types - they should be treated as basic types to preserve
-	// byte/uint8 compatibility. We detect this by checking if the type name matches
-	// the underlying kind's name in types.Typ.
-	if rt.Name() != "" {
-		// Check if this is a basic type with a name alias (e.g., uint8, byte, string).
-		// For basic kinds, types.Typ[kind] gives the canonical type with the kind's name.
-		// If the reflect type's name matches the canonical kind name, it's a basic type alias.
-		isBasicAlias := false
-		if bt := bytecode.BasicTypeFromReflectKind(rt.Kind()); bt != nil && bt.Name() == rt.Name() {
-			isBasicAlias = true
-		}
-		// If it's a basic type alias, don't treat as named type - fall through to basic handling
-		// For interface types, don't wrap in Named - just return the interface directly
-		// (named interfaces in Go are still interface types, not Named types)
-		if !isBasicAlias && rt.Kind() != reflect.Interface {
-			// Create a placeholder named type to break recursion.
-			// Use rt.PkgPath() to attach the correct package, so the type checker
-			// and compiler can distinguish types with the same name from different
-			// packages (e.g., encoding/json.Encoder vs encoding/xml.Encoder).
-			pkg := getOrCreateTypesPackage(rt.PkgPath())
-			typeName := types.NewTypeName(0, pkg, rt.Name(), nil)
-			named := types.NewNamed(typeName, types.Typ[types.Invalid], nil)
-			typeCache.Store(rt, named)
-
-			// Now compute the actual underlying type
-			underlying := convertReflectTypeForUnderlying(rt)
-			named.SetUnderlying(underlying)
-
-			// Add methods from reflect.Type to the Named type
-			addMethodsToNamed(named, rt)
-
-			return named
-		}
+	if t, ok := convertUniverseReflectInterface(rt); ok {
+		return t
 	}
 
-	switch rt.Kind() {
-	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
-		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
-		reflect.String, reflect.UnsafePointer:
-		return bytecode.BasicTypeFromReflectKind(rt.Kind())
-
-	case reflect.Array:
-		elem := convertReflectType(rt.Elem())
-		result := types.NewArray(elem, int64(rt.Len()))
-		typeCache.Store(rt, result)
-		return result
-
-	case reflect.Slice:
-		elem := convertReflectType(rt.Elem())
-		result := types.NewSlice(elem)
-		typeCache.Store(rt, result)
-		return result
-
-	case reflect.Chan:
-		elem := convertReflectType(rt.Elem())
-		var dir types.ChanDir
-		switch rt.ChanDir() {
-		case reflect.SendDir:
-			dir = types.SendOnly
-		case reflect.RecvDir:
-			dir = types.RecvOnly
-		default:
-			dir = types.SendRecv
-		}
-		result := types.NewChan(dir, elem)
-		typeCache.Store(rt, result)
-		return result
-
-	case reflect.Func:
-		result := convertFuncType(rt)
-		typeCache.Store(rt, result)
-		return result
-
-	case reflect.Interface:
-		result := convertInterfaceType(rt)
-		typeCache.Store(rt, result)
-		return result
-
-	case reflect.Map:
-		key := convertReflectType(rt.Key())
-		elem := convertReflectType(rt.Elem())
-		result := types.NewMap(key, elem)
-		typeCache.Store(rt, result)
-		return result
-
-	case reflect.Ptr:
-		elem := convertReflectType(rt.Elem())
-		result := types.NewPointer(elem)
-		typeCache.Store(rt, result)
-		return result
-
-	case reflect.Struct:
-		result := convertStructType(rt)
-		typeCache.Store(rt, result)
-		return result
-
-	default:
-		// For other named types, create a TypeName
-		if rt.Name() != "" {
-			pkg := getOrCreateTypesPackage(rt.PkgPath())
-			typeName := types.NewTypeName(0, pkg, rt.Name(), nil)
-			underlying := convertReflectTypeForUnderlying(rt)
-			result := types.NewNamed(typeName, underlying, nil)
-			typeCache.Store(rt, result)
-			return result
-		}
-		return types.Typ[types.Invalid]
+	if named, ok := convertNamedReflectType(rt); ok {
+		return named
 	}
+
+	return convertUnnamedReflectType(rt)
 }
 
 // convertReflectTypeForUnderlying converts a reflect.Type to its underlying types.Type.
@@ -183,11 +53,83 @@ func convertReflectType(rt reflect.Type) types.Type {
 // Unlike convertReflectType, it does NOT cache results in typeCache — doing so
 // would overwrite the Named type entry that the caller stored for recursion breaking.
 func convertReflectTypeForUnderlying(rt reflect.Type) types.Type {
-	// For basic named types, return the corresponding basic type
 	if bt := bytecode.BasicTypeFromReflectKind(rt.Kind()); bt != nil {
 		return bt
 	}
 
+	return convertReflectCompositeType(rt, convertUncachedReflectInterface)
+}
+
+func cachedReflectType(rt reflect.Type) (types.Type, bool) {
+	cached, ok := typeCache.Load(rt)
+	if !ok {
+		return nil, false
+	}
+	return cached.(types.Type), true
+}
+
+func cacheReflectType(rt reflect.Type, t types.Type) types.Type {
+	typeCache.Store(rt, t)
+	return t
+}
+
+// convertUniverseReflectInterface preserves the identity of predeclared
+// interface types such as error. reflect.Type exposes error as an unnamed
+// interface shape, but go/types requires the universe object for assignment
+// compatibility with real Go code.
+func convertUniverseReflectInterface(rt reflect.Type) (types.Type, bool) {
+	if rt.Kind() != reflect.Interface || rt.PkgPath() != "" {
+		return nil, false
+	}
+
+	obj := types.Universe.Lookup(rt.Name())
+	if obj == nil {
+		return nil, false
+	}
+
+	return cacheReflectType(rt, obj.Type()), true
+}
+
+// convertNamedReflectType preserves type identity for imported Go types.
+// The placeholder is deliberately cached before computing the underlying type:
+// a recursive struct like type Node struct { Next *Node } must resolve *Node
+// back to the same named shell while the fields are still being built.
+func convertNamedReflectType(rt reflect.Type) (types.Type, bool) {
+	if rt.Name() == "" || isBasicReflectAlias(rt) {
+		return nil, false
+	}
+
+	pkg := getOrCreateTypesPackage(rt.PkgPath())
+	typeName := types.NewTypeName(0, pkg, rt.Name(), nil)
+	named := types.NewNamed(typeName, types.Typ[types.Invalid], nil)
+	typeCache.Store(rt, named)
+
+	named.SetUnderlying(convertReflectTypeForUnderlying(rt))
+
+	// Named interfaces already expose methods through their underlying
+	// interface. Concrete named types need the reflected method set attached so
+	// calls through imported third-party APIs type-check correctly.
+	if rt.Kind() != reflect.Interface {
+		addMethodsToNamed(named, rt)
+	}
+
+	return named, true
+}
+
+func isBasicReflectAlias(rt reflect.Type) bool {
+	bt := bytecode.BasicTypeFromReflectKind(rt.Kind())
+	return bt != nil && bt.Name() == rt.Name()
+}
+
+func convertUnnamedReflectType(rt reflect.Type) types.Type {
+	if bt := bytecode.BasicTypeFromReflectKind(rt.Kind()); bt != nil {
+		return bt
+	}
+
+	return cacheReflectType(rt, convertReflectCompositeType(rt, convertCachedReflectInterface))
+}
+
+func convertReflectCompositeType(rt reflect.Type, convertInterface reflectInterfaceConverter) types.Type {
 	switch rt.Kind() {
 	case reflect.Struct:
 		return convertStructType(rt)
@@ -202,210 +144,33 @@ func convertReflectTypeForUnderlying(rt reflect.Type) types.Type {
 	case reflect.Func:
 		return convertFuncType(rt)
 	case reflect.Interface:
-		return convertInterfaceType(rt)
+		return convertInterface(rt)
 	case reflect.Chan:
-		elem := convertReflectType(rt.Elem())
-		var dir types.ChanDir
-		switch rt.ChanDir() {
-		case reflect.SendDir:
-			dir = types.SendOnly
-		case reflect.RecvDir:
-			dir = types.RecvOnly
-		default:
-			dir = types.SendRecv
-		}
-		return types.NewChan(dir, elem)
+		return convertChanType(rt)
 	default:
 		return types.Typ[types.Invalid]
 	}
 }
 
-// typePkgCache caches *types.Package objects by package path to ensure
-// that the same package path always maps to the same *types.Package instance.
-var typePkgCache sync.Map // map[string]*types.Package
-
-// getOrCreateTypesPackage returns a cached *types.Package for the given
-// package path, creating one if it doesn't exist yet. The package name is
-// derived from the last path segment (e.g., "encoding/json" → "json").
-func getOrCreateTypesPackage(pkgPath string) *types.Package {
-	if pkgPath == "" {
-		return nil
-	}
-	if cached, ok := typePkgCache.Load(pkgPath); ok {
-		return cached.(*types.Package)
-	}
-	// Derive package name from path (last segment)
-	name := pkgPath
-	if idx := strings.LastIndex(pkgPath, "/"); idx >= 0 {
-		name = pkgPath[idx+1:]
-	}
-	pkg := types.NewPackage(pkgPath, name)
-	actual, _ := typePkgCache.LoadOrStore(pkgPath, pkg)
-	return actual.(*types.Package)
+func convertCachedReflectInterface(rt reflect.Type) types.Type {
+	return convertInterfaceType(rt)
 }
 
-// convertFuncType converts a reflect.Func type to a types.Signature.
-// It builds parameter and result tuples from the function's type information.
-func convertFuncType(rt reflect.Type) *types.Signature {
-	// Build parameter types
-	var params []*types.Var
-	for i := 0; i < rt.NumIn(); i++ {
-		paramType := convertReflectType(rt.In(i))
-		params = append(params, types.NewVar(0, nil, "", paramType))
-	}
-
-	// Build result types
-	var results []*types.Var
-	for i := 0; i < rt.NumOut(); i++ {
-		resultType := convertReflectType(rt.Out(i))
-		results = append(results, types.NewVar(0, nil, "", resultType))
-	}
-
-	// Check if last param is variadic
-	variadic := rt.IsVariadic()
-
-	return types.NewSignatureType(
-		nil,      // recv
-		nil, nil, // type params
-		types.NewTuple(params...),
-		types.NewTuple(results...),
-		variadic,
-	)
+func convertUncachedReflectInterface(rt reflect.Type) types.Type {
+	return convertInterfaceTypeNoCache(rt)
 }
 
-// convertInterfaceType converts a reflect.Interface type to a types.Interface.
-// For empty interfaces (any), returns types.NewInterfaceType(nil, nil).
-func convertInterfaceType(rt reflect.Type) *types.Interface {
-	if rt.NumMethod() == 0 {
-		// Empty interface (any)
-		return types.NewInterfaceType(nil, nil)
-	}
-
-	// Create a placeholder interface and cache it first to break recursion
-	iface := types.NewInterfaceType(nil, nil)
-	typeCache.Store(rt, iface)
-
-	var methods []*types.Func
-	for i := 0; i < rt.NumMethod(); i++ {
-		method := rt.Method(i)
-		sig := convertFuncType(method.Type)
-		methods = append(methods, types.NewFunc(0, nil, method.Name, sig))
-	}
-
-	// Update the interface with the methods
-	// Note: types.NewInterfaceType creates a complete interface, so we need to
-	// create a new one with the methods
-	result := types.NewInterfaceType(methods, nil)
-	typeCache.Store(rt, result)
-	return result
+func convertChanType(rt reflect.Type) *types.Chan {
+	return types.NewChan(chanDirFromReflect(rt.ChanDir()), convertReflectType(rt.Elem()))
 }
 
-// convertStructType converts a reflect.Struct type to a types.Struct.
-// It preserves field names, types, anonymous fields, and struct tags.
-func convertStructType(rt reflect.Type) *types.Struct {
-	var fields []*types.Var
-	var tags []string
-
-	for i := 0; i < rt.NumField(); i++ {
-		field := rt.Field(i)
-		fieldType := convertReflectType(field.Type)
-		fields = append(fields, types.NewField(0, nil, field.Name, fieldType, field.Anonymous))
-		tags = append(tags, string(field.Tag))
-	}
-
-	return types.NewStruct(fields, tags)
-}
-
-// addMethodsToNamed adds methods from a reflect.Type to a types.Named type.
-// This allows the type checker to find methods on external types.
-// Both value receiver and pointer receiver methods are added.
-// For interface types, methods do NOT include a receiver parameter.
-func addMethodsToNamed(named *types.Named, rt reflect.Type) {
-	// Check if this is an interface type - interface methods don't have receiver params
-	isInterface := rt.Kind() == reflect.Interface
-
-	// Enumerate all exported methods on the value receiver
-	addMethodsFromType(named, rt, isInterface, false)
-
-	// For interface types, don't process pointer receiver methods
-	if isInterface {
-		return
-	}
-
-	// Also enumerate methods on the pointer receiver (*T)
-	addMethodsFromType(named, reflect.PointerTo(rt), false, true)
-}
-
-// addMethodsFromType adds exported methods from methodSource to the named type.
-// If skipReceiver is false (interface types), parameters start at index 0.
-// If isPointerRecv is true, skips methods already present on named and uses pointer receiver.
-func addMethodsFromType(named *types.Named, methodSource reflect.Type, isInterface, isPointerRecv bool) {
-	for i := 0; i < methodSource.NumMethod(); i++ {
-		method := methodSource.Method(i)
-		if !method.IsExported() {
-			continue
-		}
-		// For pointer receiver pass, skip methods already added from value receiver
-		if isPointerRecv {
-			alreadyAdded := false
-			for j := 0; j < named.NumMethods(); j++ {
-				if named.Method(j).Name() == method.Name {
-					alreadyAdded = true
-					break
-				}
-			}
-			if alreadyAdded {
-				continue
-			}
-		}
-
-		methodType := method.Type
-		if methodType.Kind() != reflect.Func {
-			continue
-		}
-		// For non-interface types, we need at least 1 param (the receiver)
-		if !isInterface && methodType.NumIn() < 1 {
-			continue
-		}
-
-		// Build the parameter list
-		// For interfaces, start at 0 (no receiver). For concrete types, skip receiver at 0.
-		startIdx := 0
-		if !isInterface {
-			startIdx = 1
-		}
-		var params []*types.Var
-		for j := startIdx; j < methodType.NumIn(); j++ {
-			paramType := convertReflectType(methodType.In(j))
-			params = append(params, types.NewVar(0, nil, "", paramType))
-		}
-
-		// Build the result list
-		var results []*types.Var
-		for j := 0; j < methodType.NumOut(); j++ {
-			resultType := convertReflectType(methodType.Out(j))
-			results = append(results, types.NewVar(0, nil, "", resultType))
-		}
-
-		// Build receiver: nil for interfaces, named for value, *named for pointer
-		var recv *types.Var
-		if !isInterface {
-			recvType := types.Type(named)
-			if isPointerRecv {
-				recvType = types.NewPointer(named)
-			}
-			recv = types.NewVar(0, nil, "", recvType)
-		}
-
-		sig := types.NewSignatureType(
-			recv,
-			nil, nil,
-			types.NewTuple(params...),
-			types.NewTuple(results...),
-			methodType.IsVariadic(),
-		)
-
-		fn := types.NewFunc(0, named.Obj().Pkg(), method.Name, sig)
-		named.AddMethod(fn)
+func chanDirFromReflect(dir reflect.ChanDir) types.ChanDir {
+	switch dir {
+	case reflect.SendDir:
+		return types.SendOnly
+	case reflect.RecvDir:
+		return types.RecvOnly
+	default:
+		return types.SendRecv
 	}
 }

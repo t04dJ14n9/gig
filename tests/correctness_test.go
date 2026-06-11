@@ -6,7 +6,9 @@ package tests
 
 import (
 	_ "embed"
+	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -46,6 +48,8 @@ import (
 	"github.com/t04dJ14n9/gig/tests/testdata/tricky"
 	"github.com/t04dJ14n9/gig/tests/testdata/typeconv"
 	"github.com/t04dJ14n9/gig/tests/testdata/variables"
+
+	"github.com/t04dJ14n9/gig/tests/testdata/parity"
 )
 
 func TestAdvanced(t *testing.T)   { runTestSet(t, testSet{src: advancedSrc, tests: advancedTests}) }
@@ -126,6 +130,9 @@ func TestTrickyStructs(t *testing.T) {
 }
 func TestTypeconv(t *testing.T)  { runTestSet(t, testSet{src: typeconvSrc, tests: typeconvTests}) }
 func TestVariables(t *testing.T) { runTestSet(t, testSet{src: variablesSrc, tests: variablesTests}) }
+func TestParity(t *testing.T) {
+	runTestSet(t, testSet{src: paritySrc, tests: parityTests, buildOpts: []gig.BuildOption{gig.WithAllowPanic()}})
+}
 
 // ============================================================================
 // Helper Functions
@@ -156,6 +163,68 @@ func callNative(fn any, args []any) any {
 		result[i] = o.Interface()
 	}
 	return result
+}
+
+// stringsEqualIgnoringOrder checks if two strings contain the same tokens
+// (split by semicolons or spaces) regardless of order. Used for map iteration
+// tests where order is non-deterministic.
+func stringsEqualIgnoringOrder(a, b string) bool {
+	if a == b {
+		return true
+	}
+	wordsA := splitTokens(a)
+	wordsB := splitTokens(b)
+	if len(wordsA) != len(wordsB) {
+		return false
+	}
+	freq := make(map[string]int)
+	for _, w := range wordsA {
+		freq[w]++
+	}
+	for _, w := range wordsB {
+		freq[w]--
+		if freq[w] < 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// splitTokens splits a string by semicolons or spaces, filtering empty tokens.
+func splitTokens(s string) []string {
+	var tokens []string
+	for _, tok := range strings.FieldsFunc(s, func(r rune) bool {
+		return r == ';' || r == ' '
+	}) {
+		if tok != "" {
+			tokens = append(tokens, tok)
+		}
+	}
+	return tokens
+}
+
+// callNativeSafe invokes fn with args using reflection, recovering from panics.
+// Returns (result, nil) on success, or (nil, error) if the native function panicked.
+func callNativeSafe(fn any, args []any) (result any, panicErr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			panicErr = fmt.Errorf("panic: %v", r)
+		}
+	}()
+	v := reflect.ValueOf(fn)
+	in := make([]reflect.Value, len(args))
+	for i, a := range args {
+		in[i] = reflect.ValueOf(a)
+	}
+	out := v.Call(in)
+	if len(out) == 1 {
+		return out[0].Interface(), nil
+	}
+	res := make([]any, len(out))
+	for i, o := range out {
+		res[i] = o.Interface()
+	}
+	return res, nil
 }
 
 // compareResults compares interpreter result with native result
@@ -354,6 +423,9 @@ var variablesSrc string
 
 //go:embed testdata/initialize/main.go
 var initSrc string
+
+//go:embed testdata/parity/main.go
+var paritySrc string
 
 // ============================================================================
 // All Test Cases - Consolidated from all test files
@@ -586,6 +658,7 @@ var complexTests = map[string]testCase{
 	"VariadicBasicCheck":       {complexSrc, "VariadicBasicCheck", nil, complex.VariadicBasicCheck},
 	"VariadicEmpty":            {complexSrc, "VariadicEmpty", nil, complex.VariadicEmpty},
 	"VariadicWithRegularCheck": {complexSrc, "VariadicWithRegularCheck", nil, complex.VariadicWithRegularCheck},
+	"VariadicWithRegular":      {complexSrc, "VariadicWithRegular", []any{100, 1, 2, 3}, complex.VariadicWithRegular},
 	"VariadicSpread":           {complexSrc, "VariadicSpread", nil, complex.VariadicSpread},
 	"VariadicOneArg":           {complexSrc, "VariadicOneArg", nil, complex.VariadicOneArg},
 }
@@ -706,6 +779,16 @@ var cornercasesTests = map[string]testCase{
 	"Struct_ZeroValueFields":      {cornercasesSrc, "Struct_ZeroValueFields", nil, cornercases.Struct_ZeroValueFields},
 	"Struct_PointerReceiver":      {cornercasesSrc, "Struct_PointerReceiver", nil, cornercases.Struct_PointerReceiver},
 	"Struct_NestedStruct":         {cornercasesSrc, "Struct_NestedStruct", nil, cornercases.Struct_NestedStruct},
+
+	// Additional corner case tests
+	"Slice_ThreeIndexSlice":        {cornercasesSrc, "Slice_ThreeIndexSlice", nil, cornercases.Slice_ThreeIndexSlice},
+	"Slice_ThreeIndexSliceCapIsolation": {cornercasesSrc, "Slice_ThreeIndexSliceCapIsolation", nil, cornercases.Slice_ThreeIndexSliceCapIsolation},
+	"Slice_AppendToNilString":      {cornercasesSrc, "Slice_AppendToNilString", nil, cornercases.Slice_AppendToNilString},
+	"Slice_AppendToNilFloat":       {cornercasesSrc, "Slice_AppendToNilFloat", nil, cornercases.Slice_AppendToNilFloat},
+	"Map_NilMapReadOk":             {cornercasesSrc, "Map_NilMapReadOk", nil, cornercases.Map_NilMapReadOk},
+	"Map_DeleteNilMap":             {cornercasesSrc, "Map_DeleteNilMap", nil, cornercases.Map_DeleteNilMap},
+	"ComplexTypeAssertion":         {cornercasesSrc, "ComplexTypeAssertion", nil, cornercases.ComplexTypeAssertion},
+	"CrossKindTypeAssertion":       {cornercasesSrc, "CrossKindTypeAssertion", nil, cornercases.CrossKindTypeAssertion},
 }
 
 var edgecasesTests = map[string]testCase{
@@ -764,7 +847,10 @@ var functionsTests = map[string]testCase{
 	"FibRecN":    {functionsSrc, "FibRecN", []any{15}, functions.FibRecN},
 	"IsEvenN":    {functionsSrc, "IsEvenN", []any{10}, functions.IsEvenN},
 	"IsOddN":     {functionsSrc, "IsOddN", []any{7}, functions.IsOddN},
-	// Variadic with args - skip for now (interpreter variadic handling from outside needs work)
+	"SumVariadicEmpty": {functionsSrc, "SumVariadic", nil, functions.SumVariadic},
+	"SumVariadic":      {functionsSrc, "SumVariadic", []any{1, 2, 3}, functions.SumVariadic},
+	"JoinVariadic":     {functionsSrc, "JoinVariadic", []any{"a", "b", "c"}, functions.JoinVariadic},
+	"CountAnyVariadic": {functionsSrc, "CountAnyVariadic", []any{"a", 1, true}, functions.CountAnyVariadic},
 
 	// Multi-return value tests - these functions THEMSELVES return multiple values
 	"ThreeReturnValues":               {functionsSrc, "ThreeReturnValues", nil, functions.ThreeReturnValues},
@@ -832,6 +918,10 @@ var channelsTests = map[string]testCase{
 	"ChannelTwoWay":           {channelsSrc, "ChannelTwoWay", nil, channels.ChannelTwoWay},
 	"ChannelFanIn":            {channelsSrc, "ChannelFanIn", nil, channels.ChannelFanIn},
 	"ChannelBufferedsize":     {channelsSrc, "ChannelBufferedsize", nil, channels.ChannelBufferedsize},
+
+	// Additional channel corner case tests
+	"SendOnClosedChannelRecover":      {channelsSrc, "SendOnClosedChannelRecover", nil, channels.SendOnClosedChannelRecover},
+	"ReceiveFromClosedChannelEmpty":   {channelsSrc, "ReceiveFromClosedChannelEmpty", nil, channels.ReceiveFromClosedChannelEmpty},
 }
 
 var initTests = map[string]testCase{
@@ -958,6 +1048,15 @@ var panicRecoverTests = map[string]testCase{
 	"DeferOrderWithMultiplePanics": {panicRecoverSrc, "DeferOrderWithMultiplePanics", nil, panic_recover.DeferOrderWithMultiplePanics},
 	"DeferPanicRecoverChain":       {panicRecoverSrc, "DeferPanicRecoverChain", nil, panic_recover.DeferPanicRecoverChain},
 	"PanicNil":                     {panicRecoverSrc, "PanicNil", nil, panic_recover.PanicNil},
+
+	// Missing corner case tests
+	"DeferExternalMethod":                 {panicRecoverSrc, "DeferExternalMethod", nil, panic_recover.DeferExternalMethod},
+	"MultipleNamedReturnPanicRecoverCombined": {panicRecoverSrc, "MultipleNamedReturnPanicRecoverCombined", nil, panic_recover.MultipleNamedReturnPanicRecoverCombined},
+	"DeferIndirectFunction":               {panicRecoverSrc, "DeferIndirectFunction", nil, panic_recover.DeferIndirectFunction},
+	"SendOnClosedChannelRecover":          {panicRecoverSrc, "SendOnClosedChannelRecover", nil, panic_recover.SendOnClosedChannelRecover},
+	// Previously known issues (now fixed)
+	"DoublePanicReplacesValue":            {panicRecoverSrc, "DoublePanicReplacesValue", nil, panic_recover.DoublePanicReplacesValue},
+	"PostRecoveryDeferRepanic":            {panicRecoverSrc, "PostRecoveryDeferRepanic", nil, panic_recover.PostRecoveryDeferRepanic},
 }
 
 var recursionTests = map[string]testCase{
@@ -1024,6 +1123,18 @@ var resolved_issueTests = map[string]testCase{
 	"BytesBufferCapResolved": {resolvedIssueSrc, "BytesBufferCapResolved", nil, resolved_issue.BytesBufferCapResolved},
 	// Resolved Issue 34: json.Encoder method dispatch collision (formerly known issue Bug 8)
 	"JsonEncodeResolved": {resolvedIssueSrc, "JsonEncodeResolved", nil, resolved_issue.JsonEncodeResolved},
+	// Resolved Issue 36: nil slice to interface preserves type info (formerly StrangeSyntax Bug 1)
+	"NilSliceToInterfaceResolved": {resolvedIssueSrc, "NilSliceToInterfaceResolved", nil, resolved_issue.NilSliceToInterfaceResolved},
+	// Resolved Issue 37: nil map access returns zero value (formerly StrangeSyntax Bug 2)
+	"NilMapAccessResolved": {resolvedIssueSrc, "NilMapAccessResolved", nil, resolved_issue.NilMapAccessResolved},
+	// Resolved Issue 38: delete on nil map is no-op (formerly StrangeSyntax Bug 3)
+	"NilMapDeleteResolved": {resolvedIssueSrc, "NilMapDeleteResolved", nil, resolved_issue.NilMapDeleteResolved},
+	// Resolved Issue 39: blank expr preserves type in interface return (formerly StrangeSyntax Bug 4)
+	"BlankExprInterfaceReturnResolved": {resolvedIssueSrc, "BlankExprInterfaceReturnResolved", nil, resolved_issue.BlankExprInterfaceReturnResolved},
+	// Resolved Issue 40: send on closed channel panic is recoverable (formerly StrangeSyntax Bug 5)
+	"ChannelClosedSendRecovered": {resolvedIssueSrc, "ChannelClosedSendRecovered", nil, resolved_issue.ChannelClosedSendRecovered},
+	// Resolved Issue 41: nil function return preserves type info (formerly StrangeSyntax Bug 6)
+	"NilFuncReturnResolved": {resolvedIssueSrc, "NilFuncReturnResolved", nil, resolved_issue.NilFuncReturnResolved},
 }
 
 var scopeTests = map[string]testCase{
@@ -1062,6 +1173,10 @@ var slicingTests = map[string]testCase{
 	"SliceLen":          {slicingSrc, "SliceLen", []any{[]int{10, 20, 30, 40, 50, 60, 70}, 2, 5}, slicing.SliceLen},
 	"SliceSumRange":     {slicingSrc, "SliceSumRange", []any{[]int{10, 20, 30, 40, 50}, 1, 4}, slicing.SliceSumRange},
 	"SliceFirstElement": {slicingSrc, "SliceFirstElement", []any{[]int{100, 200, 300}, 0}, slicing.SliceFirstElement},
+	// 3-index slice tests
+	"ThreeIndexSlice":        {slicingSrc, "ThreeIndexSlice", nil, slicing.ThreeIndexSlice},
+	"ThreeIndexSliceFull":    {slicingSrc, "ThreeIndexSliceFull", nil, slicing.ThreeIndexSliceFull},
+	"ThreeIndexSliceCapControl": {slicingSrc, "ThreeIndexSliceCapControl", nil, slicing.ThreeIndexSliceCapControl},
 }
 
 var strings_pkgTests = map[string]testCase{
@@ -1990,6 +2105,8 @@ var typeconvTests = map[string]testCase{
 	"IntToString":     {typeconvSrc, "IntToString", []any{12345}, typeconv.IntToString},
 	"StringToInt":     {typeconvSrc, "StringToInt", []any{"54321"}, typeconv.StringToInt},
 	"IntToFloatToInt": {typeconvSrc, "IntToFloatToInt", []any{42}, typeconv.IntToFloatToInt},
+	// Named type conversion tests
+	"NamedSliceAlias":    {typeconvSrc, "NamedSliceAlias", nil, typeconv.NamedSliceAlias},
 }
 
 var variablesTests = map[string]testCase{
@@ -2004,4 +2121,92 @@ var variablesTests = map[string]testCase{
 	"Multiply":   {variablesSrc, "Multiply", []any{6, 7}, variables.Multiply},
 	"Max":        {variablesSrc, "Max", []any{100, 42}, variables.Max},
 	"IsPositive": {variablesSrc, "IsPositive", []any{5}, variables.IsPositive},
+}
+
+var parityTests = map[string]testCase{
+	// Type assertions
+	"TypeAssertInt":           {paritySrc, "TypeAssertInt", nil, parity.TypeAssertInt},
+	"TypeAssertCommaOk":       {paritySrc, "TypeAssertCommaOk", nil, parity.TypeAssertCommaOk},
+	"TypeAssertCommaOkFail":           {paritySrc, "TypeAssertCommaOkFail", nil, parity.TypeAssertCommaOkFail},
+	"TypeAssertInterfaceToInterface": {paritySrc, "TypeAssertInterfaceToInterface", nil, parity.TypeAssertInterfaceToInterface},
+	"TypeSwitch":                     {paritySrc, "TypeSwitch", nil, parity.TypeSwitch},
+	"TypeSwitchWithDefault":   {paritySrc, "TypeSwitchWithDefault", nil, parity.TypeSwitchWithDefault},
+	// Type conversions
+	"IntToFloat64Conv":    {paritySrc, "IntToFloat64Conv", nil, parity.IntToFloat64Conv},
+	"Float64ToIntConv":    {paritySrc, "Float64ToIntConv", nil, parity.Float64ToIntConv},
+	"UintToIntConv":       {paritySrc, "UintToIntConv", nil, parity.UintToIntConv},
+	"IntToUintConv":       {paritySrc, "IntToUintConv", nil, parity.IntToUintConv},
+	"RuneToStringConv":    {paritySrc, "RuneToStringConv", nil, parity.RuneToStringConv},
+	"ByteToStringConv":    {paritySrc, "ByteToStringConv", nil, parity.ByteToStringConv},
+	"StringToRuneSliceConv": {paritySrc, "StringToRuneSliceConv", nil, parity.StringToRuneSliceConv},
+	"StringToByteSliceConv": {paritySrc, "StringToByteSliceConv", nil, parity.StringToByteSliceConv},
+	"ByteSliceToStringConv": {paritySrc, "ByteSliceToStringConv", nil, parity.ByteSliceToStringConv},
+	"Int8Range":           {paritySrc, "Int8Range", nil, parity.Int8Range},
+	"Uint8Range":          {paritySrc, "Uint8Range", nil, parity.Uint8Range},
+	// Interface wrapping
+	"TypedNilInterface":  {paritySrc, "TypedNilInterface", nil, parity.TypedNilInterface},
+	"NonNilInterface":    {paritySrc, "NonNilInterface", nil, parity.NonNilInterface},
+	// Method dispatch
+	"PointerReceiverMethod":  {paritySrc, "PointerReceiverMethod", nil, parity.PointerReceiverMethod},
+	"ValueToPointerMethod":   {paritySrc, "ValueToPointerMethod", nil, parity.ValueToPointerMethod},
+	// errors.Is / errors.As
+	"ErrorsIsWrap":    {paritySrc, "ErrorsIsWrap", nil, parity.ErrorsIsWrap},
+	"ErrorsIsChain":   {paritySrc, "ErrorsIsChain", nil, parity.ErrorsIsChain},
+	"ErrorsIsNoMatch": {paritySrc, "ErrorsIsNoMatch", nil, parity.ErrorsIsNoMatch},
+	"ErrorsAsMatch":   {paritySrc, "ErrorsAsMatch", nil, parity.ErrorsAsMatch},
+	"ErrorsAsNoMatch": {paritySrc, "ErrorsAsNoMatch", nil, parity.ErrorsAsNoMatch},
+	// sort callbacks
+	"SortInts":        {paritySrc, "SortInts", nil, parity.SortInts},
+	"SortStrings":     {paritySrc, "SortStrings", nil, parity.SortStrings},
+	"SortFloat64s":    {paritySrc, "SortFloat64s", nil, parity.SortFloat64s},
+	"SortSliceCustom": {paritySrc, "SortSliceCustom", nil, parity.SortSliceCustom},
+	"SortSliceStable": {paritySrc, "SortSliceStable", nil, parity.SortSliceStable},
+	"SortSearchInts":  {paritySrc, "SortSearchInts", nil, parity.SortSearchInts},
+	"SortReverseInts": {paritySrc, "SortReverseInts", nil, parity.SortReverseInts},
+	// String operations
+	"StringContains":  {paritySrc, "StringContains", nil, parity.StringContains},
+	"StringReplace":   {paritySrc, "StringReplace", nil, parity.StringReplace},
+	"StringSplitJoin": {paritySrc, "StringSplitJoin", nil, parity.StringSplitJoin},
+	"StringHasPrefix": {paritySrc, "StringHasPrefix", nil, parity.StringHasPrefix},
+	"StringTrimSpace": {paritySrc, "StringTrimSpace", nil, parity.StringTrimSpace},
+	// Slicing edge cases
+	"ThreeIndexSlice":    {paritySrc, "ThreeIndexSlice", nil, parity.ThreeIndexSlice},
+	"SliceFromSlice":     {paritySrc, "SliceFromSlice", nil, parity.SliceFromSlice},
+	"SliceAppendShared":  {paritySrc, "SliceAppendShared", nil, parity.SliceAppendShared},
+	"NilSliceLenCap":     {paritySrc, "NilSliceLenCap", nil, parity.NilSliceLenCap},
+	// Map operations
+	"MapDeleteKey":   {paritySrc, "MapDeleteKey", nil, parity.MapDeleteKey},
+	"MapMissingKey":  {paritySrc, "MapMissingKey", nil, parity.MapMissingKey},
+	"MapCommaOk":     {paritySrc, "MapCommaOk", nil, parity.MapCommaOk},
+	"MapRange":       {paritySrc, "MapRange", nil, parity.MapRange},
+	// Closure and capture
+	"ClosureCaptureByRef": {paritySrc, "ClosureCaptureByRef", nil, parity.ClosureCaptureByRef},
+	"ClosureReturnFunc":   {paritySrc, "ClosureReturnFunc", nil, parity.ClosureReturnFunc},
+	// Defer / Panic / Recover
+	"DeferOrder":   {paritySrc, "DeferOrder", nil, parity.DeferOrder},
+	"PanicRecover": {paritySrc, "PanicRecover", nil, parity.PanicRecover},
+	"RecoverNil":   {paritySrc, "RecoverNil", nil, parity.RecoverNil},
+	// Float edge cases (IEEE 754)
+	"NaNLess":           {paritySrc, "NaNLess", nil, parity.NaNLess},
+	"NaNLessEq":         {paritySrc, "NaNLessEq", nil, parity.NaNLessEq},
+	"NaNGreater":        {paritySrc, "NaNGreater", nil, parity.NaNGreater},
+	"NaNGreaterEq":      {paritySrc, "NaNGreaterEq", nil, parity.NaNGreaterEq},
+	"NaNEq":             {paritySrc, "NaNEq", nil, parity.NaNEq},
+	"NaNNeq":            {paritySrc, "NaNNeq", nil, parity.NaNNeq},
+	"NaNLessThanNumber": {paritySrc, "NaNLessThanNumber", nil, parity.NaNLessThanNumber},
+	"NaNLessEqNumber":   {paritySrc, "NaNLessEqNumber", nil, parity.NaNLessEqNumber},
+	"NumberLessEqNaN":   {paritySrc, "NumberLessEqNaN", nil, parity.NumberLessEqNaN},
+	"InfArithmetic":     {paritySrc, "InfArithmetic", nil, parity.InfArithmetic},
+	"InfTimesZero":      {paritySrc, "InfTimesZero", nil, parity.InfTimesZero},
+	"NegativeZero":      {paritySrc, "NegativeZero", nil, parity.NegativeZero},
+	"FloatCompareNaN":   {paritySrc, "FloatCompareNaN", nil, parity.FloatCompareNaN},
+	// Integer overflow
+	"Uint8Overflow":   {paritySrc, "Uint8Overflow", nil, parity.Uint8Overflow},
+	"Int8Overflow":    {paritySrc, "Int8Overflow", nil, parity.Int8Overflow},
+	"Int8Underflow":   {paritySrc, "Int8Underflow", nil, parity.Int8Underflow},
+	"Uint16Overflow":  {paritySrc, "Uint16Overflow", nil, parity.Uint16Overflow},
+	// Slice capacity
+	"SliceAppendCap":     {paritySrc, "SliceAppendCap", nil, parity.SliceAppendCap},
+	"SliceSubAppend":     {paritySrc, "SliceSubAppend", nil, parity.SliceSubAppend},
+	"SliceSubAppendNoCap": {paritySrc, "SliceSubAppendNoCap", nil, parity.SliceSubAppendNoCap},
 }

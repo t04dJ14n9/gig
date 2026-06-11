@@ -20,7 +20,8 @@ type BuildResult struct {
 
 // buildConfig holds internal configuration parsed from BuildOption values.
 type buildConfig struct {
-	allowPanic bool
+	allowPanic          bool
+	allowUnsafeTypePass bool
 }
 
 // BuildOption configures the behaviour of Build.
@@ -30,6 +31,13 @@ type BuildOption func(*buildConfig)
 func WithAllowPanic() BuildOption {
 	return func(c *buildConfig) {
 		c.allowPanic = true
+	}
+}
+
+// WithAllowUnsafeTypePass disables type safety validation for external calls.
+func WithAllowUnsafeTypePass() BuildOption {
+	return func(c *buildConfig) {
+		c.allowUnsafeTypePass = true
 	}
 }
 
@@ -65,7 +73,7 @@ func Build(source string, reg importer.PackageRegistry, opts ...BuildOption) (*B
 
 	// 3. Compile SSA to bytecode — the registry satisfies compiler.PackageLookup
 	// because resolving external functions/methods is a compiler responsibility.
-	compiled, err := NewCompiler(reg).Compile(ssaResult.Pkg)
+	compiled, err := NewCompiler(reg, cfg.allowUnsafeTypePass).Compile(ssaResult.Pkg)
 	if err != nil {
 		return nil, fmt.Errorf("compile error: %w", err)
 	}

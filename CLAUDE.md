@@ -106,6 +106,36 @@ The `importer/` package maintains a global registry that bridges `go/types` type
 
 At compile time, Gig bans imports of `unsafe`, `reflect`, and `panic` (unless `WithAllowPanic()` is set). The VM supports context-based cancellation (checked every 1024 instructions). Frame depth is capped at 1024.
 
+### Type Boundary Safety
+
+By default, gig rejects user-defined types (structs, interfaces, named types declared
+in the script) from being passed as arguments to third-party library functions (import
+path contains a dot, e.g., `github.com/foo/bar`).
+
+**Why**: Go's `reflect.StructOf` cannot attach methods to runtime-synthesized types.
+Third-party libraries using reflection (`reflect.MethodByName`, `Type.Implements()`)
+will see incorrect type information, causing silent data corruption or panics.
+
+**What's allowed**:
+
+- Custom types → stdlib functions (gig guarantees correctness via adapters for
+  `sort.Interface`, `heap.Interface`, `fmt.Stringer`, `error`, etc.)
+- Primitive types, slices, maps → any function
+- External registered types (`sort.IntSlice`, `time.Time`) → any function
+- Custom types → third-party interface parameters only when the target interface
+  has a generated or manually registered interface proxy
+- Interpreted functions → third-party concrete `func` parameters only when the
+  callback result types cannot carry erased interface values
+
+**What's rejected**: custom script types passed to third-party `any`, concrete
+types, unproxied interface parameters, function values hidden behind `any`, or
+callbacks whose results contain interface types.
+
+Values hidden behind interface variables, including nested container elements
+and interpreted function values, are also checked at runtime before entering
+third-party code. **Escape hatch**:
+`gig.WithAllowUnsafeTypePass()` disables both compile-time and runtime checks.
+
 ### Performance Notes
 
 - Frame pooling eliminates allocations in recursion (Fib25: 2.1M → 7 allocations)
@@ -123,7 +153,7 @@ Tests live in `tests/` with test data in `tests/testdata/` (44 test case directo
 - `tests/benchmark_test.go` — performance benchmarks
 - `tests/stress_leak_test.go` — memory leak and concurrency stress tests
 - `tests/fuzz_test.go` — fuzzing tests
-- `tests/known_issue_test.go` — known issues and regressions
+- `tests/known_issue_test.go` — resolved issue regressions
 - `gig_test.go` — public API tests
 
 Cross-interpreter benchmarks (vs Yaegi, GopherLua) live in `benchmarks/`.

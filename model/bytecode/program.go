@@ -45,6 +45,18 @@ type CompiledProgram struct {
 	// Only populated for globals whose zero value is a non-nil struct/map/slice/chan.
 	GlobalZeroValues map[int]reflect.Value
 
+	// GlobalTypes maps global variable index to the Types pool index used by
+	// older runtime zero-value initialization paths. New compilation primarily
+	// uses GlobalElemTypes, but this field remains for compatibility with VM
+	// paths that still understand the legacy encoding.
+	GlobalTypes map[int]int
+
+	// GlobalElemTypes maps global variable index to its element type (types.Type).
+	// SSA globals have type *T; this stores T. Used by the VM to compute zero
+	// reflect.Values at startup for globals not handled by GlobalZeroValues
+	// (e.g., anonymous structs, arrays).
+	GlobalElemTypes map[int]types.Type
+
 	// Types is the type pool for runtime type operations.
 	Types []types.Type
 
@@ -52,6 +64,10 @@ type CompiledProgram struct {
 	// These are resolved at compile time and used to initialize globals in the VM.
 	// The value is a pointer to the external variable (e.g., &time.UTC).
 	ExternalVarValues map[int]any
+
+	// AllowUnsafeTypePass disables third-party boundary checks for callers that
+	// explicitly opted into unsafe external type passing at build time.
+	AllowUnsafeTypePass bool
 
 	// TypeResolver resolves external types at runtime.
 	// Used by the VM's typeToReflect to look up real reflect.Type for named types.
@@ -69,41 +85,10 @@ type CompiledProgram struct {
 	// reflect.Value belongs to, replacing the old _gig_id phantom field approach.
 	// Key: reflect.Type, Value: string (bare type name, e.g. "Foo").
 	ReflectTypeNames sync.Map
-}
 
-// TypeResolver resolves external types at runtime.
-// This interface breaks the circular dependency between bytecode/ and importer/
-// while providing type-safe access to external type lookup.
-type TypeResolver interface {
-	LookupExternalType(t types.Type) (reflect.Type, bool)
-}
-
-// CachedReflectType looks up a cached reflect.Type for the given types.Type.
-// Returns the cached type and true, or nil and false if not cached.
-func (p *CompiledProgram) CachedReflectType(t types.Type) (reflect.Type, bool) {
-	if v, ok := p.ReflectTypeCache.Load(t); ok {
-		return v.(reflect.Type), true
-	}
-	return nil, false
-}
-
-// CacheReflectType stores a types.Type → reflect.Type mapping.
-// Uses LoadOrStore to handle concurrent writes safely.
-func (p *CompiledProgram) CacheReflectType(t types.Type, rt reflect.Type) reflect.Type {
-	actual, _ := p.ReflectTypeCache.LoadOrStore(t, rt)
-	return actual.(reflect.Type)
-}
-
-// RegisterTypeName associates a reflect.Type with its bare type name (e.g. "Foo").
-// Used for method dispatch on interpreter-synthesized struct types.
-func (p *CompiledProgram) RegisterTypeName(rt reflect.Type, name string) {
-	p.ReflectTypeNames.Store(rt, name)
-}
-
-// LookupTypeName returns the bare type name for a reflect.Type, or "" if not registered.
-func (p *CompiledProgram) LookupTypeName(rt reflect.Type) string {
-	if v, ok := p.ReflectTypeNames.Load(rt); ok {
-		return v.(string)
-	}
-	return ""
+	// ExternCalls is the pre-resolved external call table, indexed the same as Constants.
+	// Built once by ResolveExternCalls after compilation. Because CompiledProgram is
+	// read-only after compilation, all VMs sharing the same program access this without
+	// locks — replacing the old per-VM extCallCache with its RWMutex.
+	ExternCalls []*ResolvedCall
 }

@@ -2,6 +2,7 @@ package vm
 
 import (
 	"context"
+	"go/types"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -144,6 +145,42 @@ func TestExecuteFunctionNotFound(t *testing.T) {
 	_, err := v.Execute("nonexistent", context.Background())
 	if err == nil {
 		t.Error("expected error for non-existent function")
+	}
+}
+
+func TestExecuteRejectsWrongEntryArguments(t *testing.T) {
+	fn := &bytecode.CompiledFunction{
+		Name: "echo",
+		Instructions: []byte{
+			byte(bytecode.OpLocal), 0, 0,
+			byte(bytecode.OpReturnVal),
+		},
+		NumLocals:  1,
+		NumParams:  1,
+		ParamTypes: []types.Type{types.Typ[types.Int]},
+		MaxStack:   1,
+	}
+	prog := &bytecode.CompiledProgram{
+		Functions: map[string]*bytecode.CompiledFunction{"echo": fn},
+		Globals:   map[string]int{},
+	}
+
+	cases := []struct {
+		name string
+		args []value.Value
+	}{
+		{name: "missing", args: nil},
+		{name: "extra", args: []value.Value{value.MakeInt(1), value.MakeInt(2)}},
+		{name: "bad type", args: []value.Value{value.MakeString("not an int")}},
+		{name: "nil", args: []value.Value{value.MakeNil()}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			v := New(prog)
+			if _, err := v.Execute("echo", context.Background(), tc.args...); err == nil {
+				t.Fatal("expected Execute to reject invalid entry arguments")
+			}
+		})
 	}
 }
 

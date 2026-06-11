@@ -1,48 +1,3 @@
-// Package bytecode defines the shared kernel types for the Gig interpreter.
-//
-// This package contains the bytecode instruction set, compiled program data
-// structures, and dependency injection interfaces shared between the compiler
-// and VM packages. It serves as the Shared Kernel in the DDD architecture,
-// enabling the compiler and VM to be fully decoupled from each other.
-//
-// # Compilation Process
-//
-// The compiler translates Go SSA (Static Single Assignment) intermediate representation
-// into a custom bytecode format that can be executed by the VM.
-//
-//  1. SSA Package Input - The compiler receives an SSA package from golang.org/x/tools/go/ssa
-//  2. Function Collection - All functions (including nested/anonymous) are collected
-//  3. Index Assignment - Each function is assigned a unique index for call instructions
-//  4. Per-Function Compilation - Each function is compiled to bytecode:
-//     - Symbol table construction for locals, parameters, and free variables
-//     - Phi node slot allocation
-//     - Basic block compilation in reverse postorder
-//     - Jump target patching
-//  5. Program Assembly - All compiled functions are combined into a Program
-//
-// # Bytecode Format
-//
-// Each instruction consists of:
-//   - 1 byte opcode (see OpCode constants)
-//   - 0-3 bytes of operands (see OperandWidths)
-//
-// Most instructions operate on a stack: pop operands, push result.
-// Local variables are accessed by index into the frame's local array.
-//
-// # Example
-//
-// The Go function:
-//
-//	func add(a, b int) int {
-//	    return a + b
-//	}
-//
-// Compiles to approximately:
-//
-//	LOCAL 0      ; push local 0 (a)
-//	LOCAL 1      ; push local 1 (b)
-//	ADD          ; pop a, pop b, push a+b
-//	RETURNVAL    ; return top of stack
 package bytecode
 
 // OpCode represents a single bytecode instruction.
@@ -82,12 +37,7 @@ const (
 	// Stack Operations
 	// ========================================
 
-	// OpNop is a no-operation instruction.
-	// Used as a placeholder or for debugging.
-	OpNop OpCode = iota
-
-	// OpPop discards the top value from the stack.
-	OpPop
+	OpPop OpCode = iota
 
 	// OpDup duplicates the top value on the stack.
 	OpDup
@@ -270,13 +220,11 @@ const (
 	// Stack: [... typeIdx size] -> [... chan]
 	OpMakeChan
 
-	// OpMakeArray creates a new array (rarely used).
-	// Operands: [type_idx:2]
-	OpMakeArray
-
-	// OpMakeStruct creates a new struct (rarely used).
-	// Operands: [type_idx:2]
-	OpMakeStruct
+	// OpMakeInterface wraps a value in a Go interface, preserving type information.
+	// Critical for typed nil: var p *T = nil; var e error = p → e is non-nil.
+	// Stack: [... value] -> [... interface_value]
+	// Operands: [iface_type_idx:2] [concrete_type_idx:2]
+	OpMakeInterface
 
 	// ========================================
 	// Index Operations
@@ -297,18 +245,6 @@ const (
 	// OpSlice slices a slice/array/string.
 	// Stack: [... container low high max] -> [... sliced]
 	OpSlice
-
-	// _ (placeholder: was OpSliceLen, removed as dead code - use OpLen instead)
-
-	// ========================================
-	// Map Operations
-	// ========================================
-
-	// OpMapIter creates a map iterator.
-	OpMapIter
-
-	// OpMapIterNext advances a map iterator.
-	OpMapIterNext
 
 	// ========================================
 	// Struct Operations
@@ -378,14 +314,6 @@ const (
 	// Operands: [func_idx:2] [num_free:1]
 	OpClosure
 
-	// OpMethod gets a method value.
-	// Operands: [method_idx:2]
-	OpMethod
-
-	// OpMethodCall calls a method.
-	// Operands: [method_idx:2] [num_args:1]
-	OpMethodCall
-
 	// ========================================
 	// Concurrency Operations
 	// ========================================
@@ -394,6 +322,11 @@ const (
 	// Operands: [func_idx:2, num_args:1]
 	// Stack: [... args] -> [...]
 	OpGoCall
+
+	// OpGoCallExternal starts a new goroutine with an external function or method call.
+	// Operands: [func_idx:2, num_args:1]
+	// Stack: [... args] -> [...]
+	OpGoCallExternal
 
 	// OpGoCallIndirect starts a new goroutine with a closure call.
 	// Operands: [num_args:1]
@@ -411,12 +344,6 @@ const (
 	// OpRecvOk receives a value from a channel with comma-ok.
 	// Stack: [... ch] -> [... (value, ok) tuple]
 	OpRecvOk
-
-	// OpTrySend sends non-blocking.
-	OpTrySend
-
-	// OpTryRecv receives non-blocking.
-	OpTryRecv
 
 	// OpClose closes a channel.
 	// Stack: [... ch] -> [...]
@@ -502,10 +429,6 @@ const (
 	// OpNew allocates a new pointer.
 	// Operands: [type_idx:2]
 	OpNew
-
-	// OpMake allocates with make (generic).
-	// Operands: [type_idx:2] [size_idx:2]
-	OpMake
 
 	// ========================================
 	// External Function Calls
@@ -707,260 +630,3 @@ const (
 	// Operands: [local_a:2] [const_b:2] [local_c:2]
 	OpIntLocalConstMulSetLocal
 )
-
-// operandWidthTable is a lookup table for opcode operand widths.
-// Using a fixed-size array gives O(1) access with no hash overhead, unlike a map.
-// Index is the opcode byte value; value is the total operand byte width.
-var operandWidthTable = buildOperandWidthTable()
-
-func buildOperandWidthTable() [256]int {
-	var t [256]int
-
-	t[OpConst] = 2
-	t[OpLocal] = 2
-	t[OpSetLocal] = 2
-	t[OpGlobal] = 2
-	t[OpSetGlobal] = 2
-	t[OpFree] = 1
-	t[OpSetFree] = 1
-	t[OpJump] = 2
-	t[OpJumpTrue] = 2
-	t[OpJumpFalse] = 2
-	t[OpCall] = 3 // func_idx(2) + num_args(1)
-	t[OpMakeArray] = 2
-	t[OpMakeStruct] = 2
-	t[OpField] = 2
-	t[OpSetField] = 2
-	t[OpAddr] = 2
-	t[OpFieldAddr] = 2
-	t[OpAssert] = 2
-	t[OpConvert] = 2
-	t[OpChangeType] = 4
-	t[OpClosure] = 3 // func_idx(2) + num_free(1)
-	t[OpMethod] = 2
-	t[OpMethodCall] = 3 // method_idx(2) + num_args(1)
-	t[OpDefer] = 2
-	t[OpDeferIndirect] = 2  // num_args(2)
-	t[OpDeferExternal] = 3  // func_idx(2) + num_args(1)
-	t[OpCallExternal] = 3   // func_idx(2) + num_args(1)
-	t[OpCallIndirect] = 1   // num_args(1)
-	t[OpGoCall] = 3         // func_idx(2) + num_args(1)
-	t[OpGoCallIndirect] = 1 // num_args(1)
-	t[OpSelect] = 2         // meta_idx(2)
-	t[OpPack] = 2           // count(2)
-	t[OpNew] = 2
-	t[OpMake] = 4    // type_idx(2) + size_idx(2)
-	t[OpPrint] = 1   // count(1)
-	t[OpPrintln] = 1 // count(1)
-
-	// Superinstruction operand widths
-	t[OpAddLocalLocal] = 4             // local_a(2) + local_b(2)
-	t[OpSubLocalLocal] = 4             // local_a(2) + local_b(2)
-	t[OpMulLocalLocal] = 4             // local_a(2) + local_b(2)
-	t[OpAddLocalConst] = 4             // local_a(2) + const_b(2)
-	t[OpSubLocalConst] = 4             // local_a(2) + const_b(2)
-	t[OpLessLocalLocalJumpTrue] = 6    // local_a(2) + local_b(2) + offset(2)
-	t[OpLessLocalConstJumpTrue] = 6    // local_a(2) + const_b(2) + offset(2)
-	t[OpLessEqLocalConstJumpTrue] = 6  // local_a(2) + const_b(2) + offset(2)
-	t[OpGreaterLocalLocalJumpTrue] = 6 // local_a(2) + local_b(2) + offset(2)
-	t[OpLessLocalLocalJumpFalse] = 6   // local_a(2) + local_b(2) + offset(2)
-	t[OpLessLocalConstJumpFalse] = 6   // local_a(2) + const_b(2) + offset(2)
-	t[OpLessEqLocalConstJumpFalse] = 6 // local_a(2) + const_b(2) + offset(2)
-	t[OpAddSetLocal] = 2               // local_a(2)
-	t[OpSubSetLocal] = 2               // local_a(2)
-	t[OpLocalLocalAddSetLocal] = 6     // local_a(2) + local_b(2) + local_c(2)
-	t[OpLocalConstAddSetLocal] = 6     // local_a(2) + const_b(2) + local_c(2)
-	t[OpLocalConstSubSetLocal] = 6     // local_a(2) + const_b(2) + local_c(2)
-
-	// Integer-specialized operand widths
-	t[OpIntLocalConstAddSetLocal] = 6     // local_a(2) + const_b(2) + local_c(2)
-	t[OpIntLocalConstSubSetLocal] = 6     // local_a(2) + const_b(2) + local_c(2)
-	t[OpIntLocalLocalAddSetLocal] = 6     // local_a(2) + local_b(2) + local_c(2)
-	t[OpIntLessLocalConstJumpFalse] = 6   // local_a(2) + const_b(2) + offset(2)
-	t[OpIntLessEqLocalConstJumpTrue] = 6  // local_a(2) + const_b(2) + offset(2)
-	t[OpIntLessEqLocalConstJumpFalse] = 6 // local_a(2) + const_b(2) + offset(2)
-	t[OpIntLessLocalLocalJumpFalse] = 6   // local_a(2) + local_b(2) + offset(2)
-	t[OpIntGreaterLocalLocalJumpTrue] = 6 // local_a(2) + local_b(2) + offset(2)
-	t[OpIntSetLocal] = 2                  // local_idx(2)
-	t[OpIntLocal] = 2                     // local_idx(2)
-	t[OpIntLessLocalConstJumpTrue] = 6    // local_a(2) + const_b(2) + offset(2)
-	t[OpIntLessLocalLocalJumpTrue] = 6    // local_a(2) + local_b(2) + offset(2)
-	t[OpIntMoveLocal] = 4                 // src(2) + dst(2)
-	t[OpIntSliceGet] = 6                  // slice_local(2) + index_local(2) + dest_local(2)
-	t[OpIntSliceSet] = 6                  // slice_local(2) + index_local(2) + val_local(2)
-	t[OpIntSliceSetConst] = 6             // slice_local(2) + index_local(2) + const_val(2)
-
-	// New superinstruction operand widths
-	t[OpLocalLocalSubSetLocal] = 6    // local_a(2) + local_b(2) + local_c(2)
-	t[OpLocalLocalMulSetLocal] = 6    // local_a(2) + local_b(2) + local_c(2)
-	t[OpLocalConstMulSetLocal] = 6    // local_a(2) + const_b(2) + local_c(2)
-	t[OpIntLocalLocalSubSetLocal] = 6 // local_a(2) + local_b(2) + local_c(2)
-	t[OpIntLocalLocalMulSetLocal] = 6 // local_a(2) + local_b(2) + local_c(2)
-	t[OpIntLocalConstMulSetLocal] = 6 // local_a(2) + const_b(2) + local_c(2)
-
-	return t
-}
-
-// unknownOpName is the string returned for unrecognized opcodes.
-const unknownOpName = "UNKNOWN"
-
-// opNameTable maps OpCode values to their string representations.
-// Built at init time for O(1) lookup performance.
-var opNameTable [256]string
-
-func init() { //nolint:gochecknoinits,decorder // table init placed after var declarations for readability
-	// Initialize all entries to "UNKNOWN"
-	for i := range opNameTable {
-		opNameTable[i] = unknownOpName
-	}
-
-	// Populate known opcodes
-	opNameTable[OpAdd] = "ADD"
-	opNameTable[OpAddLocalConst] = "ADDLOCALCONST"
-	opNameTable[OpAddLocalLocal] = "ADDLOCALLOCAL"
-	opNameTable[OpAddSetLocal] = "ADDSETLOCAL"
-	opNameTable[OpAddr] = "ADDR"
-	opNameTable[OpAnd] = "AND"
-	opNameTable[OpAndNot] = "ANDNOT"
-	opNameTable[OpAppend] = "APPEND"
-	opNameTable[OpAssert] = "ASSERT"
-	opNameTable[OpCall] = "CALL"
-	opNameTable[OpCallExternal] = "CALLEXTERNAL"
-	opNameTable[OpCallIndirect] = "CALLINDIRECT"
-	opNameTable[OpCap] = "CAP"
-	opNameTable[OpChangeType] = "CHANGETYPE"
-	opNameTable[OpClose] = "CLOSE"
-	opNameTable[OpClosure] = "CLOSURE"
-	opNameTable[OpComplex] = "COMPLEX"
-	opNameTable[OpConst] = "CONST"
-	opNameTable[OpConvert] = "CONVERT"
-	opNameTable[OpCopy] = "COPY"
-	opNameTable[OpDefer] = "DEFER"
-	opNameTable[OpDeferExternal] = "DEFEREXTERNAL"
-	opNameTable[OpDeferIndirect] = "DEFERINDIRECT"
-	opNameTable[OpDelete] = "DELETE"
-	opNameTable[OpDeref] = "DEREF"
-	opNameTable[OpDiv] = "DIV"
-	opNameTable[OpDup] = "DUP"
-	opNameTable[OpEqual] = "EQUAL"
-	opNameTable[OpFalse] = "FALSE"
-	opNameTable[OpField] = "FIELD"
-	opNameTable[OpFieldAddr] = "FIELDADDR"
-	opNameTable[OpFree] = "FREE"
-	opNameTable[OpGlobal] = "GLOBAL"
-	opNameTable[OpGoCall] = "GOCALL"
-	opNameTable[OpGoCallIndirect] = "GOCALLINDIRECT"
-	opNameTable[OpGreater] = "GREATER"
-	opNameTable[OpGreaterEq] = "GREATEREQ"
-	opNameTable[OpGreaterLocalLocalJumpTrue] = "GREATERLOCALLOCALJUMPTRUE"
-	opNameTable[OpHalt] = "HALT"
-	opNameTable[OpImag] = "IMAG"
-	opNameTable[OpIndex] = "INDEX"
-	opNameTable[OpIndexAddr] = "INDEXADDR"
-	opNameTable[OpIndexOk] = "INDEXOK"
-	opNameTable[OpIntGreaterLocalLocalJumpTrue] = "INTGREATERLOCALLOCALJUMPTRUE"
-	opNameTable[OpIntLessEqLocalConstJumpFalse] = "INTLESSEQLOCALCONSTJUMPFALSE"
-	opNameTable[OpIntLessEqLocalConstJumpTrue] = "INTLESSEQLOCALCONSTJUMPTRUE"
-	opNameTable[OpIntLessLocalConstJumpFalse] = "INTLESSLOCALCONSTJUMPFALSE"
-	opNameTable[OpIntLessLocalConstJumpTrue] = "INTLESSLOCALCONSTJUMPTRUE"
-	opNameTable[OpIntLessLocalLocalJumpFalse] = "INTLESSLOCALLOCALJUMPFALSE"
-	opNameTable[OpIntLessLocalLocalJumpTrue] = "INTLESSLOCALLOCALJUMPTRUE"
-	opNameTable[OpIntLocal] = "INTLOCAL"
-	opNameTable[OpIntLocalConstAddSetLocal] = "INTLOCALCONSTADDSETLOCAL"
-	opNameTable[OpIntLocalConstMulSetLocal] = "INTLOCALCONSTMULSETLOCAL"
-	opNameTable[OpIntLocalConstSubSetLocal] = "INTLOCALCONSTSUBSETLOCAL"
-	opNameTable[OpIntLocalLocalAddSetLocal] = "INTLOCALLOCALADDSETLOCAL"
-	opNameTable[OpIntLocalLocalMulSetLocal] = "INTLOCALLOCALMULSETLOCAL"
-	opNameTable[OpIntLocalLocalSubSetLocal] = "INTLOCALLOCALSUBSETLOCAL"
-	opNameTable[OpIntMoveLocal] = "INTMOVELOCAL"
-	opNameTable[OpIntSetLocal] = "INTSETLOCAL"
-	opNameTable[OpIntSliceGet] = "INTSLICEGET"
-	opNameTable[OpIntSliceSet] = "INTSLICESET"
-	opNameTable[OpIntSliceSetConst] = "INTSLICESETCONST"
-	opNameTable[OpJump] = "JUMP"
-	opNameTable[OpJumpFalse] = "JUMPFALSE"
-	opNameTable[OpJumpTrue] = "JUMPTRUE"
-	opNameTable[OpLen] = "LEN"
-	opNameTable[OpLess] = "LESS"
-	opNameTable[OpLessEq] = "LESSEQ"
-	opNameTable[OpLessEqLocalConstJumpFalse] = "LESSEQLOCALCONSTJUMPFALSE"
-	opNameTable[OpLessEqLocalConstJumpTrue] = "LESSEQLOCALCONSTJUMPTRUE"
-	opNameTable[OpLessLocalConstJumpFalse] = "LESSLOCALCONSTJUMPFALSE"
-	opNameTable[OpLessLocalConstJumpTrue] = "LESSLOCALCONSTJUMPTRUE"
-	opNameTable[OpLessLocalLocalJumpFalse] = "LESSLOCALLOCALJUMPFALSE"
-	opNameTable[OpLessLocalLocalJumpTrue] = "LESSLOCALLOCALJUMPTRUE"
-	opNameTable[OpLocal] = "LOCAL"
-	opNameTable[OpLocalConstAddSetLocal] = "LOCALCONSTADDSETLOCAL"
-	opNameTable[OpLocalConstMulSetLocal] = "LOCALCONSTMULSETLOCAL"
-	opNameTable[OpLocalConstSubSetLocal] = "LOCALCONSTSUBSETLOCAL"
-	opNameTable[OpLocalLocalAddSetLocal] = "LOCALLOCALADDSETLOCAL"
-	opNameTable[OpLocalLocalMulSetLocal] = "LOCALLOCALMULSETLOCAL"
-	opNameTable[OpLocalLocalSubSetLocal] = "LOCALLOCALSUBSETLOCAL"
-	opNameTable[OpLsh] = "LSH"
-	opNameTable[OpMake] = "MAKE"
-	opNameTable[OpMakeArray] = "MAKEARRAY"
-	opNameTable[OpMakeChan] = "MAKECHAN"
-	opNameTable[OpMakeMap] = "MAKEMAP"
-	opNameTable[OpMakeSlice] = "MAKESLICE"
-	opNameTable[OpMakeStruct] = "MAKESTRUCT"
-	opNameTable[OpMapIter] = "MAPITER"
-	opNameTable[OpMapIterNext] = "MAPITERNEXT"
-	opNameTable[OpMethod] = "METHOD"
-	opNameTable[OpMethodCall] = "METHODCALL"
-	opNameTable[OpMod] = "MOD"
-	opNameTable[OpMul] = "MUL"
-	opNameTable[OpMulLocalLocal] = "MULLOCALLOCAL"
-	opNameTable[OpNeg] = "NEG"
-	opNameTable[OpNew] = "NEW"
-	opNameTable[OpNil] = "NIL"
-	opNameTable[OpNop] = "NOP"
-	opNameTable[OpNot] = "NOT"
-	opNameTable[OpNotEqual] = "NOTEQUAL"
-	opNameTable[OpOr] = "OR"
-	opNameTable[OpPack] = "PACK"
-	opNameTable[OpPanic] = "PANIC"
-	opNameTable[OpPop] = "POP"
-	opNameTable[OpPrint] = "PRINT"
-	opNameTable[OpPrintln] = "PRINTLN"
-	opNameTable[OpRange] = "RANGE"
-	opNameTable[OpRangeNext] = "RANGENEXT"
-	opNameTable[OpReal] = "REAL"
-	opNameTable[OpRecover] = "RECOVER"
-	opNameTable[OpRecv] = "RECV"
-	opNameTable[OpRecvOk] = "RECVOK"
-	opNameTable[OpReturn] = "RETURN"
-	opNameTable[OpReturnVal] = "RETURNVAL"
-	opNameTable[OpRsh] = "RSH"
-	opNameTable[OpRunDefers] = "RUNDEFERS"
-	opNameTable[OpSelect] = "SELECT"
-	opNameTable[OpSend] = "SEND"
-	opNameTable[OpSetDeref] = "SETDEREF"
-	opNameTable[OpSetField] = "SETFIELD"
-	opNameTable[OpSetFree] = "SETFREE"
-	opNameTable[OpSetGlobal] = "SETGLOBAL"
-	opNameTable[OpSetIndex] = "SETINDEX"
-	opNameTable[OpSetLocal] = "SETLOCAL"
-	opNameTable[OpSlice] = "SLICE"
-	opNameTable[OpSub] = "SUB"
-	opNameTable[OpSubLocalConst] = "SUBLOCALCONST"
-	opNameTable[OpSubLocalLocal] = "SUBLOCALLOCAL"
-	opNameTable[OpSubSetLocal] = "SUBSETLOCAL"
-	opNameTable[OpTrue] = "TRUE"
-	opNameTable[OpTryRecv] = "TRYRECV"
-	opNameTable[OpTrySend] = "TRYSEND"
-	opNameTable[OpUnpack] = "UNPACK"
-	opNameTable[OpXor] = "XOR"
-}
-
-// String returns the name of the opcode as a human-readable string.
-func (op OpCode) String() string {
-	if int(op) < len(opNameTable) {
-		return opNameTable[op]
-	}
-	return unknownOpName
-}
-
-// OperandWidth returns the operand byte width for an opcode using O(1) array lookup.
-func OperandWidth(op OpCode) int {
-	return operandWidthTable[op]
-}

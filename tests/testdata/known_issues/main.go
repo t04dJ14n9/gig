@@ -1,291 +1,325 @@
 package known_issues
 
-// ─────────────────────────────────────────────────────────────────────────────
-// KNOWN ISSUES
-//
-// Resolved bugs are documented in testdata/resolved_issue/main.go as
-// regression tests. This file tracks bugs awaiting fixes.
-//
-// Resolution mapping:
-//   Bug 1 → Resolved Issue 28 (sort named-type conversion)
-//   Bug 2 → fixed in gentool (time.Duration DirectCall)
-//   Bug 3 → Resolved Issue 29 (fmt.Stringer)
-//   Bug 4 → Resolved Issue 30 (fmt.Sprintf %T)
-//   Bug 5 → Resolved Issue 31 (fmt.Sprintf %v _gig_id)
-//   Bug 6 → Resolved Issue 32 (int64/uint64 narrowing)
-//   Bug 7 → Resolved Issue 33 (bytes.Buffer.Cap)
-//   Bug 8 → Resolved Issue 34 (json.Encoder method dispatch collision)
-//
-// ─────────────────────────────────────────────────────────────────────────────
-
 import (
-	"bytes"
-	"encoding/json"
+	"container/heap"
+	"errors"
+	"fmt"
+	"io"
+	"sort"
+	"strings"
+	"sync"
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-// OTHER KNOWN BUGS
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Bug 8: Method dispatch type collision — json.Encoder.Encode
+// ============================================================================
+// Resolved issue regression test data.
 //
-// When a program uses multiple types with the same method name "Encode",
-// the compiled program contains methods with the same name on different
-// receiver types. The method resolver could pick the wrong one.
-// This was fixed by including the full receiver type in the method cache key.
-//
-// This is the same reflect.StructOf type identity issue that was partially
-// fixed for other cases. The fix likely requires making the method cache
-// key include the full receiver type, not just the method name.
+// This file contains test cases for interpreter bugs and limitations that are
+// now expected to behave like native Go.
+// ============================================================================
 
-// JsonEncodeBug8 tests json.NewEncoder.Encode call.
-func JsonEncodeBug8() int {
-	buf := new(bytes.Buffer)
-	encoder := json.NewEncoder(buf)
-	encoder.Encode(map[string]int{"y": 20})
-	return buf.Len()
+// --- Category 1: Interface with nil concrete type ---
+
+type Stringer interface {
+	String() string
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PANIC/RECOVER/DEFER BUGS
-// ─────────────────────────────────────────────────────────────────────────────
+type PointerReceiver struct {
+	Name string
+}
 
-// PanicDeferBug: Variable assignment in defer closure fails when recovering from panic.
-//
-// Root cause: In vm/ops_control.go, defer closures are executed during panic unwind,
-// but the closure's captured variable assignment (result = 42) fails because
-// value.SetElem() cannot properly handle the closure's upvalue context.
-//
-// The interpreter sets v.panicking=true and runs defers, but defer closures
-// cannot correctly modify captured variables.
+func (p *PointerReceiver) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return p.Name
+}
 
-// PanicRecoverBasic_Bug tests basic panic and recover.
-func PanicRecoverBasic_Bug() int {
+// InterfaceWithNilConcrete tests interface holding nil concrete type.
+// In Go, an interface holding a nil pointer is NOT nil (it has a type but no value).
+func InterfaceWithNilConcrete() any {
+	var p *PointerReceiver
+	var s Stringer = p
+	if s == nil {
+		return "interface is nil"
+	}
+	return s.String()
+}
+
+// NilInterfaceCall tests calling method on nil interface.
+func NilInterfaceCall() any {
+	var s Stringer
 	defer func() {
 		recover()
 	}()
-	panic("test panic")
-	return 0 // never reached
+	_ = s.String()
+	return "no panic"
 }
 
-// PanicRecoverWithValue_Bug tests recovering panic value and assigning to captured var.
-func PanicRecoverWithValue_Bug() int {
-	var result int
-	defer func() {
-		if r := recover(); r != nil {
-			if s, ok := r.(string); ok && s == "expected" {
-				result = 42
-			}
-		}
-	}()
-	panic("expected")
+// NestedNilReceiver tests nested struct with nil embedded pointer.
+// Accessing promoted field on nil embedded pointer should return zero value.
+func NestedNilReceiver() (result any) {
+	type Inner struct {
+		Name string
+	}
+	type Outer struct {
+		*Inner
+	}
+	outer := Outer{}
+	defer func() { recover() }()
+	return outer.Name
+}
+
+// --- Category 2: Three-index slicing ---
+
+// ThreeIndexByteSlice tests three-index slicing on byte slice.
+func ThreeIndexByteSlice() any {
+	b := []byte("hello world")
+	b2 := b[0:5:11]
+	return fmt.Sprintf("len=%d,cap=%d", len(b2), cap(b2))
+}
+
+// --- Category 3: sort.Interface callback dispatch ---
+
+type ByLength []string
+
+func (s ByLength) Len() int           { return len(s) }
+func (s ByLength) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s ByLength) Less(i, j int) bool { return len(s[i]) < len(s[j]) }
+
+// SortByLength tests sort.Sort with custom sort.Interface.
+func SortByLength() any {
+	words := []string{"apple", "pie", "banana", "kiwi"}
+	sort.Sort(ByLength(words))
+	return fmt.Sprintf("%v", words)
+}
+
+type Person struct {
+	Name string
+	Age  int
+}
+
+type ByAge []Person
+
+func (a ByAge) Len() int           { return len(a) }
+func (a ByAge) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByAge) Less(i, j int) bool { return a[i].Age < a[j].Age }
+
+// SortStructByField tests sort.Sort with struct slice.
+func SortStructByField() any {
+	people := []Person{
+		{"Alice", 30},
+		{"Bob", 25},
+		{"Charlie", 35},
+	}
+	sort.Sort(ByAge(people))
+	result := ""
+	for _, p := range people {
+		result += fmt.Sprintf("%s:%d ", p.Name, p.Age)
+	}
 	return result
 }
 
-// DeferRunsOnPanic_Bug tests deferred function modifying captured var during panic.
-func DeferRunsOnPanic_Bug() int {
-	result := 0
-	defer func() {
-		result += 10
-		recover()
-	}()
-	result += 1
-	panic("test")
-	return result // never reached
+// SortReverse tests sort.Reverse wrapper.
+type Reverse struct {
+	sort.Interface
 }
 
-// MultipleDefersOnPanic_Bug tests LIFO order of deferred functions during panic.
-func MultipleDefersOnPanic_Bug() int {
-	order := 0
-	result := 0
-	defer func() {
-		order++
-		result = result*10 + order
-		recover()
-	}()
-	defer func() {
-		order++
-		result = result*10 + order
-	}()
-	defer func() {
-		order++
-		result = result*10 + order
-	}()
-	panic("test")
-	return result
+func (r Reverse) Less(i, j int) bool {
+	return r.Interface.Less(j, i)
 }
 
-// NamedReturnPanicRecover_Bug tests named return value with panic/recover.
-func NamedReturnPanicRecover_Bug() (result int) {
-	defer func() {
-		if recover() != nil {
-			result = 42
+func SortReverse() any {
+	nums := []int{3, 1, 4, 1, 5, 9, 2, 6}
+	sort.Sort(Reverse{sort.IntSlice(nums)})
+	return fmt.Sprintf("%v", nums)
+}
+
+// Descending wraps sort.Interface like Reverse but deliberately uses a different
+// type name so adapter dispatch cannot depend on a hard-coded receiver name.
+type Descending struct {
+	sort.Interface
+}
+
+func (d Descending) Less(i, j int) bool {
+	return d.Interface.Less(j, i)
+}
+
+func SortEmbeddedInterfaceDescending() any {
+	nums := []int{3, 1, 4, 1, 5, 9, 2, 6}
+	sort.Sort(Descending{sort.IntSlice(nums)})
+	return fmt.Sprintf("%v", nums)
+}
+
+// --- Category 4: heap.Interface callback dispatch ---
+
+type IntHeap []int
+
+func (h IntHeap) Len() int           { return len(h) }
+func (h IntHeap) Less(i, j int) bool { return h[i] < h[j] }
+func (h IntHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+
+func (h *IntHeap) Push(x any) {
+	*h = append(*h, x.(int))
+}
+
+func (h *IntHeap) Pop() any {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[0 : n-1]
+	return x
+}
+
+// HeapInit tests heap.Init with custom heap.Interface.
+func HeapInit() any {
+	h := &IntHeap{2, 1, 5}
+	heap.Init(h)
+	return fmt.Sprintf("%v", *h)
+}
+
+// HeapPush tests heap.Push.
+func HeapPush() any {
+	h := &IntHeap{2, 1, 5}
+	heap.Init(h)
+	heap.Push(h, 3)
+	return fmt.Sprintf("%v", *h)
+}
+
+// HeapPop tests heap.Pop.
+func HeapPop() any {
+	h := &IntHeap{2, 1, 5}
+	heap.Init(h)
+	result := heap.Pop(h).(int)
+	return fmt.Sprintf("%d:%v", result, *h)
+}
+
+// --- Category 5: errors.As with interface target ---
+
+type CustomError struct {
+	Code int
+	Msg  string
+}
+
+func (e *CustomError) Error() string {
+	return fmt.Sprintf("code=%d msg=%s", e.Code, e.Msg)
+}
+
+// ErrorsAsInterface tests errors.As with interface target.
+func ErrorsAsInterface() any {
+	err := &CustomError{Code: 404, Msg: "not found"}
+	var ce *CustomError
+	if errors.As(err, &ce) {
+		return ce.Error()
+	}
+	return "not matched"
+}
+
+// ErrorsAsNotMatching tests errors.As when target doesn't match.
+func ErrorsAsNotMatching() any {
+	err := fmt.Errorf("plain error")
+	var ce *CustomError
+	if errors.As(err, &ce) {
+		return "matched"
+	}
+	return "not matched"
+}
+
+// ErrorsIsAndAsTogether tests errors.Is and errors.As combined.
+func ErrorsIsAndAsTogether() any {
+	base := fmt.Errorf("base error")
+	wrapped := fmt.Errorf("wrapped: %w", base)
+	err := &CustomError{Code: 500, Msg: "internal"}
+	final := fmt.Errorf("%w: %v", wrapped, err)
+
+	if errors.Is(final, base) {
+		var ce *CustomError
+		if errors.As(final, &ce) {
+			return ce.Code
 		}
-	}()
-	panic("test")
-	return
+	}
+	return -1
 }
 
-// NestedRecover_Bug tests recover in nested defer during panic chain.
-func NestedRecover_Bug() int {
-	result := 0
-	defer func() {
+// --- Category 6: io.MultiWriter callback ---
+
+// MultiWriterTest tests io.MultiWriter.
+func MultiWriterTest() any {
+	buf1 := &strings.Builder{}
+	buf2 := &strings.Builder{}
+	mw := io.MultiWriter(buf1, buf2)
+	mw.Write([]byte("hello"))
+	return fmt.Sprintf("buf1=%s,buf2=%s", buf1.String(), buf2.String())
+}
+
+// --- Category 7: Sync primitives ---
+
+// SyncMapRange tests sync.Map.Range callback.
+func SyncMapRange() any {
+	var m sync.Map
+	m.Store("a", 1)
+	m.Store("b", 2)
+	m.Store("c", 3)
+
+	count := 0
+	m.Range(func(key, value any) bool {
+		count++
+		return true
+	})
+	return count
+}
+
+// OnceWithPanic tests sync.Once with panic in initialization.
+// If the function panics, subsequent calls should also panic.
+func OnceWithPanic() any {
+	var once sync.Once
+	panicked := false
+
+	func() {
+		defer func() { recover() }()
+		once.Do(func() { panic("init failed") })
+	}()
+
+	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				result = 100
+				panicked = true
 			}
 		}()
-		panic("second panic")
+		once.Do(func() {})
 	}()
-	defer func() {
-		recover()
-	}()
-	panic("first panic")
-	return result
+
+	return panicked
 }
 
-// PanicInDefer_Bug tests panic in deferred function.
-func PanicInDefer_Bug() int {
-	result := 0
-	defer func() {
-		if r := recover(); r != nil {
-			result = 50
+// --- Category 8: Channel semantics ---
+
+// SelectWithMultipleReady tests select with multiple ready channels.
+// When multiple cases are ready, select should pick one randomly.
+func SelectWithMultipleReady() any {
+	ch1 := make(chan int, 1)
+	ch2 := make(chan int, 1)
+	ch3 := make(chan int, 1)
+
+	ch1 <- 1
+	ch2 <- 2
+	ch3 <- 3
+
+	counts := map[int]int{}
+	for i := 0; i < 30; i++ {
+		// Refill channels
+		select {
+		case v := <-ch1:
+			counts[v]++
+			ch1 <- 1
+		case v := <-ch2:
+			counts[v]++
+			ch2 <- 2
+		case v := <-ch3:
+			counts[v]++
+			ch3 <- 3
 		}
-	}()
-	defer func() {
-		panic("panic in defer")
-	}()
-	result = 1
-	return result
-}
-
-// PanicInClosure_Bug tests panic inside closure with recover.
-func PanicInClosure_Bug() int {
-	fn := func() {
-		panic("closure panic")
 	}
-	defer func() {
-		recover()
-	}()
-	fn()
-	return 0
-}
 
-// DeferPanicRecoverChain_Bug tests chain of defer/panic/recover.
-func DeferPanicRecoverChain_Bug() int {
-	result := 0
-	defer func() {
-		result += 1000
-		recover()
-	}()
-	defer func() {
-		result += 100
-		defer func() {
-			result += 10
-			recover()
-		}()
-		panic("inner")
-	}()
-	panic("outer")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// STRANGE SYNTAX BUGS (Found by comprehensive testing 2026-03-28)
-// ─────────────────────────────────────────────────────────────────────────────
-
-// StrangeSyntax_Bug1: Nil slice to interface conversion loses type information
-//
-// When a nil slice is returned as interface{}, the interpreter returns nil
-// instead of preserving the slice type. In native Go, a nil slice retains
-// its type information even when assigned to interface{}.
-//
-// Expected: [] ([]int) - empty slice with type info
-// Got: <nil> (<nil>) - loses type
-//
-// Root cause: Likely in value conversion or interface boxing logic.
-func StrangeSyntax_Bug1_ConvertNilToInterface() interface{} {
-	var s []int
-	return s // nil slice assigned to interface
-}
-
-// StrangeSyntax_Bug2: Nil map access returns nil instead of zero value
-//
-// Accessing a non-existent key in a nil map should return the zero value
-// for the value type, but the interpreter returns nil instead.
-//
-// Expected: 0 (int) - zero value for int
-// Got: <nil> (<nil>)
-//
-// Root cause: Map access on nil maps doesn't properly handle zero values.
-func StrangeSyntax_Bug2_NilMapAccess() int {
-	var m map[string]int
-	return m["key"] // Returns zero value
-}
-
-// StrangeSyntax_Bug3: Delete on nil map causes panic
-//
-// Deleting from a nil map should be a no-op in Go, but the interpreter
-// panics with "invalid reflect.Value in SetMapIndex()".
-//
-// Expected: No-op, silently succeed
-// Got: panic: invalid reflect.Value in SetMapIndex()
-//
-// Root cause: VM map delete operation doesn't check for nil map.
-func StrangeSyntax_Bug3_NilMapDelete() int {
-	var m map[string]int
-	delete(m, "key") // No-op
-	return 0
-}
-
-// StrangeSyntax_Bug4: Blank identifier expression loses type in interface return
-//
-// Functions returning interface{} from a blank identifier assignment lose
-// type information. The interpreter returns nil instead of preserving type.
-//
-// Expected: [] ([]interface {}) - empty slice with type
-// Got: <nil> (<nil>)
-//
-// Root cause: Blank identifier expressions don't preserve type information.
-func StrangeSyntax_Bug4_BlankExpression() interface{} {
-	_ = 42
-	var s []interface{}
-	return s
-}
-
-// StrangeSyntax_Bug5: Send on closed channel panic handling
-//
-// Sending on a closed channel should panic, and that panic should be
-// recoverable. The interpreter does panic, but there may be issues with
-// the test framework's handling of this case.
-//
-// Expected: Panic should be caught by defer/recover
-// Got: Test framework issue with panic handling
-//
-// Root cause: Needs investigation - may be test framework or panic handling.
-func StrangeSyntax_Bug5_ChannelClosedSend() int {
-	ch := make(chan int, 1)
-	close(ch)
-	defer func() {
-		if r := recover(); r != nil {
-			// Recovered from panic
-		}
-	}()
-	ch <- 1 // Will panic
-	return 0
-}
-
-// StrangeSyntax_Bug6: Nil function return loses type information
-//
-// Returning nil as a function type should preserve the function type
-// information, but the interpreter returns untyped nil.
-//
-// Expected: <nil> (func() int) - nil with function type
-// Got: <nil> (<nil>) - loses type
-//
-// Root cause: Similar to Bug1 - nil value to interface loses type info.
-func StrangeSyntax_Bug6_ClosureReturnNil() func() int {
-	if false {
-		return func() int { return 1 }
-	}
-	return nil
+	// In native Go, all three channels should be selected roughly equally
+	return len(counts)
 }

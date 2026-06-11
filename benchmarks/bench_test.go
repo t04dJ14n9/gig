@@ -39,6 +39,24 @@ var goSieveSrc string
 //go:embed testdata/closure.go
 var goClosureSrc string
 
+const goConstFoldSrc = `package main
+
+func ConstFoldArithmetic() int {
+	sum := 0
+	for i := 0; i < 1000; i++ {
+		a := 3
+		b := 4
+		sum += a*b + 5
+		c := 9
+		d := 2
+		if c > d {
+			sum += c - d
+		}
+	}
+	return sum
+}
+`
+
 // ============================================================================
 // Embedded Lua source files
 // ============================================================================
@@ -144,6 +162,21 @@ func nativeClosureCalls() int {
 	return sum
 }
 
+func nativeConstFoldArithmetic() int {
+	sum := 0
+	for i := 0; i < 1000; i++ {
+		a := 3
+		b := 4
+		sum += a*b + 5
+		c := 9
+		d := 2
+		if c > d {
+			sum += c - d
+		}
+	}
+	return sum
+}
+
 // ============================================================================
 // Native Go: External Call Benchmarks
 // ============================================================================
@@ -219,6 +252,9 @@ func BenchmarkGig_ArithSum(b *testing.B)     { benchGig(b, goArithSrc, "Arithmet
 func BenchmarkGig_BubbleSort(b *testing.B)   { benchGig(b, goBubbleSortSrc, "BubbleSort") }
 func BenchmarkGig_Sieve(b *testing.B)        { benchGig(b, goSieveSrc, "Sieve") }
 func BenchmarkGig_ClosureCalls(b *testing.B) { benchGig(b, goClosureSrc, "ClosureCalls") }
+func BenchmarkGig_ConstFoldArithmetic(b *testing.B) {
+	benchGig(b, goConstFoldSrc, "ConstFoldArithmetic")
+}
 
 // Gig: External call benchmarks
 func BenchmarkGig_ExtCallDirectCall(b *testing.B) {
@@ -378,6 +414,12 @@ func BenchmarkNative_Sieve(b *testing.B) {
 func BenchmarkNative_ClosureCalls(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = nativeClosureCalls()
+	}
+}
+
+func BenchmarkNative_ConstFoldArithmetic(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = nativeConstFoldArithmetic()
 	}
 }
 

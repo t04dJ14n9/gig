@@ -280,3 +280,15 @@ func IsOddN(n int) bool { return isOdd(n) }
 
 // SumVariadic returns the sum of all arguments
 func SumVariadic(nums ...int) int { return sum(nums...) }
+
+// JoinVariadic concatenates all string arguments
+func JoinVariadic(parts ...string) string {
+	out := ""
+	for _, part := range parts {
+		out += part
+	}
+	return out
+}
+
+// CountAnyVariadic returns the number of interface arguments
+func CountAnyVariadic(items ...any) int { return len(items) }

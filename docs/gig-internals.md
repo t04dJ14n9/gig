@@ -48,7 +48,9 @@ package main
 
 import (
     "fmt"
+
     "github.com/t04dJ14n9/gig"
+    _ "github.com/t04dJ14n9/gig/stdlib/packages"
 )
 
 func main() {
@@ -95,7 +97,7 @@ gig/
 │   ├── parser/               # go/parser + security validation
 │   ├── ssa/                  # go/ssa builder wrapper
 │   ├── peephole/             # Pattern-based superinstruction fusion
-│   └── optimize/             # 4-pass bytecode optimization pipeline
+│   └── optimize/             # constant folding + bytecode optimization passes
 ├── vm/
 │   ├── vm.go                 # VM struct, Execute() entry point
 │   ├── run.go                # Main fetch-decode-execute loop (hot path)
@@ -117,7 +119,8 @@ gig/
 │   └── external/             # ExternalFuncInfo, ExternalMethodInfo
 ├── importer/                 # Package registration, type resolution
 ├── runner/                   # VM pool, init execution, stateful globals
-└── stdlib/packages/          # ~69 pre-generated stdlib wrappers
+├── stdlib/pkgs.go            # source of truth for generated stdlib imports
+└── stdlib/packages/          # generated stdlib registration and DirectCall wrappers
 ```
 
 ### Build Pipeline in Detail
@@ -251,6 +254,18 @@ value.MakeInt(42).Interface()   // returns int(42)
 
 This matters when passing values to external Go functions via reflection — if you
 call `strings.Repeat(s, n)` and `n` is `int64` instead of `int`, `reflect.Call` panics.
+
+### Typed Nil and Interface Preservation
+
+Go distinguishes a nil interface from an interface holding a typed nil pointer, slice, map, channel, or function. Gig preserves that distinction with `OpMakeInterface`. The compiler emits both the target interface type and the concrete type, and the VM uses that metadata to create a typed nil `reflect.Value` when the concrete value is nil.
+
+```go
+var p *MyError = nil
+var err error = p
+fmt.Println(err == nil) // false
+```
+
+This is also why `Value` keeps original numeric sizes and why `MakeFromReflect` is used at host boundaries. Correct interface identity matters for type assertions, `errors.As`, and external calls that inspect concrete types.
 
 ### Why Not `interface{}`?
 
@@ -420,9 +435,13 @@ the merge point.
 
 ### Phase 4: Optimization
 
-After initial bytecode generation, four optimization passes run:
+After initial bytecode generation, constant folding runs while the compiler can
+still append folded values to the constant pool. The dispatch-oriented optimizer
+then runs four more bytecode passes:
 
 ```go
+code = optimize.FoldConstants(code, &constants)              // semantic constant folding
+
 // compiler/optimize/optimize.go
 func Optimize(code []byte, localIsInt, constIsInt, localIsIntSlice []bool) ([]byte, bool) {
     code = Peephole(code)                                    // Pass 1: superinstruction fusion
@@ -432,6 +451,16 @@ func Optimize(code []byte, localIsInt, constIsInt, localIsIntSlice []bool) ([]by
     return code, hasInt
 }
 ```
+
+#### Pre-pass: Constant Folding
+
+`FoldConstants` tracks local constants inside straight-line bytecode regions and
+folds pure integer constant expressions. It also folds known boolean branches:
+taken branches become `OpJump`, and untaken branches are deleted. The pass
+then removes unreachable bytecode after unconditional jumps until the next jump
+target. It resets state at control-flow boundaries and refuses to fold across
+jump targets, so it preserves Go control flow and runtime panics such as divide
+by zero.
 
 #### Pass 1: Peephole — Superinstruction Fusion
 
@@ -521,13 +550,12 @@ type vm struct {
     frames         []*Frame                   // call frame stack
     fp             int                        // frame pointer
     globals        []value.Value              // package-level variables
-    globalsPtr     *[]value.Value             // shared globals (goroutines)
+    shared         *SharedGlobals             // locked globals for stateful/goroutine mode
     ctx            context.Context            // cancellation/timeout
     panicking      bool                       // panic in progress?
     panicVal       value.Value                // current panic value
     panicStack     []panicState               // saved panics (nested)
     deferDepth     int                        // defer nesting level
-    extCallCache   *externalCallCache         // inline cache for ext calls
     initialGlobals []value.Value              // post-init globals snapshot
     goroutines     *GoroutineTracker          // goroutine limiter
     fpool          framePool                  // frame recycler
@@ -946,16 +974,16 @@ The VM handles `go` statements via `OpGoCall`:
 // vm/goroutine.go
 func (v *vm) newChildVM() *vm {
     child := &vm{
-        program:      v.program,
-        stack:        make([]value.Value, initialStackSize),  // fresh stack
-        frames:       make([]*Frame, initialFrameDepth),
-        globalsPtr:   v.globalsPtr,       // shared globals via pointer!
-        ctx:          v.ctx,              // shared context
-        extCallCache: v.extCallCache,     // shared cache
-        goroutines:   v.goroutines,       // shared tracker
+        program:        v.program,
+        stack:          make([]value.Value, initialStackSize),
+        frames:         make([]*Frame, initialFrameDepth),
+        shared:         v.shared,
+        ctx:            v.ctx,
+        initialGlobals: v.initialGlobals,
+        goroutines:     v.goroutines,
     }
-    if child.globalsPtr == nil {
-        child.globalsPtr = &v.globals     // parent's globals become shared
+    if child.shared == nil {
+        child.shared = &SharedGlobals{globals: v.globals}
     }
     return child
 }
@@ -963,8 +991,8 @@ func (v *vm) newChildVM() *vm {
 
 **Key design decisions**:
 - Each goroutine gets a **fresh stack** (no contention)
-- Globals are **shared via pointer** (correct Go semantics)
-- The external call cache is **shared** (thread-safe via RWMutex)
+- Globals are shared through `SharedGlobals` in stateful and goroutine modes
+- External calls use the program-level `ExternCalls` table, so children share immutable resolved call metadata
 - Context is **shared** (cancellation propagates to all goroutines)
 
 The `GoroutineTracker` prevents runaway goroutine creation:
@@ -990,8 +1018,7 @@ func (t *GoroutineTracker) Start(fn func()) error {
 
 ### How Registration Works
 
-External Go packages must be registered before compilation. Registration happens at
-`init()` time via code-generated files in `stdlib/packages/`:
+External Go packages must be registered before compilation. For the bundled stdlib, `stdlib/pkgs.go` is the source of truth: edit its blank imports, run `go1.23.1 run ./cmd/gig gen ./stdlib`, and commit the generated files in `stdlib/packages/`. Registration then happens at `init()` time from those generated files:
 
 ```go
 // stdlib/packages/strings.go (generated by `gig gen`)
@@ -1001,7 +1028,7 @@ func init() {
     // Functions
     pkg.AddFunction("Contains", strings.Contains, "", direct_strings_Contains)
     pkg.AddFunction("HasPrefix", strings.HasPrefix, "", direct_strings_HasPrefix)
-    // ... 60+ more functions
+    // ... more generated functions
 
     // Types
     pkg.AddType("Builder", reflect.TypeOf(strings.Builder{}), "")
@@ -1017,6 +1044,92 @@ Each registered package provides:
 - **DirectCall wrappers** for zero-reflection calls (fast path)
 - **Type information** for type checking and runtime type assertions
 - **Method DirectCalls** for zero-reflection method dispatch
+
+Generated wrappers also carry package-specific adapters where plain reflection is not enough:
+- `fmt` wrappers sanitize interpreter structs so `String`, `Error`, `Format`, and `GoString` methods print like native Go values.
+- `errors.As` is generated to call `value.GigErrorsAs`, which can match interpreter-defined error wrappers and regular Go errors.
+- `sort.Interface` and `container/heap.Interface` get concrete adapter types so host functions can call interpreted `Len`, `Less`, `Swap`, `Push`, and `Pop` methods.
+
+### Third-Party Library Call Flow
+
+Third-party libraries use the same registration and dispatch path as the bundled stdlib. The difference is ownership: application code creates a dependency package, lists imports in `pkgs.go`, runs `gig gen`, and blank-imports the generated `packages` package before calling `gig.Build`.
+
+```go
+// mydep/pkgs.go
+package mydep
+
+import (
+    _ "github.com/tidwall/gjson"
+    _ "github.com/spf13/cast"
+)
+```
+
+```bash
+gig gen ./mydep
+```
+
+`gig gen` parses the blank imports, imports each Go package with the Go type checker, walks exported symbols, and emits `mydep/packages/*.go`. Each generated file registers exported functions, variables, constants, types, and eligible method DirectCalls in `init()`. The host application then activates those registrations by importing the generated package for side effects:
+
+```go
+import (
+    "github.com/t04dJ14n9/gig"
+    _ "myapp/mydep/packages"
+)
+```
+
+Once registered, a third-party call crosses Gig in five stages:
+
+1. **Import resolution**: `importer.Importer` resolves `import "github.com/tidwall/gjson"` against the active registry. If the generated package was not blank-imported, type checking fails with `package ... not registered`.
+2. **Type checking**: the importer builds a synthetic `types.Package` from registered function signatures, variables, constants, and reflected types, so `go/types` and SSA see the third-party API as normal Go symbols.
+3. **SSA-to-bytecode lowering**: `compiler/compile_ext.go` recognizes external package functions and methods. It stores an `ExternalFuncInfo` or `ExternalMethodInfo` in the constant pool and emits `OpCallExternal`. If the generator produced a DirectCall wrapper, the compiler records it in that metadata.
+4. **Program pre-resolution**: after compilation, `CompiledProgram.ResolveExternCalls()` turns external call constants into immutable `ResolvedCall` entries in `program.ExternCalls`. Runtime dispatch is therefore an array lookup rather than a registry lookup.
+5. **VM execution**: `vm.callExternal` pops `value.Value` arguments, converts interpreted closures to host functions when needed, calls the DirectCall wrapper if present, or falls back to `reflect.Call`. Results are wrapped back into `value.Value` and then unwrapped by `Program.Run`.
+
+For a call like this:
+
+```go
+import "github.com/tidwall/gjson"
+
+func Name(json string) string {
+    return gjson.Get(json, "name").String()
+}
+```
+
+`gjson.Get` is lowered as an external function call. Its returned `gjson.Result` is represented as a registered reflected type, and the subsequent `.String()` call is lowered as an external method call. If a generated method DirectCall exists, the VM calls it directly; otherwise it uses `reflect.Value.MethodByName`.
+
+There are two important boundaries:
+
+- **What must be generated**: only packages listed in the dependency package's `pkgs.go` are visible to interpreted code. Transitive Go module dependencies are used by the native package as usual, but their APIs are not importable from interpreted code unless they are also registered.
+- **What DirectCall can cover**: the generator emits DirectCalls for supported signatures. Unsupported signatures still work through reflection when the package registration contains a callable Go function, but reflection-heavy libraries that inspect concrete `reflect.Type` identities may not understand interpreter-created struct types.
+
+### Method DirectCalls and Receiver Metadata
+
+Compiled methods record `ReceiverTypeName`, `HasReceiver`, and `ReceiverIsPointer` on `CompiledFunction`. External method calls carry `ExternalMethodInfo`, including the method name, receiver type hint, and optional generated DirectCall. At runtime `callExternalMethod` resolves `GlobalRef` and `*value.Value` receivers, tries the method DirectCall first, then falls back to `MethodByName` plus `reflect.Call`.
+
+Pointer receiver metadata matters for nil behavior and for adapters such as `heap.Interface`, where value-receiver sort methods can live beside pointer-receiver `Push` and `Pop`. The adapter path unwraps receivers as needed while preserving Go's nil pointer semantics.
+
+### Host Interface Adaptation
+
+`OpMakeInterface` does more than box a value. Before creating the interface value, it asks `makeInterpretedInterfaceAdapter` whether the target is a host interface that needs callbacks into interpreted methods. The current adapters cover `sort.Interface` and `container/heap.Interface`. They allow this shape to cross into the host stdlib:
+
+```go
+type IntHeap []int
+func (h IntHeap) Len() int           { return len(h) }
+func (h IntHeap) Less(i, j int) bool { return h[i] < h[j] }
+func (h IntHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h *IntHeap) Push(x any)        { *h = append(*h, x.(int)) }
+func (h *IntHeap) Pop() any          { old := *h; x := old[len(old)-1]; *h = old[:len(old)-1]; return x }
+
+heap.Init(&h)
+```
+
+The adapter invokes compiled methods in a temporary VM or uses reflect when the receiver is already a host value. `sort.Reverse` is handled by swapping `Less` arguments for the embedded interface case.
+
+### `gigStructWrapper` and `GigErrorsAs`
+
+Interpreter-created structs are backed by `reflect.StructOf`, which cannot attach methods to the generated type. When a struct has relevant compiled methods, `value.gigStructWrapper` exposes the interfaces that host code commonly checks: `fmt.Stringer`, `fmt.Formatter`, `fmt.GoStringer`, and `error`.
+
+`errors.As` uses a generated DirectCall to `value.GigErrorsAs`. It mirrors standard `errors.As` for native errors and also matches wrapped interpreter errors by type name where possible. Interface targets such as `error` are the best supported path. Struct pointer targets can still fail when the interpreter's `reflect.StructOf` identity is not assignable to the native named pointer type.
 
 ### DirectCall: Zero-Reflection Function Calls
 
@@ -1059,22 +1172,18 @@ This wrapper:
 OpCallExternal(funcIdx, numArgs)
         │
         ▼
-┌─ Check inline cache ─┐
-│  cache[funcIdx] hit?  │
-│    YES → use entry    │
-│    NO  → resolve once │
-└───────┬───────────────┘
-        │
-        ▼
+┌─ program.ExternCalls[funcIdx] ─┐
+│  pre-resolved ResolvedCall      │
+└──────────────┬──────────────────┘
+               │
+               ▼
 ┌─ DirectCall available? ─┐
 │  YES → call wrapper     │──▶ result = direct_strings_Contains(args)
 │  NO  → reflect.Call     │──▶ result = fn.Call(reflectArgs)
 └─────────────────────────┘
 ```
 
-The inline cache (`externalCallCache`) ensures that function resolution happens
-exactly once per function per program lifetime. After the first call, subsequent
-calls are a simple pointer dereference + function call.
+`CompiledProgram.ResolveExternCalls()` builds an immutable `ExternCalls` table after compilation. Each VM uses `program.ExternCalls[funcIdx]`, so external function dispatch is a lock-free array lookup. A fallback resolver exists only as a safety net if a constant was not pre-resolved.
 
 ```go
 // vm/call.go — callExternal fast path
@@ -1085,28 +1194,20 @@ func (v *vm) callExternal(funcIdx, numArgs int) error {
         args[i] = v.pop()
     }
 
-    // Inline cache lookup (RLock for read path)
-    v.extCallCache.mu.RLock()
-    cacheEntry := v.extCallCache.cache[funcIdx]
-    v.extCallCache.mu.RUnlock()
+    rc := v.externCall(funcIdx)  // program.ExternCalls[funcIdx]
 
-    if cacheEntry == nil {
-        // First call: resolve and cache (write lock)
-        v.extCallCache.mu.Lock()
-        cacheEntry = v.resolveExternalFunc(funcIdx)
-        v.extCallCache.cache[funcIdx] = cacheEntry
-        v.extCallCache.mu.Unlock()
+    if rc.DirectCall != nil {
+        if rc.IsVariadic && numArgs == rc.NumIn {
+            args = unpackVariadicArgs(args, numArgs)
+        }
+        if rc.FnType != nil {
+            convertClosureArgs(args, rc.FnType)
+        }
+        v.push(rc.DirectCall(args))
+        return v.checkCtx()
     }
 
-    // Fast path: DirectCall
-    if cacheEntry.directCall != nil {
-        result := cacheEntry.directCall(args)
-        v.push(result)
-        return nil
-    }
-
-    // Slow path: reflect.Call
-    return v.callExternalReflect(cacheEntry, args)
+    return v.callExternalReflect(rc, args)
 }
 ```
 
@@ -1206,8 +1307,7 @@ prog.Run("Increment") // returns 1
 prog.Run("Increment") // returns 1 (globals reset!)
 ```
 
-**Stateful** (`WithStatefulGlobals()`): globals persist across calls. Calls are
-serialized with a mutex.
+**Stateful** (`WithStatefulGlobals()`): globals persist across calls. Concurrent calls still get separate VMs from the pool, but global reads and writes go through locked `SharedGlobals`.
 
 ```go
 prog, _ := gig.Build(`
@@ -1225,22 +1325,36 @@ prog.Run("Increment") // returns 2 (globals persist!)
 // runner/runner.go — stateful execution
 func (r *Runner) RunWithValues(ctx context.Context, funcName string, args []value.Value) (value.Value, error) {
     if r.stateful {
-        r.runMu.Lock()
-        defer r.runMu.Unlock()
         v := r.vmPool.Get()
-        v.BindSharedGlobals(&r.sharedGlobals)
+        v.BindSharedGlobals(r.shared)
         result, err := v.ExecuteWithValues(funcName, ctx, args)
         v.UnbindSharedGlobals()
         r.vmPool.Put(v)
         return result, err
     }
-    // Stateless: no lock needed
+
     v := r.vmPool.Get()
     result, err := v.ExecuteWithValues(funcName, ctx, args)
     r.vmPool.Put(v)
     return result, err
 }
 ```
+
+---
+
+## Current Runtime Coverage
+
+The test suite exercises the interpreter across language features and stdlib integration rather than just parser acceptance. Current covered surfaces include:
+
+| Area | Examples |
+|---|---|
+| Core language | arithmetic, control flow, closures, defer/panic/recover, methods, interfaces, type assertions |
+| Concurrency | goroutines, channels, select, nil and closed channel cases, context cancellation |
+| Stateful execution | `WithStatefulGlobals()`, shared globals, mutex-protected counters |
+| Generated stdlib wrappers | `strings`, `fmt`, `bytes`, `errors`, `sort`, `container/heap`, `io`, `sync`, `encoding/json`, `time`, `regexp`, `net/url` |
+| Host boundary behavior | DirectCall fast path, reflect fallback, method dispatch, typed nil interfaces, `gigStructWrapper`, `GigErrorsAs` |
+
+The bundled stdlib surface is intentionally tied to `stdlib/pkgs.go` and generated code in `stdlib/packages/`, not to a hardcoded package count.
 
 ---
 

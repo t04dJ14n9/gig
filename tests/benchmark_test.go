@@ -1,9 +1,14 @@
 package tests
 
 import (
+	"bytes"
 	"embed"
 	"encoding/json"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/printer"
+	"go/token"
 	"math/big"
 	"os"
 	"runtime"
@@ -21,116 +26,119 @@ import (
 //go:embed testdata/benchmarks/*.go
 var benchmarksFS embed.FS
 
+var benchmarkFileOrder = []string{
+	"compute.go",
+	"datastruct.go",
+	"strings.go",
+	"closure.go",
+	"algorithm.go",
+	"external.go",
+	"calls.go",
+	"types.go",
+	"concurrency.go",
+}
+
+type benchmarkSourceParts struct {
+	fset    *token.FileSet
+	imports []*ast.ImportSpec
+	decls   []ast.Decl
+}
+
 // getBenchmarksSrc reads all .go files from the embedded filesystem and concatenates them.
 func getBenchmarksSrc() string {
-	// Define the order of files to ensure correct compilation
-	fileOrder := []string{
-		"compute.go",
-		"datastruct.go",
-		"strings.go",
-		"closure.go",
-		"algorithm.go",
-		"external.go",
-		"calls.go",
-		"types.go",
-		"concurrency.go",
-	}
+	return renderBenchmarkSource(collectBenchmarkSourceParts())
+}
 
-	// Collect unique imports from all files
-	importSet := make(map[string]bool)
-	var importLines []string
-	var codeBlocks []string
+func collectBenchmarkSourceParts() benchmarkSourceParts {
+	parts := benchmarkSourceParts{fset: token.NewFileSet()}
+	seenImports := make(map[string]bool)
 
-	for _, fname := range fileOrder {
-		data, err := benchmarksFS.ReadFile("testdata/benchmarks/" + fname)
+	for _, fname := range benchmarkFileOrder {
+		file, err := parseBenchmarkSourceFile(parts.fset, fname)
 		if err != nil {
 			continue
 		}
-		content := string(data)
-
-		// Extract imports from import block: import (...)
-		if idx := strings.Index(content, "import ("); idx != -1 {
-			end := strings.Index(content[idx:], ")\n")
-			if end != -1 {
-				block := content[idx+8 : idx+end]
-				for _, line := range strings.Split(block, "\n") {
-					line = strings.TrimSpace(line)
-					if line != "" && !strings.HasPrefix(line, "//") {
-						if !importSet[line] {
-							importSet[line] = true
-							importLines = append(importLines, line)
-						}
-					}
-				}
-			}
-		}
-
-		// Extract single-line imports: import "xxx"
-		for {
-			idx := strings.Index(content, "import \"")
-			if idx == -1 {
-				break
-			}
-			end := strings.Index(content[idx+8:], "\"")
-			if end == -1 {
-				break
-			}
-			imp := "\"" + content[idx+8:idx+8+end] + "\""
-			if !importSet[imp] {
-				importSet[imp] = true
-				importLines = append(importLines, imp)
-			}
-			// Remove this import line
-			lineEnd := strings.Index(content[idx:], "\n")
-			if lineEnd != -1 {
-				content = content[:idx] + content[idx+lineEnd+1:]
-			}
-		}
-
-		// Remove package declaration
-		if idx := strings.Index(content, "package benchmarks\n"); idx != -1 {
-			content = content[idx+19:]
-		}
-
-		// Remove import block
-		for {
-			idx := strings.Index(content, "import (")
-			if idx == -1 {
-				break
-			}
-			end := strings.Index(content[idx:], ")\n")
-			if end == -1 {
-				break
-			}
-			content = content[:idx] + content[idx+end+2:]
-		}
-
-		codeBlocks = append(codeBlocks, content)
+		parts.addImports(file.Imports, seenImports)
+		parts.decls = append(parts.decls, benchmarkCodeDecls(file.Decls)...)
 	}
+	return parts
+}
 
-	// Build the final source
+func parseBenchmarkSourceFile(fset *token.FileSet, fname string) (*ast.File, error) {
+	path := "testdata/benchmarks/" + fname
+	data, err := benchmarksFS.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return parser.ParseFile(fset, path, data, parser.ParseComments)
+}
+
+func (p *benchmarkSourceParts) addImports(imports []*ast.ImportSpec, seen map[string]bool) {
+	for _, imp := range imports {
+		key := benchmarkImportKey(imp)
+		if !seen[key] {
+			seen[key] = true
+			p.imports = append(p.imports, imp)
+		}
+	}
+}
+
+func benchmarkImportKey(imp *ast.ImportSpec) string {
+	if imp.Name == nil {
+		return imp.Path.Value
+	}
+	return imp.Name.Name + " " + imp.Path.Value
+}
+
+func benchmarkCodeDecls(decls []ast.Decl) []ast.Decl {
+	codeDecls := make([]ast.Decl, 0, len(decls))
+	for _, decl := range decls {
+		if !benchmarkImportDecl(decl) {
+			codeDecls = append(codeDecls, decl)
+		}
+	}
+	return codeDecls
+}
+
+func benchmarkImportDecl(decl ast.Decl) bool {
+	gen, ok := decl.(*ast.GenDecl)
+	return ok && gen.Tok == token.IMPORT
+}
+
+func renderBenchmarkSource(parts benchmarkSourceParts) string {
 	var sb strings.Builder
 	sb.WriteString("package benchmarks\n\n")
-
-	// Write imports first
-	if len(importLines) > 0 {
-		sb.WriteString("import (\n")
-		for _, imp := range importLines {
-			sb.WriteString("\t" + imp + "\n")
-		}
-		sb.WriteString(")\n\n")
-	}
-
-	// Write all code
-	for _, block := range codeBlocks {
-		block = strings.TrimSpace(block)
-		if block != "" {
-			sb.WriteString(block)
-			sb.WriteString("\n\n")
-		}
-	}
-
+	writeBenchmarkImports(&sb, parts)
+	writeBenchmarkDecls(&sb, parts)
 	return sb.String()
+}
+
+func writeBenchmarkImports(sb *strings.Builder, parts benchmarkSourceParts) {
+	if len(parts.imports) == 0 {
+		return
+	}
+	sb.WriteString("import (\n")
+	for _, imp := range parts.imports {
+		sb.WriteByte('\t')
+		writeBenchmarkNode(sb, parts.fset, imp)
+		sb.WriteByte('\n')
+	}
+	sb.WriteString(")\n\n")
+}
+
+func writeBenchmarkDecls(sb *strings.Builder, parts benchmarkSourceParts) {
+	for _, decl := range parts.decls {
+		writeBenchmarkNode(sb, parts.fset, decl)
+		sb.WriteString("\n\n")
+	}
+}
+
+func writeBenchmarkNode(sb *strings.Builder, fset *token.FileSet, node any) {
+	var buf bytes.Buffer
+	if err := printer.Fprint(&buf, fset, node); err != nil {
+		panic(fmt.Errorf("print benchmark source node: %w", err))
+	}
+	sb.Write(bytes.TrimSpace(buf.Bytes()))
 }
 
 var benchmarksSrc = getBenchmarksSrc()
@@ -139,16 +147,44 @@ var benchmarksSrc = getBenchmarksSrc()
 // Benchmark Helpers
 // ============================================================================
 
+func TestPreviouslySkippedBenchmarksRun(t *testing.T) {
+	prog, err := gig.Build(benchmarksSrc, gig.WithAllowPanic())
+	if err != nil {
+		t.Fatalf("Build error: %v", err)
+	}
+	defer prog.Close()
+
+	tests := map[string]func() int{
+		"PanicRecover":   benchmarks.PanicRecover,
+		"StringsBuilder": benchmarks.StringsBuilder,
+		"MathBig":        benchmarks.MathBig,
+	}
+	for name, native := range tests {
+		t.Run(name, func(t *testing.T) {
+			result, err := prog.Run(name)
+			if err != nil {
+				t.Fatalf("Run(%s): %v", name, err)
+			}
+			if got, want := int(toInt64(result)), native(); got != want {
+				t.Fatalf("Run(%s) = %d, want %d", name, got, want)
+			}
+		})
+	}
+}
+
 // benchGig builds the embedded benchmark source and runs the named function.
 func benchGig(b *testing.B, funcName string) {
 	b.Helper()
-	prog, err := gig.Build(benchmarksSrc)
+	prog, err := gig.Build(benchmarksSrc, gig.WithAllowPanic())
 	if err != nil {
 		b.Fatalf("Build error: %v", err)
 	}
+	b.Cleanup(prog.Close)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = prog.Run(funcName)
+		if _, err := prog.Run(funcName); err != nil {
+			b.Fatalf("Run(%s): %v", funcName, err)
+		}
 	}
 }
 
@@ -403,11 +439,13 @@ func BenchmarkNative_CallOverhead(b *testing.B) {
 
 func BenchmarkGig_BuildAndRun(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		prog, err := gig.Build(benchmarksSrc)
+		prog, err := gig.Build(benchmarksSrc, gig.WithAllowPanic())
 		if err != nil {
 			b.Fatal(err)
 		}
-		_, _ = prog.Run("ArithmeticSum")
+		if _, err := prog.Run("ArithmeticSum"); err != nil {
+			b.Fatalf("Run(ArithmeticSum): %v", err)
+		}
 	}
 }
 
@@ -486,8 +524,7 @@ func BenchmarkNative_Defer(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_PanicRecover(b *testing.B) {
-	// Skip - gig doesn't support panic/recover yet
-	b.Skip("panic/recover not supported")
+	benchGig(b, "PanicRecover")
 }
 
 func BenchmarkNative_PanicRecover(b *testing.B) {
@@ -575,8 +612,7 @@ func BenchmarkNative_SortInts(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_StringsBuilder(b *testing.B) {
-	// Skip - causes stack overflow in typeToReflect
-	b.Skip("strings.Builder causes stack overflow")
+	benchGig(b, "StringsBuilder")
 }
 
 func BenchmarkNative_StringsBuilder(b *testing.B) {
@@ -595,8 +631,7 @@ func BenchmarkNative_StringsBuilder(b *testing.B) {
 // ============================================================================
 
 func BenchmarkGig_MathBig(b *testing.B) {
-	// Skip - math/big not registered
-	b.Skip("math/big not registered")
+	benchGig(b, "MathBig")
 }
 
 func BenchmarkNative_MathBig(b *testing.B) {
@@ -637,8 +672,22 @@ func BenchmarkNative_JsonMarshal(b *testing.B) {
 // ============================================================================
 
 func TestBenchmarkSummary(t *testing.T) {
-	// Get CPU info
-	numCPU := runtime.NumCPU()
+	logBenchmarkSummaryIntro(t, benchmarkCPUModel())
+
+	results := getHardcodedResults()
+	categorySlowdowns := logBenchmarkRows(t, results)
+
+	logBenchmarkBuildLatency(t)
+	logBenchmarkCategorySummary(t, categorySlowdowns)
+	logBenchmarkOptimizationNotes(t)
+
+	// Suppress unused warnings
+	_ = strconv.Itoa
+	_ = sort.Ints
+	_ = time.Now()
+}
+
+func benchmarkCPUModel() string {
 	var cpuModel string
 	if data, err := os.ReadFile("/proc/cpuinfo"); err == nil {
 		lines := strings.Split(string(data), "\n")
@@ -652,11 +701,15 @@ func TestBenchmarkSummary(t *testing.T) {
 	if cpuModel == "" {
 		cpuModel = "Unknown"
 	}
+	return strings.TrimSpace(cpuModel)
+}
 
+func logBenchmarkSummaryIntro(t *testing.T, cpuModel string) {
+	t.Helper()
 	t.Log("=============================================================================")
 	t.Log("  GIG Performance Comparison: Interpreted (Gig) vs Native Go")
 	t.Logf("  CPU: %s | Cores: %d | GOOS: %s | GOARCH: %s",
-		strings.TrimSpace(cpuModel), numCPU, runtime.GOOS, runtime.GOARCH)
+		cpuModel, runtime.NumCPU(), runtime.GOOS, runtime.GOARCH)
 	t.Log("  Optimizations: DirectCall wrappers, Inline caching, Typed external functions")
 	t.Log("=============================================================================")
 	t.Log("")
@@ -666,11 +719,10 @@ func TestBenchmarkSummary(t *testing.T) {
 	t.Log("  NOTE: To regenerate these stats with current hardware, run:")
 	t.Log("    go test -bench . -benchmem -count=1 ./tests/ -run='^$' | tee /tmp/bench.txt")
 	t.Log("")
+}
 
-	// Use hardcoded results (can be regenerated via command above)
-	results := getHardcodedResults()
-
-	// Print header
+func logBenchmarkRows(t *testing.T, results []benchmarkResult) map[string][]float64 {
+	t.Helper()
 	t.Logf("  %-22s %14s %14s %10s %s", "Workload", "Gig (ns/op)", "Native (ns/op)", "Slowdown", "Category")
 	t.Logf("  %-22s %14s %14s %10s %s",
 		strings.Repeat("-", 22),
@@ -679,68 +731,95 @@ func TestBenchmarkSummary(t *testing.T) {
 		strings.Repeat("-", 10),
 		strings.Repeat("-", 16))
 
-	// Calculate category statistics
 	categorySlowdowns := make(map[string][]float64)
-
-	// Print each result
 	for _, r := range results {
 		ratio := r.gigNs / r.nativeNs
-		t.Logf("  %-22s %14.0f %14.1f %9.0fx %s",
-			r.name, r.gigNs, r.nativeNs, ratio, categorize(r.name))
-
 		cat := categorize(r.name)
+		t.Logf("  %-22s %14.0f %14.1f %9.0fx %s", r.name, r.gigNs, r.nativeNs, ratio, cat)
 		categorySlowdowns[cat] = append(categorySlowdowns[cat], ratio)
 	}
+	return categorySlowdowns
+}
 
-	// Build latency (special case - no native comparison)
+func logBenchmarkBuildLatency(t *testing.T) {
+	t.Helper()
 	t.Log("")
 	t.Logf("  %-22s %14s", "BuildAndRun", "~43,434 ns/op (compile + single execution)")
 	t.Log("")
+}
 
-	// Print summary by category with computed statistics
+type benchmarkCategoryStats struct {
+	min float64
+	max float64
+	avg float64
+}
+
+func logBenchmarkCategorySummary(t *testing.T, categorySlowdowns map[string][]float64) {
+	t.Helper()
 	t.Log("  Summary (computed from actual benchmark data):")
 	t.Log("  ┌─────────────────────────────────────────────────────────┐")
 
+	for cat, stats := range benchmarkCategoryStatsByName(categorySlowdowns) {
+		logBenchmarkCategoryStats(t, cat, stats)
+	}
+	logBenchmarkOverallAverage(t, categorySlowdowns)
+
+	t.Log("  └─────────────────────────────────────────────────────────┘")
+}
+
+func benchmarkCategoryStatsByName(categorySlowdowns map[string][]float64) map[string]benchmarkCategoryStats {
+	stats := make(map[string]benchmarkCategoryStats, len(categorySlowdowns))
 	for cat, ratios := range categorySlowdowns {
 		if len(ratios) == 0 {
 			continue
 		}
-		min, max, avg := ratios[0], ratios[0], 0.0
+		stat := benchmarkCategoryStats{min: ratios[0], max: ratios[0]}
 		for _, r := range ratios {
-			if r < min {
-				min = r
-			}
-			if r > max {
-				max = r
-			}
-			avg += r
+			stat.min = min(stat.min, r)
+			stat.max = max(stat.max, r)
+			stat.avg += r
 		}
-		avg = avg / float64(len(ratios))
-
-		switch cat {
-		case "Compute":
-			t.Logf("  │ Pure Computation (loops, arithmetic):      ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "Recursion":
-			t.Logf("  │ Recursion (function call heavy):           ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "Data Struct":
-			t.Logf("  │ Data Structures (slice, map):              ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "Closure":
-			t.Logf("  │ Closures (capture + invoke):              ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "Algorithm":
-			t.Logf("  │ Algorithms (sort, GCD, sieve):             ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "External Call":
-			t.Logf("  │ External Calls (fmt, strings):             ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "Call Overhead":
-			t.Logf("  │ Function Call Overhead (10K calls):        ~%.0fx (avg: %.0fx)         │", max, avg)
-		case "String":
-			t.Logf("  │ String Operations:                         ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "Complex Syntax":
-			t.Logf("  │ Complex Syntax (interface, struct, etc):    ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		case "Third-party":
-			t.Logf("  │ Third-party Libs (sort, json, math/big):   ~%.0f-%.0fx (avg: %.0fx)│", min, max, avg)
-		}
+		stat.avg /= float64(len(ratios))
+		stats[cat] = stat
 	}
+	return stats
+}
 
+func logBenchmarkCategoryStats(t *testing.T, cat string, stats benchmarkCategoryStats) {
+	t.Helper()
+	switch cat {
+	case "Compute":
+		t.Logf("  │ Pure Computation (loops, arithmetic):      ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "Recursion":
+		t.Logf("  │ Recursion (function call heavy):           ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "Data Struct":
+		t.Logf("  │ Data Structures (slice, map):              ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "Closure":
+		t.Logf("  │ Closures (capture + invoke):              ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "Algorithm":
+		t.Logf("  │ Algorithms (sort, GCD, sieve):             ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "External Call":
+		t.Logf("  │ External Calls (fmt, strings):             ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "Call Overhead":
+		t.Logf("  │ Function Call Overhead (10K calls):        ~%.0fx (avg: %.0fx)         │", stats.max, stats.avg)
+	case "String":
+		t.Logf("  │ String Operations:                         ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "Complex Syntax":
+		t.Logf("  │ Complex Syntax (interface, struct, etc):    ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	case "Third-party":
+		t.Logf("  │ Third-party Libs (sort, json, math/big):   ~%.0f-%.0fx (avg: %.0fx)│", stats.min, stats.max, stats.avg)
+	}
+}
+
+func logBenchmarkOverallAverage(t *testing.T, categorySlowdowns map[string][]float64) {
+	t.Helper()
+	avgAll, count := benchmarkOverallAverage(categorySlowdowns)
+	if count > 0 {
+		t.Logf("  │ Overall Average:                             ~%.0fx         │", avgAll)
+	}
+}
+
+func benchmarkOverallAverage(categorySlowdowns map[string][]float64) (float64, int) {
 	avgAll := 0.0
 	count := 0
 	for _, ratios := range categorySlowdowns {
@@ -749,12 +828,14 @@ func TestBenchmarkSummary(t *testing.T) {
 			count++
 		}
 	}
-	if count > 0 {
-		avgAll /= float64(count)
-		t.Logf("  │ Overall Average:                             ~%.0fx         │", avgAll)
+	if count == 0 {
+		return 0, 0
 	}
+	return avgAll / float64(count), count
+}
 
-	t.Log("  └─────────────────────────────────────────────────────────┘")
+func logBenchmarkOptimizationNotes(t *testing.T) {
+	t.Helper()
 	t.Log("")
 	t.Log("  Optimizations Applied:")
 	t.Log("  • DirectCall typed wrappers: Avoid reflect.Call for external functions")
@@ -765,11 +846,6 @@ func TestBenchmarkSummary(t *testing.T) {
 	t.Log("  • Third-party benchmarks use Go stdlib as proxy for external libraries")
 	t.Log("  • Complex syntax tests cover interfaces, methods, type assertions,")
 	t.Log("    panic/recover, defer, select, and composite literals")
-
-	// Suppress unused warnings
-	_ = strconv.Itoa
-	_ = sort.Ints
-	_ = time.Now()
 }
 
 // categorize returns the category for a benchmark name
