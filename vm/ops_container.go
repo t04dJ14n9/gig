@@ -222,6 +222,11 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			idx := int(key.Int())
 			container.SetIndex(idx, val)
 		case value.KindMap:
+			if container.IsNil() {
+				v.panicking = true
+				v.panicVal = value.FromInterface("assignment to entry in nil map")
+				break
+			}
 			// For OpSetIndex, nil value means set to typed nil (not delete)
 			container.SetMapIndexWithDelete(key, val, false)
 		case value.KindReflect:
@@ -232,6 +237,11 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 					idx := int(key.Int())
 					rv.Index(idx).Set(val.ToReflectValue(rv.Type().Elem()))
 				case reflect.Map:
+					if rv.IsNil() {
+						v.panicking = true
+						v.panicVal = value.FromInterface("assignment to entry in nil map")
+						break
+					}
 					// For OpSetIndex, nil value means set to typed nil (not delete)
 					container.SetMapIndexWithDelete(key, val, false)
 				}
