@@ -52,14 +52,14 @@ func tryParseAsExpr(input string) (*ast.File, *token.FileSet, bool) {
 }
 
 // tryParseAsTopLevel wraps input in `package main\n...` and parses it.
-func tryParseAsTopLevel(input string) (*ast.File, *token.FileSet, bool) {
+func tryParseAsTopLevel(input string) (*ast.File, bool) {
 	fset := token.NewFileSet()
 	src := topLvlWrapper + input
 	file, err := parser.ParseFile(fset, "test.go", src, 0)
 	if err != nil {
-		return nil, nil, false
+		return nil, false
 	}
-	return file, fset, true
+	return file, true
 }
 
 // tryParse tries stmt then expr wrappers, returning first success.
@@ -92,7 +92,7 @@ func needsMoreInput(input string) bool {
 func isImport(input string) bool {
 	trimmed := strings.TrimSpace(input)
 	if strings.HasPrefix(trimmed, "import ") {
-		_, _, ok := tryParseAsTopLevel(input)
+		_, ok := tryParseAsTopLevel(input)
 		return ok
 	}
 	return false
@@ -107,7 +107,7 @@ func isDeclaration(input string) bool {
 		strings.HasPrefix(trimmed, "const ") ||
 		strings.HasPrefix(trimmed, "type ") ||
 		strings.HasPrefix(trimmed, "func ") {
-		_, _, ok := tryParseAsTopLevel(input)
+		_, ok := tryParseAsTopLevel(input)
 		return ok
 	}
 
