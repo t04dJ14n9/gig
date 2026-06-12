@@ -137,6 +137,8 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 	// Patch jump targets
 	c.patchJumps(blockOffsets)
 
+	c.currentFunc.Instructions = optimize.FoldConstants(c.currentFunc.Instructions, &c.constants)
+
 	// Build const-is-int map (must recognize all integer types stored by compileConst)
 	constIsInt := make([]bool, len(c.constants))
 	for i, k := range c.constants {
