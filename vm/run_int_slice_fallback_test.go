@@ -17,10 +17,7 @@ func TestRunIntSliceFallbackHandlesReflectIntSlice(t *testing.T) {
 	}
 	intLocals := []int64{0, 1, 9}
 
-	sp, _, err := v.runIntSliceGetFallback(nil, locals, intLocals, 0, 1, 2, 0)
-	if err != nil {
-		t.Fatalf("runIntSliceGetFallback returned error: %v", err)
-	}
+	sp, _ := v.runIntSliceGetFallback(locals, intLocals, 0, 1, 2, 0)
 	if sp != 0 {
 		t.Fatalf("runIntSliceGetFallback sp = %d, want 0", sp)
 	}
@@ -29,10 +26,7 @@ func TestRunIntSliceFallbackHandlesReflectIntSlice(t *testing.T) {
 	}
 
 	intLocals[2] = 7
-	sp, _, err = v.runIntSliceSetFallback(nil, locals, intLocals, 0, 1, 2, 0)
-	if err != nil {
-		t.Fatalf("runIntSliceSetFallback returned error: %v", err)
-	}
+	sp, _ = v.runIntSliceSetFallback(locals, intLocals, 0, 1, 2, 0)
 	if sp != 0 {
 		t.Fatalf("runIntSliceSetFallback sp = %d, want 0", sp)
 	}
@@ -51,10 +45,7 @@ func TestRunIntSliceFallbackConvertsIndexPanic(t *testing.T) {
 	}
 	intLocals := []int64{0, 99, 0}
 
-	sp, _, err := v.runIntSliceGetFallback(nil, locals, intLocals, 0, 1, 2, 0)
-	if err != nil {
-		t.Fatalf("runIntSliceGetFallback returned error: %v", err)
-	}
+	sp, _ := v.runIntSliceGetFallback(locals, intLocals, 0, 1, 2, 0)
 	if sp != 0 {
 		t.Fatalf("runIntSliceGetFallback sp = %d, want 0", sp)
 	}

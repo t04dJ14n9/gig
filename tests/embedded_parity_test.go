@@ -69,7 +69,7 @@ func TestEmbeddedParity(t *testing.T) {
 func runEmbeddedParityCase(t *testing.T, name, source string, cfg embeddedParityCase) {
 	t.Helper()
 
-	nativeResult, nativeErr := runNativeResult(t, name, source, cfg)
+	nativeResult, nativeErr := runNativeResult(t, name, source)
 
 	buildOpts := append([]gig.BuildOption{}, cfg.buildOpts...)
 	buildOpts = append(buildOpts, gig.WithRegistry(cfg.registry))
@@ -110,7 +110,7 @@ func runEmbeddedParityCase(t *testing.T, name, source string, cfg embeddedParity
 	}
 }
 
-func runNativeResult(t *testing.T, name, source string, cfg embeddedParityCase) (string, error) {
+func runNativeResult(t *testing.T, name, source string) (string, error) {
 	t.Helper()
 	tmpDir := t.TempDir()
 	if err := writeNativeModule(tmpDir, source); err != nil {

@@ -604,7 +604,31 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 	// If we have a receiver type hint, first try to match both name and receiver type.
 	if receiverTypeName != "" {
 		for _, fn := range candidates {
-			if fn.ReceiverTypeName == receiverTypeName {
+			if fn.ReceiverTypeName != receiverTypeName {
+				continue
+			}
+			methodReceiver := methodReceiverForCompiledFunction(args[0], fn)
+			if v.shouldPanicOnNilValueReceiver(methodReceiver, fn) {
+				return nil
+			}
+			for i, arg := range args {
+				if i == 0 {
+					arg = methodReceiver
+				}
+				v.push(arg)
+			}
+			v.callCompiledFunction(fn.FuncIdx, len(args))
+			return nil
+		}
+	}
+
+	// Fallback: try to infer receiver type from the actual runtime value in args[0].
+	if len(args) > 0 {
+		if concreteTypeName := inferReceiverTypeName(args[0], v.program); concreteTypeName != "" {
+			for _, fn := range candidates {
+				if fn.ReceiverTypeName != concreteTypeName {
+					continue
+				}
 				methodReceiver := methodReceiverForCompiledFunction(args[0], fn)
 				if v.shouldPanicOnNilValueReceiver(methodReceiver, fn) {
 					return nil
@@ -617,28 +641,6 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 				}
 				v.callCompiledFunction(fn.FuncIdx, len(args))
 				return nil
-			}
-		}
-	}
-
-	// Fallback: try to infer receiver type from the actual runtime value in args[0].
-	if len(args) > 0 {
-		if concreteTypeName := inferReceiverTypeName(args[0], v.program); concreteTypeName != "" {
-			for _, fn := range candidates {
-				if fn.ReceiverTypeName == concreteTypeName {
-					methodReceiver := methodReceiverForCompiledFunction(args[0], fn)
-					if v.shouldPanicOnNilValueReceiver(methodReceiver, fn) {
-						return nil
-					}
-					for i, arg := range args {
-						if i == 0 {
-							arg = methodReceiver
-						}
-						v.push(arg)
-					}
-					v.callCompiledFunction(fn.FuncIdx, len(args))
-					return nil
-				}
 			}
 		}
 	}

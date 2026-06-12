@@ -13,7 +13,7 @@ func removeUnreachableAfterJumps(code []byte) ([]byte, bool) {
 			break
 		}
 		if op == bytecode.OpJump {
-			if r, ok := unreachableAfterJumpRewrite(i, instrEnd, len(code), targets); ok {
+			if r, ok := unreachableAfterJumpRewrite(instrEnd, len(code), targets); ok {
 				rewrites = append(rewrites, r)
 				i = r.oldEnd
 				continue
@@ -27,7 +27,7 @@ func removeUnreachableAfterJumps(code []byte) ([]byte, bool) {
 	return applyRewrites(code, rewrites), true
 }
 
-func unreachableAfterJumpRewrite(jumpStart, instrEnd, codeLen int, targets map[int]bool) (rewrite, bool) {
+func unreachableAfterJumpRewrite(instrEnd, codeLen int, targets map[int]bool) (rewrite, bool) {
 	deadEnd := nextJumpTargetAtOrAfter(targets, instrEnd, codeLen)
 	if instrEnd >= deadEnd {
 		return rewrite{}, false

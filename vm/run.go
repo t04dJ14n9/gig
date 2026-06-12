@@ -1053,11 +1053,7 @@ func (v *vm) run() (value.Value, error) {
 				intLocals[vIdx] = r
 				locals[vIdx] = value.MakeInt(r)
 			} else {
-				var err error
-				sp, stack, err = v.runIntSliceGetFallback(frame, locals, intLocals, sIdx, jIdx, vIdx, sp)
-				if err != nil {
-					return value.MakeNil(), err
-				}
+				sp, stack = v.runIntSliceGetFallback(locals, intLocals, sIdx, jIdx, vIdx, sp)
 			}
 			continue
 
@@ -1073,11 +1069,7 @@ func (v *vm) run() (value.Value, error) {
 				}
 				s[idx] = intLocals[valIdx]
 			} else {
-				var err error
-				sp, stack, err = v.runIntSliceSetFallback(frame, locals, intLocals, sIdx, jIdx, valIdx, sp)
-				if err != nil {
-					return value.MakeNil(), err
-				}
+				sp, stack = v.runIntSliceSetFallback(locals, intLocals, sIdx, jIdx, valIdx, sp)
 			}
 			continue
 
@@ -1093,11 +1085,7 @@ func (v *vm) run() (value.Value, error) {
 				}
 				s[idx] = intConsts[cIdx]
 			} else {
-				var err error
-				sp, stack, err = v.runIntSliceSetConstFallback(frame, locals, intLocals, prebaked, sIdx, jIdx, cIdx, sp)
-				if err != nil {
-					return value.MakeNil(), err
-				}
+				sp, stack = v.runIntSliceSetConstFallback(locals, intLocals, prebaked, sIdx, jIdx, cIdx, sp)
 			}
 			continue
 

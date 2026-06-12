@@ -17,7 +17,7 @@ import (
 
 // compileAndRun is a helper that compiles source code and runs a function,
 // returning the result value and any error.
-func compileAndRun(t *testing.T, source, funcName string) (vm.VM, error) {
+func compileAndRun(t *testing.T, source string) (vm.VM, error) {
 	t.Helper()
 	reg := importer.GlobalRegistry()
 	result, err := Build(source, reg)

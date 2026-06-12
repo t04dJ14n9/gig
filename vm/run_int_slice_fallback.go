@@ -13,46 +13,43 @@ import (
 // executeOp. That dispatcher path is readable for cold opcodes but too costly
 // for fused slice operations in tight loops.
 func (v *vm) runIntSliceGetFallback(
-	frame *Frame,
 	locals []value.Value,
 	intLocals []int64,
 	sIdx, jIdx, vIdx uint16,
 	sp int,
-) (int, []value.Value, error) {
+) (int, []value.Value) {
 	v.sp = sp
 	if v.runIntSliceGetFallbackRecovered(locals, intLocals, sIdx, jIdx, vIdx) {
-		return v.sp, v.stack, nil
+		return v.sp, v.stack
 	}
-	return sp, v.stack, nil
+	return sp, v.stack
 }
 
 func (v *vm) runIntSliceSetFallback(
-	frame *Frame,
 	locals []value.Value,
 	intLocals []int64,
 	sIdx, jIdx, valIdx uint16,
 	sp int,
-) (int, []value.Value, error) {
+) (int, []value.Value) {
 	v.sp = sp
 	if v.runIntSliceSetFallbackRecovered(locals, intLocals, sIdx, jIdx, valIdx) {
-		return v.sp, v.stack, nil
+		return v.sp, v.stack
 	}
-	return sp, v.stack, nil
+	return sp, v.stack
 }
 
 func (v *vm) runIntSliceSetConstFallback(
-	frame *Frame,
 	locals []value.Value,
 	intLocals []int64,
 	prebaked []value.Value,
 	sIdx, jIdx, cIdx uint16,
 	sp int,
-) (int, []value.Value, error) {
+) (int, []value.Value) {
 	v.sp = sp
 	if v.runIntSliceSetConstFallbackRecovered(locals, intLocals, prebaked, sIdx, jIdx, cIdx) {
-		return v.sp, v.stack, nil
+		return v.sp, v.stack
 	}
-	return sp, v.stack, nil
+	return sp, v.stack
 }
 
 func (v *vm) runIntSliceGetFallbackRecovered(

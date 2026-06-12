@@ -249,6 +249,7 @@ func formatOperands(operands []byte) string {
 }
 
 func instructionAnnotation(op bytecode.OpCode, operands []byte, prog *bytecode.CompiledProgram) string {
+	//nolint:exhaustive // Only opcodes with useful human-readable annotations need explicit cases.
 	switch op {
 	case bytecode.OpConst:
 		return constantAnnotation(readUint16(operands, 0), prog)
@@ -315,8 +316,8 @@ func localLocalSetAnnotation(leftIdx, rightIdx, dstIdx uint16) string {
 	return fmt.Sprintf("local[%d], local[%d] -> local[%d]", leftIdx, rightIdx, dstIdx)
 }
 
-func readUint16(bytes []byte, offset int) uint16 {
-	return uint16(bytes[offset])<<8 | uint16(bytes[offset+1])
+func readUint16(data []byte, offset int) uint16 {
+	return uint16(data[offset])<<8 | uint16(data[offset+1])
 }
 
 func constantAnnotation(idx uint16, prog *bytecode.CompiledProgram) string {
@@ -428,13 +429,13 @@ func writeGlobals(out *strings.Builder, globals map[string]int) {
 	out.WriteByte('\n')
 }
 
-func writeTypes(out *strings.Builder, types []types.Type) {
+func writeTypes(out *strings.Builder, typeList []types.Type) {
 	out.WriteString("## Types\n\n")
-	if len(types) == 0 {
+	if len(typeList) == 0 {
 		out.WriteString("(empty)\n\n")
 		return
 	}
-	for idx, typ := range types {
+	for idx, typ := range typeList {
 		fmt.Fprintf(out, "[%d] %s\n", idx, typ)
 	}
 	out.WriteByte('\n')
