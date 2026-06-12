@@ -77,6 +77,11 @@ func main() {
 ```
 gig/
 ├── gig.go                    # 公共 API: Build(), Program.Run()
+├── cmd/gig/                  # CLI: init、gen、repl、dump
+│   ├── commands/             # 子命令实现
+│   ├── gentool/              # 依赖包注册代码与 DirectCall 生成器
+│   ├── pluginmgr/            # REPL 插件加载
+│   └── repl/                 # 交互式 Go REPL
 ├── compiler/
 │   ├── build.go              # 完整流水线: source → parse → SSA → bytecode
 │   ├── compiler.go           # SSA → 字节码翻译
@@ -104,11 +109,11 @@ gig/
 │   └── ops_call.go           # 函数/闭包调用、goroutine
 ├── model/
 │   ├── value/                # 32 字节标记联合体 Value 类型
-│   ├── bytecode/             # CompiledProgram, CompiledFunction, OpCode
+│   ├── bytecode/             # CompiledProgram, CompiledFunction, OpCode 指令集
 │   └── external/             # ExternalFuncInfo, ExternalMethodInfo
 ├── importer/                 # 包注册、类型解析
 ├── runner/                   # VM 池、init 执行、有状态全局变量
-└── stdlib/packages/          # ~69 个预生成的标准库封装
+└── stdlib/packages/          # 预生成的标准库封装（当前 main: 68 个 Go 文件）
 ```
 
 ### 构建流水线详解
@@ -314,6 +319,21 @@ func ProcessOrder(price float64, quantity int, coupon string) (float64, bool):
 
 编译器将 SSA 指令翻译为基于栈的字节码。以下是编译过程：
 
+#### 字节码指令集
+
+`model/bytecode/opcode.go` 是指令集的唯一源头。当前 `main` 中共有 **136 个 `Op*` 常量**，每个操作码旁边都有单独注释，说明：
+
+- 栈效果，例如 `Stack: [... a b] -> [... result]`
+- 操作数字节宽度，例如 `[local_idx:2]`、`[func_idx:2] [num_args:1]`
+- 当前实现状态，例如保留但当前编译器不会发射的 `OpMapIter`、`OpTrySend`、`OpTryRecv`、`OpMethod`、`OpMethodCall`、`OpMake`
+
+执行层分为两类：
+
+- **热路径**：`vm/run.go` 的主 `switch` 直接内联常见指令，例如局部变量访问、常量加载、算术/比较、跳转、返回、编译函数调用、外部调用以及整数/切片超级指令。
+- **冷路径**：其他指令进入 `vm.executeOp`，再按类型路由到 `ops_arithmetic.go`、`ops_memory.go`、`ops_call.go`、`ops_container.go`、`ops_convert.go`、`ops_control.go`。
+
+因此排查某条指令时优先看 `opcode.go` 的单条注释，再看 `run.go` 或对应的 `ops_*.go` 处理器。
+
 #### 符号表构建
 
 首先，编译器分配局部变量槽位：
@@ -419,7 +439,7 @@ func Optimize(code []byte, localIsInt, constIsInt, localIsIntSlice []bool) ([]by
     ADDLOCALLOCAL 0 1  ; push locals[0] + locals[1]
 ```
 
-窥孔优化器有 17+ 条模式规则，覆盖：
+窥孔优化器由 `compiler/peephole/` 中的多条模式规则组成，覆盖：
 
 | 模式 | 融合操作码 | 节省 |
 |---|---|---|
@@ -643,7 +663,15 @@ func (v *vm) run() (value.Value, error) {
 
 #### 热/冷路径分离
 
-`run()` 中的主 `switch` 直接内联了**约 60 个热操作码**。较少使用的操作码会落入 `executeOp()`：
+`run()` 中的主 `switch` 只放高频操作码和超级指令，避免每条指令都经过额外函数调用。这个集合会随着优化器变化而调整，当前主要包括：
+
+- frame/local/constant 的栈流量：`OpLocal`、`OpSetLocal`、`OpConst` 等
+- 基础算术与比较：`OpAdd`、`OpSub`、`OpMul`、`OpLess`、`OpEqual` 等
+- 控制流与调用：`OpJump*`、`OpReturn*`、`OpCall`、`OpCallExternal`、`OpCallIndirect`
+- 指针/切片快速路径：`OpIndexAddr`、`OpDeref`、`OpSetDeref`、`OpLen`
+- 窥孔优化生成的通用超级指令与 `OpInt*` 整数特化指令
+
+低频操作码会落入 `executeOp()`：
 
 ```go
     for v.fp > 0 {
@@ -670,7 +698,7 @@ func (v *vm) run() (value.Value, error) {
             sp++
             continue
 
-        // ... 约 58 个更多热操作码 ...
+        // ... 其他热操作码和超级指令 ...
 
         default:
             // 冷路径：同步 sp，调用 executeOp
@@ -947,7 +975,7 @@ func init() {
     // Functions
     pkg.AddFunction("Contains", strings.Contains, "", direct_strings_Contains)
     pkg.AddFunction("HasPrefix", strings.HasPrefix, "", direct_strings_HasPrefix)
-    // ... 60+ more functions
+    // ... more generated functions
 
     // Types
     pkg.AddType("Builder", reflect.TypeOf(strings.Builder{}), "")
@@ -963,6 +991,8 @@ func init() {
 - **DirectCall 封装**用于零反射调用（快速路径）
 - **类型信息**用于类型检查和运行时类型断言
 - **方法 DirectCall**用于零反射方法分发
+
+`cmd/gig gen` 会同时生成函数 DirectCall 和符合条件的方法 DirectCall；不支持直接封装的函数仍然会注册原始 Go 函数值，运行时自动走反射兜底。
 
 ### DirectCall：零反射函数调用
 
@@ -996,7 +1026,7 @@ func direct_strings_Contains(args []value.Value) value.Value {
 2. 直接调用真正的 Go 函数（无 `reflect.ValueOf`，无 `reflect.Call`）
 3. 将结果包装为 `value.Value`（通过 `MakeBool`、`MakeInt` 等）
 
-**效果**：对于典型的标准库函数，速度约为 `reflect.Call` 的 5 倍。
+**效果**：对于典型的标准库函数，DirectCall 通常比 `reflect.Call` 快数倍，并显著减少参数转换与反射调用分配。
 
 #### 分发流程
 
@@ -1017,41 +1047,44 @@ OpCallExternal(funcIdx, numArgs)
 └─────────────────────────┘
 ```
 
-内联缓存（`externalCallCache`）确保函数解析在每个 program 的生命周期内只发生一次。首次调用后，后续调用只需一次指针解引用 + 函数调用。
+内联缓存（`externalCallCache`）确保函数解析在每个 program 的生命周期内只发生一次。首次调用后，后续调用只需一次缓存读取 + 函数调用。
+
+当前实现还有两个重要细节：
+
+- 参数已经按调用顺序连续放在 VM 操作数栈上，`callExternal` 直接切出 `v.stack[argStart:v.sp]`，避免 DirectCall 路径每次都分配 `[]value.Value`。
+- DirectCall 前会把被解释的闭包参数转换成真正的 Go 函数；否则像 `sort.Slice` 这类外部函数拿到的会是 `*vm.Closure`，无法直接调用。
 
 ```go
-// vm/call.go — callExternal 快速路径
+// vm/call.go — callExternal 快速路径（简化版，省略锁和错误处理）
 func (v *vm) callExternal(funcIdx, numArgs int) error {
-    // 弹出参数
-    args := make([]value.Value, numArgs)
-    for i := numArgs - 1; i >= 0; i-- {
-        args[i] = v.pop()
+    // 参数已连续在操作数栈上，直接切片，避免 DirectCall 路径分配。
+    argStart := v.sp - numArgs
+    args := v.stack[argStart:v.sp]
+    v.sp = argStart
+
+    // 方法调用的常量是 ExternalMethodInfo，单独处理 receiver 和方法 DirectCall。
+    if methodInfo, ok := v.program.Constants[funcIdx].(*external.ExternalMethodInfo); ok {
+        return v.callExternalMethod(methodInfo, args)
     }
 
-    // 内联缓存查找（读路径用 RLock）
-    v.extCallCache.mu.RLock()
-    cacheEntry := v.extCallCache.cache[funcIdx]
-    v.extCallCache.mu.RUnlock()
+    entry := v.lookupOrResolveExternalFunc(funcIdx)
 
-    if cacheEntry == nil {
-        // 首次调用：解析并缓存（写锁）
-        v.extCallCache.mu.Lock()
-        cacheEntry = v.resolveExternalFunc(funcIdx)
-        v.extCallCache.cache[funcIdx] = cacheEntry
-        v.extCallCache.mu.Unlock()
+    if entry.directCall != nil {
+        if entry.isVariadic && numArgs == entry.numIn {
+            args = unpackVariadicArgs(args, numArgs)
+        }
+        if entry.fnType != nil {
+            convertClosureArgs(args, entry.fnType)
+        }
+        v.push(entry.directCall(args))
+        return v.checkPostExternalCallContext()
     }
 
-    // 快速路径：DirectCall
-    if cacheEntry.directCall != nil {
-        result := cacheEntry.directCall(args)
-        v.push(result)
-        return nil
-    }
-
-    // 慢路径：reflect.Call
-    return v.callExternalReflect(cacheEntry, args)
+    return v.callExternalReflect(entry, args)
 }
 ```
+
+方法调用类似：`compiler/compile_ext.go` 会在编译期把方法名、接收者类型和可选的 DirectCall 封装写入 `ExternalMethodInfo`。运行时 `callExternalMethod` 先修正全局变量 receiver（`GlobalRef` / `*value.Value`），再优先调用方法 DirectCall；没有 DirectCall 时才走 `MethodByName + reflect.Call`。
 
 ### 外部调用的闭包转换
 
@@ -1084,6 +1117,29 @@ func (c *Closure) Execute(args []reflect.Value, outTypes []reflect.Type) []refle
     return []reflect.Value{result.ToReflectValue(outTypes[0])}
 }
 ```
+
+### 调试：输出 SSA 和字节码
+
+排查编译或 VM 行为时，优先使用 `cmd/gig` 的 `dump` 子命令，而不是手动在编译器里加日志：
+
+```bash
+gig dump program.go
+gig dump -allow-panic program.go
+cat program.go | gig dump -
+```
+
+`gig dump` 会调用 `gig.DebugDump`。它只做编译和格式化输出，**不会执行 `init()`**，因此适合用来排查编译结果而不触发业务副作用。输出包含两类信息：
+
+1. **SSA**：来自 `golang.org/x/tools/go/ssa` 的函数、基本块和指令，适合确认 Go 源码如何被标准 SSA builder 降低。
+2. **字节码**：Gig 编译后的函数、局部变量、常量池、操作码和操作数，适合定位某条 SSA 指令最终对应哪些 VM 指令。
+
+这个命令的主要用途：
+
+- 验证 Phi 节点是否被正确消除为 `SetLocal`/移动指令
+- 查看窥孔优化是否生成了超级指令，例如 `LOCALCONSTADDSETLOCAL`
+- 查看整数特化是否生成了 `OpInt*` 指令
+- 对照 `model/bytecode/opcode.go` 的逐操作码注释理解每条指令的栈效果
+- 对比同一段源码在优化前后或不同分支上的字节码差异
 
 ---
 
@@ -1228,10 +1284,10 @@ prog, _ := gig.Build(untrustedCode, gig.WithRegistry(reg))
 |---|---|---|
 | 帧池化 | LIFO 帧回收器 | Fib(25): 728K → 7 次分配 |
 | Value 标记联合体 | 32 字节内联基本类型 | int/float/bool 零 GC |
-| DirectCall 封装 | 代码生成的类型化封装 | 比 reflect.Call 快约 5 倍 |
+| DirectCall 封装 | 代码生成的类型化封装 | 比 reflect.Call 快数倍，减少反射分配 |
 | 预烘焙常量 | `[]value.Value` 编译时一次性构建 | 消除逐指令的 `FromInterface` |
 | 整数特化 | `intLocals []int64` 影子数组 | 4 倍缓存利用率（8B vs 32B） |
-| 超级指令 | 融合操作码（17 种模式） | 热循环中分发次数减少 3-4 倍 |
+| 超级指令 | 融合常见操作码序列 | 热循环中减少 VM 分发次数 |
 | 寄存器提升 | 栈/sp/locals 存入 Go 局部变量 | 更优的 CPU 寄存器分配 |
 | 内联缓存 | 每 program 的函数解析缓存 | O(1) 外部调用分发 |
 | Slice 融合 | `OpIntSliceGet/Set` | `[]int` 访问从 5 条指令降至 1 条 |
