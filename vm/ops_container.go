@@ -257,6 +257,21 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			break
 		}
 
+		if container.Kind() == value.KindBytes {
+			if b, ok := container.Bytes(); ok {
+				high := int(highVal.Int())
+				if high == sliceEndSentinel {
+					high = len(b)
+				}
+				if maxVal.Kind() != value.KindNil && maxVal.Int() != sliceEndSentinel {
+					v.push(value.MakeBytes(b[low:high:int(maxVal.Int())]))
+				} else {
+					v.push(value.MakeBytes(b[low:high]))
+				}
+				break
+			}
+		}
+
 		// Native []int64 slice fast path
 		if s, ok := container.IntSlice(); ok {
 			high := int(highVal.Int())
@@ -399,6 +414,12 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 		switch obj.Kind() {
 		case value.KindSlice, value.KindArray, value.KindChan:
 			v.push(value.MakeInt(int64(obj.Cap())))
+		case value.KindBytes:
+			if b, ok := obj.Bytes(); ok {
+				v.push(value.MakeInt(int64(cap(b))))
+			} else {
+				v.push(value.MakeInt(0))
+			}
 		case value.KindReflect:
 			rv := v.mustReflectValue(obj)
 			if rv.IsValid() {
