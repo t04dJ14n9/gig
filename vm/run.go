@@ -269,6 +269,14 @@ func (v *vm) run() (value.Value, error) {
 		// Inline hot-path instructions to eliminate per-instruction function call overhead.
 		// These opcodes cover >90% of instructions in typical numeric programs.
 		// Instructions handled here use 'continue' to skip the executeOp call below.
+		//
+		// This switch is intentionally not the whole instruction set. It contains:
+		//   - frame/local/constant stack traffic
+		//   - primitive arithmetic and comparisons
+		//   - jumps, returns, and compiled-function calls
+		//   - pointer/slice fast paths used by optimized int loops
+		//   - fused superinstructions emitted by compiler/optimize
+		// All other opcodes are dispatched through executeOp into the ops_*.go files.
 		switch op { //nolint:exhaustive
 		case bytecode.OpLocal:
 			idx := readU16()

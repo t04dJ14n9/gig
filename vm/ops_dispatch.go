@@ -14,6 +14,17 @@ import (
 // Note: hot-path opcodes (arithmetic, comparisons, stack ops, jumps, returns,
 // calls) are inlined in run.go and never reach this dispatcher.
 func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error {
+	// Handler ownership:
+	//   - executeArithmetic: slower numeric, bitwise, and complex-number ops.
+	//   - executeMemory: globals/free vars, struct fields, addresses, pointers,
+	//     OpNew, and generic OpMake.
+	//   - executeCall: closures, goroutine calls, and tuple pack/unpack.
+	//   - executeContainer: slice/map/channel construction, indexing, range,
+	//     len/cap, append/copy/delete.
+	//   - executeConvert: assertions, conversions, named ChangeType, interface
+	//     wrapping.
+	//   - executeControl: channels, select, defer/recover/panic, printing, halt,
+	//     and any future low-frequency control opcode not claimed above.
 	switch op {
 	// Non-hot-path arithmetic & bitwise
 	case bytecode.OpDiv, bytecode.OpMod,
