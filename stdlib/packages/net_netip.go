@@ -420,7 +420,7 @@ func direct_method_net_netip_AddrPort_MarshalText(args []value.Value) value.Valu
 
 func direct_method_net_netip_AddrPort_Port(args []value.Value) value.Value {
 	recv := args[0].Interface().(net_netip.AddrPort)
-	return value.MakeUint(uint64(recv.Port()))
+	return value.MakeUint16(recv.Port())
 }
 
 func direct_method_net_netip_AddrPort_String(args []value.Value) value.Value {

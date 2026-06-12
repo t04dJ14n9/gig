@@ -24,21 +24,28 @@ func init() {
 }
 
 func direct_errors_As(args []value.Value) value.Value {
-	a0 := args[0].Interface().(error)
+	a0 := value.ErrorValue(args[0])
 	a1 := args[1].Interface()
-	return value.MakeBool(errors.As(a0, a1))
+	return value.MakeBool(value.GigErrorsAs(a0, a1))
 }
 
 func direct_errors_Is(args []value.Value) value.Value {
-	a0 := args[0].Interface().(error)
-	a1 := args[1].Interface().(error)
-	return value.MakeBool(errors.Is(a0, a1))
+	return value.MakeBool(value.GigErrorsIs(args[0], args[1]))
 }
 
 func direct_errors_Join(args []value.Value) value.Value {
-	varArgs := make([]error, len(args)-0)
+	varArgs := make([]error, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].Interface().(error)
+		if args[i].IsNil() || !args[i].IsValid() {
+			continue
+		}
+		if e := value.ErrorValue(args[i]); e != nil {
+			varArgs = append(varArgs, e)
+		} else if v := args[i].Interface(); v != nil {
+			if err, ok := v.(error); ok {
+				varArgs = append(varArgs, err)
+			}
+		}
 	}
 	return value.FromInterface(errors.Join(varArgs...))
 }
@@ -49,6 +56,5 @@ func direct_errors_New(args []value.Value) value.Value {
 }
 
 func direct_errors_Unwrap(args []value.Value) value.Value {
-	a0 := args[0].Interface().(error)
-	return value.FromInterface(errors.Unwrap(a0))
+	return value.GigErrorsUnwrap(args[0])
 }

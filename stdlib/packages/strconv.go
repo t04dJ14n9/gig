@@ -360,7 +360,7 @@ func direct_strconv_UnquoteChar(args []value.Value) value.Value {
 	a0 := args[0].String()
 	a1 := byte(args[1].Uint())
 	r0, r1, r2, r3 := strconv.UnquoteChar(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeBool(r1), value.MakeString(string(r2)), value.FromInterface(r3)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt32(r0), value.MakeBool(r1), value.MakeString(string(r2)), value.FromInterface(r3)})
 }
 
 func direct_method_strconv_NumError_Error(args []value.Value) value.Value {

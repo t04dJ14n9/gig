@@ -125,7 +125,7 @@ func direct_regexp_syntax_Compile(args []value.Value) value.Value {
 func direct_regexp_syntax_EmptyOpContext(args []value.Value) value.Value {
 	a0 := int32(args[0].Int())
 	a1 := int32(args[1].Int())
-	return value.MakeUint(uint64(uint8(regexp_syntax.EmptyOpContext(a0, a1))))
+	return value.MakeUint8(uint8(regexp_syntax.EmptyOpContext(a0, a1)))
 }
 
 func direct_regexp_syntax_IsWordChar(args []value.Value) value.Value {
@@ -192,7 +192,7 @@ func direct_method_regexp_syntax_Prog_Prefix(args []value.Value) value.Value {
 
 func direct_method_regexp_syntax_Prog_StartCond(args []value.Value) value.Value {
 	recv := args[0].Interface().(*regexp_syntax.Prog)
-	return value.MakeUint(uint64(uint8(recv.StartCond())))
+	return value.MakeUint8(uint8(recv.StartCond()))
 }
 
 func direct_method_regexp_syntax_Prog_String(args []value.Value) value.Value {

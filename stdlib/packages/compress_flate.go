@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/external"
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
@@ -34,6 +35,9 @@ func init() {
 	pkg.AddType("Resetter", reflect.TypeOf((*compress_flate.Resetter)(nil)).Elem(), "")
 	pkg.AddType("WriteError", reflect.TypeOf(compress_flate.WriteError{}), "")
 	pkg.AddType("Writer", reflect.TypeOf(compress_flate.Writer{}), "")
+
+	// Interface Proxies
+	pkg.AddInterfaceProxy("Resetter", reflect.TypeOf((*compress_flate.Resetter)(nil)).Elem(), []string{"Reset"}, newProxy_compress_flate_Resetter)
 
 	// Method DirectCalls
 	pkg.AddMethodDirectCall("CorruptInputError", "Error", direct_method_compress_flate_CorruptInputError_Error)
@@ -142,4 +146,20 @@ func direct_method_compress_flate_Writer_Write(args []value.Value) value.Value {
 	}()
 	r0, r1 := recv.Write(a0)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+type proxy_compress_flate_Resetter struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_compress_flate_Resetter(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_compress_flate_Resetter{call: call}, true
+}
+
+func (p *proxy_compress_flate_Resetter) Reset(a0 io.Reader, a1 []byte) error {
+	result, ok := p.call("Reset", value.FromInterface(a0), value.FromInterface(a1))
+	if !ok {
+		return nil
+	}
+	return value.ErrorValue(result)
 }

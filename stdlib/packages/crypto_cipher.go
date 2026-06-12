@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/external"
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
@@ -30,6 +31,11 @@ func init() {
 	pkg.AddType("Stream", reflect.TypeOf((*crypto_cipher.Stream)(nil)).Elem(), "")
 	pkg.AddType("StreamReader", reflect.TypeOf(crypto_cipher.StreamReader{}), "")
 	pkg.AddType("StreamWriter", reflect.TypeOf(crypto_cipher.StreamWriter{}), "")
+
+	// Interface Proxies
+	pkg.AddInterfaceProxy("Block", reflect.TypeOf((*crypto_cipher.Block)(nil)).Elem(), []string{"BlockSize", "Decrypt", "Encrypt"}, newProxy_crypto_cipher_Block)
+	pkg.AddInterfaceProxy("BlockMode", reflect.TypeOf((*crypto_cipher.BlockMode)(nil)).Elem(), []string{"BlockSize", "CryptBlocks"}, newProxy_crypto_cipher_BlockMode)
+	pkg.AddInterfaceProxy("Stream", reflect.TypeOf((*crypto_cipher.Stream)(nil)).Elem(), []string{"XORKeyStream"}, newProxy_crypto_cipher_Stream)
 
 	// Method DirectCalls
 	pkg.AddMethodDirectCall("StreamReader", "Read", direct_method_crypto_cipher_StreamReader_Read)
@@ -183,4 +189,60 @@ func direct_method_crypto_cipher_StreamWriter_Write(args []value.Value) value.Va
 	}()
 	r0, r1 := recv.Write(a0)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+type proxy_crypto_cipher_Block struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_crypto_cipher_Block(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_crypto_cipher_Block{call: call}, true
+}
+
+func (p *proxy_crypto_cipher_Block) BlockSize() int {
+	result, ok := p.call("BlockSize")
+	if !ok {
+		return 0
+	}
+	return int(result.Int())
+}
+
+func (p *proxy_crypto_cipher_Block) Decrypt(a0 []byte, a1 []byte) {
+	_, _ = p.call("Decrypt", value.FromInterface(a0), value.FromInterface(a1))
+}
+
+func (p *proxy_crypto_cipher_Block) Encrypt(a0 []byte, a1 []byte) {
+	_, _ = p.call("Encrypt", value.FromInterface(a0), value.FromInterface(a1))
+}
+
+type proxy_crypto_cipher_BlockMode struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_crypto_cipher_BlockMode(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_crypto_cipher_BlockMode{call: call}, true
+}
+
+func (p *proxy_crypto_cipher_BlockMode) BlockSize() int {
+	result, ok := p.call("BlockSize")
+	if !ok {
+		return 0
+	}
+	return int(result.Int())
+}
+
+func (p *proxy_crypto_cipher_BlockMode) CryptBlocks(a0 []byte, a1 []byte) {
+	_, _ = p.call("CryptBlocks", value.FromInterface(a0), value.FromInterface(a1))
+}
+
+type proxy_crypto_cipher_Stream struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_crypto_cipher_Stream(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_crypto_cipher_Stream{call: call}, true
+}
+
+func (p *proxy_crypto_cipher_Stream) XORKeyStream(a0 []byte, a1 []byte) {
+	_, _ = p.call("XORKeyStream", value.FromInterface(a0), value.FromInterface(a1))
 }

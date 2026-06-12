@@ -1,0 +1,447 @@
+package vm
+
+import (
+	"bytes"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"os"
+	"testing"
+)
+
+func TestRunLoopFileStaysFocused(t *testing.T) {
+	assertFileLineLimit(
+		t,
+		"run.go",
+		880,
+		"keep only benchmark-proven dispatch and frame-state mechanics in the main loop",
+	)
+}
+
+func TestRunLoopDecisionBudgetStaysBounded(t *testing.T) {
+	count := recursiveDecisionCount(t, "run.go", "run")
+	if count > 190 {
+		t.Fatalf(
+			"vm.run has %d decision points, want <= 190; split cold opcode and boundary handling before hot dispatch",
+			count,
+		)
+	}
+}
+
+func TestVMFileStaysFocused(t *testing.T) {
+	assertFileLineLimit(t, "vm.go", 360, "move execution entry and argument preparation to focused files")
+}
+
+func TestNewVMStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "vm.go", "newVM")
+	if count > 8 {
+		t.Fatalf("newVM has %d branch points, want <= 8; split global initialization domains from VM allocation", count)
+	}
+}
+
+func TestInterfaceAdapterFileStaysFocused(t *testing.T) {
+	assertFileLineLimit(t, "interface_adapter.go", 180, "move adapter call mechanics to focused files")
+}
+
+func TestInterfaceBoundaryFileStaysFocused(t *testing.T) {
+	assertFileLineLimit(t, "interface_boundary.go", 170, "move proxy lookup and host-interface classification to focused files")
+}
+
+func TestInterpretedTypeSatisfiesInterfaceStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "interface_boundary.go", "interpretedTypeSatisfiesInterface")
+	if count > 8 {
+		t.Fatalf("interpretedTypeSatisfiesInterface has %d decision points, want <= 8; split method lookup, receiver eligibility, and dynamic receiver matching", count)
+	}
+}
+
+func TestCallBoundaryFileStaysFocused(t *testing.T) {
+	assertFileLineLimit(t, "call_boundary.go", 140, "move reflect scanning and callable policy to focused files")
+}
+
+func TestReflectTypeContainsInterfaceStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "call_boundary_func.go", "reflectTypeContainsInterface")
+	if count > 8 {
+		t.Fatalf("reflectTypeContainsInterface has %d decision points, want <= 8; split recursion guard, kind routing, and composite scans", count)
+	}
+}
+
+func TestInterpreterDefinedReflectValueTypeStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "call_boundary_reflect.go", "interpreterDefinedReflectValueType")
+	if count > 8 {
+		t.Fatalf("interpreterDefinedReflectValueType has %d decision points, want <= 8; split pointer/interface descent, sequence, map, and struct scans", count)
+	}
+}
+
+func TestBuildReflectArgsStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "call_external.go", "buildReflectArgs")
+	if count > 8 {
+		t.Fatalf("buildReflectArgs has %d decision points, want <= 8; split packed variadic, positional, and element conversion paths", count)
+	}
+}
+
+func TestUnpackVariadicArgsStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "call_runtime.go", "unpackVariadicArgs")
+	if count > 8 {
+		t.Fatalf("unpackVariadicArgs has %d decision points, want <= 8; split value slice, int slice, byte slice, and reflect slice unpacking", count)
+	}
+}
+
+func TestConvertClosureArgsForMethodStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "call_runtime.go", "convertClosureArgsForMethod")
+	if count > 8 {
+		t.Fatalf("convertClosureArgsForMethod has %d decision points, want <= 8; split closure detection, receiver resolution, method lookup, and argument conversion", count)
+	}
+}
+
+func TestReflectMethodTypeForBoundaryStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "call_external_method.go", "reflectMethodTypeForBoundary")
+	if count > 8 {
+		t.Fatalf(
+			"reflectMethodTypeForBoundary has %d branch points, want <= 8; reuse receiver normalization and method lookup helpers",
+			count,
+		)
+	}
+}
+
+func TestFindMethodStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "call_external_method.go", "findMethod")
+	if count > 8 {
+		t.Fatalf("findMethod has %d decision points, want <= 8; split direct, addressable, copy-addressed, and embedded-interface lookup", count)
+	}
+}
+
+func TestKindMatchesTypeStaysShallow(t *testing.T) {
+	count := directSwitchCaseCount(t, "ops_dispatch.go", "kindMatchesType")
+	if count > 8 {
+		t.Fatalf("kindMatchesType has %d direct switch cases, want <= 8; split primitive and composite type matching", count)
+	}
+}
+
+func TestSameReflectKindFamilyStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "ops_dispatch.go", "sameReflectKindFamily")
+	if count > 8 {
+		t.Fatalf("sameReflectKindFamily has %d decision points, want <= 8; split reflect.Kind family predicates", count)
+	}
+}
+
+func TestExecuteTypeConvertStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_type_convert.go", "executeTypeConvert")
+	if count > 12 {
+		t.Fatalf("executeTypeConvert has %d branch points, want <= 12; split conversion domains into named helpers", count)
+	}
+}
+
+func TestConvertBasicValueStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_type_convert.go", "convertBasicValue")
+	if count > 8 {
+		t.Fatalf("convertBasicValue has %d branch points, want <= 8; split string, signed, unsigned, and float conversion domains", count)
+	}
+}
+
+func TestExecuteArithmeticStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_arithmetic.go", "executeArithmetic")
+	if count > 8 {
+		t.Fatalf("executeArithmetic has %d branch points, want <= 8; split arithmetic, complex, bitwise, and shift operation domains", count)
+	}
+}
+
+func TestExecuteCallStaysGrouped(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_call.go", "executeCall")
+	if count > 8 {
+		t.Fatalf("executeCall has %d branch points, want <= 8; split closure, goroutine, pack, and unpack operation domains", count)
+	}
+}
+
+func TestTypeToReflectInnerStaysGrouped(t *testing.T) {
+	count := directSwitchCaseCount(t, "typeconv.go", "typeToReflectInner")
+	if count > 8 {
+		t.Fatalf("typeToReflectInner has %d direct type-switch cases, want <= 8; split composite and named reflect-type domains", count)
+	}
+}
+
+func TestCompositeTypeToReflectStaysShallow(t *testing.T) {
+	count := recursiveDecisionCount(t, "typeconv.go", "compositeTypeToReflect")
+	if count > 8 {
+		t.Fatalf("compositeTypeToReflect has %d decision points, want <= 8; split slice, array, map, channel, pointer, and interface conversion", count)
+	}
+}
+
+func TestRunLoopHotSuperinstructionsStayInline(t *testing.T) {
+	for _, opcode := range []string{
+		"OpAddLocalLocal",
+		"OpSubLocalLocal",
+		"OpMulLocalLocal",
+		"OpAddLocalConst",
+		"OpSubLocalConst",
+		"OpFree",
+		"OpSetFree",
+		"OpLessLocalLocalJumpTrue",
+		"OpLessLocalConstJumpTrue",
+		"OpLessEqLocalConstJumpTrue",
+		"OpGreaterLocalLocalJumpTrue",
+		"OpLessLocalLocalJumpFalse",
+		"OpLessLocalConstJumpFalse",
+		"OpLessEqLocalConstJumpFalse",
+		"OpAddSetLocal",
+		"OpSubSetLocal",
+		"OpLocalLocalAddSetLocal",
+		"OpLocalConstAddSetLocal",
+		"OpLocalConstSubSetLocal",
+		"OpLocalLocalSubSetLocal",
+		"OpLocalLocalMulSetLocal",
+		"OpLocalConstMulSetLocal",
+	} {
+		if !directSwitchCaseReferences(t, "run.go", "run", opcode) {
+			t.Fatalf("%s should remain directly inlined in vm.run; benchmark before moving it to a helper", opcode)
+		}
+	}
+}
+
+func TestExecuteContainerStaysGrouped(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_container.go", "executeContainer")
+	if count > 8 {
+		t.Fatalf("executeContainer has %d branch points, want <= 8; split make, index, range, size, append, copy, and delete domains", count)
+	}
+}
+
+func TestExecuteMemoryStaysGrouped(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_memory.go", "executeMemory")
+	if count > 8 {
+		t.Fatalf("executeMemory has %d branch points, want <= 8; split variable, field, pointer, and allocation operation domains", count)
+	}
+}
+
+func TestExecuteControlStaysGrouped(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_control.go", "executeControl")
+	if count > 8 {
+		t.Fatalf("executeControl has %d branch points, want <= 8; split channel, select, defer, panic, print, and halt domains", count)
+	}
+}
+
+func TestExecuteSelectStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_select.go", "executeSelect")
+	if count > 6 {
+		t.Fatalf("executeSelect has %d branch points, want <= 6; split metadata, stack state, select cases, execution, and result tuple phases", count)
+	}
+}
+
+func TestRunDefersDuringPanicStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "run_panic.go", "runDefersDuringPanic")
+	if count > 8 {
+		t.Fatalf("runDefersDuringPanic has %d branch points, want <= 8; split external, reflect, active-panic, and post-recovery defer execution", count)
+	}
+}
+
+func TestResolveCompiledMethodStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "pool.go", "ResolveCompiledMethod")
+	if count > 8 {
+		t.Fatalf("ResolveCompiledMethod has %d branch points, want <= 8; split receiver normalization, candidate selection, and side-channel invocation", count)
+	}
+}
+
+func TestResolveCompiledMethodWithArgsStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "pool.go", "ResolveCompiledMethodWithArgs")
+	if count > 8 {
+		t.Fatalf("ResolveCompiledMethodWithArgs has %d branch points, want <= 8; reuse the shared compiled-method resolver path", count)
+	}
+}
+
+func TestIteratorNextStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "iterator.go", "next")
+	if count > 10 {
+		t.Fatalf("iterator.next has %d branch points, want <= 10; split native and reflected range domains", count)
+	}
+}
+
+func TestExecuteSliceStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_slice.go", "executeSlice")
+	if count > 10 {
+		t.Fatalf("executeSlice has %d branch points, want <= 10; split nil, native, and reflect slicing paths", count)
+	}
+}
+
+func TestExecuteAssertStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_assert.go", "executeAssert")
+	if count > 10 {
+		t.Fatalf("executeAssert has %d branch points, want <= 10; split assertion target, interface, reflect, and primitive paths", count)
+	}
+}
+
+func TestExecuteMakeInterfaceStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_make_interface.go", "executeMakeInterface")
+	if count > 10 {
+		t.Fatalf("executeMakeInterface has %d branch points, want <= 10; split adapter, interpreted, pass-through, and typed-nil paths", count)
+	}
+}
+
+func TestDereferenceValueStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "reference.go", "dereferenceValue")
+	if count > 8 {
+		t.Fatalf("dereferenceValue has %d branch points, want <= 8; split reference, reflect, pointer, and nil fallback domains", count)
+	}
+}
+
+func TestAppendValueStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_append.go", "appendValue")
+	if count > 10 {
+		t.Fatalf("appendValue has %d branch points, want <= 10; split native int, byte, reflect, and nil append domains", count)
+	}
+}
+
+func TestExecuteCopyStaysShallow(t *testing.T) {
+	count := recursiveBranchCount(t, "ops_copy_delete.go", "executeCopy")
+	if count > 8 {
+		t.Fatalf("executeCopy has %d branch points, want <= 8; split byte, native int, and reflect copy domains", count)
+	}
+}
+
+func assertFileLineLimit(t *testing.T, path string, maxLines int, hint string) {
+	t.Helper()
+	src, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	lines := bytes.Count(src, []byte{'\n'})
+	if lines > maxLines {
+		t.Fatalf("%s has %d lines, want <= %d; %s", path, lines, maxLines, hint)
+	}
+}
+
+func directSwitchCaseCount(t *testing.T, path, funcName string) int {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+
+	fn := findFuncDecl(file, funcName)
+	if fn == nil || fn.Body == nil {
+		t.Fatalf("find function %s in %s", funcName, path)
+	}
+
+	count := 0
+	for _, stmt := range fn.Body.List {
+		switch s := stmt.(type) {
+		case *ast.SwitchStmt:
+			count += len(s.Body.List)
+		case *ast.TypeSwitchStmt:
+			count += len(s.Body.List)
+		}
+	}
+	return count
+}
+
+func directSwitchCaseReferences(t *testing.T, path, funcName, selectorName string) bool {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+
+	fn := findFuncDecl(file, funcName)
+	if fn == nil || fn.Body == nil {
+		t.Fatalf("find function %s in %s", funcName, path)
+	}
+
+	found := false
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		if found {
+			return false
+		}
+		sw, ok := n.(*ast.SwitchStmt)
+		if !ok {
+			return true
+		}
+		for _, stmt := range sw.Body.List {
+			clause, ok := stmt.(*ast.CaseClause)
+			if !ok {
+				continue
+			}
+			for _, expr := range clause.List {
+				sel, ok := expr.(*ast.SelectorExpr)
+				if ok && sel.Sel.Name == selectorName {
+					found = true
+					return false
+				}
+			}
+		}
+		return true
+	})
+	return found
+}
+
+func recursiveBranchCount(t *testing.T, path, funcName string) int {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+
+	fn := findFuncDecl(file, funcName)
+	if fn == nil || fn.Body == nil {
+		t.Fatalf("find function %s in %s", funcName, path)
+	}
+
+	count := 0
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		switch s := n.(type) {
+		case *ast.IfStmt:
+			count++
+		case *ast.SwitchStmt:
+			count += len(s.Body.List)
+		case *ast.TypeSwitchStmt:
+			count += len(s.Body.List)
+		}
+		return true
+	})
+	return count
+}
+
+func recursiveDecisionCount(t *testing.T, path, funcName string) int {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+
+	fn := findFuncDecl(file, funcName)
+	if fn == nil || fn.Body == nil {
+		t.Fatalf("find function %s in %s", funcName, path)
+	}
+
+	count := 0
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		switch s := n.(type) {
+		case *ast.IfStmt:
+			count++
+		case *ast.SwitchStmt:
+			count += len(s.Body.List)
+		case *ast.TypeSwitchStmt:
+			count += len(s.Body.List)
+		case *ast.BinaryExpr:
+			if s.Op == token.LAND || s.Op == token.LOR {
+				count++
+			}
+		}
+		return true
+	})
+	return count
+}
+
+func findFuncDecl(file *ast.File, name string) *ast.FuncDecl {
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if ok && fn.Name.Name == name {
+			return fn
+		}
+	}
+	return nil
+}

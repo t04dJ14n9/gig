@@ -78,12 +78,16 @@ func New(program *bytecode.CompiledProgram, initialGlobals []value.Value, opts .
 		r.shared = vm.NewSharedGlobals(initialGlobals, len(program.Globals))
 		r.shared.InitExternalVars(program.ExternalVarValues)
 		r.shared.InitZeroValues(program.GlobalZeroValues)
+		r.shared.InitGlobalTypes(program.GlobalTypes, program.Types, program)
 	}
 
 	// Register per-program method resolver for fmt.Stringer support.
 	// Uses program pointer as unique key. Thread-safe via sync.Map.
 	value.RegisterMethodResolver(r.progKey, func(methodName string, receiver value.Value) (value.Value, bool) {
 		return vm.ResolveCompiledMethod(program, methodName, receiver)
+	})
+	value.RegisterMethodWithArgsResolver(r.progKey, func(methodName string, receiver value.Value, args []value.Value) (value.Value, bool) {
+		return vm.ResolveCompiledMethodWithArgs(program, methodName, receiver, args)
 	})
 
 	return r
@@ -167,7 +171,7 @@ const DefaultTimeout = 10 * time.Second
 // ExecuteInit runs the program's init() function if present and returns the globals snapshot.
 // The snapshot should be passed to runner.New as initialGlobals.
 func ExecuteInit(program *bytecode.CompiledProgram) ([]value.Value, error) {
-	if _, hasInit := program.Functions["init#1"]; hasInit {
+	if _, hasInit := program.Functions["init"]; hasInit {
 		initVM := vm.New(program)
 		ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 		defer cancel()

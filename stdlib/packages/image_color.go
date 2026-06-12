@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/external"
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
@@ -52,6 +53,9 @@ func init() {
 	pkg.AddType("RGBA64", reflect.TypeOf(image_color.RGBA64{}), "")
 	pkg.AddType("YCbCr", reflect.TypeOf(image_color.YCbCr{}), "")
 
+	// Interface Proxies
+	pkg.AddInterfaceProxy("Model", reflect.TypeOf((*image_color.Model)(nil)).Elem(), []string{"Convert"}, newProxy_image_color_Model)
+
 	// Method DirectCalls
 	pkg.AddMethodDirectCall("Alpha", "RGBA", direct_method_image_color_Alpha_RGBA)
 	pkg.AddMethodDirectCall("Alpha16", "RGBA", direct_method_image_color_Alpha16_RGBA)
@@ -75,7 +79,7 @@ func direct_image_color_CMYKToRGB(args []value.Value) value.Value {
 	a2 := byte(args[2].Uint())
 	a3 := byte(args[3].Uint())
 	r0, r1, r2 := image_color.CMYKToRGB(a0, a1, a2, a3)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint8(r0), value.MakeUint8(r1), value.MakeUint8(r2)})
 }
 
 func direct_image_color_ModelFunc(args []value.Value) value.Value {
@@ -88,7 +92,7 @@ func direct_image_color_RGBToCMYK(args []value.Value) value.Value {
 	a1 := byte(args[1].Uint())
 	a2 := byte(args[2].Uint())
 	r0, r1, r2, r3 := image_color.RGBToCMYK(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint8(r0), value.MakeUint8(r1), value.MakeUint8(r2), value.MakeUint8(r3)})
 }
 
 func direct_image_color_RGBToYCbCr(args []value.Value) value.Value {
@@ -96,7 +100,7 @@ func direct_image_color_RGBToYCbCr(args []value.Value) value.Value {
 	a1 := byte(args[1].Uint())
 	a2 := byte(args[2].Uint())
 	r0, r1, r2 := image_color.RGBToYCbCr(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint8(r0), value.MakeUint8(r1), value.MakeUint8(r2)})
 }
 
 func direct_image_color_YCbCrToRGB(args []value.Value) value.Value {
@@ -104,55 +108,55 @@ func direct_image_color_YCbCrToRGB(args []value.Value) value.Value {
 	a1 := byte(args[1].Uint())
 	a2 := byte(args[2].Uint())
 	r0, r1, r2 := image_color.YCbCrToRGB(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint8(r0), value.MakeUint8(r1), value.MakeUint8(r2)})
 }
 
 func direct_method_image_color_Alpha_RGBA(args []value.Value) value.Value {
 	recv := args[0].Interface().(image_color.Alpha)
 	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1), value.MakeUint32(r2), value.MakeUint32(r3)})
 }
 
 func direct_method_image_color_Alpha16_RGBA(args []value.Value) value.Value {
 	recv := args[0].Interface().(image_color.Alpha16)
 	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1), value.MakeUint32(r2), value.MakeUint32(r3)})
 }
 
 func direct_method_image_color_CMYK_RGBA(args []value.Value) value.Value {
 	recv := args[0].Interface().(image_color.CMYK)
 	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1), value.MakeUint32(r2), value.MakeUint32(r3)})
 }
 
 func direct_method_image_color_Gray_RGBA(args []value.Value) value.Value {
 	recv := args[0].Interface().(image_color.Gray)
 	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1), value.MakeUint32(r2), value.MakeUint32(r3)})
 }
 
 func direct_method_image_color_Gray16_RGBA(args []value.Value) value.Value {
 	recv := args[0].Interface().(image_color.Gray16)
 	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1), value.MakeUint32(r2), value.MakeUint32(r3)})
 }
 
 func direct_method_image_color_NRGBA_RGBA(args []value.Value) value.Value {
 	recv := args[0].Interface().(image_color.NRGBA)
 	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1), value.MakeUint32(r2), value.MakeUint32(r3)})
 }
 
 func direct_method_image_color_NRGBA64_RGBA(args []value.Value) value.Value {
 	recv := args[0].Interface().(image_color.NRGBA64)
 	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1), value.MakeUint32(r2), value.MakeUint32(r3)})
 }
 
 func direct_method_image_color_NYCbCrA_RGBA(args []value.Value) value.Value {
 	recv := args[0].Interface().(image_color.NYCbCrA)
 	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1), value.MakeUint32(r2), value.MakeUint32(r3)})
 }
 
 func direct_method_image_color_Palette_Convert(args []value.Value) value.Value {
@@ -170,17 +174,33 @@ func direct_method_image_color_Palette_Index(args []value.Value) value.Value {
 func direct_method_image_color_RGBA_RGBA(args []value.Value) value.Value {
 	recv := args[0].Interface().(image_color.RGBA)
 	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1), value.MakeUint32(r2), value.MakeUint32(r3)})
 }
 
 func direct_method_image_color_RGBA64_RGBA(args []value.Value) value.Value {
 	recv := args[0].Interface().(image_color.RGBA64)
 	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1), value.MakeUint32(r2), value.MakeUint32(r3)})
 }
 
 func direct_method_image_color_YCbCr_RGBA(args []value.Value) value.Value {
 	recv := args[0].Interface().(image_color.YCbCr)
 	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1), value.MakeUint32(r2), value.MakeUint32(r3)})
+}
+
+type proxy_image_color_Model struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_image_color_Model(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_image_color_Model{call: call}, true
+}
+
+func (p *proxy_image_color_Model) Convert(a0 image_color.Color) image_color.Color {
+	result, ok := p.call("Convert", value.FromInterface(a0))
+	if !ok {
+		return nil
+	}
+	return result.Interface().(image_color.Color)
 }

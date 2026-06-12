@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/external"
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
@@ -45,6 +46,12 @@ func init() {
 	pkg.AddType("Scanner", reflect.TypeOf((*fmt.Scanner)(nil)).Elem(), "")
 	pkg.AddType("State", reflect.TypeOf((*fmt.State)(nil)).Elem(), "")
 	pkg.AddType("Stringer", reflect.TypeOf((*fmt.Stringer)(nil)).Elem(), "")
+
+	// Interface Proxies
+	pkg.AddInterfaceProxy("Formatter", reflect.TypeOf((*fmt.Formatter)(nil)).Elem(), []string{"Format"}, newProxy_fmt_Formatter)
+	pkg.AddInterfaceProxy("GoStringer", reflect.TypeOf((*fmt.GoStringer)(nil)).Elem(), []string{"GoString"}, newProxy_fmt_GoStringer)
+	pkg.AddInterfaceProxy("Scanner", reflect.TypeOf((*fmt.Scanner)(nil)).Elem(), []string{"Scan"}, newProxy_fmt_Scanner)
+	pkg.AddInterfaceProxy("Stringer", reflect.TypeOf((*fmt.Stringer)(nil)).Elem(), []string{"String"}, newProxy_fmt_Stringer)
 
 }
 
@@ -290,4 +297,64 @@ func direct_fmt_Sscanln(args []value.Value) value.Value {
 	}
 	r0, r1 := fmt.Sscanln(a0, varArgs...)
 	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+}
+
+type proxy_fmt_Formatter struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_fmt_Formatter(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_fmt_Formatter{call: call}, true
+}
+
+func (p *proxy_fmt_Formatter) Format(a0 fmt.State, a1 rune) {
+	_, _ = p.call("Format", value.FromInterface(a0), value.FromInterface(a1))
+}
+
+type proxy_fmt_GoStringer struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_fmt_GoStringer(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_fmt_GoStringer{call: call}, true
+}
+
+func (p *proxy_fmt_GoStringer) GoString() string {
+	result, ok := p.call("GoString")
+	if !ok {
+		return ""
+	}
+	return result.String()
+}
+
+type proxy_fmt_Scanner struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_fmt_Scanner(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_fmt_Scanner{call: call}, true
+}
+
+func (p *proxy_fmt_Scanner) Scan(a0 fmt.ScanState, a1 rune) error {
+	result, ok := p.call("Scan", value.FromInterface(a0), value.FromInterface(a1))
+	if !ok {
+		return nil
+	}
+	return value.ErrorValue(result)
+}
+
+type proxy_fmt_Stringer struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_fmt_Stringer(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_fmt_Stringer{call: call}, true
+}
+
+func (p *proxy_fmt_Stringer) String() string {
+	result, ok := p.call("String")
+	if !ok {
+		return ""
+	}
+	return result.String()
 }

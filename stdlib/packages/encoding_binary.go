@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/external"
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
@@ -42,6 +43,10 @@ func init() {
 	// Types
 	pkg.AddType("AppendByteOrder", reflect.TypeOf((*encoding_binary.AppendByteOrder)(nil)).Elem(), "")
 	pkg.AddType("ByteOrder", reflect.TypeOf((*encoding_binary.ByteOrder)(nil)).Elem(), "")
+
+	// Interface Proxies
+	pkg.AddInterfaceProxy("AppendByteOrder", reflect.TypeOf((*encoding_binary.AppendByteOrder)(nil)).Elem(), []string{"AppendUint16", "AppendUint32", "AppendUint64", "String"}, newProxy_encoding_binary_AppendByteOrder)
+	pkg.AddInterfaceProxy("ByteOrder", reflect.TypeOf((*encoding_binary.ByteOrder)(nil)).Elem(), []string{"PutUint16", "PutUint32", "PutUint64", "String", "Uint16", "Uint32", "Uint64"}, newProxy_encoding_binary_ByteOrder)
 
 }
 
@@ -215,4 +220,123 @@ func direct_encoding_binary_Write(args []value.Value) value.Value {
 	a1 := args[1].Interface().(encoding_binary.ByteOrder)
 	a2 := args[2].Interface()
 	return value.FromInterface(encoding_binary.Write(a0, a1, a2))
+}
+
+type proxy_encoding_binary_AppendByteOrder struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_encoding_binary_AppendByteOrder(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_encoding_binary_AppendByteOrder{call: call}, true
+}
+
+func (p *proxy_encoding_binary_AppendByteOrder) AppendUint16(a0 []byte, a1 uint16) []byte {
+	result, ok := p.call("AppendUint16", value.FromInterface(a0), value.FromInterface(a1))
+	if !ok {
+		return nil
+	}
+	return func() []byte {
+		if b, ok := (result).Bytes(); ok {
+			return b
+		}
+		v := (result).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
+	}()
+}
+
+func (p *proxy_encoding_binary_AppendByteOrder) AppendUint32(a0 []byte, a1 uint32) []byte {
+	result, ok := p.call("AppendUint32", value.FromInterface(a0), value.FromInterface(a1))
+	if !ok {
+		return nil
+	}
+	return func() []byte {
+		if b, ok := (result).Bytes(); ok {
+			return b
+		}
+		v := (result).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
+	}()
+}
+
+func (p *proxy_encoding_binary_AppendByteOrder) AppendUint64(a0 []byte, a1 uint64) []byte {
+	result, ok := p.call("AppendUint64", value.FromInterface(a0), value.FromInterface(a1))
+	if !ok {
+		return nil
+	}
+	return func() []byte {
+		if b, ok := (result).Bytes(); ok {
+			return b
+		}
+		v := (result).Interface()
+		if v == nil {
+			return nil
+		}
+		return v.([]byte)
+	}()
+}
+
+func (p *proxy_encoding_binary_AppendByteOrder) String() string {
+	result, ok := p.call("String")
+	if !ok {
+		return ""
+	}
+	return result.String()
+}
+
+type proxy_encoding_binary_ByteOrder struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_encoding_binary_ByteOrder(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_encoding_binary_ByteOrder{call: call}, true
+}
+
+func (p *proxy_encoding_binary_ByteOrder) PutUint16(a0 []byte, a1 uint16) {
+	_, _ = p.call("PutUint16", value.FromInterface(a0), value.FromInterface(a1))
+}
+
+func (p *proxy_encoding_binary_ByteOrder) PutUint32(a0 []byte, a1 uint32) {
+	_, _ = p.call("PutUint32", value.FromInterface(a0), value.FromInterface(a1))
+}
+
+func (p *proxy_encoding_binary_ByteOrder) PutUint64(a0 []byte, a1 uint64) {
+	_, _ = p.call("PutUint64", value.FromInterface(a0), value.FromInterface(a1))
+}
+
+func (p *proxy_encoding_binary_ByteOrder) String() string {
+	result, ok := p.call("String")
+	if !ok {
+		return ""
+	}
+	return result.String()
+}
+
+func (p *proxy_encoding_binary_ByteOrder) Uint16(a0 []byte) uint16 {
+	result, ok := p.call("Uint16", value.FromInterface(a0))
+	if !ok {
+		return 0
+	}
+	return uint16(result.Uint())
+}
+
+func (p *proxy_encoding_binary_ByteOrder) Uint32(a0 []byte) uint32 {
+	result, ok := p.call("Uint32", value.FromInterface(a0))
+	if !ok {
+		return 0
+	}
+	return uint32(result.Uint())
+}
+
+func (p *proxy_encoding_binary_ByteOrder) Uint64(a0 []byte) uint64 {
+	result, ok := p.call("Uint64", value.FromInterface(a0))
+	if !ok {
+		return 0
+	}
+	return result.Uint()
 }

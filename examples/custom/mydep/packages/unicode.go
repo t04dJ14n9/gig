@@ -320,9 +320,11 @@ func init() {
 
 func direct_unicode_In(args []value.Value) value.Value {
 	a0 := int32(args[0].Int())
-	varArgs := make([]*unicode.RangeTable, len(args)-1)
+	varArgs := make([]*unicode.RangeTable, 0, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].Interface().(*unicode.RangeTable)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(*unicode.RangeTable))
+		}
 	}
 	return value.MakeBool(unicode.In(a0, varArgs...))
 }

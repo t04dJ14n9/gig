@@ -40,9 +40,6 @@ type Closure struct {
 	// Allows closures converted to Go functions to spawn tracked goroutines.
 	Goroutines *GoroutineTracker
 
-	// ExtCallCache is the shared external call cache from the parent VM.
-	ExtCallCache *externalCallCache
-
 	// Ctx is the execution context from the parent VM.
 	Ctx context.Context
 }
@@ -74,15 +71,6 @@ func (c *Closure) Execute(args []reflect.Value, outTypes []reflect.Type) []refle
 		goroutines: c.Goroutines,
 	}
 
-	// Use shared external call cache if available (avoids re-resolving)
-	if c.ExtCallCache != nil {
-		closureVM.extCallCache = c.ExtCallCache
-	} else {
-		closureVM.extCallCache = &externalCallCache{
-			cache: make([]*extCallCacheEntry, len(c.Program.Constants)),
-		}
-	}
-
 	// If SharedGlobals is available, bind it so the closure operates on the
 	// same shared globals as the parent VM. This is critical for closures
 	// passed to external functions like sync.Once.Do — writes to globals
@@ -108,7 +96,13 @@ func (c *Closure) Execute(args []reflect.Value, outTypes []reflect.Type) []refle
 	}
 	// Call the closure function with its captured free variables
 	closureVM.callFunction(c.Fn, valArgs, c.FreeVars)
-	result, _ := closureVM.run()
+	result, err := closureVM.run()
+	if err != nil {
+		if closureVM.lastPanicVal.IsValid() {
+			panic(closureVM.lastPanicVal.Interface())
+		}
+		panic(err)
+	}
 	// Return the result as reflect.Value
 	if result.Kind() == value.KindNil {
 		return []reflect.Value{}
@@ -136,7 +130,6 @@ func getClosure(fn *bytecode.CompiledFunction, numFree int) *Closure {
 	c.Fn = fn
 	c.Shared = nil
 	c.Goroutines = nil
-	c.ExtCallCache = nil
 	c.Ctx = nil
 	if numFree == 0 {
 		c.FreeVars = nil

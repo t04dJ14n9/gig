@@ -80,7 +80,7 @@ func direct_math_bits_Add32(args []value.Value) value.Value {
 	a1 := uint32(args[1].Uint())
 	a2 := uint32(args[2].Uint())
 	r0, r1 := math_bits.Add32(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1)})
 }
 
 func direct_math_bits_Add64(args []value.Value) value.Value {
@@ -104,7 +104,7 @@ func direct_math_bits_Div32(args []value.Value) value.Value {
 	a1 := uint32(args[1].Uint())
 	a2 := uint32(args[2].Uint())
 	r0, r1 := math_bits.Div32(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1)})
 }
 
 func direct_math_bits_Div64(args []value.Value) value.Value {
@@ -176,7 +176,7 @@ func direct_math_bits_Mul32(args []value.Value) value.Value {
 	a0 := uint32(args[0].Uint())
 	a1 := uint32(args[1].Uint())
 	r0, r1 := math_bits.Mul32(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1)})
 }
 
 func direct_math_bits_Mul64(args []value.Value) value.Value {
@@ -222,7 +222,7 @@ func direct_math_bits_Rem32(args []value.Value) value.Value {
 	a0 := uint32(args[0].Uint())
 	a1 := uint32(args[1].Uint())
 	a2 := uint32(args[2].Uint())
-	return value.MakeUint(uint64(math_bits.Rem32(a0, a1, a2)))
+	return value.MakeUint32(math_bits.Rem32(a0, a1, a2))
 }
 
 func direct_math_bits_Rem64(args []value.Value) value.Value {
@@ -239,12 +239,12 @@ func direct_math_bits_Reverse(args []value.Value) value.Value {
 
 func direct_math_bits_Reverse16(args []value.Value) value.Value {
 	a0 := uint16(args[0].Uint())
-	return value.MakeUint(uint64(math_bits.Reverse16(a0)))
+	return value.MakeUint16(math_bits.Reverse16(a0))
 }
 
 func direct_math_bits_Reverse32(args []value.Value) value.Value {
 	a0 := uint32(args[0].Uint())
-	return value.MakeUint(uint64(math_bits.Reverse32(a0)))
+	return value.MakeUint32(math_bits.Reverse32(a0))
 }
 
 func direct_math_bits_Reverse64(args []value.Value) value.Value {
@@ -254,7 +254,7 @@ func direct_math_bits_Reverse64(args []value.Value) value.Value {
 
 func direct_math_bits_Reverse8(args []value.Value) value.Value {
 	a0 := byte(args[0].Uint())
-	return value.MakeUint(uint64(math_bits.Reverse8(a0)))
+	return value.MakeUint8(math_bits.Reverse8(a0))
 }
 
 func direct_math_bits_ReverseBytes(args []value.Value) value.Value {
@@ -264,12 +264,12 @@ func direct_math_bits_ReverseBytes(args []value.Value) value.Value {
 
 func direct_math_bits_ReverseBytes16(args []value.Value) value.Value {
 	a0 := uint16(args[0].Uint())
-	return value.MakeUint(uint64(math_bits.ReverseBytes16(a0)))
+	return value.MakeUint16(math_bits.ReverseBytes16(a0))
 }
 
 func direct_math_bits_ReverseBytes32(args []value.Value) value.Value {
 	a0 := uint32(args[0].Uint())
-	return value.MakeUint(uint64(math_bits.ReverseBytes32(a0)))
+	return value.MakeUint32(math_bits.ReverseBytes32(a0))
 }
 
 func direct_math_bits_ReverseBytes64(args []value.Value) value.Value {
@@ -286,13 +286,13 @@ func direct_math_bits_RotateLeft(args []value.Value) value.Value {
 func direct_math_bits_RotateLeft16(args []value.Value) value.Value {
 	a0 := uint16(args[0].Uint())
 	a1 := int(args[1].Int())
-	return value.MakeUint(uint64(math_bits.RotateLeft16(a0, a1)))
+	return value.MakeUint16(math_bits.RotateLeft16(a0, a1))
 }
 
 func direct_math_bits_RotateLeft32(args []value.Value) value.Value {
 	a0 := uint32(args[0].Uint())
 	a1 := int(args[1].Int())
-	return value.MakeUint(uint64(math_bits.RotateLeft32(a0, a1)))
+	return value.MakeUint32(math_bits.RotateLeft32(a0, a1))
 }
 
 func direct_math_bits_RotateLeft64(args []value.Value) value.Value {
@@ -304,7 +304,7 @@ func direct_math_bits_RotateLeft64(args []value.Value) value.Value {
 func direct_math_bits_RotateLeft8(args []value.Value) value.Value {
 	a0 := byte(args[0].Uint())
 	a1 := int(args[1].Int())
-	return value.MakeUint(uint64(math_bits.RotateLeft8(a0, a1)))
+	return value.MakeUint8(math_bits.RotateLeft8(a0, a1))
 }
 
 func direct_math_bits_Sub(args []value.Value) value.Value {
@@ -320,7 +320,7 @@ func direct_math_bits_Sub32(args []value.Value) value.Value {
 	a1 := uint32(args[1].Uint())
 	a2 := uint32(args[2].Uint())
 	r0, r1 := math_bits.Sub32(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint32(r0), value.MakeUint32(r1)})
 }
 
 func direct_math_bits_Sub64(args []value.Value) value.Value {

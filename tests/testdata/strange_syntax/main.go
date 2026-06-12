@@ -1,19 +1,19 @@
 package strange_syntax
 
 import (
-	"strconv"
-	"fmt"
-	"strings"
-	"time"
+	"archive/tar"
+	"archive/zip"
+	"bytes"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
-	"bytes"
+	"fmt"
 	"io"
-	"archive/tar"
-	"archive/zip"
-	"text/tabwriter"
+	"strconv"
+	"strings"
 	"text/scanner"
+	"text/tabwriter"
+	"time"
 	"unicode/utf8"
 )
 
@@ -2713,7 +2713,7 @@ type ReadWriter interface {
 
 type File struct{ data int }
 
-func (f *File) Read() int  { return f.data }
+func (f *File) Read() int   { return f.data }
 func (f *File) Write(v int) { f.data = v }
 
 // ============================================================================
@@ -2750,8 +2750,8 @@ func SliceReslice() int {
 	for i := range s {
 		s[i] = i + 1
 	}
-	s = s[1:4]      // len=3, cap=9
-	s = s[:cap(s)]  // extend to cap
+	s = s[1:4]     // len=3, cap=9
+	s = s[:cap(s)] // extend to cap
 	return len(s) + cap(s)
 }
 
@@ -5283,8 +5283,8 @@ func StructSetMethod() int {
 // StructWithBothMethods tests struct with both Get and Set
 type Accessor struct{ Value int }
 
-func (a Accessor) Get() int      { return a.Value }
-func (a *Accessor) Set(v int)    { a.Value = v }
+func (a Accessor) Get() int   { return a.Value }
+func (a *Accessor) Set(v int) { a.Value = v }
 
 // StructBothMethods tests both methods
 func StructBothMethods() int {
@@ -5303,8 +5303,8 @@ type ReadWriter2 interface {
 
 type RWImpl struct{ Value int }
 
-func (r RWImpl) Read() int      { return r.Value }
-func (r *RWImpl) Write(v int)   { r.Value = v }
+func (r RWImpl) Read() int    { return r.Value }
+func (r *RWImpl) Write(v int) { r.Value = v }
 
 // InterfaceMultipleMethods tests multiple interface methods
 func InterfaceMultipleMethods() int {
@@ -6498,6 +6498,7 @@ func MultipleDefer() int {
 	defer func() { x += 4 }()
 	return x
 }
+
 // ============================================================================
 // MORE EDGE CASES (Round 7) - Trying to find bugs
 // ============================================================================
@@ -6593,14 +6594,14 @@ func LinkedListCycle() int {
 		Value int
 		Next  *Node
 	}
-	
+
 	n1 := &Node{Value: 1}
 	n2 := &Node{Value: 2}
 	n3 := &Node{Value: 3}
 	n1.Next = n2
 	n2.Next = n3
 	n3.Next = n1 // Cycle
-	
+
 	// Traverse up to 10 nodes to avoid infinite loop
 	sum := 0
 	current := n1
@@ -6615,19 +6616,19 @@ func LinkedListCycle() int {
 // ChainedTypeAssertions tests chained type assertions
 func ChainedTypeAssertions() int {
 	var i interface{} = "hello"
-	
+
 	// Chain of assertions
 	s, ok := i.(string)
 	if !ok {
 		return -1
 	}
-	
+
 	var j interface{} = s
 	s2, ok2 := j.(string)
 	if !ok2 {
 		return -2
 	}
-	
+
 	return len(s2)
 }
 
@@ -6636,7 +6637,7 @@ func NestedInterfaceAssertions() int {
 	var outer interface{}
 	var inner interface{} = 42
 	outer = inner
-	
+
 	// Assert twice
 	i1, ok1 := outer.(interface{})
 	if !ok1 {
@@ -6678,7 +6679,7 @@ func MapWithComplexKeys2() int {
 	m := make(map[Key]int)
 	m[Key{1, 2}] = 10
 	m[Key{3, 4}] = 20
-	
+
 	return m[Key{1, 2}] + m[Key{3, 4}]
 }
 
@@ -6687,7 +6688,7 @@ func NestedMapOperations() int {
 	m := make(map[string]map[string]int)
 	m["outer"] = make(map[string]int)
 	m["outer"]["inner"] = 42
-	
+
 	return m["outer"]["inner"]
 }
 
@@ -6710,7 +6711,7 @@ func NestedSliceAppend() int {
 	s = append(s, []int{1, 2})
 	s = append(s, []int{3, 4})
 	s[0] = append(s[0], 5)
-	
+
 	sum := 0
 	for _, inner := range s {
 		for _, v := range inner {
@@ -6726,11 +6727,11 @@ func SliceResliceMultiple() int {
 	for i := range s {
 		s[i] = i
 	}
-	
+
 	s1 := s[2:5]  // [2, 3, 4]
 	s2 := s1[1:3] // [3, 4]
 	s3 := s2[0:2] // [3, 4]
-	
+
 	return s3[0] + s3[1] // 3 + 4 = 7
 }
 
@@ -6738,11 +6739,11 @@ func SliceResliceMultiple() int {
 func SliceWithCapacityGrowth() int {
 	s := make([]int, 0, 2)
 	initialCap := cap(s)
-	
+
 	for i := 0; i < 10; i++ {
 		s = append(s, i)
 	}
-	
+
 	return len(s) + initialCap // 10 + 2 = 12
 }
 
@@ -6766,11 +6767,11 @@ func FloatSpecialValues() int {
 	// Use math.Inf to get infinity values
 	// inf := math.Inf(1)  // Can't use math package in tests
 	// negInf := math.Inf(-1)
-	
+
 	// Test with very large numbers instead
 	large := 1e308
 	veryLarge := large * 10 // This becomes +Inf at runtime
-	
+
 	if veryLarge > 0 {
 		return 1
 	}
@@ -6780,7 +6781,7 @@ func FloatSpecialValues() int {
 // DeeplyNestedIfElse tests deeply nested if-else
 func DeeplyNestedIfElse() int {
 	x, y, z := 1, 2, 3
-	
+
 	if x > 0 {
 		if y > 0 {
 			if z > 0 {
@@ -6836,10 +6837,10 @@ func ForWithComplexCondition() int {
 func ChannelSelectWithMultipleCases() int {
 	ch1 := make(chan int, 1)
 	ch2 := make(chan int, 1)
-	
+
 	ch1 <- 1
 	ch2 <- 2
-	
+
 	result := 0
 	for i := 0; i < 2; i++ {
 		select {
@@ -6857,7 +6858,7 @@ func NilChannelInSelect() int {
 	var nilCh chan int
 	ch := make(chan int, 1)
 	ch <- 42
-	
+
 	select {
 	case v := <-ch:
 		return v
@@ -6873,7 +6874,7 @@ func MultipleAssignmentChain() int {
 	a, b, c := 1, 2, 3
 	d, e, f := a+1, b+1, c+1
 	g, h, i := d+e, e+f, f+d
-	
+
 	return g + h + i
 }
 
@@ -6882,10 +6883,10 @@ func AssignmentWithFunctionCall() int {
 	getValue := func() (int, int, int) {
 		return 10, 20, 30
 	}
-	
+
 	a, b, c := getValue()
 	d, e, f := getValue()
-	
+
 	return a + b + c + d + e + f // 60 + 60 = 120
 }
 
@@ -6893,7 +6894,7 @@ func AssignmentWithFunctionCall() int {
 func SwapMultipleValues() int {
 	a, b, c := 1, 2, 3
 	a, b, c = c, a, b
-	
+
 	return a*100 + b*10 + c // 300 + 10 + 2 = 312
 }
 
@@ -6907,11 +6908,11 @@ func MapWithComplexKeys() int {
 		X int
 		Y int
 	}
-	
+
 	m := make(map[Key]string)
 	m[Key{X: 1, Y: 2}] = "first"
 	m[Key{X: 3, Y: 4}] = "second"
-	
+
 	return len(m) // Should be 2
 }
 
@@ -6919,10 +6920,10 @@ func MapWithComplexKeys() int {
 func ComplexArithmetic() int {
 	var c1 complex128 = 3 + 4i
 	var c2 complex128 = 1 + 2i
-	
+
 	sum := c1 + c2
 	prod := c1 * c2
-	
+
 	// real(3+4i + 1+2i) = 4, imag = 6
 	// real((3+4i)*(1+2i)) = 3-8 = -5, imag = 6+4 = 10
 	return int(real(sum)) + int(imag(sum)) + int(real(prod)) + int(imag(prod)) // 4 + 6 + -5 + 10 = 15
@@ -6931,7 +6932,7 @@ func ComplexArithmetic() int {
 // NilInterfaceMethodCall tests calling method on nil interface
 func NilInterfaceMethodCall() int {
 	var i interface{} = nil
-	
+
 	// Check if nil
 	if i == nil {
 		return 1
@@ -6944,12 +6945,12 @@ func MethodSetTest() int {
 	type Counter struct {
 		value int
 	}
-	
+
 	// Value receiver method
 	getValue := func(c Counter) int {
 		return c.value
 	}
-	
+
 	c := Counter{value: 42}
 	return getValue(c) // Should be 42
 }
@@ -6959,9 +6960,9 @@ func MethodOnNilPointer() int {
 	type Container struct {
 		Value int
 	}
-	
+
 	var ptr *Container
-	
+
 	// Safe nil check
 	if ptr == nil {
 		return 1
@@ -6980,19 +6981,19 @@ func MethodOnNilPointer() int {
 // Base64ComplexRoundTrip tests complex base64 round-trip with different encodings
 func Base64ComplexRoundTrip() int {
 	data := []byte("Hello, 世界! This is a complex test with unicode characters.")
-	
+
 	// Standard encoding
 	stdEnc := base64.StdEncoding.EncodeToString(data)
 	decoded1, _ := base64.StdEncoding.DecodeString(stdEnc)
-	
+
 	// URL encoding
 	urlEnc := base64.URLEncoding.EncodeToString(data)
 	decoded2, _ := base64.URLEncoding.DecodeString(urlEnc)
-	
+
 	// Raw encoding (no padding)
 	rawEnc := base64.RawStdEncoding.EncodeToString(data)
 	decoded3, _ := base64.RawStdEncoding.DecodeString(rawEnc)
-	
+
 	// Calculate result based on successful decodes
 	result := 0
 	if bytes.Equal(decoded1, data) {
@@ -7004,7 +7005,7 @@ func Base64ComplexRoundTrip() int {
 	if bytes.Equal(decoded3, data) {
 		result += 4
 	}
-	
+
 	return result // Should be 7 if all succeed
 }
 
@@ -7016,13 +7017,13 @@ func Base64Streaming() int {
 	encoder.Write([]byte("chunk2"))
 	encoder.Write([]byte("chunk3"))
 	encoder.Close()
-	
+
 	encoded := buf.String()
-	
+
 	// Decode
 	decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(encoded))
 	decoded, _ := io.ReadAll(decoder)
-	
+
 	return len(decoded) // Should be 18 ("chunk1chunk2chunk3")
 }
 
@@ -7030,19 +7031,19 @@ func Base64Streaming() int {
 func Base64WithCorruptInput() int {
 	valid := base64.StdEncoding.EncodeToString([]byte("valid"))
 	corrupt := "SGVsbG8gV29ybGQ!=" // Extra padding
-	
+
 	result := 0
-	
+
 	_, err1 := base64.StdEncoding.DecodeString(valid)
 	if err1 == nil {
 		result += 1
 	}
-	
+
 	_, err2 := base64.StdEncoding.DecodeString(corrupt)
 	if err2 != nil {
 		result += 2
 	}
-	
+
 	return result // Should be 3
 }
 
@@ -7053,21 +7054,21 @@ func Base64WithCorruptInput() int {
 // BinaryReadWrite tests binary read/write with different byte orders
 func BinaryReadWrite() int {
 	var buf bytes.Buffer
-	
+
 	// Write in big-endian
 	binary.Write(&buf, binary.BigEndian, uint16(0x1234))
 	binary.Write(&buf, binary.BigEndian, uint32(0x12345678))
 	binary.Write(&buf, binary.BigEndian, int64(-123456789))
-	
+
 	// Read back
 	var u16 uint16
 	var u32 uint32
 	var i64 int64
-	
+
 	binary.Read(&buf, binary.BigEndian, &u16)
 	binary.Read(&buf, binary.BigEndian, &u32)
 	binary.Read(&buf, binary.BigEndian, &i64)
-	
+
 	result := 0
 	if u16 == 0x1234 {
 		result += 1
@@ -7078,21 +7079,21 @@ func BinaryReadWrite() int {
 	if i64 == -123456789 {
 		result += 4
 	}
-	
+
 	return result // Should be 7
 }
 
 // BinarySliceConversion tests binary conversion of slices
 func BinarySliceConversion() int {
 	data := []uint16{0x0102, 0x0304, 0x0506}
-	
+
 	var buf bytes.Buffer
 	binary.Write(&buf, binary.LittleEndian, data)
-	
+
 	var decoded []uint16
 	decoded = make([]uint16, 3)
 	binary.Read(&buf, binary.LittleEndian, decoded)
-	
+
 	if decoded[0] == 0x0102 && decoded[1] == 0x0304 && decoded[2] == 0x0506 {
 		return 1
 	}
@@ -7102,7 +7103,7 @@ func BinarySliceConversion() int {
 // BinarySize tests binary.Size function
 func BinarySize() int {
 	size := binary.Size(uint16(0)) + binary.Size(uint32(0)) + binary.Size(int64(0))
-	
+
 	// 2 + 4 + 8 = 14
 	return size
 }
@@ -7117,12 +7118,12 @@ func JSONRawMessage() int {
 		Type    string          `json:"type"`
 		Payload json.RawMessage `json:"payload"`
 	}
-	
+
 	data := `{"type":"greeting","payload":{"message":"Hello"}}`
-	
+
 	var env Envelope
 	json.Unmarshal([]byte(data), &env)
-	
+
 	if env.Type == "greeting" {
 		// Now decode the payload
 		var payload map[string]string
@@ -7140,18 +7141,18 @@ func JSONCustomMarshaler() int {
 		X int
 		Y int
 	}
-	
+
 	// Custom marshaler
 	marshalPoint := func(p Point) ([]byte, error) {
 		return json.Marshal([]int{p.X, p.Y})
 	}
-	
+
 	p := Point{X: 10, Y: 20}
 	data, _ := marshalPoint(p)
-	
+
 	var coords []int
 	json.Unmarshal(data, &coords)
-	
+
 	if coords[0] == 10 && coords[1] == 20 {
 		return 1
 	}
@@ -7165,15 +7166,15 @@ func JSONOmitEmpty() int {
 		Optional string `json:"optional,omitempty"`
 		Number   int    `json:"number,omitempty"`
 	}
-	
+
 	d := Data{
 		Required: "must have",
 		Optional: "",
 		Number:   0,
 	}
-	
+
 	data, _ := json.Marshal(d)
-	
+
 	// Should not contain "optional" or "number" fields
 	str := string(data)
 	result := 0
@@ -7186,7 +7187,7 @@ func JSONOmitEmpty() int {
 	if !strings.Contains(str, `"number"`) {
 		result += 4
 	}
-	
+
 	return result // Should be 7
 }
 
@@ -7195,13 +7196,13 @@ func JSONStringIgnoreCase() int {
 	type Data struct {
 		FieldName string `json:"field_name"`
 	}
-	
+
 	// JSON with different casing
 	data := `{"field_name":"test"}`
-	
+
 	var d Data
 	json.Unmarshal([]byte(data), &d)
-	
+
 	if d.FieldName == "test" {
 		return 1
 	}
@@ -7215,17 +7216,17 @@ func JSONComplexMap() int {
 		Key   string `json:"key"`
 		Value int    `json:"value"`
 	}
-	
+
 	items := []Item{
 		{Key: "a", Value: 1},
 		{Key: "b", Value: 2},
 	}
-	
+
 	data, _ := json.Marshal(items)
-	
+
 	var decoded []Item
 	json.Unmarshal(data, &decoded)
-	
+
 	if len(decoded) == 2 && decoded[0].Key == "a" && decoded[1].Value == 2 {
 		return 1
 	}
@@ -7239,17 +7240,17 @@ func JSONComplexMap() int {
 // IOPipe tests io.Pipe for in-process streaming
 func IOPipe() int {
 	r, w := io.Pipe()
-	
+
 	// Writer goroutine (simulated with closure)
 	go func() {
 		w.Write([]byte("Hello, "))
 		w.Write([]byte("Pipe!"))
 		w.Close()
 	}()
-	
+
 	// Reader
 	data, _ := io.ReadAll(r)
-	
+
 	if string(data) == "Hello, Pipe!" {
 		return 1
 	}
@@ -7260,9 +7261,9 @@ func IOPipe() int {
 func IOLimitReader() int {
 	src := strings.NewReader("This is a long string")
 	limited := io.LimitReader(src, 10)
-	
+
 	data, _ := io.ReadAll(limited)
-	
+
 	if len(data) == 10 && string(data) == "This is a " {
 		return 1
 	}
@@ -7273,9 +7274,9 @@ func IOLimitReader() int {
 func IOSectionReader() int {
 	src := strings.NewReader("0123456789ABCDEF")
 	section := io.NewSectionReader(src, 5, 5)
-	
+
 	data, _ := io.ReadAll(section)
-	
+
 	if string(data) == "56789" {
 		return 1
 	}
@@ -7286,12 +7287,12 @@ func IOSectionReader() int {
 func IOTeeReader() int {
 	src := strings.NewReader("Hello World")
 	var buf bytes.Buffer
-	
+
 	tee := io.TeeReader(src, &buf)
-	
+
 	// Read from tee
 	readData, _ := io.ReadAll(tee)
-	
+
 	// Both should have the same content
 	if string(readData) == "Hello World" && buf.String() == "Hello World" {
 		return 1
@@ -7304,10 +7305,10 @@ func IOMultiReader() int {
 	r1 := strings.NewReader("First ")
 	r2 := strings.NewReader("Second ")
 	r3 := strings.NewReader("Third")
-	
+
 	multi := io.MultiReader(r1, r2, r3)
 	data, _ := io.ReadAll(multi)
-	
+
 	if string(data) == "First Second Third" {
 		return 1
 	}
@@ -7317,10 +7318,10 @@ func IOMultiReader() int {
 // IOMultiWriter tests io.MultiWriter
 func IOMultiWriter() int {
 	var buf1, buf2, buf3 bytes.Buffer
-	
+
 	mw := io.MultiWriter(&buf1, &buf2, &buf3)
 	mw.Write([]byte("broadcast"))
-	
+
 	if buf1.String() == "broadcast" && buf2.String() == "broadcast" && buf3.String() == "broadcast" {
 		return 1
 	}
@@ -7331,9 +7332,9 @@ func IOMultiWriter() int {
 func IOCopy() int {
 	src := strings.NewReader("Data to copy")
 	var dst bytes.Buffer
-	
+
 	n, _ := io.Copy(&dst, src)
-	
+
 	if n == 12 && dst.String() == "Data to copy" {
 		return 1
 	}
@@ -7345,9 +7346,9 @@ func IOCopyBuffer() int {
 	src := strings.NewReader("Custom buffer")
 	var dst bytes.Buffer
 	buf := make([]byte, 5) // Small buffer to force multiple reads
-	
+
 	n, _ := io.CopyBuffer(&dst, src, buf)
-	
+
 	if n == 13 && dst.String() == "Custom buffer" {
 		return 1
 	}
@@ -7367,7 +7368,7 @@ func TarHeader() int {
 		ModTime:  time.Now(),
 		Typeflag: byte(tar.TypeReg),
 	}
-	
+
 	result := 0
 	if hdr.Name == "test.txt" {
 		result += 1
@@ -7381,33 +7382,33 @@ func TarHeader() int {
 	if hdr.Typeflag == byte(tar.TypeReg) {
 		result += 8
 	}
-	
+
 	return result // Should be 15
 }
 
 // TarWriteRead tests tar archive write and read
 func TarWriteRead() int {
 	var buf bytes.Buffer
-	
+
 	// Create tar archive
 	tw := tar.NewWriter(&buf)
-	
+
 	hdr := &tar.Header{
 		Name: "hello.txt",
 		Mode: 0644,
 		Size: int64(len("Hello, Tar!")),
 	}
-	
+
 	tw.WriteHeader(hdr)
 	tw.Write([]byte("Hello, Tar!"))
 	tw.Close()
-	
+
 	// Read tar archive
 	tr := tar.NewReader(&buf)
-	
+
 	hdr2, _ := tr.Next()
 	content, _ := io.ReadAll(tr)
-	
+
 	if hdr2.Name == "hello.txt" && string(content) == "Hello, Tar!" {
 		return 1
 	}
@@ -7418,7 +7419,7 @@ func TarWriteRead() int {
 func TarMultipleFiles() int {
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
-	
+
 	files := []struct {
 		name    string
 		content string
@@ -7427,7 +7428,7 @@ func TarMultipleFiles() int {
 		{"file2.txt", "Content 2"},
 		{"file3.txt", "Content 3"},
 	}
-	
+
 	for _, f := range files {
 		hdr := &tar.Header{
 			Name: f.name,
@@ -7438,7 +7439,7 @@ func TarMultipleFiles() int {
 		tw.Write([]byte(f.content))
 	}
 	tw.Close()
-	
+
 	// Read back
 	tr := tar.NewReader(&buf)
 	count := 0
@@ -7450,7 +7451,7 @@ func TarMultipleFiles() int {
 		io.ReadAll(tr)
 		count++
 	}
-	
+
 	return count // Should be 3
 }
 
@@ -7466,7 +7467,7 @@ func ZipHeader() int {
 		UncompressedSize64: 100,
 		Method:             zip.Deflate,
 	}
-	
+
 	result := 0
 	if hdr.Name == "test.txt" {
 		result += 1
@@ -7477,24 +7478,24 @@ func ZipHeader() int {
 	if hdr.UncompressedSize == 100 {
 		result += 4
 	}
-	
+
 	return result // Should be 7
 }
 
 // ZipWriteRead tests zip archive write and read
 func ZipWriteRead() int {
 	var buf bytes.Buffer
-	
+
 	// Create zip archive
 	zw := zip.NewWriter(&buf)
-	
+
 	w, _ := zw.Create("hello.txt")
 	w.Write([]byte("Hello, Zip!"))
 	zw.Close()
-	
+
 	// Read zip archive
 	zr, _ := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
-	
+
 	if len(zr.File) == 1 && zr.File[0].Name == "hello.txt" {
 		rc, _ := zr.File[0].Open()
 		content, _ := io.ReadAll(rc)
@@ -7510,7 +7511,7 @@ func ZipWriteRead() int {
 func ZipMultipleFiles() int {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
-	
+
 	files := []struct {
 		name    string
 		content string
@@ -7519,16 +7520,16 @@ func ZipMultipleFiles() int {
 		{"dir/file2.txt", "Content 2"},
 		{"file3.txt", "Content 3"},
 	}
-	
+
 	for _, f := range files {
 		w, _ := zw.Create(f.name)
 		w.Write([]byte(f.content))
 	}
 	zw.Close()
-	
+
 	// Read back
 	zr, _ := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
-	
+
 	return len(zr.File) // Should be 3
 }
 
@@ -7540,12 +7541,12 @@ func ZipMultipleFiles() int {
 func TabwriterBasic() int {
 	var buf bytes.Buffer
 	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
-	
+
 	fmt.Fprintln(tw, "Name\tAge\tCity")
 	fmt.Fprintln(tw, "Alice\t30\tNew York")
 	fmt.Fprintln(tw, "Bob\t25\tLos Angeles")
 	tw.Flush()
-	
+
 	lines := strings.Count(buf.String(), "\n")
 	return lines // Should be 3
 }
@@ -7554,11 +7555,11 @@ func TabwriterBasic() int {
 func TabwriterAligned() int {
 	var buf bytes.Buffer
 	tw := tabwriter.NewWriter(&buf, 8, 8, 2, ' ', 0)
-	
+
 	fmt.Fprintln(tw, "A\tB")
 	fmt.Fprintln(tw, "AAA\tBBB")
 	tw.Flush()
-	
+
 	output := buf.String()
 	// Verify alignment by checking length
 	if len(output) > 0 {
@@ -7575,7 +7576,7 @@ func TabwriterAligned() int {
 func ScannerBasic() int {
 	var s scanner.Scanner
 	s.Init(strings.NewReader("hello world 123"))
-	
+
 	count := 0
 	for {
 		tok := s.Scan()
@@ -7584,7 +7585,7 @@ func ScannerBasic() int {
 		}
 		count++
 	}
-	
+
 	return count // Should be 3 (hello, world, 123)
 }
 
@@ -7592,7 +7593,7 @@ func ScannerBasic() int {
 func ScannerNumbers() int {
 	var s scanner.Scanner
 	s.Init(strings.NewReader("42 3.14 -17"))
-	
+
 	count := 0
 	for {
 		tok := s.Scan()
@@ -7603,7 +7604,7 @@ func ScannerNumbers() int {
 			count++
 		}
 	}
-	
+
 	return count // Should be 3
 }
 
@@ -7612,7 +7613,7 @@ func ScannerCustomMode() int {
 	var s scanner.Scanner
 	s.Init(strings.NewReader("var x = 42"))
 	s.Mode = uint(scanner.ScanIdents | scanner.ScanInts)
-	
+
 	tokens := []string{}
 	for {
 		tok := s.Scan()
@@ -7621,7 +7622,7 @@ func ScannerCustomMode() int {
 		}
 		tokens = append(tokens, s.TokenText())
 	}
-	
+
 	if len(tokens) == 4 && tokens[0] == "var" && tokens[3] == "42" {
 		return 1
 	}
@@ -7644,7 +7645,7 @@ func UTF8EncodeDecode() int {
 	r := '世'
 	buf := make([]byte, 3)
 	n := utf8.EncodeRune(buf, r)
-	
+
 	if n == 3 {
 		decodedRune, _ := utf8.DecodeRune(buf)
 		if decodedRune == r {
@@ -7658,7 +7659,7 @@ func UTF8EncodeDecode() int {
 func UTF8Valid() int {
 	valid := []byte("Hello, 世界")
 	invalid := []byte{0xff, 0xfe, 0xfd}
-	
+
 	result := 0
 	if utf8.Valid(valid) {
 		result += 1
@@ -7666,7 +7667,7 @@ func UTF8Valid() int {
 	if !utf8.Valid(invalid) {
 		result += 2
 	}
-	
+
 	return result // Should be 3
 }
 
@@ -7677,20 +7678,20 @@ func UTF8Valid() int {
 // CombinedEncodingPipeline tests multiple encoding layers
 func CombinedEncodingPipeline() int {
 	data := "Hello, Multi-encoding World!"
-	
+
 	// Step 1: JSON encode
 	jsonData, _ := json.Marshal(map[string]string{"data": data})
-	
+
 	// Step 2: Base64 encode
 	base64Data := base64.StdEncoding.EncodeToString(jsonData)
-	
+
 	// Step 3: Base64 decode
 	jsonDecoded, _ := base64.StdEncoding.DecodeString(base64Data)
-	
+
 	// Step 4: JSON decode
 	var result map[string]string
 	json.Unmarshal(jsonDecoded, &result)
-	
+
 	if result["data"] == data {
 		return 1
 	}
@@ -7700,7 +7701,7 @@ func CombinedEncodingPipeline() int {
 // CombinedArchiveWithCompression tests tar with gzip-like compression
 func CombinedArchiveWithCompression() int {
 	var tarBuf bytes.Buffer
-	
+
 	// Create tar
 	tw := tar.NewWriter(&tarBuf)
 	hdr := &tar.Header{
@@ -7711,12 +7712,12 @@ func CombinedArchiveWithCompression() int {
 	tw.WriteHeader(hdr)
 	tw.Write([]byte("test content"))
 	tw.Close()
-	
+
 	// Read tar
 	tr := tar.NewReader(&tarBuf)
 	hdr2, _ := tr.Next()
 	content, _ := io.ReadAll(tr)
-	
+
 	if hdr2.Name == "test.txt" && string(content) == "test content" {
 		return 1
 	}
@@ -7726,23 +7727,23 @@ func CombinedArchiveWithCompression() int {
 // CombinedIOAndEncoding tests io operations with encoding
 func CombinedIOAndEncoding() int {
 	var buf bytes.Buffer
-	
+
 	// Write binary data
 	binary.Write(&buf, binary.BigEndian, uint32(12345))
 	binary.Write(&buf, binary.BigEndian, uint32(67890))
-	
+
 	// Base64 encode the binary
 	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
-	
+
 	// Decode
 	decoded, _ := base64.StdEncoding.DecodeString(encoded)
-	
+
 	// Read back binary
 	reader := bytes.NewReader(decoded)
 	var v1, v2 uint32
 	binary.Read(reader, binary.BigEndian, &v1)
 	binary.Read(reader, binary.BigEndian, &v2)
-	
+
 	if v1 == 12345 && v2 == 67890 {
 		return 1
 	}
@@ -7755,7 +7756,7 @@ func CombinedNestedClosuresWithThirdParty() int {
 	encodeJSON := func(v interface{}) ([]byte, error) {
 		return json.Marshal(v)
 	}
-	
+
 	// Create nested encoder that adds metadata
 	encodeWithMeta := func(v interface{}) ([]byte, error) {
 		wrapped := map[string]interface{}{
@@ -7764,15 +7765,15 @@ func CombinedNestedClosuresWithThirdParty() int {
 		}
 		return encodeJSON(wrapped)
 	}
-	
+
 	// Use it
 	data := map[string]int{"x": 1, "y": 2}
 	result, _ := encodeWithMeta(data)
-	
+
 	// Verify
 	var decoded map[string]interface{}
 	json.Unmarshal(result, &decoded)
-	
+
 	if decoded["timestamp"] == "2026-04-03" {
 		return 1
 	}
@@ -7788,22 +7789,22 @@ func CombinedPanicRecoverWithJSON() int {
 				ret = -1
 			}
 		}()
-		
+
 		// This should not panic
 		data, _ := json.Marshal(map[string]int{"key": 42})
 		var decoded map[string]int
 		json.Unmarshal(data, &decoded)
-		
+
 		return decoded["key"]
 	}()
-	
+
 	return result // Should be 42
 }
 
 // CombinedChannelWithEncoding tests channels with encoding operations
 func CombinedChannelWithEncoding() int {
 	ch := make(chan []byte, 3)
-	
+
 	// Producer
 	go func() {
 		data := []string{"a", "b", "c"}
@@ -7813,7 +7814,7 @@ func CombinedChannelWithEncoding() int {
 		}
 		close(ch)
 	}()
-	
+
 	// Consumer
 	count := 0
 	for encoded := range ch {
@@ -7823,7 +7824,7 @@ func CombinedChannelWithEncoding() int {
 			count++
 		}
 	}
-	
+
 	return count // Should be 3
 }
 
@@ -7832,24 +7833,24 @@ func CombinedStructMethodsAndJSON() int {
 	type Counter struct {
 		Value int `json:"value"`
 	}
-	
+
 	c := &Counter{Value: 10}
-	
+
 	// Modify via method
 	increment := func(c *Counter) {
 		c.Value++
 	}
-	
+
 	increment(c)
 	increment(c)
 	increment(c)
-	
+
 	// Serialize
 	data, _ := json.Marshal(c)
-	
+
 	var decoded Counter
 	json.Unmarshal(data, &decoded)
-	
+
 	return decoded.Value // Should be 13
 }
 
@@ -7857,17 +7858,3072 @@ func CombinedStructMethodsAndJSON() int {
 func CombinedInterfaceAndEncoding() int {
 	var buf bytes.Buffer
 	var w io.Writer = &buf
-	
+
 	// Write JSON to interface
 	data, _ := json.Marshal(map[string]string{"key": "value"})
 	w.Write(data)
-	
+
 	// Read back
 	var decoded map[string]string
 	json.Unmarshal(buf.Bytes(), &decoded)
-	
+
 	if decoded["key"] == "value" {
 		return 1
 	}
 	return 0
+}
+
+// ============================================================================
+// ROUND 13: 100 NEW DIVERGENCE HUNT TESTS
+// ============================================================================
+
+// SliceSharedUnderlying tests that slices share underlying array
+func SliceSharedUnderlying() int {
+	a := [5]int{1, 2, 3, 4, 5}
+	s1 := a[1:3] // [2, 3]
+	s2 := a[2:4] // [3, 4]
+	s1[1] = 99   // modifies a[2]
+	return s2[0] // should be 99 because s2 shares underlying array
+}
+
+// SliceAppendDoesNotShare tests that append may create new array
+func SliceAppendDoesNotShare() int {
+	s := []int{1, 2, 3}
+	s2 := append(s, 4)
+	s[0] = 99
+	return s2[0] // should be 1, not 99, because append created new array
+}
+
+// SliceAppendSharesBeforeCap tests append within capacity shares array
+func SliceAppendSharesBeforeCap() int {
+	s := make([]int, 2, 5)
+	s[0], s[1] = 1, 2
+	s2 := append(s, 3) // within cap, shares underlying array
+	s[0] = 99
+	return s2[0] // should be 99 because s2 shares underlying array with s
+}
+
+// SliceCopySemantics tests copy function behavior
+func SliceCopySemantics() int {
+	src := []int{1, 2, 3, 4, 5}
+	dst := make([]int, 3)
+	n := copy(dst, src)
+	return n + dst[0] + dst[2] // 3 + 1 + 3 = 7
+}
+
+// SliceCopyFromSubslice tests copy from subslice
+func SliceCopyFromSubslice() int {
+	src := []int{10, 20, 30, 40, 50}
+	dst := make([]int, 2)
+	n := copy(dst, src[2:])
+	return n + dst[1] // 2 + 40 = 42
+}
+
+// DeferNamedReturnMutate tests defer mutating named return
+func DeferNamedReturnMutate() (result int) {
+	result = 10
+	defer func() { result *= 2 }()
+	return result // defer changes result to 20
+}
+
+// DeferNamedReturnOverride tests defer overriding named return
+func DeferNamedReturnOverride() (result int) {
+	defer func() { result = 42 }()
+	return 10 // defer overrides to 42
+}
+
+// InterfaceBoxNilSlice tests that nil slice boxed in interface != nil
+func InterfaceBoxNilSlice() bool {
+	var s []int
+	var i interface{} = s
+	return i == nil // false: non-nil interface with nil value
+}
+
+// InterfaceBoxNilMap tests that nil map boxed in interface != nil
+func InterfaceBoxNilMap() bool {
+	var m map[string]int
+	var i interface{} = m
+	return i == nil // false
+}
+
+// InterfaceBoxNilPointer tests that nil pointer boxed in interface != nil
+func InterfaceBoxNilPointer() bool {
+	var p *int
+	var i interface{} = p
+	return i == nil // false
+}
+
+// InterfaceBoxNilFunc tests that nil func boxed in interface != nil
+func InterfaceBoxNilFunc() bool {
+	var f func()
+	var i interface{} = f
+	return i == nil // false
+}
+
+// InterfaceBoxNilChannel tests that nil channel boxed in interface != nil
+func InterfaceBoxNilChannel() bool {
+	var ch chan int
+	var i interface{} = ch
+	return i == nil // false
+}
+
+// TypeAssertionCommaOKSuccess tests comma-ok type assertion success
+func TypeAssertionCommaOKSuccess() int {
+	var i interface{} = 42
+	v, ok := i.(int)
+	if ok {
+		return v
+	}
+	return -1
+}
+
+// TypeAssertionCommaOKFailure tests comma-ok type assertion failure
+func TypeAssertionCommaOKFailure() int {
+	var i interface{} = "hello"
+	v, ok := i.(int)
+	if ok {
+		return v
+	}
+	return -1
+}
+
+// MapAccessZeroValue tests accessing non-existent key returns zero value
+func MapAccessZeroValue() int {
+	m := map[string]int{"a": 1}
+	return m["b"] // returns 0
+}
+
+// MapAccessBoolZeroValue tests accessing non-existent bool key
+func MapAccessBoolZeroValue() bool {
+	m := map[string]bool{"a": true}
+	return m["b"] // returns false
+}
+
+// MapAccessStructZeroValue tests accessing non-existent struct key
+func MapAccessStructZeroValue() int {
+	type Point struct{ X, Y int }
+	m := map[string]Point{"a": {1, 2}}
+	p := m["b"] // returns Point{0, 0}
+	return p.X + p.Y
+}
+
+// MapAccessPointerZeroValue tests accessing non-existent pointer key
+func MapAccessPointerZeroValue() bool {
+	m := map[string]*int{}
+	p := m["a"]
+	return p == nil // true
+}
+
+// SliceThreeIndexLimit tests three-index slice capacity limit
+func SliceThreeIndexLimit() int {
+	s := []int{1, 2, 3, 4, 5}
+	s2 := s[1:3:3]           // len=2, cap=2
+	return len(s2) + cap(s2) // 2 + 2 = 4
+}
+
+// SliceThreeIndexAppend tests append after three-index slice
+func SliceThreeIndexAppend() int {
+	s := []int{1, 2, 3, 4, 5}
+	s2 := s[1:3:3]
+	s2 = append(s2, 10) // does NOT overwrite s[3] because cap was limited
+	return s[3]         // should still be 4
+}
+
+// RangeValueCopy tests that range copies values
+func RangeValueCopy() int {
+	type Item struct{ Val int }
+	items := []Item{{1}, {2}, {3}}
+	sum := 0
+	for _, item := range items {
+		item.Val *= 2 // does NOT modify original
+	}
+	for _, item := range items {
+		sum += item.Val
+	}
+	return sum // 1 + 2 + 3 = 6
+}
+
+// RangePointerMutation tests range with pointer mutation
+func RangePointerMutation() int {
+	type Item struct{ Val int }
+	items := []*Item{{1}, {2}, {3}}
+	for _, item := range items {
+		item.Val *= 2 // DOES modify original
+	}
+	sum := 0
+	for _, item := range items {
+		sum += item.Val
+	}
+	return sum // 2 + 4 + 6 = 12
+}
+
+// ClosureCaptureTiming tests closure captures variable at call time
+func ClosureCaptureTiming() int {
+	x := 1
+	f := func() int { return x }
+	x = 2
+	return f() // returns 2, not 1
+}
+
+// ClosureCaptureByReference tests closure captures by reference
+func ClosureCaptureByReference() int {
+	x := 1
+	f := func() { x = 10 }
+	f()
+	return x // returns 10
+}
+
+// ShortVarRedeclare tests short var redeclaration in same scope
+func ShortVarRedeclare() int {
+	x := 1
+	x, y := 2, 3 // x is redeclared, y is new
+	return x + y // 2 + 3 = 5
+}
+
+// ShortVarRedeclareInInnerScope tests short var in inner scope doesn't affect outer
+func ShortVarRedeclareInInnerScope() int {
+	x := 1
+	{
+		x := 2 // new x in inner scope
+		_ = x
+	}
+	return x // still 1
+}
+
+// MapDeleteAndAccess tests delete then access
+func MapDeleteAndAccess() int {
+	m := map[string]int{"a": 1, "b": 2}
+	delete(m, "a")
+	v, ok := m["a"]
+	if ok {
+		return v
+	}
+	return -1 // deleted, returns -1
+}
+
+// MapLenAfterDelete tests map length after delete
+func MapLenAfterDelete() int {
+	m := map[string]int{"a": 1, "b": 2, "c": 3}
+	delete(m, "b")
+	return len(m) // 2
+}
+
+// CounterR13 for StructMethodPointerReceiver test
+type CounterR13 struct{ N int }
+
+func (c *CounterR13) IncrR13() { c.N++ }
+
+// StructMethodPointerReceiver tests pointer receiver method
+func StructMethodPointerReceiver() int {
+	c := CounterR13{N: 0}
+	c.IncrR13()
+	c.IncrR13()
+	return c.N
+}
+
+// ValR13 for StructMethodValueReceiver test
+type ValR13 struct{ N int }
+
+func (v ValR13) AddR13(n int) { v.N += n } // doesn't affect original
+
+// StructMethodValueReceiver tests value receiver doesn't mutate
+func StructMethodValueReceiver() int {
+	v := ValR13{N: 5}
+	v.AddR13(10)
+	return v.N // still 5, value receiver
+}
+
+// ChannelCommaOK tests channel receive with comma-ok
+func ChannelCommaOK() int {
+	ch := make(chan int, 2)
+	ch <- 1
+	ch <- 2
+	close(ch)
+	sum := 0
+	for {
+		v, ok := <-ch
+		if !ok {
+			break
+		}
+		sum += v
+	}
+	return sum // 1 + 2 = 3
+}
+
+// ChannelClosedZeroValue tests receiving from closed channel returns zero
+func ChannelClosedZeroValue() int {
+	ch := make(chan int, 1)
+	ch <- 42
+	close(ch)
+	<-ch      // 42
+	v := <-ch // zero value after close
+	return v  // 0
+}
+
+// SwitchCaseBreak tests switch case with break doesn't break outer loop
+func SwitchCaseBreak() int {
+	sum := 0
+	for i := 0; i < 3; i++ {
+		switch i {
+		case 1:
+			break // only breaks switch, not for loop
+		}
+		sum += i
+	}
+	return sum // 0 + 1 + 2 = 3 (break only exits switch)
+}
+
+// SwitchFallthroughLogic tests fallthrough continues to next case
+func SwitchFallthroughLogic() int {
+	n := 0
+	switch {
+	case true:
+		n = 1
+		fallthrough
+	case false:
+		n += 10
+	}
+	return n // 1 + 10 = 11 (fallthrough executes next case unconditionally)
+}
+
+// StringIndexByte tests string indexing returns byte
+func StringIndexByte() int {
+	s := "Hello"
+	return int(s[0]) // 72 (ASCII 'H')
+}
+
+// StringSliceShared tests string slice shares underlying data
+func StringSliceShared() string {
+	s := "Hello, World"
+	s2 := s[7:] // "World"
+	return s2
+}
+
+// ByteSliceModification tests byte slice modification
+func ByteSliceModification() string {
+	b := []byte("hello")
+	b[0] = 'H'
+	return string(b) // "Hello"
+}
+
+// MultipleAssignmentOrder tests multiple assignment evaluates right side first
+func MultipleAssignmentOrder() int {
+	a := []int{1, 2, 3}
+	i := 0
+	i, a[i] = 1, 100 // i becomes 1, a[0] becomes 100 (i was 0 when evaluating left side)
+	return a[0]      // 100
+}
+
+// MultipleAssignmentSwap tests swap via multiple assignment
+func MultipleAssignmentSwap() int {
+	a, b := 1, 2
+	a, b = b, a
+	return a*10 + b // 21
+}
+
+// NilSliceCompareEmpty tests nil slice vs empty slice comparison
+func NilSliceCompareEmpty() bool {
+	var s1 []int
+	s2 := []int{}
+	return s1 == nil && s2 != nil // true
+}
+
+// StructComparable tests struct with comparable fields
+func StructComparable() bool {
+	type Point struct{ X, Y int }
+	p1 := Point{1, 2}
+	p2 := Point{1, 2}
+	return p1 == p2 // true
+}
+
+// StructNotComparable tests struct with slice is not comparable (via workaround)
+func StructNotComparable() int {
+	type S struct {
+		X int
+	}
+	type W struct {
+		X int
+		T []int // not comparable
+	}
+	w := W{X: 1, T: []int{1}}
+	return w.X // just access comparable field
+}
+
+// PointerComparisonR13 tests comparing pointers
+func PointerComparisonR13() bool {
+	x := 42
+	p1 := &x
+	p2 := &x
+	return p1 == p2 // true: same address
+}
+
+// DifferentPointerComparisonR13 tests different pointers
+func DifferentPointerComparisonR13() bool {
+	x := 42
+	y := 42
+	p1 := &x
+	p2 := &y
+	return p1 == p2 // false: different addresses
+}
+
+// Rect3 for InterfaceMethodDispatch test
+type Rect3 struct{ W, H int }
+
+func (r *Rect3) Area3() int { return r.W * r.H }
+
+// InterfaceMethodDispatch tests interface method dispatch
+func InterfaceMethodDispatch() int {
+	r := &Rect3{W: 3, H: 4}
+	var s interface{ Area3() int } = r
+	return s.Area3() // 12
+}
+
+// Rect2 for InterfaceMethodDispatch2 test
+type Rect2Alt struct{ W, H int }
+
+func (r *Rect2Alt) Area2() int { return r.W * r.H }
+
+// InterfaceMethodDispatch2 tests interface method dispatch
+func InterfaceMethodDispatch2() int {
+	r := &Rect2Alt{W: 3, H: 4}
+	var s interface{ Area2() int } = r
+	return s.Area2() // 12
+}
+
+// SliceMakeInitialized tests make creates zero-initialized slice
+func SliceMakeInitialized() int {
+	s := make([]int, 5)
+	sum := 0
+	for _, v := range s {
+		sum += v
+	}
+	return sum // 0
+}
+
+// MapMakeSizeHint tests map with size hint
+func MapMakeSizeHint() int {
+	m := make(map[string]int, 100)
+	m["a"] = 1
+	return len(m) // 1
+}
+
+// NilMapWritePanic tests nil map write (catchable pattern)
+func NilMapWritePanic() int {
+	var m map[string]int
+	if m == nil {
+		m = make(map[string]int)
+	}
+	m["key"] = 42
+	return m["key"]
+}
+
+// DeferStackOrder tests defer executes in LIFO order
+func DeferStackOrder() string {
+	result := ""
+	defer func() { result += "A" }()
+	defer func() { result += "B" }()
+	defer func() { result += "C" }()
+	return result // "" because defers run after return
+}
+
+// DeferStackOrderWithNamed tests defer with named return
+func DeferStackOrderWithNamed() (result string) {
+	defer func() { result += "A" }()
+	defer func() { result += "B" }()
+	result = "X"
+	return // defers run: result = "X" -> "XB" -> "XBA"
+}
+
+// SliceAppendGrowth tests slice growth pattern
+func SliceAppendGrowth() int {
+	s := make([]int, 0, 1)
+	s = append(s, 1)
+	oldCap := cap(s)
+	s = append(s, 2)
+	newCap := cap(s)
+	return oldCap + newCap/2 // depends on growth factor
+}
+
+// ChannelSelectDefault tests select with default (non-blocking)
+func ChannelSelectDefault() int {
+	ch := make(chan int)
+	select {
+	case v := <-ch:
+		return v
+	default:
+		return -1 // non-blocking, returns -1
+	}
+}
+
+// ChannelSelectNilChannel tests select with nil channel
+func ChannelSelectNilChannel() int {
+	var nilCh chan int
+	readyCh := make(chan int, 1)
+	readyCh <- 42
+	select {
+	case v := <-nilCh:
+		return v // never reached
+	case v := <-readyCh:
+		return v // 42
+	}
+}
+
+// GotoSkipVariable tests goto can skip over declarations if not used
+func GotoSkipVariable() int {
+	x := 0
+	goto Label
+Label:
+	return x // 0
+}
+
+// GotoBackwardLoop tests goto backward for loop
+func GotoBackwardLoop() int {
+	sum := 0
+	i := 0
+Loop:
+	sum += i
+	i++
+	if i < 5 {
+		goto Loop
+	}
+	return sum // 0+1+2+3+4 = 10
+}
+
+// EsmBase for EmbeddedStructMethodResolution
+type EsmBase struct{ X int }
+
+func (b *EsmBase) GetEsmX() int { return b.X }
+
+// EmbeddedStructMethodResolution tests method resolution with embedding
+func EmbeddedStructMethodResolution() int {
+	type Derived struct {
+		EsmBase
+		Y int
+	}
+	d := Derived{EsmBase: EsmBase{X: 10}, Y: 20}
+	return d.GetEsmX() + d.Y // 10 + 20 = 30
+}
+
+// EmbeddedStructFieldPromotion tests field promotion
+func EmbeddedStructFieldPromotion() int {
+	type Inner struct{ Val int }
+	type Outer struct {
+		Inner
+		Extra int
+	}
+	o := Outer{Inner: Inner{Val: 5}, Extra: 10}
+	return o.Val + o.Extra // 5 + 10 = 15
+}
+
+// MyIntR13 for TypeAliasMethod test
+type MyIntR13 int
+
+func (m MyIntR13) DoubleR13() MyIntR13 { return m * 2 }
+
+// TypeAliasMethod tests method on named type
+func TypeAliasMethod() int {
+	var x MyIntR13 = 5
+	return int(x.DoubleR13()) // 10
+}
+
+// TypeAliasOperator tests operators on named types
+func TypeAliasOperator() int {
+	type MyInt int
+	var a MyInt = 10
+	var b MyInt = 3
+	return int(a + b) // 13
+}
+
+// SliceOfInterfacesAppend tests append to []interface{}
+func SliceOfInterfacesAppend() int {
+	s := []interface{}{1, "hello", true}
+	s = append(s, 3.14)
+	return len(s) // 4
+}
+
+// MapInterfaceKey tests map with interface{} value
+func MapInterfaceKeyValue() int {
+	m := map[string]interface{}{
+		"int":    42,
+		"string": "hi",
+		"bool":   true,
+	}
+	return len(m) // 3
+}
+
+// VariadicCallWithSlice tests calling variadic with ...
+func VariadicCallWithSlice() int {
+	nums := []int{1, 2, 3, 4, 5}
+	return variadicSum(nums...)
+}
+
+func variadicSum(nums ...int) int {
+	sum := 0
+	for _, n := range nums {
+		sum += n
+	}
+	return sum
+}
+
+// VariadicCallDirect tests calling variadic directly
+func VariadicCallDirect() int {
+	return variadicSum(1, 2, 3) // 6
+}
+
+// VariadicCallEmpty tests calling variadic with no args
+func VariadicCallEmpty() int {
+	return variadicSum() // 0
+}
+
+// NestedSliceAppendR13 tests nested slice append
+func NestedSliceAppendR13() int {
+	grid := [][]int{{1, 2}, {3, 4}}
+	grid = append(grid, []int{5, 6})
+	return len(grid) + len(grid[2]) // 3 + 2 = 5
+}
+
+// StringRuneConversion tests string/rune conversion
+func StringRuneConversion() int {
+	s := "Hello世界"
+	runes := []rune(s)
+	return len(runes) // 7 (5 ASCII + 2 CJK)
+}
+
+// StringByteConversion tests string/byte conversion
+func StringByteConversion() int {
+	s := "Hello世界"
+	b := []byte(s)
+	return len(b) // 5 + 2*3 = 11 (UTF-8)
+}
+
+// ConstIotaExpressionR13 tests iota with expression
+func ConstIotaExpressionR13() int {
+	const (
+		ar = 1 << iota // 1
+		br             // 2
+		cr             // 4
+		dr             // 8
+	)
+	return ar + br + cr + dr // 1 + 2 + 4 + 8 = 15
+}
+
+// ConstIotaSkipR13 tests iota with blank identifier
+func ConstIotaSkipR13() int {
+	const (
+		ar = iota // 0
+		_         // 1 (skipped)
+		br        // 2
+		_         // 3 (skipped)
+		cr        // 4
+	)
+	return ar + br + cr // 0 + 2 + 4 = 6
+}
+
+// BlankIdentifierInForR13 tests blank identifier in for loop
+func BlankIdentifierInForR13() int {
+	sum := 0
+	for _ = range []int{1, 2, 3} {
+		sum++
+	}
+	return sum // 3
+}
+
+// MapValueTypeAssertion tests type assertion on map value
+func MapValueTypeAssertion() int {
+	m := map[string]interface{}{"x": 42}
+	v := m["x"].(int)
+	return v // 42
+}
+
+// SliceIndexOutOfRange tests safe index access
+func SliceIndexOutOfRange() int {
+	s := []int{1, 2, 3}
+	if len(s) > 5 {
+		return s[5]
+	}
+	return -1 // safe
+}
+
+// ArrayValueSemantics tests array value copy
+func ArrayValueSemantics() int {
+	a1 := [3]int{1, 2, 3}
+	a2 := a1
+	a2[0] = 99
+	return a1[0] // still 1
+}
+
+// PointerToArrayModify tests pointer to array modification
+func PointerToArrayModify() int {
+	a := [3]int{1, 2, 3}
+	p := &a
+	p[0] = 99
+	return a[0] // 99
+}
+
+// StructFieldPointerModifyR13 tests modifying struct field through pointer
+func StructFieldPointerModifyR13() int {
+	type DataR13 struct{ Val int }
+	d := DataR13{Val: 10}
+	p := &d.Val
+	*p = 20
+	return d.Val // 20
+}
+
+// InterfaceEmptyTypeAssertion tests empty interface type assertion
+func InterfaceEmptyTypeAssertion() string {
+	var i interface{} = "test"
+	return i.(string) // "test"
+}
+
+// InterfaceDoubleBoxing tests double interface boxing
+func InterfaceDoubleBoxing() int {
+	var i1 interface{} = 42
+	var i2 interface{} = i1
+	v := i2.(int)
+	return v // 42
+}
+
+// SliceLiteralNested tests nested slice literal
+func SliceLiteralNested() int {
+	s := [][]int{
+		{1, 2, 3},
+		{4, 5, 6},
+		{7, 8, 9},
+	}
+	return s[1][2] // 6
+}
+
+// MapLiteralNested tests nested map literal
+func MapLiteralNested() int {
+	m := map[string]map[string]int{
+		"a": {"x": 1, "y": 2},
+		"b": {"x": 3, "y": 4},
+	}
+	return m["a"]["x"] + m["b"]["y"] // 1 + 4 = 5
+}
+
+// StructLiteralNested tests nested struct literal
+func StructLiteralNested() int {
+	type Inner struct{ X int }
+	type Outer struct{ I Inner }
+	o := Outer{I: Inner{X: 42}}
+	return o.I.X // 42
+}
+
+// ForLoopWithContinue tests continue in for loop
+func ForLoopWithContinue() int {
+	sum := 0
+	for i := 0; i < 10; i++ {
+		if i%2 == 0 {
+			continue
+		}
+		sum += i
+	}
+	return sum // 1+3+5+7+9 = 25
+}
+
+// ForLoopWithBreak tests break in for loop
+func ForLoopWithBreak() int {
+	sum := 0
+	for i := 0; i < 100; i++ {
+		if i > 5 {
+			break
+		}
+		sum += i
+	}
+	return sum // 0+1+2+3+4+5 = 15
+}
+
+// SwitchMultipleCases tests switch with multiple expressions per case
+func SwitchMultipleCases() int {
+	x := 3
+	switch x {
+	case 1, 2, 3:
+		return 1
+	case 4, 5:
+		return 2
+	default:
+		return 0
+	}
+}
+
+// ComplexSliceReslice tests reslice after append
+func ComplexSliceReslice() int {
+	s := make([]int, 3, 10)
+	s[0], s[1], s[2] = 1, 2, 3
+	s2 := s[:2]
+	return len(s2) + cap(s2) // 2 + 10 = 12
+}
+
+// NilSliceAppendMultiple tests multiple appends to nil slice
+func NilSliceAppendMultiple() int {
+	var s []int
+	s = append(s, 1)
+	s = append(s, 2)
+	s = append(s, 3)
+	return len(s) // 3
+}
+
+// MapIterateCount tests map iteration count
+func MapIterateCount() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	count := 0
+	for range m {
+		count++
+	}
+	return count // 3
+}
+
+// NilN for StructMethodOnNil test
+type NilN struct{ X int }
+
+func (n *NilN) GetNilX() int {
+	if n == nil {
+		return -1
+	}
+	return n.X
+}
+
+// StructMethodOnNil tests calling method on nil struct
+func StructMethodOnNil() int {
+	var n *NilN = nil
+	return n.GetNilX() // -1
+}
+
+// ClosureOverwriteVariable tests closure with overwritten variable
+func ClosureOverwriteVariable() int {
+	x := 10
+	f := func() int { return x }
+	x = 20
+	return f() // 20
+}
+
+// SliceDeleteElement tests removing element from slice
+func SliceDeleteElement() int {
+	s := []int{1, 2, 3, 4, 5}
+	i := 2
+	s = append(s[:i], s[i+1:]...)
+	return len(s) + s[2] // 4 + 4 = 8
+}
+
+// MapWithStructValue tests map with struct value
+func MapWithStructValue() int {
+	type Point struct{ X, Y int }
+	m := map[string]Point{
+		"origin": {0, 0},
+		"p1":     {3, 4},
+	}
+	return m["p1"].X + m["p1"].Y // 3 + 4 = 7
+}
+
+// ChannelSendReceiveBuffered tests buffered channel send/receive
+func ChannelSendReceiveBuffered() int {
+	ch := make(chan int, 3)
+	ch <- 1
+	ch <- 2
+	ch <- 3
+	sum := <-ch + <-ch + <-ch
+	return sum // 1 + 2 + 3 = 6
+}
+
+// MultipleReturnAssign tests multiple return value assignment
+func MultipleReturnAssign() int {
+	a, b := multiReturnR13()
+	return a + b
+}
+
+func multiReturnR13() (int, int) {
+	return 10, 20
+}
+
+// NamedReturnBare tests bare return with named values
+func NamedReturnBare() (x int) {
+	x = 42
+	return // bare return
+}
+
+// TypeConversionChain tests chained type conversions
+func TypeConversionChain() int {
+	return int(int8(int16(100)))
+}
+
+// SPtrR13 for StructPointerMethodOnValue test
+type SPtrR13 struct{ X int }
+
+func (s *SPtrR13) DoubleR13() int { return s.X * 2 }
+
+// StructPointerMethodOnValue tests calling pointer method on value
+func StructPointerMethodOnValue() int {
+	v := SPtrR13{X: 5}
+	return v.DoubleR13() // 10 (Go auto-takes address)
+}
+
+// SliceFromToArray tests slicing an array
+func SliceFromToArray() int {
+	a := [5]int{1, 2, 3, 4, 5}
+	s := a[1:4]          // [2, 3, 4]
+	return len(s) + s[0] // 3 + 2 = 5
+}
+
+// MapAccessTwoValue tests two-value map access
+func MapAccessTwoValue() int {
+	m := map[string]int{"a": 1}
+	v, ok := m["a"]
+	if ok {
+		return v
+	}
+	return -1 // 1
+}
+
+// MapAccessTwoValueMissing tests two-value map access for missing key
+func MapAccessTwoValueMissing() int {
+	m := map[string]int{"a": 1}
+	v, ok := m["b"]
+	if ok {
+		return v
+	}
+	return -1 // -1 (missing key)
+}
+
+// DeferArgumentsEvaluatedAtCall tests defer evaluates args immediately
+func DeferArgumentsEvaluatedAtCall() (result int) {
+	x := 1
+	defer func(n int) { result = n }(x)
+	x = 2
+	return 0 // defer sets result to 1 (x was 1 when defer was called)
+}
+
+// StringConcatEmpty tests string concatenation with empty
+func StringConcatEmpty() string {
+	s := "" + "hello" + ""
+	return s // "hello"
+}
+
+// SliceOfSliceAppend tests appending to inner slice
+func SliceOfSliceAppend() int {
+	s := [][]int{{1, 2}}
+	s[0] = append(s[0], 3)
+	return len(s[0]) // 3
+}
+
+// InterfaceSliceAccess tests accessing interface slice element
+func InterfaceSliceAccess() int {
+	s := []interface{}{1, "two", 3.0, true}
+	return len(s) + s[0].(int) // 4 + 1 = 5
+}
+
+// PointerNilCheck tests nil pointer check
+func PointerNilCheck() int {
+	var p *int
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
+// StructZeroValueFields tests struct zero value fields
+func StructZeroValueFields() int {
+	type Data struct {
+		A int
+		B string
+		C bool
+		D []int
+	}
+	d := Data{}
+	return d.A + len(d.B) // 0 + 0 = 0
+}
+
+// RangeOverNilMap tests ranging over nil map
+func RangeOverNilMap() int {
+	var m map[string]int
+	count := 0
+	for range m {
+		count++
+	}
+	return count // 0
+}
+
+// RangeOverNilSlice tests ranging over nil slice
+func RangeOverNilSlice() int {
+	var s []int
+	count := 0
+	for range s {
+		count++
+	}
+	return count // 0
+}
+
+// SliceCapAfterAppend tests capacity after multiple appends
+func SliceCapAfterAppend() int {
+	s := make([]int, 0)
+	s = append(s, 1)
+	s = append(s, 2)
+	s = append(s, 3)
+	return len(s) // 3 (cap is implementation-defined, just check len)
+}
+
+// MapAssignExisting tests assigning to existing key
+func MapAssignExisting() int {
+	m := map[string]int{"a": 1}
+	m["a"] = 42
+	return m["a"] // 42
+}
+
+// StructCompareDifferentValues tests struct comparison with different values
+func StructCompareDifferentValues() bool {
+	type Point struct{ X, Y int }
+	p1 := Point{1, 2}
+	p2 := Point{1, 3}
+	return p1 != p2 // true
+}
+
+// DeferModifyNamedReturn tests defer modifying named return value
+func DeferModifyNamedReturn() (x int) {
+	x = 5
+	defer func() { x += 10 }()
+	return x // return 5, then defer makes it 15
+}
+
+// ChannelCloseAndLen tests closed channel length
+func ChannelCloseAndLen() int {
+	ch := make(chan int, 3)
+	ch <- 1
+	ch <- 2
+	close(ch)
+	return len(ch) // 2
+}
+
+// MultipleShortVarDecl tests multiple short var declarations
+func MultipleShortVarDecl() int {
+	a, b := 1, 2
+	c, d := 3, 4
+	return a + b + c + d // 10
+}
+
+// StructEmbedShadow tests embedded field shadowing
+func StructEmbedShadow() int {
+	type Base struct{ X int }
+	type Derived struct {
+		Base
+		X int // shadows Base.X
+	}
+	d := Derived{Base: Base{X: 1}, X: 2}
+	return d.X + d.Base.X // 2 + 1 = 3
+}
+
+// ============================================================================
+// ROUND 14: Package-level types for method tests
+// ============================================================================
+
+type base14Promoted struct{ X int }
+
+func (b *base14Promoted) GetX() int { return b.X }
+
+type derived14Promoted struct {
+	base14Promoted
+	Y int
+}
+
+type iface14R14 interface{ Do() int }
+
+type impl14R14 struct{ X int }
+
+func (i impl14R14) Do() int { return i.X * 2 }
+
+type chain14R14 struct{ X int }
+
+func (c chain14R14) Add(n int) chain14R14 { return chain14R14{X: c.X + n} }
+
+type base14Override struct{ X int }
+
+func (b base14Override) Val() int { return b.X }
+
+type override14R struct {
+	base14Override
+}
+
+func (o override14R) Val() int { return o.X * 10 }
+
+type val14Double struct{ X int }
+
+func (v *val14Double) Double() int { return v.X * 2 }
+
+type builder14Chain struct{ val int }
+
+func (b builder14Chain) Add(n int) builder14Chain { return builder14Chain{val: b.val + n} }
+
+func (b builder14Chain) Mul(n int) builder14Chain { return builder14Chain{val: b.val * n} }
+
+// ============================================================================
+// ROUND 14: Additional Edge Cases
+// ============================================================================
+
+// SliceShareModifyR14 tests that sub-slices share underlying memory
+func SliceShareModifyR14() int {
+	a := []int{1, 2, 3, 4, 5}
+	b := a[1:3] // [2,3]
+	b[0] = 99
+	return a[1] // 99 - shared memory
+}
+
+// SliceAppendOverwriteR14 tests append behavior with shared slices
+func SliceAppendOverwriteR14() int {
+	a := []int{1, 2, 3}
+	b := a[0:2]
+	b = append(b, 99)
+	return a[2] // 3 - original not modified because append created new backing
+}
+
+// MapDeleteAndReadR14 tests reading after delete
+func MapDeleteAndReadR14() int {
+	m := map[string]int{"a": 1, "b": 2}
+	delete(m, "a")
+	v, ok := m["a"]
+	if ok {
+		return -1
+	}
+	return v + m["b"] // 0 + 2 = 2
+}
+
+// MapLenAfterDeletesR14 tests map length after multiple deletes
+func MapLenAfterDeletesR14() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30, 4: 40}
+	delete(m, 1)
+	delete(m, 3)
+	return len(m) // 2
+}
+
+// PointerReassignR14 tests reassigning pointer target
+func PointerReassignR14() int {
+	x := 10
+	y := 20
+	p := &x
+	v1 := *p
+	p = &y
+	v2 := *p
+	return v1 + v2 // 30
+}
+
+// DoublePointerR14 tests pointer to pointer
+func DoublePointerR14() int {
+	x := 42
+	p := &x
+	pp := &p
+	**pp = 99
+	return x // 99
+}
+
+// SliceOfPointersR14 tests slice of pointers modification
+func SliceOfPointersR14() int {
+	a, b := 1, 2
+	s := []*int{&a, &b}
+	*s[0] = 10
+	return a + *s[1] // 10 + 2 = 12
+}
+
+// MapOfSlicesR14 tests map with slice values
+func MapOfSlicesR14() int {
+	m := map[string][]int{
+		"a": {1, 2, 3},
+		"b": {4, 5},
+	}
+	return len(m["a"]) + len(m["b"]) // 3 + 2 = 5
+}
+
+// MapOfMapsR14 tests map with map values
+func MapOfMapsR14() int {
+	m := map[string]map[string]int{
+		"outer": {"inner": 42},
+	}
+	return m["outer"]["inner"] // 42
+}
+
+// NestedMapLookupR14 tests nested map access chain
+func NestedMapLookupR14() int {
+	m := map[int]map[int]map[int]int{
+		1: {2: {3: 100}},
+	}
+	return m[1][2][3] // 100
+}
+
+// StringIndexR14 tests string indexing returns byte
+func StringIndexR14() int {
+	s := "Hello"
+	return int(s[1]) // 101 = 'e'
+}
+
+// RuneRangeStringR14 tests range over string yields runes
+func RuneRangeStringR14() int {
+	s := "日本"
+	count := 0
+	for range s {
+		count++
+	}
+	return count // 2
+}
+
+// SliceCopyBuiltInR14 tests copy() builtin behavior
+func SliceCopyBuiltInR14() int {
+	src := []int{1, 2, 3}
+	dst := make([]int, 2)
+	n := copy(dst, src)
+	return n + dst[0] + dst[1] // 2 + 1 + 2 = 5
+}
+
+// AppendByteSliceR14 tests append to byte slice
+func AppendByteSliceR14() int {
+	var b []byte
+	b = append(b, 'H', 'i')
+	return len(b) // 2
+}
+
+// StructCompareEqualR14 tests struct equality
+func StructCompareEqualR14() bool {
+	type P struct{ X, Y int }
+	a := P{1, 2}
+	b := P{1, 2}
+	return a == b
+}
+
+// StructCompareNotEqualR14 tests struct inequality
+func StructCompareNotEqualR14() bool {
+	type P struct{ X, Y int }
+	a := P{1, 2}
+	b := P{1, 3}
+	return a != b
+}
+
+// ArrayAssignCopyR14 tests that array assignment copies
+func ArrayAssignCopyR14() int {
+	var a [3]int = [3]int{1, 2, 3}
+	b := a
+	b[0] = 99
+	return a[0] // 1 - array is copied
+}
+
+// SliceNilSubsliceR14 tests nil slice can be subsliced
+func SliceNilSubsliceR14() int {
+	var s []int
+	s2 := s[0:0]
+	return len(s2) // 0
+}
+
+// MapKeyPointerR14 tests map with pointer keys - not allowed directly, use struct
+func MapKeyPointerR14() int {
+	type Key struct{ X, Y int }
+	m := map[Key]int{{1, 2}: 10, {3, 4}: 20}
+	return m[Key{1, 2}] // 10
+}
+
+// ChannelCloseThenCapR14 tests cap of closed channel
+func ChannelCloseThenCapR14() int {
+	ch := make(chan int, 5)
+	ch <- 1
+	close(ch)
+	return cap(ch) // 5
+}
+
+// TypeSwitchDefaultR14 tests type switch with default
+func TypeSwitchDefaultR14() string {
+	var i interface{} = 42
+	switch i.(type) {
+	case string:
+		return "string"
+	default:
+		return "other"
+	}
+}
+
+// InterfaceNilComparisonR14 tests nil interface comparison
+func InterfaceNilComparisonR14() bool {
+	var i interface{}
+	return i == nil
+}
+
+// SliceGrowFactorR14 tests slice growth after append
+func SliceGrowFactorR14() int {
+	s := make([]int, 0, 2)
+	s = append(s, 1)
+	s = append(s, 2)
+	c1 := cap(s)
+	s = append(s, 3) // triggers grow
+	c2 := cap(s)
+	if c2 > c1 {
+		return 1
+	}
+	return 0
+}
+
+// MapPreAllocR14 tests map with pre-allocation
+func MapPreAllocR14() int {
+	m := make(map[int]int, 100)
+	m[1] = 10
+	m[2] = 20
+	return len(m) // 2
+}
+
+// StructAnonymousFieldR14 tests struct with anonymous field
+func StructAnonymousFieldR14() int {
+	type Inner struct{ Val int }
+	type Outer struct {
+		Inner
+		Name string
+	}
+	o := Outer{Inner: Inner{Val: 42}, Name: "test"}
+	return o.Val // 42 - promoted field
+}
+
+// PointerSliceModifyR14 tests modify slice element via pointer
+func PointerSliceModifyR14() int {
+	s := []int{1, 2, 3}
+	p := &s[1]
+	*p = 99
+	return s[1] // 99
+}
+
+// MapIterateDeleteR14 tests iterate and delete from map
+func MapIterateDeleteR14() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for k := range m {
+		if k == 2 {
+			delete(m, k)
+		}
+	}
+	_, ok := m[2]
+	if ok {
+		return -1
+	}
+	return len(m) // 2
+}
+
+// SliceThreeIndexR14 tests 3-index slice expression
+func SliceThreeIndexR14() int {
+	a := [5]int{1, 2, 3, 4, 5}
+	s := a[1:3:4]             // len=2, cap=3
+	return len(s)*10 + cap(s) // 23
+}
+
+// ArrayPointerIndexR14 tests index through pointer to array
+func ArrayPointerIndexR14() int {
+	a := [3]int{10, 20, 30}
+	p := &a
+	return p[1] // 20
+}
+
+// StringByteSliceConvR14 tests string <-> []byte conversion
+func StringByteSliceConvR14() int {
+	s := "ABC"
+	b := []byte(s)
+	b[0] = 'X'
+	result := string(b)
+	if result == "XBC" {
+		return 1
+	}
+	return 0
+}
+
+// RuneSliceStringConvR14 tests []rune <-> string conversion
+func RuneSliceStringConvR14() int {
+	s := "Hello"
+	r := []rune(s)
+	r[0] = 'J'
+	result := string(r)
+	if result == "Jello" {
+		return 1
+	}
+	return 0
+}
+
+// ClosureReadBeforeWriteR14 tests closure reads before writes
+func ClosureReadBeforeWriteR14() int {
+	x := 10
+	f := func() int {
+		return x // reads outer x
+	}
+	x = 20
+	return f() // 20
+}
+
+// MultiAssignDifferentTypesR14 tests multi assignment with different types
+func MultiAssignDifferentTypesR14() int {
+	var i int
+	var f float64
+	i, f = 1, 2.5
+	return i + int(f) // 3
+}
+
+// SwapViaTupleR14 tests swap via tuple assignment
+func SwapViaTupleR14() int {
+	a, b := 1, 2
+	a, b = b, a
+	return a*10 + b // 21
+}
+
+// MapLookupOrDefaultR14 tests map lookup with comma-ok pattern
+func MapLookupOrDefaultR14() int {
+	m := map[string]int{"key": 42}
+	if v, ok := m["key"]; ok {
+		return v
+	}
+	return -1 // 42
+}
+
+// SliceRemovePreserveOrderR14 tests remove element preserving order
+func SliceRemovePreserveOrderR14() int {
+	s := []int{1, 2, 3, 4, 5}
+	i := 2 // remove index 2
+	s = append(s[:i], s[i+1:]...)
+	return len(s)*10 + s[2] // 34
+}
+
+// NestedStructLiteralR14 tests nested struct literal
+func NestedStructLiteralR14() int {
+	type Inner struct{ V int }
+	type Outer struct{ I Inner }
+	o := Outer{I: Inner{V: 99}}
+	return o.I.V // 99
+}
+
+// SliceOfStringPointersR14 tests slice of string pointers
+func SliceOfStringPointersR14() int {
+	a, b := "hello", "world"
+	s := []*string{&a, &b}
+	return len(*s[0]) + len(*s[1]) // 5 + 5 = 10
+}
+
+// MapOfFuncValuesR14 tests map with function values
+func MapOfFuncValuesR14() int {
+	m := map[string]func(int) int{
+		"double": func(x int) int { return x * 2 },
+		"add1":   func(x int) int { return x + 1 },
+	}
+	return m["double"](5) + m["add1"](5) // 10 + 6 = 16
+}
+
+// StructPromotedMethodR14 tests promoted method from embedded struct
+func StructPromotedMethodR14() int {
+	d := derived14Promoted{base14Promoted: base14Promoted{X: 42}, Y: 10}
+	return d.GetX() + d.Y // 52
+}
+
+// InterfaceSliceOfTypeR14 tests []interface{} with different types
+func InterfaceSliceOfTypeR14() int {
+	s := []interface{}{1, "hello", 3.14, true}
+	return len(s) // 4
+}
+
+// ChannelDrainAfterCloseR14 tests drain channel after close
+func ChannelDrainAfterCloseR14() int {
+	ch := make(chan int, 3)
+	ch <- 10
+	ch <- 20
+	ch <- 30
+	close(ch)
+	sum := 0
+	for v := range ch {
+		sum += v
+	}
+	return sum // 60
+}
+
+// MapWithEmptyStructKeyR14 tests map with struct key
+func MapWithEmptyStructKeyR14() int {
+	type Key struct{ X, Y int }
+	m := map[Key]int{}
+	m[Key{1, 2}] = 100
+	return m[Key{1, 2}] // 100
+}
+
+// PointerToSliceR14 tests pointer to slice, modify via pointer
+func PointerToSliceR14() int {
+	s := []int{1, 2, 3}
+	p := &s
+	(*p)[0] = 99
+	return s[0] // 99
+}
+
+// SliceReverseR14 tests reversing a slice
+func SliceReverseR14() int {
+	s := []int{1, 2, 3, 4, 5}
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+	return s[0]*10 + s[4] // 51
+}
+
+// ClosureCapturesNewVarR14 tests closure captures newly declared var
+func ClosureCapturesNewVarR14() int {
+	x := 1
+	f := func() int {
+		x = x + 10
+		return x
+	}
+	return f() // 11
+}
+
+// MapClearAndReuseR14 tests clear map and add again
+func MapClearAndReuseR14() int {
+	m := map[int]int{1: 10, 2: 20}
+	for k := range m {
+		delete(m, k)
+	}
+	m[3] = 30
+	return len(m) // 1
+}
+
+// SliceOfChannelsR14 tests slice of channels
+func SliceOfChannelsR14() int {
+	chs := make([]chan int, 2)
+	chs[0] = make(chan int, 1)
+	chs[1] = make(chan int, 1)
+	chs[0] <- 10
+	chs[1] <- 20
+	return <-chs[0] + <-chs[1] // 30
+}
+
+// TypeAssertionMethodCallR14 tests type assertion then method call
+func TypeAssertionMethodCallR14() int {
+	var ifc iface14R14 = impl14R14{X: 21}
+	if v, ok := ifc.(impl14R14); ok {
+		return v.Do() // 42
+	}
+	return 0
+}
+
+// NestedForBreakLabelR14 tests break to label in nested for
+func NestedForBreakLabelR14() int {
+	sum := 0
+outer:
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			sum += i*3 + j
+			if i == 1 && j == 1 {
+				break outer
+			}
+		}
+	}
+	return sum // 0+1+2+3+4 = 10
+}
+
+// RangeOverArrayR14 tests range over array (copy semantics)
+func RangeOverArrayR14() int {
+	var a [3]int = [3]int{10, 20, 30}
+	sum := 0
+	for _, v := range a {
+		sum += v
+	}
+	return sum // 60
+}
+
+// MapValueIsSliceR14 tests map value is a slice, append to it
+func MapValueIsSliceR14() int {
+	m := map[string][]int{"a": {1, 2}}
+	m["a"] = append(m["a"], 3)
+	return len(m["a"]) // 3
+}
+
+// PointerSwapR14 tests swap values via pointers
+func PointerSwapR14() int {
+	a, b := 1, 2
+	pa, pb := &a, &b
+	*pa, *pb = *pb, *pa
+	return a*10 + b // 21
+}
+
+// SliceFromArrayOfIntR14 tests slice from array of int
+func SliceFromArrayOfIntR14() int {
+	a := [5]int{10, 20, 30, 40, 50}
+	s := a[1:4]        // [20, 30, 40]
+	return s[0] + s[2] // 20 + 40 = 60
+}
+
+// StructWithEmbeddedSliceR14 tests struct with embedded slice field
+func StructWithEmbeddedSliceR14() int {
+	type S14 struct{ X []int }
+	s := S14{X: []int{1, 2, 3}}
+	s.X = append(s.X, 4)
+	return len(s.X) // 4
+}
+
+// InterfaceAssertToPointerR14 tests interface assert to pointer type
+func InterfaceAssertToPointerR14() int {
+	x := 42
+	var i interface{} = &x
+	if p, ok := i.(*int); ok {
+		return *p // 42
+	}
+	return 0
+}
+
+// MapKeyIsStringR14 tests map with string keys
+func MapKeyIsStringR14() int {
+	m := map[string]int{"alpha": 1, "beta": 2}
+	return m["alpha"] + m["beta"] // 3
+}
+
+// SliceCapVsLenR14 tests slice cap vs len
+func SliceCapVsLenR14() int {
+	s := make([]int, 3, 10)
+	return s[0]*0 + len(s)*10 + cap(s) // 0 + 30 + 10 = 40
+}
+
+// StructMethodReturnsSelfR14 tests method that returns self
+func StructMethodReturnsSelfR14() int {
+	c := chain14R14{X: 5}
+	r := c.Add(3).Add(2)
+	return r.X // 10
+}
+
+// ClosureAsArgumentR14 tests pass closure as function argument
+func ClosureAsArgumentR14() int {
+	apply := func(f func(int) int, x int) int { return f(x) }
+	result := apply(func(x int) int { return x * x }, 7)
+	return result // 49
+}
+
+// MapWithInterfaceKeyR14 tests map with interface{} key
+func MapWithInterfaceKeyR14() int {
+	m := map[interface{}]int{1: 10, "a": 20}
+	return m[1] + m["a"] // 30
+}
+
+// SliceInsertMiddleR14 tests insert element in middle
+func SliceInsertMiddleR14() int {
+	s := []int{1, 2, 4, 5}
+	i := 2
+	s = append(s[:i], append([]int{3}, s[i:]...)...)
+	return len(s)*10 + s[2] // 53
+}
+
+// PointerDerefAssignR14 tests deref pointer and assign
+func PointerDerefAssignR14() int {
+	x := 0
+	p := &x
+	*p = 42
+	return x // 42
+}
+
+// RangeOverStringR14 tests range over string gives runes
+func RangeOverStringR14() int {
+	s := "Go语言"
+	count := 0
+	for range s {
+		count++
+	}
+	return count // 4
+}
+
+// MapWithBoolKeyR14 tests map with bool key
+func MapWithBoolKeyR14() int {
+	m := map[bool]int{true: 1, false: 0}
+	return m[true] + m[false] // 1
+}
+
+// SliceOfStructLiteralR14 tests slice of struct literals
+func SliceOfStructLiteralR14() int {
+	type Pt14 struct{ X, Y int }
+	s := []Pt14{{1, 2}, {3, 4}, {5, 6}}
+	return s[1].X + s[1].Y // 7
+}
+
+// ChannelAsReturnR14 tests function returning channel
+func ChannelAsReturnR14() int {
+	makeCh := func() chan int {
+		ch := make(chan int, 1)
+		ch <- 42
+		return ch
+	}
+	ch := makeCh()
+	return <-ch // 42
+}
+
+// StructEmbedMethodOverrideR14 tests embedded method override
+func StructEmbedMethodOverrideR14() int {
+	o := override14R{base14Override: base14Override{X: 5}}
+	return o.Val() // 50
+}
+
+// InterfaceTypeSwitchR14 tests type switch on interface
+func InterfaceTypeSwitchR14() int {
+	var i interface{} = 3.14
+	switch v := i.(type) {
+	case int:
+		return v
+	case float64:
+		return int(v * 100) // 314
+	default:
+		return 0
+	}
+}
+
+// SliceFilterPatternR14 tests filter pattern on slice
+func SliceFilterPatternR14() int {
+	s := []int{1, 2, 3, 4, 5, 6}
+	var result []int
+	for _, v := range s {
+		if v%2 == 0 {
+			result = append(result, v)
+		}
+	}
+	return len(result)*10 + result[0] // 32
+}
+
+// PointerMethodOnStructR14 tests pointer method called on struct value
+func PointerMethodOnStructR14() int {
+	v := val14Double{X: 21}
+	return v.Double() // 42
+}
+
+// MapDeleteNonExistentR14 tests delete non-existent key from map
+func MapDeleteNonExistentR14() int {
+	m := map[int]int{1: 10}
+	delete(m, 999) // no-op
+	return m[1]    // 10
+}
+
+// SliceAppendNilR14 tests append nil to interface slice
+func SliceAppendNilR14() int {
+	s := []interface{}{1, "two"}
+	s = append(s, nil)
+	if s[2] == nil {
+		return len(s) // 3
+	}
+	return 0
+}
+
+// StructWithSliceOfSelfR14 tests struct with slice of self type
+func StructWithSliceOfSelfR14() int {
+	type Node14 struct {
+		Val      int
+		Children []*Node14
+	}
+	child := &Node14{Val: 2}
+	root := &Node14{Val: 1, Children: []*Node14{child}}
+	return root.Val + root.Children[0].Val // 3
+}
+
+// ClosureCounterR14 tests closure-based counter
+func ClosureCounterR14() int {
+	newCounter := func() func() int {
+		n := 0
+		return func() int {
+			n++
+			return n
+		}
+	}
+	c := newCounter()
+	c()
+	c()
+	return c() // 3
+}
+
+// MapMergeR14 tests merge two maps
+func MapMergeR14() int {
+	m1 := map[int]int{1: 10, 2: 20}
+	m2 := map[int]int{2: 200, 3: 300}
+	for k, v := range m2 {
+		m1[k] = v
+	}
+	return m1[2] + m1[3] // 200 + 300 = 500
+}
+
+// SliceDedupeR14 tests deduplicate sorted slice
+func SliceDedupeR14() int {
+	s := []int{1, 1, 2, 2, 3, 3, 3}
+	var result []int
+	prev := -1
+	for _, v := range s {
+		if v != prev {
+			result = append(result, v)
+			prev = v
+		}
+	}
+	return len(result) // 3
+}
+
+// ChannelRangeAfterCloseR14 tests range over channel after close
+func ChannelRangeAfterCloseR14() int {
+	ch := make(chan int, 3)
+	ch <- 1
+	ch <- 2
+	ch <- 3
+	close(ch)
+	sum := 0
+	for v := range ch {
+		sum += v
+	}
+	return sum // 6
+}
+
+// TypeConversionStringToIntR14 tests string to int conversion via strconv
+func TypeConversionStringToIntR14() int {
+	s := "42"
+	n := 0
+	for _, c := range s {
+		n = n*10 + int(c-'0')
+	}
+	return n // 42
+}
+
+// PointerToMapR14 tests pointer to map
+func PointerToMapR14() int {
+	m := map[string]int{"a": 1}
+	p := &m
+	(*p)["b"] = 2
+	return len(m) // 2
+}
+
+// SliceCopyViaAssignmentR14 tests slice assignment doesn't copy elements
+func SliceCopyViaAssignmentR14() int {
+	a := []int{1, 2, 3}
+	b := a
+	b[0] = 99
+	return a[0] // 99 - shared backing
+}
+
+// MapUpdateExistingKeyR14 tests update existing key in map
+func MapUpdateExistingKeyR14() int {
+	m := map[int]int{1: 10}
+	m[1] = 20
+	return m[1] // 20
+}
+
+// StructMethodChainR14 tests method chaining
+func StructMethodChainR14() int {
+	r := builder14Chain{val: 2}.Add(3).Mul(4) // (2+3)*4 = 20
+	return r.val
+}
+
+// InterfaceEmptyVsNilR14 tests empty interface vs nil
+func InterfaceEmptyVsNilR14() int {
+	var i interface{}
+	if i == nil {
+		return 1
+	}
+	return 0 // 1
+}
+
+// SliceMapTransformR14 tests map/transform pattern on slice
+func SliceMapTransformR14() int {
+	s := []int{1, 2, 3}
+	var result []int
+	for _, v := range s {
+		result = append(result, v*v)
+	}
+	return result[0] + result[1] + result[2] // 1 + 4 + 9 = 14
+}
+
+// PointerIncrementR14 tests increment through pointer
+func PointerIncrementR14() int {
+	x := 0
+	p := &x
+	*p++
+	*p++
+	*p++
+	return *p // 3
+}
+
+// SliceZeroLenNonNilR14 tests make([]int, 0) is not nil
+func SliceZeroLenNonNilR14() int {
+	s := make([]int, 0)
+	if s != nil {
+		return 1
+	}
+	return 0 // 1
+}
+
+// MapReadWriteModifyR14 tests read, modify, write map
+func MapReadWriteModifyR14() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for k, v := range m {
+		m[k] = v * 2
+	}
+	return m[1] + m[2] + m[3] // 20+40+60 = 120
+}
+
+// StructFieldPointerR14 tests struct field that is a pointer
+func StructFieldPointerR14() int {
+	type SP14 struct{ P *int }
+	x := 42
+	s := SP14{P: &x}
+	return *s.P // 42
+}
+
+// SliceOfMapsR14 tests slice of maps
+func SliceOfMapsR14() int {
+	s := []map[string]int{
+		{"a": 1},
+		{"b": 2},
+	}
+	return s[0]["a"] + s[1]["b"] // 3
+}
+
+// NestedSliceAccessR14 tests deeply nested slice access
+func NestedSliceAccessR14() int {
+	s := [][][]int{{{1, 2}, {3, 4}}, {{5, 6}, {7, 8}}}
+	return s[1][0][1] // 6
+}
+
+// MapKeyIntFloatR14 tests map with int key
+func MapKeyIntFloatR14() int {
+	m := map[int]float64{1: 1.1, 2: 2.2}
+	return int(m[1]*10) + int(m[2]*10) // 11 + 22 = 33
+}
+
+// StructCompareDifferentFieldsR14 tests comparing struct with different field values
+func StructCompareDifferentFieldsR14() bool {
+	type Pt14D struct{ X, Y int }
+	return Pt14D{1, 2} != Pt14D{1, 3}
+}
+
+// ChannelSelectWithTwoR14 tests select with two ready channels
+func ChannelSelectWithTwoR14() int {
+	ch1 := make(chan int, 1)
+	ch2 := make(chan int, 1)
+	ch1 <- 10
+	ch2 <- 20
+	sum := 0
+	for i := 0; i < 2; i++ {
+		select {
+		case v := <-ch1:
+			sum += v
+		case v := <-ch2:
+			sum += v
+		}
+	}
+	return sum // 30
+}
+
+// SliceFromSliceR14 tests slicing an existing slice
+func SliceFromSliceR14() int {
+	s := []int{0, 1, 2, 3, 4, 5}
+	t := s[2:5]        // [2,3,4]
+	return t[0] + t[2] // 2 + 4 = 6
+}
+
+// MapLenZeroR14 tests len of empty map
+func MapLenZeroR14() int {
+	m := map[int]int{}
+	return len(m) // 0
+}
+
+// StructPointerNilCheckR14 tests nil check on struct pointer
+func StructPointerNilCheckR14() int {
+	type St14N struct{ X int }
+	var p *St14N
+	if p == nil {
+		return 1
+	}
+	return 0 // 1
+}
+
+// SliceAppendMultipleR14 tests append multiple elements
+func SliceAppendMultipleR14() int {
+	s := []int{1}
+	s = append(s, 2, 3, 4, 5)
+	return len(s) // 5
+}
+
+// MapAccessDefaultR14 tests accessing non-existent key returns zero
+func MapAccessDefaultR14() int {
+	m := map[int]int{1: 10}
+	return m[999] // 0
+}
+
+// StructEmbedFieldAccessR14 tests embedded struct field access
+func StructEmbedFieldAccessR14() int {
+	type Inner14 struct{ A, B int }
+	type Outer14 struct {
+		Inner14
+		C int
+	}
+	o := Outer14{Inner14: Inner14{A: 1, B: 2}, C: 3}
+	return o.A + o.B + o.C // 6
+}
+
+// ClosureOverSliceR14 tests closure modifying slice
+func ClosureOverSliceR14() int {
+	s := []int{1, 2, 3}
+	f := func() {
+		s[0] = 99
+	}
+	f()
+	return s[0] // 99
+}
+
+// MapSizeAfterClearR14 tests map size after clearing via delete
+func MapSizeAfterClearR14() int {
+	m := map[string]int{"a": 1, "b": 2, "c": 3}
+	keys := []string{"a", "b", "c"}
+	for _, k := range keys {
+		delete(m, k)
+	}
+	return len(m) // 0
+}
+
+// SliceOfBoolR14 tests slice of bool
+func SliceOfBoolR14() int {
+	s := []bool{true, false, true}
+	count := 0
+	for _, v := range s {
+		if v {
+			count++
+		}
+	}
+	return count // 2
+}
+
+// StructZeroValCheckR14 tests zero value of struct
+func StructZeroValCheckR14() int {
+	type Z14 struct{ X int }
+	var z Z14
+	return z.X // 0
+}
+
+// MapWithIntKeyStringValR14 tests map[int]string
+func MapWithIntKeyStringValR14() int {
+	m := map[int]string{1: "one", 2: "two"}
+	return len(m[1]) + len(m[2]) // 3 + 3 = 6
+}
+
+// SliceCopyFullR14 tests copying entire slice
+func SliceCopyFullR14() int {
+	src := []int{10, 20, 30}
+	dst := make([]int, len(src))
+	copy(dst, src)
+	return dst[0] + dst[1] + dst[2] // 60
+}
+
+// StructPointerModifyFieldR14 tests modifying struct field via pointer
+func StructPointerModifyFieldR14() int {
+	type SP14M struct{ X int }
+	s := SP14M{X: 10}
+	p := &s
+	p.X = 99
+	return s.X // 99
+}
+
+// NestedMapDeleteR14 tests deleting from nested map
+func NestedMapDeleteR14() int {
+	m := map[string]map[string]int{
+		"a": {"x": 1, "y": 2},
+	}
+	delete(m["a"], "x")
+	return len(m["a"]) // 1
+}
+
+// SliceOfStringR14 tests slice of strings
+func SliceOfStringR14() int {
+	s := []string{"hello", "world"}
+	return len(s[0]) + len(s[1]) // 5 + 5 = 10
+}
+
+// MapRangeOrderIndependentR14 tests map range is order independent
+func MapRangeOrderIndependentR14() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	sum := 0
+	for _, v := range m {
+		sum += v
+	}
+	return sum // 60
+}
+
+// ============================================================================
+// ROUND 15: Package-level types for method tests
+type val15GetValue struct{ X int }
+
+func (v val15GetValue) Get() int { return v.X }
+
+type ns15NilSafe struct{ X int }
+
+func (n *ns15NilSafe) GetX() int {
+	if n == nil {
+		return 0
+	}
+	return n.X
+}
+
+type impl15Iface struct{ X int }
+
+func (i impl15Iface) Do() int { return i.X }
+
+// ROUND 15: Additional Edge Cases - variadic, select, control flow, numeric, string
+// ============================================================================
+
+// VariadicWithNilR15 tests passing nil to variadic ...interface{}
+func VariadicWithNilR15() int {
+	var f func(args ...interface{}) int
+	f = func(args ...interface{}) int { return len(args) }
+	return f(nil...) // 0
+}
+
+// VariadicSpreadR15 tests spreading slice into variadic
+func VariadicSpreadR15() int {
+	sum := func(nums ...int) int {
+		total := 0
+		for _, n := range nums {
+			total += n
+		}
+		return total
+	}
+	nums := []int{10, 20, 30}
+	return sum(nums...) // 60
+}
+
+// SelectWithDefaultOnlyR15 tests select with only default
+func SelectWithDefaultOnlyR15() int {
+	select {
+	default:
+		return 42
+	}
+}
+
+// NestedSelectR15 tests select inside select
+func NestedSelectR15() int {
+	ch1 := make(chan int, 1)
+	ch1 <- 10
+	select {
+	case v := <-ch1:
+		select {
+		default:
+			return v // 10
+		}
+	}
+}
+
+// ForBreakContinueR15 tests for with break and continue
+func ForBreakContinueR15() int {
+	sum := 0
+	for i := 0; i < 10; i++ {
+		if i%2 == 0 {
+			continue
+		}
+		if i > 5 {
+			break
+		}
+		sum += i
+	}
+	return sum // 1+3+5 = 9
+}
+
+// SwitchWithNoCasesR15 tests switch with no cases (only default)
+func SwitchWithNoCasesR15() int {
+	x := 5
+	switch x {
+	default:
+		return x
+	}
+}
+
+// MultipleShortVarDeclSameNameR15 tests re-declaring same variable name
+func MultipleShortVarDeclSameNameR15() int {
+	x := 1
+	x, y := 2, 3
+	return x + y // 5
+}
+
+// PointerToPointerDerefR15 tests double deref
+func PointerToPointerDerefR15() int {
+	x := 100
+	p := &x
+	pp := &p
+	return **pp // 100
+}
+
+// SliceOfFuncsR15 tests slice of functions
+func SliceOfFuncsR15() int {
+	fns := []func(int) int{
+		func(x int) int { return x + 1 },
+		func(x int) int { return x * 2 },
+		func(x int) int { return x * x },
+	}
+	return fns[0](5) + fns[1](5) + fns[2](5) // 6 + 10 + 25 = 41
+}
+
+// MapDeleteAllR15 tests deleting all keys from map
+func MapDeleteAllR15() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for k := range m {
+		delete(m, k)
+	}
+	return len(m) // 0
+}
+
+// StringConcatR15 tests string concatenation
+func StringConcatR15() int {
+	s := "hello" + " " + "world"
+	return len(s) // 11
+}
+
+// StringIndexByteR15 tests indexing string returns byte
+func StringIndexByteR15() int {
+	s := "ABC"
+	return int(s[0]) + int(s[1]) + int(s[2]) // 65+66+67 = 198
+}
+
+// RuneLenR15 tests len of string with multibyte chars
+func RuneLenR15() int {
+	s := "中文"
+	return len(s) // 6 bytes (3 per rune)
+}
+
+// NumericOverflowR15 tests int8 overflow wrapping (Go two's complement semantics)
+func NumericOverflowR15() int {
+	var x int8 = 127
+	x++
+	if x == -128 && x < 0 {
+		return 1
+	}
+	return 0 // 1
+}
+
+// FloatComparisonR15 tests float comparison
+func FloatComparisonR15() int {
+	a := 0.1 + 0.2
+	b := 0.3
+	if a != b {
+		return 1 // float imprecision
+	}
+	return 0
+}
+
+// StructLiteralWithoutFieldNamesR15 tests struct literal without field names
+func StructLiteralWithoutFieldNamesR15() int {
+	type Pt15 struct{ X, Y int }
+	p := Pt15{3, 4}
+	return p.X + p.Y // 7
+}
+
+// SliceFromSliceSharedR15 tests sub-slice shares memory with original
+func SliceFromSliceSharedR15() int {
+	a := []int{10, 20, 30, 40, 50}
+	b := a[1:3] // [20, 30]
+	b[1] = 99
+	return a[2] // 99
+}
+
+// MapTwoValueDeleteR15 tests comma-ok after delete
+func MapTwoValueDeleteR15() int {
+	m := map[string]int{"x": 1}
+	delete(m, "x")
+	_, ok := m["x"]
+	if ok {
+		return 1
+	}
+	return 0 // 0
+}
+
+// NilMapWritePanicR15 tests writing to nil map (guarded)
+func NilMapWritePanicR15() int {
+	var m map[string]int
+	if m == nil {
+		m = make(map[string]int)
+	}
+	m["key"] = 42
+	return m["key"] // 42
+}
+
+// ArrayLenCapR15 tests array has same len and cap
+func ArrayLenCapR15() int {
+	var a [5]int
+	return len(a)*10 + cap(a) // 55
+}
+
+// SliceMakeLenCapR15 tests make with len < cap
+func SliceMakeLenCapR15() int {
+	s := make([]int, 3, 7)
+	return len(s)*10 + cap(s) // 37
+}
+
+// ChannelDirR15 tests channel direction with select
+func ChannelDirR15() int {
+	ch := make(chan int, 1)
+	ch <- 42
+	select {
+	case v := <-ch:
+		return v // 42
+	}
+}
+
+// InterfaceConvertToInterfaceR15 tests interface to interface conversion
+func InterfaceConvertToInterfaceR15() int {
+	var i interface{} = 42
+	var j interface{} = i
+	return j.(int) // 42
+}
+
+// SliceAppendNilSliceR15 tests append to nil slice
+func SliceAppendNilSliceR15() int {
+	var s []int
+	s = append(s, 1, 2, 3)
+	return len(s) // 3
+}
+
+// MapWithFloatKeyR15 tests map with float64 key
+func MapWithFloatKeyR15() int {
+	m := map[float64]int{1.5: 15, 2.5: 25}
+	return m[1.5] + m[2.5] // 40
+}
+
+// StructFieldSliceAppendR15 tests appending to struct's slice field
+func StructFieldSliceAppendR15() int {
+	type Container15 struct{ Items []int }
+	c := Container15{Items: []int{1, 2}}
+	c.Items = append(c.Items, 3)
+	return len(c.Items) // 3
+}
+
+// PointerMethodValueReceiverR15 tests value method on pointer
+func PointerMethodValueReceiverR15() int {
+	p := &val15GetValue{X: 42}
+	return p.Get() // 42
+}
+
+// ClosureCaptureTwoVarsR15 tests closure captures two variables
+func ClosureCaptureTwoVarsR15() int {
+	x, y := 3, 4
+	f := func() int { return x + y }
+	return f() // 7
+}
+
+// MultiReturnInIfR15 tests multi-return in if condition
+func MultiReturnInIfR15() int {
+	m := map[string]int{"key": 42}
+	if v, ok := m["key"]; ok {
+		return v // 42
+	}
+	return 0
+}
+
+// SliceOfEmptyStructR15 tests slice of empty struct
+func SliceOfEmptyStructR15() int {
+	type Empty15 struct{}
+	s := make([]Empty15, 5)
+	return len(s) // 5
+}
+
+// MapWithArrayKeyR15 tests map with array key (comparable)
+func MapWithArrayKeyR15() int {
+	m := map[[2]int]string{
+		{1, 2}: "ab",
+		{3, 4}: "cd",
+	}
+	return len(m[[2]int{1, 2}]) // 2
+}
+
+// SwitchCaseMultipleR15 tests switch with multiple values per case
+func SwitchCaseMultipleR15() int {
+	x := 3
+	switch x {
+	case 1, 2, 3:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// RangeOverNilChannelR15 tests range over nil channel blocks (guarded)
+func RangeOverNilChannelR15() int {
+	var ch chan int
+	if ch == nil {
+		return 0 // nil channel blocks, so we guard
+	}
+	return 1
+}
+
+// SliceCopyOverlapR15 tests copy with overlapping regions
+func SliceCopyOverlapR15() int {
+	s := []int{1, 2, 3, 4, 5}
+	copy(s[1:], s[:4])
+	return s[0] + s[1] + s[2] // 1+1+2 = 4
+}
+
+// StructCompareSameR15 tests comparing identical structs
+func StructCompareSameR15() bool {
+	type P15 struct{ X int }
+	return P15{X: 1} == P15{X: 1}
+}
+
+// TypeAssertionOnNilR15 tests type assertion on nil interface
+func TypeAssertionOnNilR15() int {
+	var i interface{}
+	_, ok := i.(int)
+	if ok {
+		return 1
+	}
+	return 0 // 0 - nil interface fails assertion
+}
+
+// MapLenAfterAssignR15 tests map len after assignment
+func MapLenAfterAssignR15() int {
+	m := map[int]int{1: 10, 2: 20}
+	m[3] = 30
+	return len(m) // 3
+}
+
+// SliceOfStringConcatR15 tests concatenating strings from slice
+func SliceOfStringConcatR15() string {
+	s := []string{"a", "b", "c"}
+	result := ""
+	for _, v := range s {
+		result += v
+	}
+	return result // "abc"
+}
+
+// PointerToStructLiteralR15 tests pointer from struct literal
+func PointerToStructLiteralR15() int {
+	type S15 struct{ X int }
+	p := &S15{X: 99}
+	return p.X // 99
+}
+
+// ChannelCloseAndDrainR15 tests close then drain remaining
+func ChannelCloseAndDrainR15() int {
+	ch := make(chan int, 3)
+	ch <- 1
+	ch <- 2
+	close(ch)
+	v1 := <-ch
+	v2 := <-ch
+	return v1 + v2 // 3
+}
+
+// SliceModifyOriginalR15 tests modifying slice element
+func SliceModifyOriginalR15() int {
+	s := []int{1, 2, 3}
+	s[1] = 99
+	return s[1] // 99
+}
+
+// MapKeyStructR15 tests map with struct key
+func MapKeyStructR15() int {
+	type K15 struct{ A, B string }
+	m := map[K15]int{{"a", "b"}: 10}
+	return m[K15{"a", "b"}] // 10
+}
+
+// ForRangeIndexOnlyR15 tests range with only index
+func ForRangeIndexOnlyR15() int {
+	s := []int{10, 20, 30}
+	sum := 0
+	for i := range s {
+		sum += i // 0 + 1 + 2
+	}
+	return sum // 3
+}
+
+// NilSliceComparisonR15 tests nil slice comparison
+func NilSliceComparisonR15() int {
+	var s []int
+	if s == nil {
+		return 1
+	}
+	return 0 // 1
+}
+
+// StructEmbedMethodCallR15 tests calling embedded struct's method
+func StructEmbedMethodCallR15() int {
+	d := derived14Promoted{base14Promoted: base14Promoted{X: 7}, Y: 3}
+	return d.GetX() // 7
+}
+
+// InterfaceSliceLenR15 tests len of []interface{}
+func InterfaceSliceLenR15() int {
+	s := []interface{}{1, "two", 3.0, true, nil}
+	return len(s) // 5
+}
+
+// MapRangeCountR15 tests counting via map range
+func MapRangeCountR15() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30, 4: 40}
+	count := 0
+	for range m {
+		count++
+	}
+	return count // 4
+}
+
+// SliceCapAfterResliceR15 tests cap after reslice
+func SliceCapAfterResliceR15() int {
+	s := make([]int, 5, 10)
+	t := s[2:4]
+	return cap(t) // 8 (10-2)
+}
+
+// StringEmptyComparisonR15 tests empty string comparison
+func StringEmptyComparisonR15() int {
+	s := ""
+	if s == "" {
+		return 1
+	}
+	return 0 // 1
+}
+
+// MapValueNilInterfaceR15 tests map with nil interface value
+func MapValueNilInterfaceR15() int {
+	m := map[string]interface{}{"a": nil}
+	v := m["a"]
+	if v == nil {
+		return 1
+	}
+	return 0 // 1
+}
+
+// SliceAppendSelfR15 tests append slice to itself
+func SliceAppendSelfR15() int {
+	s := []int{1, 2}
+	s = append(s, s...)
+	return len(s) // 4
+}
+
+// StructFieldMapR15 tests struct with map field
+func StructFieldMapR15() int {
+	type SM15 struct{ M map[string]int }
+	s := SM15{M: map[string]int{"a": 1}}
+	s.M["b"] = 2
+	return len(s.M) // 2
+}
+
+// PointerAssignNilR15 tests assigning nil to pointer
+func PointerAssignNilR15() int {
+	var p *int
+	if p == nil {
+		return 1
+	}
+	return 0 // 1
+}
+
+// MapAccessEmptyR15 tests accessing empty map
+func MapAccessEmptyR15() int {
+	m := map[int]int{}
+	return m[1] // 0
+}
+
+// SliceOfSliceR15 tests 2D slice
+func SliceOfSliceR15() int {
+	s := [][]int{{1, 2}, {3, 4}}
+	return s[0][1] + s[1][0] // 2 + 3 = 5
+}
+
+// SwitchNoConditionR15 tests switch without condition
+func SwitchNoConditionR15() int {
+	x := 5
+	switch {
+	case x < 3:
+		return 0
+	case x < 10:
+		return 1
+	default:
+		return 2
+	}
+}
+
+// MapIntIntR15 tests map[int]int basic operations
+func MapIntIntR15() int {
+	m := map[int]int{}
+	m[0] = 100
+	return m[0] // 100
+}
+
+// StructZeroValueComparisonR15 tests zero value struct comparison
+func StructZeroValueComparisonR15() bool {
+	type Z15 struct{ X int }
+	return Z15{} == Z15{}
+}
+
+// ChannelNilBlockR15 tests nil channel blocks (guarded)
+func ChannelNilBlockR15() int {
+	var ch chan int
+	select {
+	case <-ch:
+		return 0
+	default:
+		return 1 // nil channel is never ready
+	}
+}
+
+// SliceRangeModifyR15 tests modifying slice during range
+func SliceRangeModifyR15() int {
+	s := []int{1, 2, 3}
+	for i := range s {
+		s[i] *= 10
+	}
+	return s[0] + s[1] + s[2] // 10+20+30 = 60
+}
+
+// StringSliceR15 tests slicing a string
+func StringSliceR15() string {
+	s := "Hello, World"
+	return s[7:12] // "World"
+}
+
+// MapKeyTypeSwitchR15 tests type switch on map key
+func MapKeyTypeSwitchR15() int {
+	m := map[interface{}]int{1: 10, "a": 20}
+	sum := 0
+	for k := range m {
+		switch k.(type) {
+		case int:
+			sum += m[k]
+		case string:
+			sum += m[k]
+		}
+	}
+	return sum // 30
+}
+
+// StructFieldChannelR15 tests struct with channel field
+func StructFieldChannelR15() int {
+	type SC15 struct{ Ch chan int }
+	s := SC15{Ch: make(chan int, 1)}
+	s.Ch <- 42
+	return <-s.Ch // 42
+}
+
+// PointerSliceOfStructR15 tests slice of struct pointers
+func PointerSliceOfStructR15() int {
+	type P15 struct{ X int }
+	a, b := P15{X: 1}, P15{X: 2}
+	s := []*P15{&a, &b}
+	return s[0].X + s[1].X // 3
+}
+
+// MapStringKeyR15 tests map with string key operations
+func MapStringKeyR15() int {
+	m := map[string]int{}
+	m["hello"] = 5
+	m["world"] = 5
+	return m["hello"] + m["world"] // 10
+}
+
+// SliceDeleteFirstR15 tests deleting first element
+func SliceDeleteFirstR15() int {
+	s := []int{1, 2, 3, 4}
+	s = s[1:]
+	return len(s)*10 + s[0] // 32
+}
+
+// RangeOverSliceIndexValueR15 tests range with index and value
+func RangeOverSliceIndexValueR15() int {
+	s := []int{10, 20, 30}
+	sum := 0
+	for i, v := range s {
+		sum += i + v
+	}
+	return sum // (0+10)+(1+20)+(2+30) = 63
+}
+
+// NilPointerDerefGuardR15 tests guarded nil pointer deref
+func NilPointerDerefGuardR15() int {
+	var p *int
+	if p != nil {
+		return *p
+	}
+	return -1 // -1
+}
+
+// MapWriteReadR15 tests write then read from map
+func MapWriteReadR15() int {
+	m := map[string]int{}
+	m["key"] = 42
+	v, ok := m["key"]
+	if ok {
+		return v // 42
+	}
+	return 0
+}
+
+// SliceLenZeroR15 tests len of empty slice
+func SliceLenZeroR15() int {
+	s := []int{}
+	return len(s) // 0
+}
+
+// StructEmbeddedPointerNilR15 tests nil embedded pointer struct
+func StructEmbeddedPointerNilR15() int {
+	type Inner15 struct{ X int }
+	type Outer15 struct {
+		*Inner15
+	}
+	var o Outer15
+	if o.Inner15 == nil {
+		return 1
+	}
+	return 0 // 1
+}
+
+// ChannelSelectPriorityR15 tests select picks ready channel
+func ChannelSelectPriorityR15() int {
+	ch := make(chan int, 1)
+	ch <- 99
+	select {
+	case v := <-ch:
+		return v // 99
+	default:
+		return 0
+	}
+}
+
+// SliceOfInterfaceNilR15 tests []interface{} with nil element
+func SliceOfInterfaceNilR15() int {
+	s := []interface{}{nil, nil, nil}
+	count := 0
+	for _, v := range s {
+		if v == nil {
+			count++
+		}
+	}
+	return count // 3
+}
+
+// MapDeleteAndReinsertR15 tests delete and reinsert map key
+func MapDeleteAndReinsertR15() int {
+	m := map[int]int{1: 10}
+	delete(m, 1)
+	m[1] = 20
+	return m[1] // 20
+}
+
+// StructLiteralWithFieldsR15 tests struct literal with named fields
+func StructLiteralWithFieldsR15() int {
+	type P15F struct{ X, Y, Z int }
+	p := P15F{Z: 3, X: 1, Y: 2}
+	return p.X + p.Y + p.Z // 6
+}
+
+// PointerSwapValuesR15 tests swap values using pointers
+func PointerSwapValuesR15() int {
+	a, b := 10, 20
+	pa, pb := &a, &b
+	*pa, *pb = *pb, *pa
+	return a + b // 30
+}
+
+// MapRangeDeleteSafeR15 tests deleting during range is safe
+func MapRangeDeleteSafeR15() int {
+	m := map[int]int{1: 10, 2: 20, 3: 30}
+	for k := range m {
+		delete(m, k)
+	}
+	return len(m) // 0
+}
+
+// SliceMakeZeroLenR15 tests make with zero len
+func SliceMakeZeroLenR15() int {
+	s := make([]int, 0)
+	if s != nil && len(s) == 0 {
+		return 1
+	}
+	return 0 // 1
+}
+
+// StringRangeR15 tests range over string
+func StringRangeR15() int {
+	s := "Go"
+	sum := 0
+	for _, r := range s {
+		sum += int(r)
+	}
+	return sum // 71+111 = 182
+}
+
+// StructMethodOnNilPointerR15 tests method on nil struct pointer (guarded)
+func StructMethodOnNilPointerR15() int {
+	var p *ns15NilSafe
+	return p.GetX() // 0
+}
+
+// MapWithStructValR15 tests map with struct value
+func MapWithStructValR15() int {
+	type V15 struct{ A, B int }
+	m := map[int]V15{1: {10, 20}}
+	return m[1].A + m[1].B // 30
+}
+
+// ChannelClosedRecvZeroR15 tests receiving from closed channel returns zero
+func ChannelClosedRecvZeroR15() int {
+	ch := make(chan int)
+	close(ch)
+	v, ok := <-ch
+	if !ok && v == 0 {
+		return 1
+	}
+	return 0 // 1
+}
+
+// SliceAppendExpandR15 tests append expands capacity
+func SliceAppendExpandR15() int {
+	s := make([]int, 0, 1)
+	s = append(s, 1)
+	c1 := cap(s)
+	s = append(s, 2)
+	c2 := cap(s)
+	if c2 >= c1 {
+		return 1
+	}
+	return 0 // 1
+}
+
+// MapNilReadR15 tests reading from nil map returns zero
+func MapNilReadR15() int {
+	var m map[int]int
+	return m[1] // 0
+}
+
+// StructFieldModifyR15 tests modifying struct field directly
+func StructFieldModifyR15() int {
+	type S15M struct{ X int }
+	s := S15M{X: 10}
+	s.X = 20
+	return s.X // 20
+}
+
+// PointerToChannelR15 tests pointer to channel
+func PointerToChannelR15() int {
+	ch := make(chan int, 1)
+	p := &ch
+	*p <- 42
+	return <-ch // 42
+}
+
+// SliceOfBoolLenR15 tests len of bool slice
+func SliceOfBoolLenR15() int {
+	s := make([]bool, 3)
+	return len(s) // 3
+}
+
+// MapInterfaceValR15 tests map with interface{} value
+func MapInterfaceValR15() int {
+	m := map[string]interface{}{"num": 42, "str": "hi"}
+	return m["num"].(int) // 42
+}
+
+// StringRuneAtIndexR15 tests getting rune at index via range
+func StringRuneAtIndexR15() int {
+	s := "abc"
+	idx := 1
+	var r rune
+	for i, ch := range s {
+		if i == idx {
+			r = ch
+			break
+		}
+	}
+	return int(r) // 98 = 'b'
+}
+
+// StructEmbeddedInterfaceR15 tests struct with embedded interface
+func StructEmbeddedInterfaceR15() int {
+	var ifc interface{ Do() int } = impl15Iface{X: 7}
+	return ifc.Do() // 7
+}
+
+// MapTwoValLookupR15 tests map two-value lookup
+func MapTwoValLookupR15() int {
+	m := map[string]int{"a": 1, "b": 2}
+	if v, ok := m["c"]; ok {
+		return v
+	}
+	return -1 // -1
+}
+
+// SliceGrowWithAppendR15 tests slice capacity growth pattern
+func SliceGrowWithAppendR15() int {
+	s := make([]int, 0)
+	for i := 0; i < 10; i++ {
+		s = append(s, i)
+	}
+	return len(s) // 10
+}
+
+// NilInterfaceMethodGuardR15 tests calling method on nil interface (guarded)
+func NilInterfaceMethodGuardR15() int {
+	type IF15 interface{ Get() int }
+	var ifc IF15
+	if ifc == nil {
+		return 0 // nil interface
+	}
+	return ifc.Get()
+}
+
+// MapWithStringKeyLenR15 tests len of map with string keys
+func MapWithStringKeyLenR15() int {
+	m := map[string]int{"a": 1, "b": 2, "c": 3}
+	return len(m) // 3
+}
+
+// SliceOfIntSumR15 tests summing int slice
+func SliceOfIntSumR15() int {
+	s := []int{1, 2, 3, 4, 5}
+	sum := 0
+	for _, v := range s {
+		sum += v
+	}
+	return sum // 15
+}
+
+// StructPointerEmbeddedR15 tests struct with embedded pointer
+func StructPointerEmbeddedR15() int {
+	d := derived14Promoted{base14Promoted: base14Promoted{X: 10}, Y: 5}
+	return d.GetX() + d.Y // 15
+}
+
+// ChannelSendRecvOrderR15 tests send then receive order
+func ChannelSendRecvOrderR15() int {
+	ch := make(chan int, 2)
+	ch <- 1
+	ch <- 2
+	return <-ch + <-ch // 3
+}
+
+// MapKeyDifferentTypesR15 tests map with interface{} keys of different types
+func MapKeyDifferentTypesR15() int {
+	m := map[interface{}]string{1: "int", "1": "string", true: "bool"}
+	return len(m[1]) + len(m["1"]) + len(m[true]) // 3+6+4 = 13
+}
+
+// MapOverwriteKeyR15 tests overwriting a map key
+func MapOverwriteKeyR15() int {
+	m := map[int]int{1: 10}
+	m[1] = 20
+	m[1] = 30
+	return m[1] // 30
+}
+
+// SliceLastElementR15 tests getting last element
+func SliceLastElementR15() int {
+	s := []int{10, 20, 30, 40}
+	return s[len(s)-1] // 40
+}
+
+// --- Overflow Wrapping Tests (bug fix verification) ---
+
+// Int8OverflowWrap tests int8 127+1 wraps to -128
+func Int8OverflowWrap() int8 {
+	var x int8 = 127
+	x++
+	return x // -128
+}
+
+// Int8UnderflowWrap tests int8 -128-1 wraps to 127
+func Int8UnderflowWrap() int8 {
+	var x int8 = -128
+	x--
+	return x // 127
+}
+
+// Int8OverflowCompare tests that overflowed int8 compares correctly
+func Int8OverflowCompare() int {
+	var x int8 = 127
+	x++
+	if x == -128 && x < 0 {
+		return 1
+	}
+	return 0 // 1
+}
+
+// Int8MultiplyOverflow tests int8 multiplication overflow
+func Int8MultiplyOverflow() int8 {
+	var x int8 = 100
+	var y int8 = 2
+	return x * y // 200 wraps to -56
+}
+
+// Int8NegateOverflow tests -(-128) wraps to -128
+func Int8NegateOverflow() int8 {
+	var x int8 = -128
+	return -x // -128
+}
+
+// Uint8OverflowWrap tests uint8 255+1 wraps to 0
+func Uint8OverflowWrap() uint8 {
+	var x uint8 = 255
+	x++
+	return x // 0
+}
+
+// Uint8UnderflowWrap tests uint8 0-1 wraps to 255
+func Uint8UnderflowWrap() uint8 {
+	var x uint8 = 0
+	x--
+	return x // 255
+}
+
+// Int16OverflowWrap tests int16 32767+1 wraps to -32768
+func Int16OverflowWrap() int16 {
+	var x int16 = 32767
+	x++
+	return x // -32768
+}
+
+// Int16MultiplyOverflow tests int16 multiplication overflow
+func Int16MultiplyOverflow() int16 {
+	var x int16 = 10000
+	var y int16 = 10
+	return x * y // 100000 wraps to -31072
+}
+
+// Uint16OverflowWrap tests uint16 65535+1 wraps to 0
+func Uint16OverflowWrap() uint16 {
+	var x uint16 = 65535
+	x++
+	return x // 0
+}
+
+// Int32OverflowWrap tests int32 max+1 wraps
+func Int32OverflowWrap() int32 {
+	var x int32 = 2147483647
+	x++
+	return x // -2147483648
+}
+
+// Uint32OverflowWrap tests uint32 max+1 wraps
+func Uint32OverflowWrap() uint32 {
+	var x uint32 = 4294967295
+	x++
+	return x // 0
+}
+
+// Int8OverflowLessThan tests comparison after int8 overflow
+func Int8OverflowLessThan() int {
+	var x int8 = 127
+	x++
+	if x < 0 {
+		return 1
+	}
+	return 0 // 1
+}
+
+// Uint8UnderflowGreaterThan tests comparison after uint8 underflow
+func Uint8UnderflowGreaterThan() int {
+	var x uint8 = 0
+	x--
+	if x > 200 {
+		return 1
+	}
+	return 0 // 1
+}
+
+// Int8OverflowInLoop tests overflow in a loop
+func Int8OverflowInLoop() int8 {
+	var x int8 = 120
+	for i := 0; i < 10; i++ {
+		x++
+	}
+	return x // 120+10=130 wraps to -126
+}
+
+// Int8AddAssignOverflow tests += overflow
+func Int8AddAssignOverflow() int8 {
+	var x int8 = 100
+	x += 50
+	return x // 150 wraps to -106
+}
+
+// Int8SubAssignOverflow tests -= underflow
+func Int8SubAssignOverflow() int8 {
+	var x int8 = -100
+	x -= 50
+	return x // -150 wraps to 106
 }

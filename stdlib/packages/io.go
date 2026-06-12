@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/external"
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
@@ -72,6 +73,10 @@ func init() {
 	pkg.AddType("WriterAt", reflect.TypeOf((*io.WriterAt)(nil)).Elem(), "")
 	pkg.AddType("WriterTo", reflect.TypeOf((*io.WriterTo)(nil)).Elem(), "")
 
+	// Interface Proxies
+	pkg.AddInterfaceProxy("ByteWriter", reflect.TypeOf((*io.ByteWriter)(nil)).Elem(), []string{"WriteByte"}, newProxy_io_ByteWriter)
+	pkg.AddInterfaceProxy("Closer", reflect.TypeOf((*io.Closer)(nil)).Elem(), []string{"Close"}, newProxy_io_Closer)
+
 	// Method DirectCalls
 	pkg.AddMethodDirectCall("LimitedReader", "Read", direct_method_io_LimitedReader_Read)
 	pkg.AddMethodDirectCall("OffsetWriter", "Seek", direct_method_io_OffsetWriter_Seek)
@@ -130,17 +135,21 @@ func direct_io_LimitReader(args []value.Value) value.Value {
 }
 
 func direct_io_MultiReader(args []value.Value) value.Value {
-	varArgs := make([]io.Reader, len(args)-0)
+	varArgs := make([]io.Reader, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].Interface().(io.Reader)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(io.Reader))
+		}
 	}
 	return value.FromInterface(io.MultiReader(varArgs...))
 }
 
 func direct_io_MultiWriter(args []value.Value) value.Value {
-	varArgs := make([]io.Writer, len(args)-0)
+	varArgs := make([]io.Writer, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].Interface().(io.Writer)
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(io.Writer))
+		}
 	}
 	return value.FromInterface(io.MultiWriter(varArgs...))
 }
@@ -284,7 +293,7 @@ func direct_method_io_PipeReader_Close(args []value.Value) value.Value {
 
 func direct_method_io_PipeReader_CloseWithError(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.PipeReader)
-	a0 := args[1].Interface().(error)
+	a0 := value.ErrorValue(args[1])
 	return value.FromInterface(recv.CloseWithError(a0))
 }
 
@@ -311,7 +320,7 @@ func direct_method_io_PipeWriter_Close(args []value.Value) value.Value {
 
 func direct_method_io_PipeWriter_CloseWithError(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.PipeWriter)
-	a0 := args[1].Interface().(error)
+	a0 := value.ErrorValue(args[1])
 	return value.FromInterface(recv.CloseWithError(a0))
 }
 
@@ -381,4 +390,36 @@ func direct_method_io_SectionReader_Seek(args []value.Value) value.Value {
 func direct_method_io_SectionReader_Size(args []value.Value) value.Value {
 	recv := args[0].Interface().(*io.SectionReader)
 	return value.MakeInt64(recv.Size())
+}
+
+type proxy_io_ByteWriter struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_io_ByteWriter(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_io_ByteWriter{call: call}, true
+}
+
+func (p *proxy_io_ByteWriter) WriteByte(a0 byte) error {
+	result, ok := p.call("WriteByte", value.FromInterface(a0))
+	if !ok {
+		return nil
+	}
+	return value.ErrorValue(result)
+}
+
+type proxy_io_Closer struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_io_Closer(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_io_Closer{call: call}, true
+}
+
+func (p *proxy_io_Closer) Close() error {
+	result, ok := p.call("Close")
+	if !ok {
+		return nil
+	}
+	return value.ErrorValue(result)
 }

@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/external"
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
@@ -42,6 +43,9 @@ func init() {
 	pkg.AddType("Unmarshaler", reflect.TypeOf((*encoding_json.Unmarshaler)(nil)).Elem(), "")
 	pkg.AddType("UnsupportedTypeError", reflect.TypeOf(encoding_json.UnsupportedTypeError{}), "")
 	pkg.AddType("UnsupportedValueError", reflect.TypeOf(encoding_json.UnsupportedValueError{}), "")
+
+	// Interface Proxies
+	pkg.AddInterfaceProxy("Unmarshaler", reflect.TypeOf((*encoding_json.Unmarshaler)(nil)).Elem(), []string{"UnmarshalJSON"}, newProxy_encoding_json_Unmarshaler)
 
 	// Method DirectCalls
 	pkg.AddMethodDirectCall("Decoder", "Buffered", direct_method_encoding_json_Decoder_Buffered)
@@ -319,4 +323,20 @@ func direct_method_encoding_json_UnsupportedTypeError_Error(args []value.Value) 
 func direct_method_encoding_json_UnsupportedValueError_Error(args []value.Value) value.Value {
 	recv := args[0].Interface().(*encoding_json.UnsupportedValueError)
 	return value.MakeString(string(recv.Error()))
+}
+
+type proxy_encoding_json_Unmarshaler struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_encoding_json_Unmarshaler(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_encoding_json_Unmarshaler{call: call}, true
+}
+
+func (p *proxy_encoding_json_Unmarshaler) UnmarshalJSON(a0 []byte) error {
+	result, ok := p.call("UnmarshalJSON", value.FromInterface(a0))
+	if !ok {
+		return nil
+	}
+	return value.ErrorValue(result)
 }

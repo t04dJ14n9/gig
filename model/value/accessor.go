@@ -1,59 +1,11 @@
-// accessor.go provides the method resolver registry and type accessors
-// (Bool, Int, Float, String, Interface, ToReflectValue).
+// accessor.go provides primitive and interface accessors for Value.
 package value
 
 import (
 	"fmt"
 	"math"
 	"reflect"
-	"sync"
 )
-
-// MethodResolverFunc is a callback for calling compiled methods on interpreted types.
-// It receives a method name and receiver value, and returns the result if found.
-type MethodResolverFunc func(methodName string, receiver Value) (Value, bool)
-
-// methodResolverRegistry is a thread-safe global registry of per-program method resolvers.
-// This allows fmt DirectCall wrappers (which lack VM context) to resolve compiled methods
-// on interpreted types. Each program registers its resolver on creation and unregisters
-// on cleanup. Using sync.Map eliminates the data race that the old single-global approach had.
-var methodResolverRegistry sync.Map // map[uintptr]MethodResolverFunc
-
-// RegisterMethodResolver registers a method resolver for a program identified by key.
-// The key should be a unique identifier per program (e.g., uintptr of program pointer).
-func RegisterMethodResolver(key uintptr, resolver MethodResolverFunc) {
-	methodResolverRegistry.Store(key, resolver)
-}
-
-// UnregisterMethodResolver removes a method resolver for the given program key.
-func UnregisterMethodResolver(key uintptr) {
-	methodResolverRegistry.Delete(key)
-}
-
-// callMethod attempts to call a compiled method on the receiver using the given resolver.
-// If resolver is nil, it falls back to searching all registered per-program resolvers.
-// Returns (result, true) if the method was found and called, or (zero, false) otherwise.
-func callMethod(resolver MethodResolverFunc, methodName string, receiver Value) (Value, bool) {
-	if resolver != nil {
-		return resolver(methodName, receiver)
-	}
-	// Fallback: try all registered resolvers (for fmt DirectCall wrappers lacking VM context)
-	var result Value
-	var found bool
-	methodResolverRegistry.Range(func(_, v any) bool {
-		if r, ok := v.(MethodResolverFunc); ok {
-			result, found = r(methodName, receiver)
-			if found {
-				return false // stop iteration
-			}
-		}
-		return true // continue
-	})
-	if found {
-		return result, true
-	}
-	return MakeNil(), false
-}
 
 // Bool returns the bool value. Panics if not KindBool.
 func (v Value) Bool() bool {
@@ -107,236 +59,130 @@ func (v Value) Complex() complex128 {
 // For numeric kinds, the returned type matches the original Go type recorded
 // by the size field (e.g. int8, int32, int64, float32, etc.).
 func (v Value) Interface() any {
+	// Keep the public router grouped by representation domain; width-sensitive
+	// scalar conversion and native payload extraction stay in focused helpers.
 	switch v.kind {
 	case KindNil:
 		return nil
+	case KindBool, KindInt, KindUint, KindFloat, KindString, KindComplex:
+		return v.interfaceScalar()
+	case KindInterface:
+		return v.interfaceInterface()
+	case KindFunc, KindBytes, KindSlice:
+		return v.interfaceNativePayload()
+	case KindReflect:
+		return interfaceReflectOrObject(v.obj)
+	case KindExternal:
+		return v.obj
+	default:
+		return interfaceReflectOrObject(v.obj)
+	}
+}
+
+func (v Value) interfaceScalar() any {
+	switch v.kind {
 	case KindBool:
 		return v.Bool()
 	case KindInt:
-		switch v.size {
-		case Size8:
-			return int8(v.num)
-		case Size16:
-			return int16(v.num)
-		case Size32:
-			return int32(v.num)
-		case Size64:
-			return v.num // int64
-		default:
-			return int(v.num) // SizePtr / Size0 → int
-		}
+		return interfaceSignedInt(v.num, v.size)
 	case KindUint:
-		switch v.size {
-		case Size8:
-			return uint8(v.num)
-		case Size16:
-			return uint16(v.num)
-		case Size32:
-			return uint32(v.num)
-		case Size64:
-			return uint64(v.num)
-		default:
-			return uint(v.num) // SizePtr / Size0 → uint
-		}
+		return interfaceUnsignedInt(uint64(v.num), v.size)
 	case KindFloat:
-		f := math.Float64frombits(uint64(v.num))
-		if v.size == Size32 {
-			return float32(f)
-		}
-		return f // float64
+		return interfaceFloat(v.num, v.size)
 	case KindString:
 		return v.obj.(string)
 	case KindComplex:
-		return v.obj.(complex128)
+		return interfaceComplex(v.obj.(complex128), v.size)
+	default:
+		return nil
+	}
+}
+
+func (v Value) interfaceNativePayload() any {
+	switch v.kind {
 	case KindFunc:
 		return v.obj
 	case KindBytes:
 		return v.obj.([]byte)
 	case KindSlice:
-		// Native int slice: convert []int64 to []int for Go-compatible return
-		if s, ok := v.obj.([]int64); ok {
-			result := make([]int, len(s))
-			for i, n := range s {
-				result[i] = int(n)
-			}
-			return result
-		}
-		return v.obj
-	case KindReflect:
-		if rv, ok := v.obj.(reflect.Value); ok {
-			return rv.Interface()
-		}
-		return v.obj
+		return interfaceSlice(v.obj)
 	default:
-		if rv, ok := v.obj.(reflect.Value); ok {
-			return rv.Interface()
-		}
-		return v.obj
+		return interfaceReflectOrObject(v.obj)
 	}
 }
 
-// ToReflectValue converts to reflect.Value.
-// toReflectInt converts Value to reflect.Value for integer types.
-func (v Value) toReflectInt(typ reflect.Type) reflect.Value {
-	var intRV reflect.Value
-	switch v.size {
+func interfaceSignedInt(num int64, size Size) any {
+	switch size {
 	case Size8:
-		intRV = reflect.ValueOf(int8(v.num))
+		return int8(num)
 	case Size16:
-		intRV = reflect.ValueOf(int16(v.num))
+		return int16(num)
 	case Size32:
-		intRV = reflect.ValueOf(int32(v.num))
+		return int32(num)
 	case Size64:
-		intRV = reflect.ValueOf(v.num) // int64
+		return num
 	default:
-		intRV = reflect.ValueOf(int(v.num)) // SizePtr / Size0 → int
+		// SizePtr and Size0 represent the interpreter's default int width.
+		return int(num)
 	}
-	if intRV.Type().ConvertibleTo(typ) {
-		return intRV.Convert(typ)
-	}
-	return intRV
 }
 
-// toReflectUint converts Value to reflect.Value for unsigned integer types.
-func (v Value) toReflectUint(typ reflect.Type) reflect.Value {
-	var uintRV reflect.Value
-	switch v.size {
+func interfaceUnsignedInt(num uint64, size Size) any {
+	switch size {
 	case Size8:
-		uintRV = reflect.ValueOf(uint8(v.num))
+		return uint8(num)
 	case Size16:
-		uintRV = reflect.ValueOf(uint16(v.num))
+		return uint16(num)
 	case Size32:
-		uintRV = reflect.ValueOf(uint32(v.num))
+		return uint32(num)
 	case Size64:
-		uintRV = reflect.ValueOf(uint64(v.num))
+		return num
 	default:
-		uintRV = reflect.ValueOf(uint(v.num)) // SizePtr / Size0 → uint
-	}
-	if uintRV.Type().ConvertibleTo(typ) {
-		return uintRV.Convert(typ)
-	}
-	return uintRV
-}
-
-// toReflectFunc converts Value to reflect.Value for function types.
-func (v Value) toReflectFunc(typ reflect.Type) reflect.Value {
-	if typ.Kind() == reflect.Func {
-		if ce, ok := v.obj.(ClosureExecutor); ok {
-			numOut := typ.NumOut()
-			outTypes := make([]reflect.Type, numOut)
-			for i := 0; i < numOut; i++ {
-				outTypes[i] = typ.Out(i)
-			}
-			fn := reflect.MakeFunc(typ, func(args []reflect.Value) []reflect.Value {
-				results := ce.Execute(args, outTypes)
-				out := make([]reflect.Value, numOut)
-				for i := 0; i < numOut; i++ {
-					if i < len(results) && results[i].IsValid() {
-						if results[i].Type().ConvertibleTo(outTypes[i]) {
-							out[i] = results[i].Convert(outTypes[i])
-						} else {
-							out[i] = results[i]
-						}
-					} else {
-						out[i] = reflect.Zero(outTypes[i])
-					}
-				}
-				return out
-			})
-			return fn
-		}
-	}
-	return reflect.ValueOf(v.obj)
-}
-
-// toReflectSlice converts Value to reflect.Value for slice types.
-func (v Value) toReflectSlice(typ reflect.Type) reflect.Value {
-	if s, ok := v.obj.([]int64); ok && typ.Kind() == reflect.Slice {
-		target := reflect.MakeSlice(typ, len(s), cap(s))
-		for i, n := range s {
-			target.Index(i).SetInt(n)
-		}
-		return target
-	}
-	if s, ok := v.obj.([]Value); ok && typ.Kind() == reflect.Slice {
-		target := reflect.MakeSlice(typ, len(s), cap(s))
-		elemType := typ.Elem()
-		for i, elem := range s {
-			target.Index(i).Set(elem.ToReflectValue(elemType))
-		}
-		return target
-	}
-	if rv, ok := v.obj.(reflect.Value); ok {
-		return rv
-	}
-	return reflect.ValueOf(v.obj)
-}
-
-// toReflectReflect handles KindReflect values with special pointer-to-function conversions.
-func (v Value) toReflectReflect(typ reflect.Type) reflect.Value {
-	if rv, ok := v.obj.(reflect.Value); ok {
-		// Handle *func(...) target type
-		if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Func {
-			if rv.Kind() == reflect.Ptr && !rv.IsNil() {
-				if vp, ok2 := rv.Interface().(*Value); ok2 {
-					funcRV := vp.ToReflectValue(typ.Elem())
-					ptr := reflect.New(typ.Elem())
-					ptr.Elem().Set(funcRV)
-					return ptr
-				}
-			}
-		}
-
-		// Handle slice conversion: []*T -> []interface{}
-		if typ.Kind() == reflect.Slice && rv.Kind() == reflect.Slice {
-			if typ.Elem().Kind() == reflect.Interface && rv.Type().Elem().Kind() != reflect.Interface {
-				return convertSliceToInterface(rv, typ)
-			}
-		}
-
-		return rv
-	}
-	return reflect.ValueOf(v.obj)
-}
-
-func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
-	switch v.kind {
-	case KindNil:
-		return reflect.Zero(typ)
-	case KindBool:
-		return reflect.ValueOf(v.Bool())
-	case KindInt:
-		return v.toReflectInt(typ)
-	case KindUint:
-		return v.toReflectUint(typ)
-	case KindFloat:
-		return reflect.ValueOf(v.Float()).Convert(typ)
-	case KindString:
-		rv := reflect.ValueOf(v.obj.(string))
-		if rv.Type() != typ {
-			rv = rv.Convert(typ)
-		}
-		return rv
-	case KindComplex:
-		return reflect.ValueOf(v.obj.(complex128))
-	case KindFunc:
-		return v.toReflectFunc(typ)
-	case KindBytes:
-		return reflect.ValueOf(v.obj.([]byte))
-	case KindSlice:
-		return v.toReflectSlice(typ)
-	case KindReflect:
-		return v.toReflectReflect(typ)
-	default:
-		if rv, ok := v.obj.(reflect.Value); ok {
-			return rv
-		}
-		return reflect.ValueOf(v.obj)
+		// SizePtr and Size0 represent the interpreter's default uint width.
+		return uint(num)
 	}
 }
 
-// ReflectValue returns the internal reflect.Value if stored.
-func (v Value) ReflectValue() (reflect.Value, bool) {
-	rv, ok := v.obj.(reflect.Value)
-	return rv, ok
+func interfaceFloat(bits int64, size Size) any {
+	f := math.Float64frombits(uint64(bits))
+	if size == Size32 {
+		return float32(f)
+	}
+	return f
+}
+
+func interfaceComplex(c complex128, size Size) any {
+	if size == Size32 {
+		return complex64(c)
+	}
+	return c
+}
+
+func (v Value) interfaceInterface() any {
+	if dyn, ok := v.InterpretedInterface(); ok {
+		return dyn.Value.Interface()
+	}
+	return interfaceReflectOrObject(v.obj)
+}
+
+func interfaceSlice(obj any) any {
+	s, ok := obj.([]int64)
+	if !ok {
+		return obj
+	}
+
+	// Native int slices are stored internally as []int64 but should return as
+	// []int so API callers observe the same type native Go would produce.
+	result := make([]int, len(s))
+	for i, n := range s {
+		result[i] = int(n)
+	}
+	return result
+}
+
+func interfaceReflectOrObject(obj any) any {
+	if rv, ok := obj.(reflect.Value); ok {
+		return rv.Interface()
+	}
+	return obj
 }

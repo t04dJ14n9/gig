@@ -12,6 +12,23 @@ import (
 	"github.com/t04dJ14n9/gig/cmd/gig/gentool"
 )
 
+type dependencyGenerator interface {
+	ParsePkgsFile(filePath string) ([]string, error)
+	PackageImport(path string, outDir string, pkgName string) error
+}
+
+type gentoolDependencyGenerator struct{}
+
+func (gentoolDependencyGenerator) ParsePkgsFile(filePath string) ([]string, error) {
+	return gentool.ParsePkgsFile(filePath)
+}
+
+func (gentoolDependencyGenerator) PackageImport(path string, outDir string, pkgName string) error {
+	return gentool.PackageImport(path, outDir, pkgName)
+}
+
+var genDeps dependencyGenerator = gentoolDependencyGenerator{}
+
 // RunGen implements the "gig gen" subcommand.
 func RunGen(fs *flag.FlagSet, args []string) error {
 	fs.Usage = func() {
@@ -36,7 +53,7 @@ func RunGen(fs *flag.FlagSet, args []string) error {
 		return fmt.Errorf("%s not found; run 'gig init -package %s' first", pkgsPath, filepath.Base(pkgDir))
 	}
 
-	importPaths, pkgName, err := parsePkgsGo(pkgsPath)
+	importPaths, pkgName, err := parsePkgsGo(pkgsPath, genDeps)
 	if err != nil {
 		return fmt.Errorf("parsing %s: %w", pkgsPath, err)
 	}
@@ -59,7 +76,7 @@ func RunGen(fs *flag.FlagSet, args []string) error {
 	var generatedCount int
 	for _, path := range importPaths {
 		fmt.Printf("importing %s\n", path)
-		if err := gentool.PackageImport(path, packagesDir, generatedPkgName); err != nil {
+		if err := genDeps.PackageImport(path, packagesDir, generatedPkgName); err != nil {
 			fmt.Printf("Error importing %s: %s\n", path, err)
 			continue
 		}
@@ -73,8 +90,8 @@ func RunGen(fs *flag.FlagSet, args []string) error {
 }
 
 // parsePkgsGo reads a pkgs.go file and extracts the package name and import paths.
-func parsePkgsGo(path string) ([]string, string, error) {
-	imports, err := gentool.ParsePkgsFile(path)
+func parsePkgsGo(path string, deps dependencyGenerator) ([]string, string, error) {
+	imports, err := deps.ParsePkgsFile(path)
 	if err != nil {
 		return nil, "", err
 	}

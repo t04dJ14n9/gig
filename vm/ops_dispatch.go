@@ -11,9 +11,25 @@ import (
 
 // executeOp executes a single bytecode instruction.
 // It routes to category-specific handlers for each opcode group.
+// Go runtime panics (nil deref, index out of range, etc.) are caught and
+// converted to VM panics so that guest code's recover() can handle them.
 // Note: hot-path opcodes (arithmetic, comparisons, stack ops, jumps, returns,
 // calls) are inlined in run.go and never reach this dispatcher.
-func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error {
+func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) (retErr error) {
+	// Catch Go runtime panics and convert them to VM panics.
+	// This allows guest code's recover() to catch errors like:
+	// - nil pointer dereference
+	// - index out of range
+	// - assignment to entry in nil map
+	// - integer division by zero
+	defer func() {
+		if r := recover(); r != nil {
+			v.panicking = true
+			v.panicVal = value.FromInterface(r)
+			retErr = nil
+		}
+	}()
+
 	switch op {
 	// Non-hot-path arithmetic & bitwise
 	case bytecode.OpDiv, bytecode.OpMod,
@@ -26,11 +42,11 @@ func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error {
 	case bytecode.OpGlobal, bytecode.OpSetGlobal,
 		bytecode.OpFree, bytecode.OpSetFree,
 		bytecode.OpField, bytecode.OpSetField, bytecode.OpAddr, bytecode.OpFieldAddr, bytecode.OpIndexAddr,
-		bytecode.OpDeref, bytecode.OpSetDeref, bytecode.OpNew, bytecode.OpMake:
+		bytecode.OpDeref, bytecode.OpSetDeref, bytecode.OpNew:
 		return v.executeMemory(op, frame)
 
 	// Closures & goroutines
-	case bytecode.OpClosure, bytecode.OpGoCall, bytecode.OpGoCallIndirect,
+	case bytecode.OpClosure, bytecode.OpGoCall, bytecode.OpGoCallExternal, bytecode.OpGoCallIndirect,
 		bytecode.OpPack, bytecode.OpUnpack:
 		return v.executeCall(op, frame)
 
@@ -43,7 +59,8 @@ func (v *vm) executeOp(op bytecode.OpCode, frame *Frame) error {
 		return v.executeContainer(op, frame)
 
 	// Type conversions
-	case bytecode.OpAssert, bytecode.OpConvert, bytecode.OpChangeType:
+	case bytecode.OpAssert, bytecode.OpConvert, bytecode.OpChangeType,
+		bytecode.OpMakeInterface:
 		return v.executeConvert(op, frame)
 
 	// Channels, defer, panic, print, halt
@@ -61,6 +78,18 @@ func toInt64(v value.Value) int64 {
 		return int64(v.Uint())
 	case value.KindFloat:
 		return int64(v.Float())
+	case value.KindReflect:
+		if rv, ok := v.ReflectValue(); ok {
+			switch rv.Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				return rv.Int()
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+				return int64(rv.Uint())
+			case reflect.Float32, reflect.Float64:
+				return int64(rv.Float())
+			}
+		}
+		return v.Int()
 	default:
 		return v.Int()
 	}
@@ -75,6 +104,18 @@ func toUint64(v value.Value) uint64 {
 		return v.Uint()
 	case value.KindFloat:
 		return uint64(v.Float())
+	case value.KindReflect:
+		if rv, ok := v.ReflectValue(); ok {
+			switch rv.Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				return uint64(rv.Int())
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+				return rv.Uint()
+			case reflect.Float32, reflect.Float64:
+				return uint64(rv.Float())
+			}
+		}
+		return v.Uint()
 	default:
 		return v.Uint()
 	}
@@ -89,88 +130,33 @@ func toFloat64(v value.Value) float64 {
 		return float64(v.Uint())
 	case value.KindFloat:
 		return v.Float()
+	case value.KindReflect:
+		if rv, ok := v.ReflectValue(); ok {
+			switch rv.Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				return float64(rv.Int())
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+				return float64(rv.Uint())
+			case reflect.Float32, reflect.Float64:
+				return rv.Float()
+			}
+		}
+		return v.Float()
 	default:
 		return v.Float()
 	}
 }
 
-// kindMatchesType checks whether a value.Kind matches a go/types.Type.
+// kindMatchesType checks whether a value.Kind + value.Size matches a go/types.Type.
 // This is used by OpAssert (type switch) to correctly match primitive values
-// against target types, rather than blindly assuming success.
-func kindMatchesType(k value.Kind, t types.Type) bool {
-	// Unwrap named types to get the underlying type
+// against target types. The size parameter enables exact type matching
+// (e.g., int vs int64, complex64 vs complex128).
+func kindMatchesType(k value.Kind, sz value.Size, t types.Type) bool {
 	t = t.Underlying()
-
-	switch k {
-	case value.KindInt:
-		if basic, ok := t.(*types.Basic); ok {
-			switch basic.Kind() {
-			case types.Int, types.Int8, types.Int16, types.Int32, types.Int64:
-				return true
-			}
-		}
-		return false
-	case value.KindUint:
-		if basic, ok := t.(*types.Basic); ok {
-			switch basic.Kind() {
-			case types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64, types.Uintptr:
-				return true
-			}
-		}
-		return false
-	case value.KindFloat:
-		if basic, ok := t.(*types.Basic); ok {
-			switch basic.Kind() {
-			case types.Float32, types.Float64:
-				return true
-			}
-		}
-		return false
-	case value.KindBool:
-		if basic, ok := t.(*types.Basic); ok {
-			return basic.Kind() == types.Bool
-		}
-		return false
-	case value.KindString:
-		if basic, ok := t.(*types.Basic); ok {
-			return basic.Kind() == types.String
-		}
-		return false
-	case value.KindComplex:
-		if basic, ok := t.(*types.Basic); ok {
-			switch basic.Kind() {
-			case types.Complex64, types.Complex128:
-				return true
-			}
-		}
-		return false
-	case value.KindSlice:
-		_, ok := t.(*types.Slice)
-		return ok
-	case value.KindMap:
-		_, ok := t.(*types.Map)
-		return ok
-	case value.KindFunc:
-		_, ok := t.(*types.Signature)
-		return ok
-	case value.KindBytes:
-		// []byte is a slice of uint8
-		if s, ok := t.(*types.Slice); ok {
-			if basic, ok2 := s.Elem().(*types.Basic); ok2 {
-				return basic.Kind() == types.Uint8 || basic.Kind() == types.Byte
-			}
-		}
-		return false
-	case value.KindNil:
-		return false
-	case value.KindInterface:
-		_, ok := t.(*types.Interface)
-		return ok
-	default:
-		// For KindReflect, KindPointer, KindStruct, etc., fall through to true
-		// (these should normally be handled by the reflect path above).
-		return true
+	if basic, ok := t.(*types.Basic); ok {
+		return basicKindMatchesValue(k, sz, basic.Kind())
 	}
+	return compositeKindMatchesValue(k, t)
 }
 
 // sameReflectKindFamily checks whether two reflect.Types belong to the same
@@ -185,17 +171,49 @@ func kindMatchesType(k value.Kind, t types.Type) bool {
 //   - Floats: float32, float64
 //   - Complex: complex64, complex128
 func sameReflectKindFamily(a, b reflect.Type) bool {
-	ak, bk := a.Kind(), b.Kind()
+	family := reflectNumericFamily(a.Kind())
+	return family != reflectFamilyNone && family == reflectNumericFamily(b.Kind())
+}
+
+type reflectKindFamily uint8
+
+// reflectKindFamily gives sameReflectKindFamily a stable vocabulary: two
+// reflect kinds match only when both classify into the same non-empty family.
+const (
+	reflectFamilyNone reflectKindFamily = iota
+	reflectFamilySignedInt
+	reflectFamilyUnsignedInt
+	reflectFamilyFloat
+	reflectFamilyComplex
+)
+
+func reflectNumericFamily(k reflect.Kind) reflectKindFamily {
 	switch {
-	case (ak >= reflect.Int && ak <= reflect.Int64) && (bk >= reflect.Int && bk <= reflect.Int64):
-		return true
-	case (ak >= reflect.Uint && ak <= reflect.Uintptr) && (bk >= reflect.Uint && bk <= reflect.Uintptr):
-		return true
-	case (ak == reflect.Float32 || ak == reflect.Float64) && (bk == reflect.Float32 || bk == reflect.Float64):
-		return true
-	case (ak == reflect.Complex64 || ak == reflect.Complex128) && (bk == reflect.Complex64 || bk == reflect.Complex128):
-		return true
+	case isSignedReflectKind(k):
+		return reflectFamilySignedInt
+	case isUnsignedReflectKind(k):
+		return reflectFamilyUnsignedInt
+	case isFloatReflectKind(k):
+		return reflectFamilyFloat
+	case isComplexReflectKind(k):
+		return reflectFamilyComplex
 	default:
-		return false
+		return reflectFamilyNone
 	}
+}
+
+func isSignedReflectKind(k reflect.Kind) bool {
+	return k >= reflect.Int && k <= reflect.Int64
+}
+
+func isUnsignedReflectKind(k reflect.Kind) bool {
+	return k >= reflect.Uint && k <= reflect.Uintptr
+}
+
+func isFloatReflectKind(k reflect.Kind) bool {
+	return k == reflect.Float32 || k == reflect.Float64
+}
+
+func isComplexReflectKind(k reflect.Kind) bool {
+	return k == reflect.Complex64 || k == reflect.Complex128
 }

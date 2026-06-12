@@ -7,16 +7,16 @@ import (
 	// encoding
 	_ "encoding/base64"
 	_ "encoding/binary"
-	
+
 	// archive
 	_ "archive/tar"
 	_ "archive/zip"
-	
+
 	// text
-	_ "text/template"
-	_ "text/tabwriter"
 	_ "text/scanner"
-	
+	_ "text/tabwriter"
+	_ "text/template"
+
 	// html (for template)
 	_ "html/template"
 )

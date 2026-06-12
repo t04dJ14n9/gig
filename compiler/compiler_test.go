@@ -48,9 +48,9 @@ func TestIsIntType(t *testing.T) {
 	}{
 		{"nil", nil, false},
 		{"int", types.Typ[types.Int], true},
-		{"int8", types.Typ[types.Int8], true},
-		{"int16", types.Typ[types.Int16], true},
-		{"int32", types.Typ[types.Int32], true},
+		{"int8", types.Typ[types.Int8], false},
+		{"int16", types.Typ[types.Int16], false},
+		{"int32", types.Typ[types.Int32], false},
 		{"int64", types.Typ[types.Int64], true},
 		{"uint", types.Typ[types.Uint], false},
 		{"uint8", types.Typ[types.Uint8], false},
@@ -492,7 +492,7 @@ func TestSymbolTableFreeVars(t *testing.T) {
 
 func TestNewCompilerFields(t *testing.T) {
 	lookup := &mockLookup{}
-	c := NewCompiler(lookup).(*compiler)
+	c := NewCompiler(lookup, false).(*compiler)
 
 	if c.lookup != lookup {
 		t.Error("compiler.lookup != lookup")
@@ -519,7 +519,7 @@ func TestNewCompilerFields(t *testing.T) {
 
 func TestCompilerInterfaceContract(t *testing.T) {
 	lookup := &mockLookup{}
-	c := NewCompiler(lookup)
+	c := NewCompiler(lookup, false)
 
 	defer func() {
 		if r := recover(); r == nil {
@@ -551,6 +551,7 @@ func (m *mockLookup) LookupExternalVar(pkgPath, varName string) (ptr any, ok boo
 func (m *mockLookup) LookupExternalType(t types.Type) (reflect.Type, bool) {
 	return nil, false
 }
+
 func (m *mockLookup) LookupExternalTypeByName(pkgPath, typeName string) (reflect.Type, bool) {
 	return nil, false
 }
@@ -676,7 +677,7 @@ func TestSymbolTableLocalLookupConsistency(t *testing.T) {
 
 func TestNewCompilerWithNilLookup(t *testing.T) {
 	// Should not panic
-	c := NewCompiler(nil)
+	c := NewCompiler(nil, false)
 	if c == nil {
 		t.Fatal("NewCompiler(nil) returned nil")
 	}

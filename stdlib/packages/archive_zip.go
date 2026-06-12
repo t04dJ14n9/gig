@@ -135,7 +135,7 @@ func direct_method_archive_zip_FileHeader_ModTime(args []value.Value) value.Valu
 
 func direct_method_archive_zip_FileHeader_Mode(args []value.Value) value.Value {
 	recv := args[0].Interface().(*archive_zip.FileHeader)
-	return value.MakeUint(uint64(uint32(recv.Mode())))
+	return value.MakeUint32(uint32(recv.Mode()))
 }
 
 func direct_method_archive_zip_FileHeader_SetModTime(args []value.Value) value.Value {

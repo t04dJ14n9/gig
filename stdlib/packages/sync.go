@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/external"
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
@@ -25,6 +26,9 @@ func init() {
 	pkg.AddType("Pool", reflect.TypeOf(sync.Pool{}), "")
 	pkg.AddType("RWMutex", reflect.TypeOf(sync.RWMutex{}), "")
 	pkg.AddType("WaitGroup", reflect.TypeOf(sync.WaitGroup{}), "")
+
+	// Interface Proxies
+	pkg.AddInterfaceProxy("Locker", reflect.TypeOf((*sync.Locker)(nil)).Elem(), []string{"Lock", "Unlock"}, newProxy_sync_Locker)
 
 	// Method DirectCalls
 	pkg.AddMethodDirectCall("Cond", "Broadcast", direct_method_sync_Cond_Broadcast)
@@ -252,4 +256,20 @@ func direct_method_sync_WaitGroup_Wait(args []value.Value) value.Value {
 	recv := args[0].Interface().(*sync.WaitGroup)
 	recv.Wait()
 	return value.MakeNil()
+}
+
+type proxy_sync_Locker struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_sync_Locker(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_sync_Locker{call: call}, true
+}
+
+func (p *proxy_sync_Locker) Lock() {
+	_, _ = p.call("Lock")
+}
+
+func (p *proxy_sync_Locker) Unlock() {
+	_, _ = p.call("Unlock")
 }

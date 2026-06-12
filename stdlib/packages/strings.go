@@ -262,9 +262,11 @@ func direct_strings_NewReader(args []value.Value) value.Value {
 }
 
 func direct_strings_NewReplacer(args []value.Value) value.Value {
-	varArgs := make([]string, len(args)-0)
+	varArgs := make([]string, 0, len(args)-0)
 	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].String()
+		if v := args[i].Interface(); v != nil {
+			varArgs = append(varArgs, v.(string))
+		}
 	}
 	return value.FromInterface(strings.NewReplacer(varArgs...))
 }
@@ -518,13 +520,13 @@ func direct_method_strings_Reader_ReadAt(args []value.Value) value.Value {
 func direct_method_strings_Reader_ReadByte(args []value.Value) value.Value {
 	recv := args[0].Interface().(*strings.Reader)
 	r0, r1 := recv.ReadByte()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.FromInterface(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeUint8(r0), value.FromInterface(r1)})
 }
 
 func direct_method_strings_Reader_ReadRune(args []value.Value) value.Value {
 	recv := args[0].Interface().(*strings.Reader)
 	r0, r1, r2 := recv.ReadRune()
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1)), value.FromInterface(r2)})
+	return value.MakeValueSlice([]value.Value{value.MakeInt32(r0), value.MakeInt(int64(r1)), value.FromInterface(r2)})
 }
 
 func direct_method_strings_Reader_Reset(args []value.Value) value.Value {

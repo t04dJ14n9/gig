@@ -31,7 +31,7 @@ func direct_hash_adler32_Checksum(args []value.Value) value.Value {
 		}
 		return v.([]byte)
 	}()
-	return value.MakeUint(uint64(hash_adler32.Checksum(a0)))
+	return value.MakeUint32(hash_adler32.Checksum(a0))
 }
 
 func direct_hash_adler32_New(args []value.Value) value.Value {

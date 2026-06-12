@@ -231,12 +231,12 @@ func direct_math_FMA(args []value.Value) value.Value {
 
 func direct_math_Float32bits(args []value.Value) value.Value {
 	a0 := float32(args[0].Float())
-	return value.MakeUint(uint64(math.Float32bits(a0)))
+	return value.MakeUint32(math.Float32bits(a0))
 }
 
 func direct_math_Float32frombits(args []value.Value) value.Value {
 	a0 := uint32(args[0].Uint())
-	return value.MakeFloat(float64(math.Float32frombits(a0)))
+	return value.MakeFloat32(math.Float32frombits(a0))
 }
 
 func direct_math_Float64bits(args []value.Value) value.Value {
@@ -382,7 +382,7 @@ func direct_math_Nextafter(args []value.Value) value.Value {
 func direct_math_Nextafter32(args []value.Value) value.Value {
 	a0 := float32(args[0].Float())
 	a1 := float32(args[1].Float())
-	return value.MakeFloat(float64(math.Nextafter32(a0, a1)))
+	return value.MakeFloat32(math.Nextafter32(a0, a1))
 }
 
 func direct_math_Pow(args []value.Value) value.Value {

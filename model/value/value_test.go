@@ -1,6 +1,7 @@
 package value
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"testing"
@@ -85,6 +86,40 @@ func TestMakeFromReflect(t *testing.T) {
 	}
 }
 
+func TestMakeFromReflectPrimitiveRoundTrip(t *testing.T) {
+	tests := []struct {
+		in   any
+		want any
+	}{
+		{true, true},
+		{int(42), int(42)},
+		{int8(42), int8(42)},
+		{int16(42), int16(42)},
+		{int32(42), int32(42)},
+		{int64(42), int64(42)},
+		{uint(42), uint(42)},
+		{uint8(42), uint8(42)},
+		{uint16(42), uint16(42)},
+		{uint32(42), uint32(42)},
+		{uint64(42), uint64(42)},
+		{uintptr(42), uint64(42)},
+		{float32(3.25), float32(3.25)},
+		{float64(3.25), float64(3.25)},
+		{complex64(complex(1, 2)), complex64(complex(1, 2))},
+		{complex128(complex(1, 2)), complex128(complex(1, 2))},
+		{"hi", "hi"},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%T", tt.in), func(t *testing.T) {
+			got := MakeFromReflect(reflect.ValueOf(tt.in)).Interface()
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("MakeFromReflect(%T).Interface() = %#v (%T), want %#v (%T)", tt.in, got, got, tt.want, tt.want)
+			}
+		})
+	}
+}
+
 func TestFromInterface(t *testing.T) {
 	tests := []struct {
 		name string
@@ -105,6 +140,71 @@ func TestFromInterface(t *testing.T) {
 				t.Errorf("FromInterface(%v).Kind() = %d, want %d", tt.in, v.Kind(), tt.kind)
 			}
 		})
+	}
+}
+
+type externalPointerObject struct {
+	n int
+}
+
+var fromInterfaceSink Value
+
+func TestFromInterfaceExternalPointerUsesExternalKind(t *testing.T) {
+	obj := &externalPointerObject{n: 7}
+
+	v := FromInterface(obj)
+
+	if v.Kind() != KindExternal {
+		t.Fatalf("FromInterface(%T).Kind() = %s, want %s", obj, v.Kind(), KindExternal)
+	}
+	if got := v.Interface(); got != obj {
+		t.Fatalf("Interface() = %p, want original object %p", got, obj)
+	}
+	if _, ok := v.RawObj().(reflect.Value); ok {
+		t.Fatal("external pointer stored reflect.Value, want raw object")
+	}
+	rv, ok := v.ReflectValue()
+	if !ok {
+		t.Fatal("ReflectValue() failed for external pointer")
+	}
+	if got := rv.Interface(); got != obj {
+		t.Fatalf("ReflectValue().Interface() = %p, want original object %p", got, obj)
+	}
+}
+
+func TestFromInterfaceExternalPointerDoesNotAllocate(t *testing.T) {
+	obj := &externalPointerObject{n: 7}
+
+	allocs := testing.AllocsPerRun(1000, func() {
+		fromInterfaceSink = FromInterface(obj)
+	})
+
+	if allocs != 0 {
+		t.Fatalf("FromInterface(external pointer) allocations = %.0f, want 0", allocs)
+	}
+}
+
+func TestExternalPointerEqualityUsesPointerIdentity(t *testing.T) {
+	a := &externalPointerObject{n: 7}
+	b := &externalPointerObject{n: 7}
+
+	if !FromInterface(a).Equal(FromInterface(a)) {
+		t.Fatal("same external pointer should be equal")
+	}
+	if FromInterface(a).Equal(FromInterface(b)) {
+		t.Fatal("distinct external pointers with equal contents should not be equal")
+	}
+}
+
+func TestExternalPointerEqualityMatchesReflectInterfacePayload(t *testing.T) {
+	obj := &externalPointerObject{n: 7}
+	var iface any = obj
+
+	reflectedIface := MakeFromReflect(reflect.ValueOf(&iface).Elem())
+	external := FromInterface(obj)
+
+	if !reflectedIface.Equal(external) {
+		t.Fatal("reflect-wrapped interface payload should equal same external pointer")
 	}
 }
 
@@ -212,6 +312,27 @@ func TestEqual(t *testing.T) {
 	}
 }
 
+func TestEqualDistinguishesNumericRuntimeTypes(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b Value
+	}{
+		{"int and int32", MakeInt(42), MakeInt32(42)},
+		{"int8 and int16", MakeInt8(1), MakeInt16(1)},
+		{"uint and uint32", MakeUint(42), MakeUint32(42)},
+		{"float32 and float64", MakeFloat32(1), MakeFloat(1)},
+		{"complex64 and complex128", MakeComplex64(1, 2), MakeComplex(1, 2)},
+	}
+	for _, tt := range tests {
+		if tt.a.Equal(tt.b) {
+			t.Fatalf("%s: Equal returned true for distinct runtime numeric types", tt.name)
+		}
+		if tt.b.Equal(tt.a) {
+			t.Fatalf("%s: reverse Equal returned true for distinct runtime numeric types", tt.name)
+		}
+	}
+}
+
 func TestCmp(t *testing.T) {
 	if MakeInt(1).Cmp(MakeInt(2)) >= 0 {
 		t.Error("1 should be < 2")
@@ -273,6 +394,8 @@ func TestInterface(t *testing.T) {
 		{MakeUint64(8), uint64(8)},
 		{MakeFloat(1.5), 1.5},
 		{MakeFloat32(1.5), float32(1.5)},
+		{MakeComplex(1, 2), complex128(complex(1, 2))},
+		{MakeComplex64(1, 2), complex64(complex(1, 2))},
 		{MakeString("s"), "s"},
 	}
 	for _, tt := range tests {
@@ -281,6 +404,42 @@ func TestInterface(t *testing.T) {
 			t.Errorf("Interface() = %v (%T), want %v (%T)", got, got, tt.want, tt.want)
 		}
 	}
+}
+
+func TestInterfaceNonScalarPayloads(t *testing.T) {
+	fn := func() string { return "ok" }
+	tests := []struct {
+		name string
+		v    Value
+		want any
+	}{
+		{"func", Value{kind: KindFunc, obj: fn}, fn},
+		{"bytes", MakeBytes([]byte("ab")), []byte("ab")},
+		{"native int slice", MakeIntSlice([]int64{1, 2}), []int{1, 2}},
+		{"non-native slice payload", Value{kind: KindSlice, obj: []string{"a"}}, []string{"a"}},
+		{"reflected payload", Value{kind: KindReflect, obj: reflect.ValueOf("rv")}, "rv"},
+		{"interpreted interface", Value{kind: KindInterface, obj: &InterpretedInterfaceValue{Value: MakeInt8(9)}}, int8(9)},
+		{"reflected interface payload", Value{kind: KindInterface, obj: reflect.ValueOf("iface")}, "iface"},
+		{"default reflected payload", Value{kind: KindArray, obj: reflect.ValueOf([2]int{3, 4})}, [2]int{3, 4}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.v.Interface()
+			if !interfaceResultEqual(got, tt.want) {
+				t.Fatalf("Interface() = %#v (%T), want %#v (%T)", got, got, tt.want, tt.want)
+			}
+		})
+	}
+}
+
+func interfaceResultEqual(got, want any) bool {
+	gotRV := reflect.ValueOf(got)
+	wantRV := reflect.ValueOf(want)
+	if gotRV.Kind() == reflect.Func || wantRV.Kind() == reflect.Func {
+		return gotRV.Kind() == wantRV.Kind() && gotRV.Pointer() == wantRV.Pointer()
+	}
+	return reflect.DeepEqual(got, want)
 }
 
 // ---------------------------------------------------------------------------
@@ -341,6 +500,7 @@ func TestFromInterfaceRoundTrip(t *testing.T) {
 		in   any
 		want any
 	}{
+		{true, true},
 		{int(42), int(42)},
 		{int8(42), int8(42)},
 		{int16(42), int16(42)},
@@ -353,6 +513,9 @@ func TestFromInterfaceRoundTrip(t *testing.T) {
 		{uint64(42), uint64(42)},
 		{float32(3.14), float32(3.14)},
 		{float64(3.14), float64(3.14)},
+		{complex64(complex(1, 2)), complex64(complex(1, 2))},
+		{complex128(complex(1, 2)), complex128(complex(1, 2))},
+		{"hi", "hi"},
 	}
 	for _, tt := range tests {
 		v := FromInterface(tt.in)

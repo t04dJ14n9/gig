@@ -7,6 +7,8 @@ require (
 	github.com/peterh/liner v1.2.2
 )
 
+replace github.com/t04dJ14n9/gig => ../..
+
 require (
 	github.com/mattn/go-runewidth v0.0.3 // indirect
 	golang.org/x/sys v0.30.0 // indirect

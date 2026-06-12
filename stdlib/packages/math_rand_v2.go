@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/external"
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
@@ -42,6 +43,9 @@ func init() {
 	pkg.AddType("Rand", reflect.TypeOf(math_rand_v2.Rand{}), "")
 	pkg.AddType("Source", reflect.TypeOf((*math_rand_v2.Source)(nil)).Elem(), "")
 	pkg.AddType("Zipf", reflect.TypeOf(math_rand_v2.Zipf{}), "")
+
+	// Interface Proxies
+	pkg.AddInterfaceProxy("Source", reflect.TypeOf((*math_rand_v2.Source)(nil)).Elem(), []string{"Uint64"}, newProxy_math_rand_v2_Source)
 
 	// Method DirectCalls
 	pkg.AddMethodDirectCall("ChaCha8", "MarshalBinary", direct_method_math_rand_v2_ChaCha8_MarshalBinary)
@@ -80,7 +84,7 @@ func direct_math_rand_v2_ExpFloat64(args []value.Value) value.Value {
 }
 
 func direct_math_rand_v2_Float32(args []value.Value) value.Value {
-	return value.MakeFloat(float64(math_rand_v2.Float32()))
+	return value.MakeFloat32(math_rand_v2.Float32())
 }
 
 func direct_math_rand_v2_Float64(args []value.Value) value.Value {
@@ -92,12 +96,12 @@ func direct_math_rand_v2_Int(args []value.Value) value.Value {
 }
 
 func direct_math_rand_v2_Int32(args []value.Value) value.Value {
-	return value.MakeInt(int64(math_rand_v2.Int32()))
+	return value.MakeInt32(math_rand_v2.Int32())
 }
 
 func direct_math_rand_v2_Int32N(args []value.Value) value.Value {
 	a0 := int32(args[0].Int())
-	return value.MakeInt(int64(math_rand_v2.Int32N(a0)))
+	return value.MakeInt32(math_rand_v2.Int32N(a0))
 }
 
 func direct_math_rand_v2_Int64(args []value.Value) value.Value {
@@ -159,12 +163,12 @@ func direct_math_rand_v2_Uint(args []value.Value) value.Value {
 }
 
 func direct_math_rand_v2_Uint32(args []value.Value) value.Value {
-	return value.MakeUint(uint64(math_rand_v2.Uint32()))
+	return value.MakeUint32(math_rand_v2.Uint32())
 }
 
 func direct_math_rand_v2_Uint32N(args []value.Value) value.Value {
 	a0 := uint32(args[0].Uint())
-	return value.MakeUint(uint64(math_rand_v2.Uint32N(a0)))
+	return value.MakeUint32(math_rand_v2.Uint32N(a0))
 }
 
 func direct_math_rand_v2_Uint64(args []value.Value) value.Value {
@@ -271,7 +275,7 @@ func direct_method_math_rand_v2_Rand_ExpFloat64(args []value.Value) value.Value 
 
 func direct_method_math_rand_v2_Rand_Float32(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.Rand)
-	return value.MakeFloat(float64(recv.Float32()))
+	return value.MakeFloat32(recv.Float32())
 }
 
 func direct_method_math_rand_v2_Rand_Float64(args []value.Value) value.Value {
@@ -286,13 +290,13 @@ func direct_method_math_rand_v2_Rand_Int(args []value.Value) value.Value {
 
 func direct_method_math_rand_v2_Rand_Int32(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.Rand)
-	return value.MakeInt(int64(recv.Int32()))
+	return value.MakeInt32(recv.Int32())
 }
 
 func direct_method_math_rand_v2_Rand_Int32N(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.Rand)
 	a0 := int32(args[1].Int())
-	return value.MakeInt(int64(recv.Int32N(a0)))
+	return value.MakeInt32(recv.Int32N(a0))
 }
 
 func direct_method_math_rand_v2_Rand_Int64(args []value.Value) value.Value {
@@ -338,13 +342,13 @@ func direct_method_math_rand_v2_Rand_Uint(args []value.Value) value.Value {
 
 func direct_method_math_rand_v2_Rand_Uint32(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.Rand)
-	return value.MakeUint(uint64(recv.Uint32()))
+	return value.MakeUint32(recv.Uint32())
 }
 
 func direct_method_math_rand_v2_Rand_Uint32N(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.Rand)
 	a0 := uint32(args[1].Uint())
-	return value.MakeUint(uint64(recv.Uint32N(a0)))
+	return value.MakeUint32(recv.Uint32N(a0))
 }
 
 func direct_method_math_rand_v2_Rand_Uint64(args []value.Value) value.Value {
@@ -367,4 +371,20 @@ func direct_method_math_rand_v2_Rand_UintN(args []value.Value) value.Value {
 func direct_method_math_rand_v2_Zipf_Uint64(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_rand_v2.Zipf)
 	return value.MakeUint64(recv.Uint64())
+}
+
+type proxy_math_rand_v2_Source struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_math_rand_v2_Source(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_math_rand_v2_Source{call: call}, true
+}
+
+func (p *proxy_math_rand_v2_Source) Uint64() uint64 {
+	result, ok := p.call("Uint64")
+	if !ok {
+		return 0
+	}
+	return result.Uint()
 }

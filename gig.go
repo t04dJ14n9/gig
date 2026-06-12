@@ -66,9 +66,10 @@ var ErrTimeout = context.DeadlineExceeded
 
 // buildConfig holds internal configuration parsed from BuildOption values.
 type buildConfig struct {
-	registry        importer.PackageRegistry
-	statefulGlobals bool
-	allowPanic      bool
+	registry            importer.PackageRegistry
+	statefulGlobals     bool
+	allowPanic          bool
+	allowUnsafeTypePass bool
 }
 
 // BuildOption configures the behaviour of Build.
@@ -106,11 +107,27 @@ func WithAllowPanic() BuildOption {
 	}
 }
 
+// WithAllowUnsafeTypePass disables the compile-time check that rejects
+// user-defined types being passed to third-party library functions.
+//
+// By default, gig rejects custom types (structs, interfaces, named types
+// defined in the script) from being passed to non-stdlib external functions,
+// because Go's reflect.StructOf cannot attach methods to synthesized types.
+// Third-party libraries using reflection will see incorrect type information.
+//
+// Enable this option only if you understand the reflection limitations and
+// your third-party libraries do not inspect type identity or method sets.
+func WithAllowUnsafeTypePass() BuildOption {
+	return func(c *buildConfig) {
+		c.allowUnsafeTypePass = true
+	}
+}
+
 // Program represents a compiled Go program ready for execution.
 // It delegates execution to a runner.Runner for VM pool management and global state handling.
 type Program struct {
-	runner *runner.Runner // execution orchestration (VM pool, stateful globals)
-	ssaPkg *ssa.Package   // SSA package for debugging/inspection
+	runner runner.ProgramRunner // execution orchestration (VM pool, stateful globals)
+	ssaPkg *ssa.Package         // SSA package for debugging/inspection
 }
 
 // InternalProgram exposes the compiled bytecode program for testing/debugging.
@@ -160,6 +177,9 @@ func Build(sourceCode string, opts ...BuildOption) (*Program, error) {
 	var compilerOpts []compiler.BuildOption
 	if cfg.allowPanic {
 		compilerOpts = append(compilerOpts, compiler.WithAllowPanic())
+	}
+	if cfg.allowUnsafeTypePass {
+		compilerOpts = append(compilerOpts, compiler.WithAllowUnsafeTypePass())
 	}
 	result, err := compiler.Build(sourceCode, cfg.registry, compilerOpts...)
 	if err != nil {

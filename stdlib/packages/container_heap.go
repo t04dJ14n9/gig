@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/external"
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
@@ -21,6 +22,9 @@ func init() {
 
 	// Types
 	pkg.AddType("Interface", reflect.TypeOf((*container_heap.Interface)(nil)).Elem(), "")
+
+	// Interface Proxies
+	pkg.AddInterfaceProxy("Interface", reflect.TypeOf((*container_heap.Interface)(nil)).Elem(), []string{"Len", "Less", "Pop", "Push", "Swap"}, newProxy_container_heap_Interface)
 
 }
 
@@ -53,4 +57,44 @@ func direct_container_heap_Remove(args []value.Value) value.Value {
 	a0 := args[0].Interface().(container_heap.Interface)
 	a1 := int(args[1].Int())
 	return value.FromInterface(container_heap.Remove(a0, a1))
+}
+
+type proxy_container_heap_Interface struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_container_heap_Interface(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_container_heap_Interface{call: call}, true
+}
+
+func (p *proxy_container_heap_Interface) Len() int {
+	result, ok := p.call("Len")
+	if !ok {
+		return 0
+	}
+	return int(result.Int())
+}
+
+func (p *proxy_container_heap_Interface) Less(a0 int, a1 int) bool {
+	result, ok := p.call("Less", value.FromInterface(a0), value.FromInterface(a1))
+	if !ok {
+		return false
+	}
+	return result.Bool()
+}
+
+func (p *proxy_container_heap_Interface) Pop() any {
+	result, ok := p.call("Pop")
+	if !ok {
+		return nil
+	}
+	return result.Interface()
+}
+
+func (p *proxy_container_heap_Interface) Push(a0 any) {
+	_, _ = p.call("Push", value.FromInterface(a0))
+}
+
+func (p *proxy_container_heap_Interface) Swap(a0 int, a1 int) {
+	_, _ = p.call("Swap", value.FromInterface(a0), value.FromInterface(a1))
 }

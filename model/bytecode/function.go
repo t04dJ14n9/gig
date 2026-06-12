@@ -1,5 +1,7 @@
 package bytecode
 
+import "go/types"
+
 // CompiledFunction represents a function compiled to bytecode.
 // It contains the bytecode instructions, local variable count, and metadata.
 type CompiledFunction struct {
@@ -15,6 +17,15 @@ type CompiledFunction struct {
 
 	// NumParams is the number of function parameters.
 	NumParams int
+
+	// ParamTypes holds the declared parameter types in local-slot order.
+	ParamTypes []types.Type
+
+	// IsVariadic indicates that the final parameter is a variadic slice.
+	IsVariadic bool
+
+	// VariadicParamType is the final parameter slice type for variadic functions.
+	VariadicParamType types.Type
 
 	// NumFreeVars is the number of free variables (for closures).
 	NumFreeVars int
@@ -36,6 +47,9 @@ type CompiledFunction struct {
 
 	// HasReceiver indicates this function is a method (has a receiver parameter).
 	HasReceiver bool
+
+	// ReceiverIsPointer indicates this method's receiver is a pointer type.
+	ReceiverIsPointer bool
 
 	// ResultAllocSlots holds the local slot indices of Alloc instructions that
 	// correspond to named return values or variables captured by defer closures

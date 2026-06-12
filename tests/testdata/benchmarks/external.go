@@ -3,6 +3,7 @@ package benchmarks
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"sort"
 	"strings"
 )
@@ -34,6 +35,25 @@ func SortInts() int {
 	}
 	sort.Ints(s)
 	return s[0] + s[99]
+}
+
+func StringsBuilder() int {
+	var sb strings.Builder
+	for j := 0; j < 100; j++ {
+		sb.WriteString("hello")
+		sb.WriteString("world")
+	}
+	return sb.Len()
+}
+
+func MathBig() int {
+	a := big.NewInt(1)
+	bv := big.NewInt(1)
+	for j := 0; j < 100; j++ {
+		a.Add(a, bv)
+		bv.Sub(a, bv)
+	}
+	return int(a.Int64() % 1000)
 }
 
 type Data struct {

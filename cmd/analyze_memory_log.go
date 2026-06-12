@@ -287,7 +287,7 @@ func plotLine(samples []MemorySample, getValue func(MemorySample) float64, width
 	}
 
 	// Plot
-	var lastBar int = -1
+	lastBar := -1
 	for i := 0; i < len(samples); i += step {
 		v := getValue(samples[i])
 		bar := int((v - min) / range_ * float64(width-1))

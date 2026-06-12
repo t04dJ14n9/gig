@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/model/external"
 	"github.com/t04dJ14n9/gig/model/value"
 )
 
@@ -37,6 +38,9 @@ func init() {
 	pkg.AddType("IntSlice", reflect.TypeOf((*sort.IntSlice)(nil)).Elem(), "")
 	pkg.AddType("Interface", reflect.TypeOf((*sort.Interface)(nil)).Elem(), "")
 	pkg.AddType("StringSlice", reflect.TypeOf((*sort.StringSlice)(nil)).Elem(), "")
+
+	// Interface Proxies
+	pkg.AddInterfaceProxy("Interface", reflect.TypeOf((*sort.Interface)(nil)).Elem(), []string{"Len", "Less", "Swap"}, newProxy_sort_Interface)
 
 	// Method DirectCalls
 	pkg.AddMethodDirectCall("Float64Slice", "Len", direct_method_sort_Float64Slice_Len)
@@ -304,4 +308,32 @@ func direct_method_sort_StringSlice_Swap(args []value.Value) value.Value {
 	a1 := int(args[2].Int())
 	recv.Swap(a0, a1)
 	return value.MakeNil()
+}
+
+type proxy_sort_Interface struct {
+	call external.InterfaceMethodCaller
+}
+
+func newProxy_sort_Interface(_ value.Value, _ string, call external.InterfaceMethodCaller) (any, bool) {
+	return &proxy_sort_Interface{call: call}, true
+}
+
+func (p *proxy_sort_Interface) Len() int {
+	result, ok := p.call("Len")
+	if !ok {
+		return 0
+	}
+	return int(result.Int())
+}
+
+func (p *proxy_sort_Interface) Less(a0 int, a1 int) bool {
+	result, ok := p.call("Less", value.FromInterface(a0), value.FromInterface(a1))
+	if !ok {
+		return false
+	}
+	return result.Bool()
+}
+
+func (p *proxy_sort_Interface) Swap(a0 int, a1 int) {
+	_, _ = p.call("Swap", value.FromInterface(a0), value.FromInterface(a1))
 }

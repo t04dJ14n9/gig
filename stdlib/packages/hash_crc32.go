@@ -46,7 +46,7 @@ func direct_hash_crc32_Checksum(args []value.Value) value.Value {
 		return v.([]byte)
 	}()
 	a1 := args[1].Interface().(*hash_crc32.Table)
-	return value.MakeUint(uint64(hash_crc32.Checksum(a0, a1)))
+	return value.MakeUint32(hash_crc32.Checksum(a0, a1))
 }
 
 func direct_hash_crc32_ChecksumIEEE(args []value.Value) value.Value {
@@ -60,7 +60,7 @@ func direct_hash_crc32_ChecksumIEEE(args []value.Value) value.Value {
 		}
 		return v.([]byte)
 	}()
-	return value.MakeUint(uint64(hash_crc32.ChecksumIEEE(a0)))
+	return value.MakeUint32(hash_crc32.ChecksumIEEE(a0))
 }
 
 func direct_hash_crc32_MakeTable(args []value.Value) value.Value {
@@ -90,5 +90,5 @@ func direct_hash_crc32_Update(args []value.Value) value.Value {
 		}
 		return v.([]byte)
 	}()
-	return value.MakeUint(uint64(hash_crc32.Update(a0, a1, a2)))
+	return value.MakeUint32(hash_crc32.Update(a0, a1, a2))
 }

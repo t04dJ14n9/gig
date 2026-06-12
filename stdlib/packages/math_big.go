@@ -236,7 +236,7 @@ func direct_method_math_big_Float_Abs(args []value.Value) value.Value {
 
 func direct_method_math_big_Float_Acc(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_big.Float)
-	return value.MakeInt(int64(int8(recv.Acc())))
+	return value.MakeInt8(int8(recv.Acc()))
 }
 
 func direct_method_math_big_Float_Add(args []value.Value) value.Value {
@@ -278,13 +278,13 @@ func direct_method_math_big_Float_Copy(args []value.Value) value.Value {
 func direct_method_math_big_Float_Float32(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_big.Float)
 	r0, r1 := recv.Float32()
-	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeInt(int64(int8(r1)))})
+	return value.MakeValueSlice([]value.Value{value.MakeFloat32(r0), value.MakeInt8(int8(r1))})
 }
 
 func direct_method_math_big_Float_Float64(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_big.Float)
 	r0, r1 := recv.Float64()
-	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeInt(int64(int8(r1)))})
+	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeInt8(int8(r1))})
 }
 
 func direct_method_math_big_Float_Format(args []value.Value) value.Value {
@@ -320,13 +320,13 @@ func direct_method_math_big_Float_Int(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_big.Float)
 	a0 := args[1].Interface().(*math_big.Int)
 	r0, r1 := recv.Int(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.MakeInt(int64(int8(r1)))})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.MakeInt8(int8(r1))})
 }
 
 func direct_method_math_big_Float_Int64(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_big.Float)
 	r0, r1 := recv.Int64()
-	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.MakeInt(int64(int8(r1)))})
+	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.MakeInt8(int8(r1))})
 }
 
 func direct_method_math_big_Float_IsInf(args []value.Value) value.Value {
@@ -358,7 +358,7 @@ func direct_method_math_big_Float_MinPrec(args []value.Value) value.Value {
 
 func direct_method_math_big_Float_Mode(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_big.Float)
-	return value.MakeUint(uint64(byte(recv.Mode())))
+	return value.MakeUint8(byte(recv.Mode()))
 }
 
 func direct_method_math_big_Float_Mul(args []value.Value) value.Value {
@@ -398,7 +398,7 @@ func direct_method_math_big_Float_Rat(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_big.Float)
 	a0 := args[1].Interface().(*math_big.Rat)
 	r0, r1 := recv.Rat(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.MakeInt(int64(int8(r1)))})
+	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.MakeInt8(int8(r1))})
 }
 
 func direct_method_math_big_Float_Scan(args []value.Value) value.Value {
@@ -514,7 +514,7 @@ func direct_method_math_big_Float_Text(args []value.Value) value.Value {
 func direct_method_math_big_Float_Uint64(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_big.Float)
 	r0, r1 := recv.Uint64()
-	return value.MakeValueSlice([]value.Value{value.MakeUint64(r0), value.MakeInt(int64(int8(r1)))})
+	return value.MakeValueSlice([]value.Value{value.MakeUint64(r0), value.MakeInt8(int8(r1))})
 }
 
 func direct_method_math_big_Float_UnmarshalText(args []value.Value) value.Value {
@@ -657,7 +657,7 @@ func direct_method_math_big_Int_FillBytes(args []value.Value) value.Value {
 func direct_method_math_big_Int_Float64(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_big.Int)
 	r0, r1 := recv.Float64()
-	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeInt(int64(int8(r1)))})
+	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeInt8(int8(r1))})
 }
 
 func direct_method_math_big_Int_Format(args []value.Value) value.Value {
@@ -1010,7 +1010,7 @@ func direct_method_math_big_Rat_Denom(args []value.Value) value.Value {
 func direct_method_math_big_Rat_Float32(args []value.Value) value.Value {
 	recv := args[0].Interface().(*math_big.Rat)
 	r0, r1 := recv.Float32()
-	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeBool(r1)})
+	return value.MakeValueSlice([]value.Value{value.MakeFloat32(r0), value.MakeBool(r1)})
 }
 
 func direct_method_math_big_Rat_Float64(args []value.Value) value.Value {
