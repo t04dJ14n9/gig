@@ -1044,25 +1044,16 @@ func (v *vm) run() (value.Value, error) {
 			jIdx := readU16()
 			vIdx := readU16()
 			if s, ok := locals[sIdx].IntSlice(); ok {
-				r := s[intLocals[jIdx]]
+				idx := intLocals[jIdx]
+				if idx < 0 || idx >= int64(len(s)) {
+					v.setIntSliceIndexPanic(idx, len(s))
+					continue
+				}
+				r := s[idx]
 				intLocals[vIdx] = r
 				locals[vIdx] = value.MakeInt(r)
 			} else {
-				// Fallback: execute as IndexAddr + Deref manually
-				v.sp = sp
-				v.push(locals[sIdx])
-				v.push(value.MakeInt(intLocals[jIdx]))
-				if err := v.executeOp(bytecode.OpIndexAddr, frame); err != nil {
-					return value.MakeNil(), err
-				}
-				if err := v.executeOp(bytecode.OpDeref, frame); err != nil {
-					return value.MakeNil(), err
-				}
-				ret := v.pop()
-				intLocals[vIdx] = ret.RawInt()
-				locals[vIdx] = ret
-				sp = v.sp
-				stack = v.stack
+				sp, stack = v.runIntSliceGetFallback(locals, intLocals, sIdx, jIdx, vIdx, sp)
 			}
 			continue
 
@@ -1071,21 +1062,14 @@ func (v *vm) run() (value.Value, error) {
 			jIdx := readU16()
 			valIdx := readU16()
 			if s, ok := locals[sIdx].IntSlice(); ok {
-				s[intLocals[jIdx]] = intLocals[valIdx]
+				idx := intLocals[jIdx]
+				if idx < 0 || idx >= int64(len(s)) {
+					v.setIntSliceIndexPanic(idx, len(s))
+					continue
+				}
+				s[idx] = intLocals[valIdx]
 			} else {
-				// Fallback: execute as IndexAddr + SetDeref manually
-				v.sp = sp
-				v.push(locals[sIdx])
-				v.push(value.MakeInt(intLocals[jIdx]))
-				if err := v.executeOp(bytecode.OpIndexAddr, frame); err != nil {
-					return value.MakeNil(), err
-				}
-				v.push(value.MakeInt(intLocals[valIdx]))
-				if err := v.executeOp(bytecode.OpSetDeref, frame); err != nil {
-					return value.MakeNil(), err
-				}
-				sp = v.sp
-				stack = v.stack
+				sp, stack = v.runIntSliceSetFallback(locals, intLocals, sIdx, jIdx, valIdx, sp)
 			}
 			continue
 
@@ -1094,21 +1078,14 @@ func (v *vm) run() (value.Value, error) {
 			jIdx := readU16()
 			cIdx := readU16()
 			if s, ok := locals[sIdx].IntSlice(); ok {
-				s[intLocals[jIdx]] = intConsts[cIdx]
+				idx := intLocals[jIdx]
+				if idx < 0 || idx >= int64(len(s)) {
+					v.setIntSliceIndexPanic(idx, len(s))
+					continue
+				}
+				s[idx] = intConsts[cIdx]
 			} else {
-				// Fallback: execute as IndexAddr + SetDeref manually
-				v.sp = sp
-				v.push(locals[sIdx])
-				v.push(value.MakeInt(intLocals[jIdx]))
-				if err := v.executeOp(bytecode.OpIndexAddr, frame); err != nil {
-					return value.MakeNil(), err
-				}
-				v.push(prebaked[cIdx])
-				if err := v.executeOp(bytecode.OpSetDeref, frame); err != nil {
-					return value.MakeNil(), err
-				}
-				sp = v.sp
-				stack = v.stack
+				sp, stack = v.runIntSliceSetConstFallback(locals, intLocals, prebaked, sIdx, jIdx, cIdx, sp)
 			}
 			continue
 

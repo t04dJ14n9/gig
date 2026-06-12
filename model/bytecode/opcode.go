@@ -270,6 +270,12 @@ const (
 	// Stack: [... typeIdx size] -> [... chan]
 	OpMakeChan
 
+	// OpMakeInterface wraps a value in a Go interface while preserving
+	// concrete type information needed by typed nil and interpreted named types.
+	// Operands: [iface_type_idx:2] [concrete_type_idx:2]
+	// Stack: [... value] -> [... interface_value]
+	OpMakeInterface
+
 	// OpMakeArray creates a new array (rarely used).
 	// Operands: [type_idx:2]
 	OpMakeArray
@@ -729,6 +735,7 @@ func buildOperandWidthTable() [256]int {
 	t[OpCall] = 3 // func_idx(2) + num_args(1)
 	t[OpMakeArray] = 2
 	t[OpMakeStruct] = 2
+	t[OpMakeInterface] = 4
 	t[OpField] = 2
 	t[OpSetField] = 2
 	t[OpAddr] = 2
@@ -900,6 +907,7 @@ func init() { //nolint:gochecknoinits,decorder // table init placed after var de
 	opNameTable[OpMake] = "MAKE"
 	opNameTable[OpMakeArray] = "MAKEARRAY"
 	opNameTable[OpMakeChan] = "MAKECHAN"
+	opNameTable[OpMakeInterface] = "MAKEINTERFACE"
 	opNameTable[OpMakeMap] = "MAKEMAP"
 	opNameTable[OpMakeSlice] = "MAKESLICE"
 	opNameTable[OpMakeStruct] = "MAKESTRUCT"

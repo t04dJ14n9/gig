@@ -36,17 +36,15 @@ func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolin
 		v.push(a.Neg())
 
 	case bytecode.OpReal:
-		c := v.pop()
-		v.push(value.MakeFloat(real(c.Complex())))
+		v.push(realComponent(v.pop()))
 
 	case bytecode.OpImag:
-		c := v.pop()
-		v.push(value.MakeFloat(imag(c.Complex())))
+		v.push(imagComponent(v.pop()))
 
 	case bytecode.OpComplex:
-		im := v.pop().Float()
-		re := v.pop().Float()
-		v.push(value.MakeComplex(re, im))
+		imVal := v.pop()
+		reVal := v.pop()
+		v.push(makeComplexValue(reVal, imVal))
 
 	// Bitwise
 	case bytecode.OpAnd:
@@ -83,4 +81,27 @@ func (v *vm) executeArithmetic(op bytecode.OpCode, frame *Frame) error { //nolin
 	}
 
 	return nil
+}
+
+func realComponent(c value.Value) value.Value {
+	if c.RawSize() == value.Size32 {
+		return value.MakeFloat32(float32(real(c.Complex())))
+	}
+	return value.MakeFloat(real(c.Complex()))
+}
+
+func imagComponent(c value.Value) value.Value {
+	if c.RawSize() == value.Size32 {
+		return value.MakeFloat32(float32(imag(c.Complex())))
+	}
+	return value.MakeFloat(imag(c.Complex()))
+}
+
+func makeComplexValue(reVal, imVal value.Value) value.Value {
+	re := reVal.Float()
+	im := imVal.Float()
+	if reVal.RawSize() == value.Size32 || imVal.RawSize() == value.Size32 {
+		return value.MakeComplex64(float32(re), float32(im))
+	}
+	return value.MakeComplex(re, im)
 }

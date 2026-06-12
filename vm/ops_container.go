@@ -222,6 +222,11 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			idx := int(key.Int())
 			container.SetIndex(idx, val)
 		case value.KindMap:
+			if container.IsNil() {
+				v.panicking = true
+				v.panicVal = value.FromInterface("assignment to entry in nil map")
+				break
+			}
 			// For OpSetIndex, nil value means set to typed nil (not delete)
 			container.SetMapIndexWithDelete(key, val, false)
 		case value.KindReflect:
@@ -232,6 +237,11 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 					idx := int(key.Int())
 					rv.Index(idx).Set(val.ToReflectValue(rv.Type().Elem()))
 				case reflect.Map:
+					if rv.IsNil() {
+						v.panicking = true
+						v.panicVal = value.FromInterface("assignment to entry in nil map")
+						break
+					}
 					// For OpSetIndex, nil value means set to typed nil (not delete)
 					container.SetMapIndexWithDelete(key, val, false)
 				}
@@ -255,6 +265,21 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 			}
 			v.push(value.MakeString(container.String()[low:high]))
 			break
+		}
+
+		if container.Kind() == value.KindBytes {
+			if b, ok := container.Bytes(); ok {
+				high := int(highVal.Int())
+				if high == sliceEndSentinel {
+					high = len(b)
+				}
+				if maxVal.Kind() != value.KindNil && maxVal.Int() != sliceEndSentinel {
+					v.push(value.MakeBytes(b[low:high:int(maxVal.Int())]))
+				} else {
+					v.push(value.MakeBytes(b[low:high]))
+				}
+				break
+			}
 		}
 
 		// Native []int64 slice fast path
@@ -399,6 +424,12 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 		switch obj.Kind() {
 		case value.KindSlice, value.KindArray, value.KindChan:
 			v.push(value.MakeInt(int64(obj.Cap())))
+		case value.KindBytes:
+			if b, ok := obj.Bytes(); ok {
+				v.push(value.MakeInt(int64(cap(b))))
+			} else {
+				v.push(value.MakeInt(0))
+			}
 		case value.KindReflect:
 			rv := v.mustReflectValue(obj)
 			if rv.IsValid() {
@@ -418,6 +449,20 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 	case bytecode.OpCopy:
 		src := v.pop()
 		dst := v.pop()
+		// Native byte slice fast path. KindBytes is intentionally not reflect-backed,
+		// so reflect.Copy cannot see it.
+		if db, ok := dst.Bytes(); ok {
+			if src.Kind() == value.KindString {
+				v.push(value.MakeInt(int64(copy(db, src.String()))))
+				break
+			}
+			if sb, ok2 := src.Bytes(); ok2 {
+				v.push(value.MakeInt(int64(copy(db, sb))))
+				break
+			}
+			v.push(value.MakeInt(0))
+			break
+		}
 		// Native int slice fast path
 		if ds, ok := dst.IntSlice(); ok {
 			if ss, ok2 := src.IntSlice(); ok2 {
@@ -486,11 +531,15 @@ func intSliceToReflect(s []int64) reflect.Value {
 }
 
 // appendValue implements the append builtin for the VM.
-// It handles native int slices, reflect slices, and nil slices.
+// It handles native int slices, byte slices, reflect slices, and nil slices.
 func appendValue(slice, elem value.Value) value.Value {
 	// Fast path: native []int64 slice
 	if s, ok := slice.IntSlice(); ok {
 		return appendToIntSlice(s, elem)
+	}
+
+	if slice.Kind() == value.KindBytes {
+		return appendToByteSlice(slice, elem)
 	}
 
 	// Native []int64 that needs reflect conversion (e.g., stored in [][]int)
@@ -511,6 +560,55 @@ func appendValue(slice, elem value.Value) value.Value {
 	}
 
 	return slice
+}
+
+func appendToByteSlice(slice, elem value.Value) value.Value {
+	b, ok := slice.Bytes()
+	if !ok {
+		return slice
+	}
+	appended, ok := appendByteElement(b, elem)
+	if !ok {
+		return slice
+	}
+	return value.MakeBytes(appended)
+}
+
+func appendByteElement(b []byte, elem value.Value) ([]byte, bool) {
+	switch elem.Kind() {
+	case value.KindUint:
+		return append(b, byte(elem.Uint())), true
+	case value.KindInt:
+		return append(b, byte(elem.RawInt())), true
+	case value.KindBytes:
+		return appendByteSlice(b, elem)
+	case value.KindString:
+		return append(b, elem.String()...), true
+	default:
+		return appendByteInterface(b, elem)
+	}
+}
+
+func appendByteSlice(b []byte, elem value.Value) ([]byte, bool) {
+	eb, ok := elem.Bytes()
+	if !ok {
+		return b, false
+	}
+	return append(b, eb...), true
+}
+
+func appendByteInterface(b []byte, elem value.Value) ([]byte, bool) {
+	v := elem.Interface()
+	if v == nil {
+		return b, false
+	}
+	if bv, ok := v.(byte); ok {
+		return append(b, bv), true
+	}
+	if bv, ok := v.(uint8); ok {
+		return append(b, bv), true
+	}
+	return b, false
 }
 
 // appendToIntSlice appends to a native []int64.

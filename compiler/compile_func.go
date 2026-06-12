@@ -77,6 +77,7 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 	if sig.Recv() != nil {
 		cf.HasReceiver = true
 		cf.ReceiverTypeName = extractReceiverShortName(sig.Recv().Type())
+		_, cf.ReceiverIsPointer = sig.Recv().Type().(*types.Pointer)
 	}
 
 	c.currentFunc = cf
@@ -136,6 +137,8 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 
 	// Patch jump targets
 	c.patchJumps(blockOffsets)
+
+	c.currentFunc.Instructions = optimize.FoldConstants(c.currentFunc.Instructions, &c.constants)
 
 	// Build const-is-int map (must recognize all integer types stored by compileConst)
 	constIsInt := make([]bool, len(c.constants))

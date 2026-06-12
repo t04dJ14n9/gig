@@ -147,7 +147,19 @@ func (v Value) Interface() any {
 	case KindString:
 		return v.obj.(string)
 	case KindComplex:
+		if v.size == Size32 {
+			c := v.obj.(complex128)
+			return complex64(complex(float32(real(c)), float32(imag(c))))
+		}
 		return v.obj.(complex128)
+	case KindInterface:
+		if dyn, ok := v.InterpretedInterface(); ok {
+			return dyn.Value.Interface()
+		}
+		if rv, ok := v.obj.(reflect.Value); ok {
+			return rv.Interface()
+		}
+		return v.obj
 	case KindFunc:
 		return v.obj
 	case KindBytes:
@@ -251,12 +263,21 @@ func (v Value) toReflectFunc(typ reflect.Type) reflect.Value {
 
 // toReflectSlice converts Value to reflect.Value for slice types.
 func (v Value) toReflectSlice(typ reflect.Type) reflect.Value {
-	if s, ok := v.obj.([]int64); ok && typ.Kind() == reflect.Slice {
-		target := reflect.MakeSlice(typ, len(s), cap(s))
-		for i, n := range s {
-			target.Index(i).SetInt(n)
+	if s, ok := v.obj.([]int64); ok {
+		if typ.Kind() == reflect.Interface && typ.NumMethod() == 0 {
+			result := make([]int, len(s))
+			for i, n := range s {
+				result[i] = int(n)
+			}
+			return reflect.ValueOf(result)
 		}
-		return target
+		if typ.Kind() == reflect.Slice {
+			target := reflect.MakeSlice(typ, len(s), cap(s))
+			for i, n := range s {
+				target.Index(i).SetInt(n)
+			}
+			return target
+		}
 	}
 	if s, ok := v.obj.([]Value); ok && typ.Kind() == reflect.Slice {
 		target := reflect.MakeSlice(typ, len(s), cap(s))
@@ -325,6 +346,14 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 		return reflect.ValueOf(v.obj.([]byte))
 	case KindSlice:
 		return v.toReflectSlice(typ)
+	case KindInterface:
+		if dyn, ok := v.InterpretedInterface(); ok {
+			return dyn.Value.ToReflectValue(typ)
+		}
+		if rv, ok := v.obj.(reflect.Value); ok {
+			return rv
+		}
+		return reflect.ValueOf(v.obj)
 	case KindReflect:
 		return v.toReflectReflect(typ)
 	default:
