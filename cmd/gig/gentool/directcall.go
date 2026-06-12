@@ -83,7 +83,7 @@ func generateDirectCall(fi *funcInfo, pkgRef string) string {
 	useFmtWrap := isFmtPackage(pkgRef)
 
 	b := &strings.Builder{}
-	b.WriteString(fmt.Sprintf("func direct_%s_%s(args []value.Value) value.Value {\n", pkgRef, fi.Name))
+	fmt.Fprintf(b, "func direct_%s_%s(args []value.Value) value.Value {\n", pkgRef, fi.Name)
 
 	var argExprs []string
 	var writebacks []*intSliceWriteback
@@ -105,7 +105,7 @@ func generateDirectCall(fi *funcInfo, pkgRef string) string {
 		if expr == "" {
 			return ""
 		}
-		b.WriteString(fmt.Sprintf("\t%s := %s\n", argName, expr))
+		fmt.Fprintf(b, "\t%s := %s\n", argName, expr)
 		argExprs = append(argExprs, argName)
 	}
 
@@ -121,9 +121,9 @@ func generateDirectCall(fi *funcInfo, pkgRef string) string {
 			if useFmtWrap {
 				wrapExpr = "value.FmtWrap(args[i])"
 			}
-			b.WriteString(fmt.Sprintf("\tvarArgs := make([]interface{}, len(args)-%d)\n", fixedCount))
-			b.WriteString(fmt.Sprintf("\tfor i := %d; i < len(args); i++ {\n", fixedCount))
-			b.WriteString(fmt.Sprintf("\t\tvarArgs[i-%d] = %s\n", fixedCount, wrapExpr))
+			fmt.Fprintf(b, "\tvarArgs := make([]interface{}, len(args)-%d)\n", fixedCount)
+			fmt.Fprintf(b, "\tfor i := %d; i < len(args); i++ {\n", fixedCount)
+			fmt.Fprintf(b, "\t\tvarArgs[i-%d] = %s\n", fixedCount, wrapExpr)
 			b.WriteString("\t}\n")
 			argExprs = append(argExprs, "varArgs...")
 		} else {
@@ -132,9 +132,9 @@ func generateDirectCall(fi *funcInfo, pkgRef string) string {
 			if elemTypeStr == "" || elemExtract == "" {
 				return ""
 			}
-			b.WriteString(fmt.Sprintf("\tvarArgs := make([]%s, len(args)-%d)\n", elemTypeStr, fixedCount))
-			b.WriteString(fmt.Sprintf("\tfor i := %d; i < len(args); i++ {\n", fixedCount))
-			b.WriteString(fmt.Sprintf("\t\tvarArgs[i-%d] = %s\n", fixedCount, elemExtract))
+			fmt.Fprintf(b, "\tvarArgs := make([]%s, len(args)-%d)\n", elemTypeStr, fixedCount)
+			fmt.Fprintf(b, "\tfor i := %d; i < len(args); i++ {\n", fixedCount)
+			fmt.Fprintf(b, "\t\tvarArgs[i-%d] = %s\n", fixedCount, elemExtract)
 			b.WriteString("\t}\n")
 			argExprs = append(argExprs, "varArgs...")
 		}
@@ -579,14 +579,14 @@ func emitIntSliceExtraction(b *strings.Builder, st *types.Slice, valExpr string,
 	elemName := resolveTypeName(st.Elem(), pkgRef)
 
 	// Declare backing store reference and target slice
-	b.WriteString(fmt.Sprintf("\tvar %s []int64\n", backName))
-	b.WriteString(fmt.Sprintf("\tvar %s []%s\n", argName, elemName))
-	b.WriteString(fmt.Sprintf("\tif _s, _ok := %s.IntSlice(); _ok {\n", valExpr))
-	b.WriteString(fmt.Sprintf("\t\t%s = _s\n", backName))
-	b.WriteString(fmt.Sprintf("\t\t%s = make([]%s, len(_s))\n", argName, elemName))
-	b.WriteString(fmt.Sprintf("\t\tfor _i, _v := range _s { %s[_i] = %s(_v) }\n", argName, elemName))
+	fmt.Fprintf(b, "\tvar %s []int64\n", backName)
+	fmt.Fprintf(b, "\tvar %s []%s\n", argName, elemName)
+	fmt.Fprintf(b, "\tif _s, _ok := %s.IntSlice(); _ok {\n", valExpr)
+	fmt.Fprintf(b, "\t\t%s = _s\n", backName)
+	fmt.Fprintf(b, "\t\t%s = make([]%s, len(_s))\n", argName, elemName)
+	fmt.Fprintf(b, "\t\tfor _i, _v := range _s { %s[_i] = %s(_v) }\n", argName, elemName)
 	b.WriteString("\t} else {\n")
-	b.WriteString(fmt.Sprintf("\t\t%s = %s.Interface().([]%s)\n", argName, valExpr, elemName))
+	fmt.Fprintf(b, "\t\t%s = %s.Interface().([]%s)\n", argName, valExpr, elemName)
 	b.WriteString("\t}\n")
 
 	return &intSliceWriteback{
@@ -600,8 +600,13 @@ func emitIntSliceExtraction(b *strings.Builder, st *types.Slice, valExpr string,
 // that were converted from []int64.
 func emitWritebacks(b *strings.Builder, writebacks []*intSliceWriteback) {
 	for _, wb := range writebacks {
-		b.WriteString(fmt.Sprintf("\tif %s != nil { for _i, _v := range %s { %s[_i] = int64(_v) } }\n",
-			wb.backName, wb.argName, wb.backName))
+		fmt.Fprintf(
+			b,
+			"\tif %s != nil { for _i, _v := range %s { %s[_i] = int64(_v) } }\n",
+			wb.backName,
+			wb.argName,
+			wb.backName,
+		)
 	}
 }
 
@@ -819,8 +824,8 @@ func generateSingleMethodDirectCall(sig *types.Signature, pkgRef string, typeNam
 
 	funcName := fmt.Sprintf("direct_method_%s_%s_%s", pkgRef, typeName, methodName)
 	b := &strings.Builder{}
-	b.WriteString(fmt.Sprintf("func %s(args []value.Value) value.Value {\n", funcName))
-	b.WriteString(fmt.Sprintf("\trecv := %s\n", recvExpr))
+	fmt.Fprintf(b, "func %s(args []value.Value) value.Value {\n", funcName)
+	fmt.Fprintf(b, "\trecv := %s\n", recvExpr)
 
 	var argExprs []string
 	var writebacks []*intSliceWriteback
@@ -842,7 +847,7 @@ func generateSingleMethodDirectCall(sig *types.Signature, pkgRef string, typeNam
 		if expr == "" {
 			return ""
 		}
-		b.WriteString(fmt.Sprintf("\t%s := %s\n", argName, expr))
+		fmt.Fprintf(b, "\t%s := %s\n", argName, expr)
 		argExprs = append(argExprs, argName)
 	}
 
@@ -851,9 +856,9 @@ func generateSingleMethodDirectCall(sig *types.Signature, pkgRef string, typeNam
 		elemType := sliceType.Elem()
 
 		if isEmptyInterface(elemType) {
-			b.WriteString(fmt.Sprintf("\tvarArgs := make([]interface{}, len(args)-%d)\n", fixedCount+1))
-			b.WriteString(fmt.Sprintf("\tfor i := %d; i < len(args); i++ {\n", fixedCount+1))
-			b.WriteString(fmt.Sprintf("\t\tvarArgs[i-%d] = args[i].Interface()\n", fixedCount+1))
+			fmt.Fprintf(b, "\tvarArgs := make([]interface{}, len(args)-%d)\n", fixedCount+1)
+			fmt.Fprintf(b, "\tfor i := %d; i < len(args); i++ {\n", fixedCount+1)
+			fmt.Fprintf(b, "\t\tvarArgs[i-%d] = args[i].Interface()\n", fixedCount+1)
 			b.WriteString("\t}\n")
 			argExprs = append(argExprs, "varArgs...")
 		} else {
@@ -862,9 +867,9 @@ func generateSingleMethodDirectCall(sig *types.Signature, pkgRef string, typeNam
 			if elemTypeStr == "" || elemExtract == "" {
 				return ""
 			}
-			b.WriteString(fmt.Sprintf("\tvarArgs := make([]%s, len(args)-%d)\n", elemTypeStr, fixedCount+1))
-			b.WriteString(fmt.Sprintf("\tfor i := %d; i < len(args); i++ {\n", fixedCount+1))
-			b.WriteString(fmt.Sprintf("\t\tvarArgs[i-%d] = %s\n", fixedCount+1, elemExtract))
+			fmt.Fprintf(b, "\tvarArgs := make([]%s, len(args)-%d)\n", elemTypeStr, fixedCount+1)
+			fmt.Fprintf(b, "\tfor i := %d; i < len(args); i++ {\n", fixedCount+1)
+			fmt.Fprintf(b, "\t\tvarArgs[i-%d] = %s\n", fixedCount+1, elemExtract)
 			b.WriteString("\t}\n")
 			argExprs = append(argExprs, "varArgs...")
 		}

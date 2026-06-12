@@ -13,11 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/t04dJ14n9/gig"
-	_ "github.com/t04dJ14n9/gig/stdlib/packages" // Import built-in stdlib
 	"github.com/peterh/liner"
-
+	"github.com/t04dJ14n9/gig"
 	"github.com/t04dJ14n9/gig/cmd/gig/pluginmgr"
+	_ "github.com/t04dJ14n9/gig/stdlib/packages"
 )
 
 // Type name constants to avoid repetition.

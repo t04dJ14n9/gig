@@ -29,7 +29,7 @@ func (pm *Manager) loadPluginInternal(soPath, pkgPath string) error {
 	// Call the Register function
 	register, ok := sym.(func())
 	if !ok {
-		return fmt.Errorf("Register is not a function")
+		return fmt.Errorf("register is not a function")
 	}
 	register()
 

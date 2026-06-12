@@ -193,7 +193,7 @@ func (s *Session) autoImportFromInput(input string) {
 
 // extractImports extracts import paths from the input.
 func (s *Session) extractImports(input string) {
-	file, _, ok := tryParseAsTopLevel(input)
+	file, ok := tryParseAsTopLevel(input)
 	if !ok {
 		return
 	}

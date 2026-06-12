@@ -1,0 +1,99 @@
+package commands
+
+import (
+	"bytes"
+	"flag"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestRunDumpPrintsSSAAndBytecode(t *testing.T) {
+	dir := t.TempDir()
+	srcPath := filepath.Join(dir, "program.go")
+	if err := os.WriteFile(srcPath, []byte(`package main
+
+func Add(a, b int) int {
+	return a + b
+}
+`), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	output, err := captureStdout(func() error {
+		return RunDump(flag.NewFlagSet("dump", flag.ContinueOnError), []string{srcPath})
+	})
+	if err != nil {
+		t.Fatalf("RunDump error: %v", err)
+	}
+
+	for _, part := range []string{"# Gig Debug Dump", "## SSA", "func Add", "## Bytecode", "### Function Add", "RETURNVAL"} {
+		if !strings.Contains(output, part) {
+			t.Fatalf("dump output missing %q\n%s", part, output)
+		}
+	}
+}
+
+func TestRunDumpReadsStdin(t *testing.T) {
+	oldStdin := os.Stdin
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	defer func() {
+		os.Stdin = oldStdin
+		_ = reader.Close()
+	}()
+	os.Stdin = reader
+
+	if _, err := writer.WriteString(`package main
+
+func F() int {
+	return 1
+}
+`); err != nil {
+		t.Fatalf("write stdin: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close stdin writer: %v", err)
+	}
+
+	output, err := captureStdout(func() error {
+		return RunDump(flag.NewFlagSet("dump", flag.ContinueOnError), []string{"-"})
+	})
+	if err != nil {
+		t.Fatalf("RunDump stdin error: %v", err)
+	}
+	if !strings.Contains(output, "### Function F") {
+		t.Fatalf("stdin dump missing function F\n%s", output)
+	}
+}
+
+func captureStdout(fn func() error) (string, error) {
+	oldStdout := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		return "", err
+	}
+	os.Stdout = writer
+
+	runErr := fn()
+	closeWriterErr := writer.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	_, copyErr := io.Copy(&buf, reader)
+	closeReaderErr := reader.Close()
+	if runErr != nil {
+		return "", runErr
+	}
+	if closeWriterErr != nil {
+		return "", closeWriterErr
+	}
+	if closeReaderErr != nil {
+		return "", closeReaderErr
+	}
+	return buf.String(), copyErr
+}
