@@ -4,7 +4,7 @@ go 1.23.1
 
 require (
 	github.com/peterh/liner v1.2.2
-	github.com/t04dJ14n9/gig v0.0.0
+	github.com/t04dJ14n9/gig v1.7.1-0.20260612135619-58884bff1673
 )
 
 require (
@@ -12,5 +12,3 @@ require (
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect
 )
-
-replace github.com/t04dJ14n9/gig => ../..
