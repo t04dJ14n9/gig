@@ -227,11 +227,11 @@ func (v *vm) callFunction(fn *bytecode.CompiledFunction, args []value.Value, fre
 // Supports both DirectCall (fast path) and reflect.Call (slow path).
 // Returns an error if the context is cancelled during or immediately after the call.
 func (v *vm) callExternal(funcIdx, numArgs int) error {
-	// Pop arguments first (before any cache lookup)
-	args := make([]value.Value, numArgs)
-	for i := numArgs - 1; i >= 0; i-- {
-		args[i] = v.pop()
-	}
+	// Arguments are already contiguous on the operand stack in call order.
+	// Slice the stack directly so DirectCall paths avoid per-call arg-slice allocation.
+	argStart := v.sp - numArgs
+	args := v.stack[argStart:v.sp]
+	v.sp = argStart
 
 	// Check if this is a method call (ExternalMethodInfo)
 	if funcIdx < len(v.program.Constants) {
@@ -604,8 +604,39 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 	// If we have a receiver type hint, first try to match both name and receiver type.
 	if receiverTypeName != "" {
 		for _, fn := range candidates {
-			if fn.ReceiverTypeName == receiverTypeName {
-				for _, arg := range args {
+			if fn.ReceiverTypeName != receiverTypeName {
+				continue
+			}
+			methodReceiver := methodReceiverForCompiledFunction(args[0], fn)
+			if v.shouldPanicOnNilValueReceiver(methodReceiver, fn) {
+				return nil
+			}
+			for i, arg := range args {
+				if i == 0 {
+					arg = methodReceiver
+				}
+				v.push(arg)
+			}
+			v.callCompiledFunction(fn.FuncIdx, len(args))
+			return nil
+		}
+	}
+
+	// Fallback: try to infer receiver type from the actual runtime value in args[0].
+	if len(args) > 0 {
+		if concreteTypeName := inferReceiverTypeName(args[0], v.program); concreteTypeName != "" {
+			for _, fn := range candidates {
+				if fn.ReceiverTypeName != concreteTypeName {
+					continue
+				}
+				methodReceiver := methodReceiverForCompiledFunction(args[0], fn)
+				if v.shouldPanicOnNilValueReceiver(methodReceiver, fn) {
+					return nil
+				}
+				for i, arg := range args {
+					if i == 0 {
+						arg = methodReceiver
+					}
 					v.push(arg)
 				}
 				v.callCompiledFunction(fn.FuncIdx, len(args))
@@ -614,25 +645,17 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 		}
 	}
 
-	// Fallback: try to infer receiver type from the actual runtime value in args[0].
-	if len(args) > 0 {
-		if concreteTypeName := inferReceiverTypeName(args[0], v.program); concreteTypeName != "" {
-			for _, fn := range candidates {
-				if fn.ReceiverTypeName == concreteTypeName {
-					for _, arg := range args {
-						v.push(arg)
-					}
-					v.callCompiledFunction(fn.FuncIdx, len(args))
-					return nil
-				}
-			}
-		}
-	}
-
 	// Last resort: match by method name only (first candidate).
 	if len(candidates) > 0 {
 		fn := candidates[0]
-		for _, arg := range args {
+		methodReceiver := methodReceiverForCompiledFunction(args[0], fn)
+		if v.shouldPanicOnNilValueReceiver(methodReceiver, fn) {
+			return nil
+		}
+		for i, arg := range args {
+			if i == 0 {
+				arg = methodReceiver
+			}
 			v.push(arg)
 		}
 		v.callCompiledFunction(fn.FuncIdx, len(args))
@@ -644,12 +667,42 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 	return nil
 }
 
+func (v *vm) shouldPanicOnNilValueReceiver(receiver value.Value, fn *bytecode.CompiledFunction) bool {
+	if fn == nil || !fn.HasReceiver || fn.ReceiverIsPointer {
+		return false
+	}
+	rv, ok := receiver.ReflectValue()
+	if !ok || rv.Kind() != reflect.Ptr || !rv.IsNil() {
+		return false
+	}
+	v.panicking = true
+	v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
+	return true
+}
+
+func methodReceiverForCompiledFunction(receiver value.Value, fn *bytecode.CompiledFunction) value.Value {
+	dyn, ok := receiver.InterpretedInterface()
+	if !ok || fn == nil {
+		return receiver
+	}
+	if fn.ReceiverTypeName != "" && fn.ReceiverTypeName != dyn.TypeName {
+		return receiver
+	}
+	if fn.ReceiverIsPointer && !dyn.IsPointer {
+		return receiver
+	}
+	return dyn.Value
+}
+
 // inferReceiverTypeName tries to extract a type name from a runtime value.Value
 // receiver. This is used when callCompiledMethod doesn't have a static type hint
 // but needs to disambiguate by the actual value being dispatched on.
 // It first checks the program-level ReflectTypeNames registry, then falls back
 // to scanning field PkgPath suffixes for unexported fields.
 func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram) string {
+	if dyn, ok := receiver.InterpretedInterface(); ok {
+		return dyn.TypeName
+	}
 	rv, ok := receiver.ReflectValue()
 	if !ok {
 		return ""
@@ -658,11 +711,14 @@ func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram)
 	if rv.Kind() == reflect.Interface && !rv.IsNil() {
 		rv = rv.Elem()
 	}
-	// Unwrap pointer
+	var t reflect.Type
 	if rv.Kind() == reflect.Ptr {
-		rv = rv.Elem()
+		t = rv.Type().Elem()
+	} else if rv.IsValid() {
+		t = rv.Type()
+	} else {
+		return ""
 	}
-	t := rv.Type()
 	// For real Go types passed through, the name is available directly.
 	if t.Name() != "" {
 		return t.Name()

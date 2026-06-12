@@ -77,6 +77,7 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 	if sig.Recv() != nil {
 		cf.HasReceiver = true
 		cf.ReceiverTypeName = extractReceiverShortName(sig.Recv().Type())
+		_, cf.ReceiverIsPointer = sig.Recv().Type().(*types.Pointer)
 	}
 
 	c.currentFunc = cf
@@ -84,6 +85,7 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 	c.symbolTable = NewSymbolTable()
 	c.jumps = nil
 	c.phiSlots = make(map[*ssa.Phi]int)
+	c.compileErr = nil
 
 	// Allocate locals for parameters
 	for _, param := range fn.Params {
@@ -132,6 +134,9 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 	for _, block := range blocks {
 		blockOffsets[block] = len(c.currentFunc.Instructions)
 		c.compileBlock(block)
+		if c.compileErr != nil {
+			return nil, c.compileErr
+		}
 	}
 
 	// Patch jump targets

@@ -352,7 +352,7 @@ func (v *vm) run() (value.Value, error) {
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
 				stack[sp] = value.MakeBool(a.RawInt() <= b.RawInt())
 			} else {
-				stack[sp] = value.MakeBool(a.Cmp(b) <= 0)
+				stack[sp] = value.MakeBool(lessEqCmp(a, b))
 			}
 			sp++
 			continue
@@ -378,7 +378,7 @@ func (v *vm) run() (value.Value, error) {
 			if a.Kind() == value.KindInt && b.Kind() == value.KindInt {
 				stack[sp] = value.MakeBool(a.RawInt() >= b.RawInt())
 			} else {
-				stack[sp] = value.MakeBool(a.Cmp(b) >= 0)
+				stack[sp] = value.MakeBool(greaterEqCmp(a, b))
 			}
 			sp++
 			continue
@@ -710,7 +710,7 @@ func (v *vm) run() (value.Value, error) {
 					frame.ip = int(offset)
 				}
 			} else {
-				if a.Cmp(b) <= 0 {
+				if lessEqCmp(a, b) {
 					frame.ip = int(offset)
 				}
 			}
@@ -744,7 +744,7 @@ func (v *vm) run() (value.Value, error) {
 					frame.ip = int(offset)
 				}
 			} else {
-				if a.Cmp(b) >= 0 {
+				if greaterEqCmp(a, b) {
 					frame.ip = int(offset)
 				}
 			}
@@ -761,7 +761,7 @@ func (v *vm) run() (value.Value, error) {
 					frame.ip = int(offset)
 				}
 			} else {
-				if a.Cmp(b) >= 0 {
+				if greaterEqCmp(a, b) {
 					frame.ip = int(offset)
 				}
 			}
@@ -778,7 +778,7 @@ func (v *vm) run() (value.Value, error) {
 					frame.ip = int(offset)
 				}
 			} else {
-				if a.Cmp(b) > 0 {
+				if !lessEqCmp(a, b) {
 					frame.ip = int(offset)
 				}
 			}

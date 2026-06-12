@@ -134,6 +134,7 @@ func TestOpCodeString(t *testing.T) {
 		{OpMakeSlice, "MAKESLICE"},
 		{OpMakeMap, "MAKEMAP"},
 		{OpMakeChan, "MAKECHAN"},
+		{OpMakeInterface, "MAKEINTERFACE"},
 		{OpMakeArray, "MAKEARRAY"},
 		{OpMakeStruct, "MAKESTRUCT"},
 		{OpIndex, "INDEX"},

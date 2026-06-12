@@ -79,6 +79,9 @@ type compiler struct {
 
 	// phiSlots maps Phi nodes to their allocated local slots.
 	phiSlots map[*ssa.Phi]int
+
+	// compileErr stores the first semantic error discovered during instruction lowering.
+	compileErr error
 }
 
 // Compile is the main entry point that compiles an SSA package to a bytecode Program.

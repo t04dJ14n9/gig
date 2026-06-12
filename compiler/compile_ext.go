@@ -30,6 +30,13 @@ func extractMethodName(ssaName string) string {
 // compileExternalStaticCall compiles a call to an external package function.
 // It uses the injected PackageLookup to resolve the function, avoiding direct importer dependency.
 func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resultIdx int) {
+	if fn.Pkg != nil {
+		c.validateExternalStaticCallBoundary(fn.Pkg.Pkg.Path(), fn.Name(), fn.Signature, i.Call.Args)
+		if c.compileErr != nil {
+			return
+		}
+	}
+
 	for _, arg := range i.Call.Args {
 		c.compileValue(arg)
 	}
@@ -67,6 +74,8 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 			extFuncInfo = &external.ExternalFuncInfo{
 				Func:       fnVal,
 				DirectCall: directCall,
+				PkgPath:    pkgPath,
+				FuncName:   fn.Name(),
 			}
 		}
 	}
@@ -75,6 +84,7 @@ func (c *compiler) compileExternalStaticCall(i *ssa.Call, fn *ssa.Function, resu
 		extFuncInfo = &external.ExternalFuncInfo{
 			Func:       fn,
 			DirectCall: nil,
+			FuncName:   fn.Name(),
 		}
 	}
 
