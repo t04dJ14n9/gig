@@ -418,6 +418,20 @@ func (v *vm) executeContainer(op bytecode.OpCode, frame *Frame) error { //nolint
 	case bytecode.OpCopy:
 		src := v.pop()
 		dst := v.pop()
+		// Native byte slice fast path. KindBytes is intentionally not reflect-backed,
+		// so reflect.Copy cannot see it.
+		if db, ok := dst.Bytes(); ok {
+			if src.Kind() == value.KindString {
+				v.push(value.MakeInt(int64(copy(db, src.String()))))
+				break
+			}
+			if sb, ok2 := src.Bytes(); ok2 {
+				v.push(value.MakeInt(int64(copy(db, sb))))
+				break
+			}
+			v.push(value.MakeInt(0))
+			break
+		}
 		// Native int slice fast path
 		if ds, ok := dst.IntSlice(); ok {
 			if ss, ok2 := src.IntSlice(); ok2 {

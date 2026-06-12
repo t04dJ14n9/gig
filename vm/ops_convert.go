@@ -13,94 +13,11 @@ import (
 // executeConvert handles type assertion, conversion, and change-type opcodes.
 func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:gocyclo,cyclop,funlen,maintidx
 	switch op {
+	case bytecode.OpMakeInterface:
+		v.executeMakeInterface(frame)
+
 	case bytecode.OpAssert:
-		typeIdx := frame.readUint16()
-		targetType := v.program.Types[typeIdx]
-		obj := v.pop()
-
-		// Type assertion - check if obj can be asserted to targetType
-		// Returns (value, ok) tuple on stack
-		var result value.Value
-		var assertionOk bool
-
-		// Special case: any value can be asserted to interface{}
-		// This handles nested interface assertions like: outer.(interface{})
-		if _, isInterface := targetType.(*types.Interface); isInterface {
-			// Any value can be asserted to interface{}, including nil
-			result = obj
-			assertionOk = true
-			v.pushCommaOk(result, assertionOk)
-			break
-		}
-
-		if obj.Kind() == value.KindInterface {
-			// Get the underlying interface
-			if rv, isReflect := obj.ReflectValue(); isReflect && rv.Kind() == reflect.Interface {
-				if rv.IsNil() {
-					// Interface is nil, assertion fails
-					result = value.MakeNil()
-					assertionOk = false
-				} else {
-					// Get the underlying value
-					underlying := rv.Elem()
-					targetReflectType := typeToReflect(targetType, v.program)
-					if targetReflectType == nil {
-						result = value.MakeNil()
-						assertionOk = false
-					} else if underlying.Type().AssignableTo(targetReflectType) {
-						// Successful assertion - create a value from the underlying
-						result = value.MakeFromReflect(underlying)
-						assertionOk = true
-					} else {
-						result = value.MakeNil()
-						assertionOk = false
-					}
-				}
-			} else {
-				result = obj
-				assertionOk = true
-			}
-		} else if obj.Kind() == value.KindReflect {
-			// Already a reflect value — may be an interface wrapping a concrete type
-			if rv, isReflect := obj.ReflectValue(); isReflect {
-				// If the reflect value is an interface, unwrap it to the concrete type
-				concreteRV := rv
-				if rv.Kind() == reflect.Interface && !rv.IsNil() {
-					concreteRV = rv.Elem()
-				}
-				targetReflectType := typeToReflect(targetType, v.program)
-				if targetReflectType != nil && concreteRV.Type().AssignableTo(targetReflectType) {
-					result = value.MakeFromReflect(concreteRV)
-					assertionOk = true
-				} else if targetReflectType != nil && sameReflectKindFamily(concreteRV.Type(), targetReflectType) {
-					// Gig stores numeric values with internal types (int64 for int, float64 for float32, etc.).
-					// When these are stored in interface{}, the concrete type may differ from what Go
-					// would use (e.g., int64 instead of int). For type switch correctness, we match
-					// by reflect.Kind family and convert to the target type.
-					result = value.MakeFromReflect(concreteRV.Convert(targetReflectType))
-					assertionOk = true
-				} else {
-					result = value.MakeNil()
-					assertionOk = false
-				}
-			} else {
-				result = obj
-				assertionOk = false
-			}
-		} else {
-			// For primitive kinds (KindInt, KindString, KindBool, KindFloat, etc.),
-			// check whether the concrete value kind actually matches the target type.
-			// This is critical for type switches on interface slice elements.
-			assertionOk = kindMatchesType(obj.Kind(), targetType)
-			if assertionOk {
-				result = obj
-			} else {
-				result = value.MakeNil()
-			}
-		}
-
-		// Push result as a tuple [result, ok]
-		v.pushCommaOk(result, assertionOk)
+		v.executeAssert(frame)
 
 	case bytecode.OpConvert:
 		typeIdx := frame.readUint16()
@@ -283,4 +200,253 @@ func (v *vm) executeConvert(op bytecode.OpCode, frame *Frame) error { //nolint:g
 	}
 
 	return nil
+}
+
+type makeInterfaceOperands struct {
+	targetType   types.Type
+	concreteType types.Type
+	val          value.Value
+}
+
+func (v *vm) executeMakeInterface(frame *Frame) {
+	op := v.readMakeInterfaceOperands(frame)
+
+	if dyn, ok := v.makeInterpretedInterfaceValue(op); ok {
+		v.push(dyn)
+		return
+	}
+	if isEmptyInterfaceType(op.targetType) && !needsTypedNilInterfaceValue(op) {
+		v.push(op.val)
+		return
+	}
+	if boxed, ok := v.makeReflectInterfaceValue(op); ok {
+		v.push(boxed)
+		return
+	}
+	v.push(op.val)
+}
+
+func (v *vm) readMakeInterfaceOperands(frame *Frame) makeInterfaceOperands {
+	ifaceTypeIdx := frame.readUint16()
+	concreteTypeIdx := frame.readUint16()
+	return makeInterfaceOperands{
+		targetType:   v.program.Types[ifaceTypeIdx],
+		concreteType: v.program.Types[concreteTypeIdx],
+		val:          v.pop(),
+	}
+}
+
+func (v *vm) makeInterpretedInterfaceValue(op makeInterfaceOperands) (value.Value, bool) {
+	iface, ok := op.targetType.Underlying().(*types.Interface)
+	if !ok {
+		return value.Value{}, false
+	}
+	typeName := namedTypeName(op.concreteType)
+	if typeName == "" || !shouldPreserveInterpretedNamedType(op.concreteType, v.program) {
+		return value.Value{}, false
+	}
+
+	dyn := &value.InterpretedInterfaceValue{
+		Value:     v.interfaceValueForDynamicType(op),
+		TypeName:  typeName,
+		IsPointer: isPointerType(op.concreteType),
+	}
+	if iface.NumMethods() > 0 && !v.interpretedTypeSatisfiesInterface(dyn, iface) {
+		return value.Value{}, false
+	}
+	return value.MakeInterpretedInterface(dyn.Value, dyn.TypeName, dyn.IsPointer), true
+}
+
+func (v *vm) interfaceValueForDynamicType(op makeInterfaceOperands) value.Value {
+	if !needsTypedNilInterfaceValue(op) {
+		return op.val
+	}
+	concreteRT := typeToReflect(op.concreteType, v.program)
+	if concreteRT == nil {
+		return op.val
+	}
+	return value.MakeFromReflect(reflect.Zero(concreteRT))
+}
+
+func isEmptyInterfaceType(t types.Type) bool {
+	iface, ok := t.Underlying().(*types.Interface)
+	return ok && iface.NumMethods() == 0
+}
+
+func needsTypedNilInterfaceValue(op makeInterfaceOperands) bool {
+	return (op.val.IsNil() || !op.val.IsValid()) && isPointerType(op.concreteType)
+}
+
+func (v *vm) makeReflectInterfaceValue(op makeInterfaceOperands) (value.Value, bool) {
+	if op.val.IsNil() || !op.val.IsValid() {
+		return v.makeTypedNilInterfaceValue(op)
+	}
+	concreteRT := typeToReflect(op.concreteType, v.program)
+	if concreteRT == nil {
+		return value.Value{}, false
+	}
+	rv := op.val.ToReflectValue(concreteRT)
+	if !rv.IsValid() {
+		return value.Value{}, false
+	}
+	return value.MakeFromReflect(rv), true
+}
+
+func (v *vm) makeTypedNilInterfaceValue(op makeInterfaceOperands) (value.Value, bool) {
+	concreteRT := typeToReflect(op.concreteType, v.program)
+	if concreteRT == nil {
+		return value.Value{}, false
+	}
+	return value.MakeFromReflect(reflect.Zero(concreteRT)), true
+}
+
+func (v *vm) executeAssert(frame *Frame) {
+	typeIdx := frame.readUint16()
+	targetType := v.program.Types[typeIdx]
+	obj := v.pop()
+
+	if iface, ok := targetType.Underlying().(*types.Interface); ok && iface.NumMethods() == 0 {
+		v.pushCommaOk(obj, true)
+		return
+	}
+	if dyn, ok := obj.InterpretedInterface(); ok {
+		result, assertionOk := v.assertInterpretedInterfaceValue(dyn, targetType, obj)
+		v.pushCommaOk(result, assertionOk)
+		return
+	}
+	if obj.Kind() == value.KindInterface {
+		v.assertReflectInterfaceValue(obj, targetType)
+		return
+	}
+
+	var result value.Value
+	var assertionOk bool
+	if obj.Kind() == value.KindReflect {
+		result, assertionOk = v.assertReflectValue(obj, targetType)
+	} else {
+		result, assertionOk = v.assertPrimitiveValue(obj, targetType)
+	}
+	v.pushCommaOk(result, assertionOk)
+}
+
+func (v *vm) assertReflectInterfaceValue(obj value.Value, targetType types.Type) {
+	rv, isReflect := obj.ReflectValue()
+	if !isReflect || rv.Kind() != reflect.Interface {
+		v.pushCommaOk(obj, true)
+		return
+	}
+	if rv.IsNil() {
+		v.pushCommaOk(value.MakeNil(), false)
+		return
+	}
+
+	underlying := rv.Elem()
+	targetReflectType := typeToReflect(targetType, v.program)
+	if targetReflectType == nil {
+		v.pushCommaOk(value.MakeNil(), false)
+		return
+	}
+	if underlying.Type().AssignableTo(targetReflectType) {
+		v.pushCommaOk(value.MakeFromReflect(underlying), true)
+		return
+	}
+	v.pushCommaOk(value.MakeFromReflect(reflect.Zero(targetReflectType)), false)
+}
+
+func (v *vm) assertReflectValue(obj value.Value, targetType types.Type) (value.Value, bool) {
+	rv, ok := obj.ReflectValue()
+	if !ok {
+		return zeroValueForType(targetType, v.program), false
+	}
+	if rv.Kind() == reflect.Interface && !rv.IsNil() {
+		rv = rv.Elem()
+	}
+	targetReflectType := typeToReflect(targetType, v.program)
+	if targetReflectType == nil {
+		return value.MakeNil(), false
+	}
+	if rv.Type().AssignableTo(targetReflectType) {
+		return value.MakeFromReflect(rv), true
+	}
+	if sameReflectKindFamily(rv.Type(), targetReflectType) {
+		return value.MakeFromReflect(rv.Convert(targetReflectType)), true
+	}
+	return value.MakeNil(), false
+}
+
+func (v *vm) assertPrimitiveValue(obj value.Value, targetType types.Type) (value.Value, bool) {
+	if kindMatchesType(obj.Kind(), obj.RawSize(), targetType) {
+		return obj, true
+	}
+	return zeroValueForType(targetType, v.program), false
+}
+
+func (v *vm) assertInterpretedInterfaceValue(dyn *value.InterpretedInterfaceValue, targetType types.Type, original value.Value) (value.Value, bool) {
+	if iface, ok := targetType.Underlying().(*types.Interface); ok {
+		if iface.NumMethods() == 0 || v.interpretedTypeSatisfiesInterface(dyn, iface) {
+			return original, true
+		}
+		return zeroValueForType(targetType, v.program), false
+	}
+	if targetName := namedTypeName(targetType); targetName == dyn.TypeName && isPointerType(targetType) == dyn.IsPointer {
+		if dyn.IsPointer || kindMatchesType(dyn.Value.Kind(), dyn.Value.RawSize(), targetType) {
+			return dyn.Value, true
+		}
+	}
+	return zeroValueForType(targetType, v.program), false
+}
+
+func (v *vm) interpretedTypeSatisfiesInterface(dyn *value.InterpretedInterfaceValue, iface *types.Interface) bool {
+	if dyn == nil || iface == nil || v == nil || v.program == nil {
+		return false
+	}
+	for i := 0; i < iface.NumMethods(); i++ {
+		if !v.interpretedMethodSatisfiesInterface(dyn, iface.Method(i).Name()) {
+			return false
+		}
+	}
+	return true
+}
+
+func (v *vm) interpretedMethodSatisfiesInterface(dyn *value.InterpretedInterfaceValue, methodName string) bool {
+	for _, fn := range v.program.MethodsByName[methodName] {
+		if fn.ReceiverTypeName == dyn.TypeName && (!fn.ReceiverIsPointer || dyn.IsPointer) {
+			return true
+		}
+	}
+	return false
+}
+
+func zeroValueForType(t types.Type, program *bytecode.CompiledProgram) value.Value {
+	if rt := typeToReflect(t, program); rt != nil {
+		return value.MakeFromReflect(reflect.Zero(rt))
+	}
+	return value.MakeNil()
+}
+
+func shouldPreserveInterpretedNamedType(t types.Type, program *bytecode.CompiledProgram) bool {
+	typeName := namedTypeName(t)
+	if typeName == "" {
+		return false
+	}
+	rt := typeToReflect(t, program)
+	return rt == nil || rt.Name() != typeName
+}
+
+func isPointerType(t types.Type) bool {
+	_, ok := t.(*types.Pointer)
+	return ok
+}
+
+func namedTypeName(t types.Type) string {
+	for {
+		switch tt := t.(type) {
+		case *types.Named:
+			return tt.Obj().Name()
+		case *types.Pointer:
+			t = tt.Elem()
+		default:
+			return ""
+		}
+	}
 }

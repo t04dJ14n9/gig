@@ -113,6 +113,17 @@ func indexAddressValue(container value.Value, idx int) value.Value {
 	if s, ok := container.IntSlice(); ok {
 		return value.MakeIntPtr(&s[idx])
 	}
+	if container.Kind() == value.KindBytes {
+		b, ok := container.Bytes()
+		if !ok {
+			return value.MakeNil()
+		}
+		elem := reflect.ValueOf(b).Index(idx)
+		if elem.CanAddr() {
+			return value.MakeFromReflect(elem.Addr())
+		}
+		return value.MakeFromReflect(elem)
+	}
 	if rv, ok := container.ReflectValue(); ok {
 		if rv.Kind() == reflect.Ptr {
 			if rv.IsNil() {

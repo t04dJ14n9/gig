@@ -605,7 +605,11 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 	if receiverTypeName != "" {
 		for _, fn := range candidates {
 			if fn.ReceiverTypeName == receiverTypeName {
-				for _, arg := range args {
+				methodReceiver := methodReceiverForCompiledFunction(args[0], fn)
+				for i, arg := range args {
+					if i == 0 {
+						arg = methodReceiver
+					}
 					v.push(arg)
 				}
 				v.callCompiledFunction(fn.FuncIdx, len(args))
@@ -619,7 +623,11 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 		if concreteTypeName := inferReceiverTypeName(args[0], v.program); concreteTypeName != "" {
 			for _, fn := range candidates {
 				if fn.ReceiverTypeName == concreteTypeName {
-					for _, arg := range args {
+					methodReceiver := methodReceiverForCompiledFunction(args[0], fn)
+					for i, arg := range args {
+						if i == 0 {
+							arg = methodReceiver
+						}
 						v.push(arg)
 					}
 					v.callCompiledFunction(fn.FuncIdx, len(args))
@@ -632,7 +640,11 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 	// Last resort: match by method name only (first candidate).
 	if len(candidates) > 0 {
 		fn := candidates[0]
-		for _, arg := range args {
+		methodReceiver := methodReceiverForCompiledFunction(args[0], fn)
+		for i, arg := range args {
+			if i == 0 {
+				arg = methodReceiver
+			}
 			v.push(arg)
 		}
 		v.callCompiledFunction(fn.FuncIdx, len(args))
@@ -644,12 +656,29 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 	return nil
 }
 
+func methodReceiverForCompiledFunction(receiver value.Value, fn *bytecode.CompiledFunction) value.Value {
+	dyn, ok := receiver.InterpretedInterface()
+	if !ok || fn == nil {
+		return receiver
+	}
+	if fn.ReceiverTypeName != "" && fn.ReceiverTypeName != dyn.TypeName {
+		return receiver
+	}
+	if fn.ReceiverIsPointer && !dyn.IsPointer {
+		return receiver
+	}
+	return dyn.Value
+}
+
 // inferReceiverTypeName tries to extract a type name from a runtime value.Value
 // receiver. This is used when callCompiledMethod doesn't have a static type hint
 // but needs to disambiguate by the actual value being dispatched on.
 // It first checks the program-level ReflectTypeNames registry, then falls back
 // to scanning field PkgPath suffixes for unexported fields.
 func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram) string {
+	if dyn, ok := receiver.InterpretedInterface(); ok {
+		return dyn.TypeName
+	}
 	rv, ok := receiver.ReflectValue()
 	if !ok {
 		return ""

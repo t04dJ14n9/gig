@@ -77,6 +77,7 @@ func (c *compiler) compileFunction(fn *ssa.Function) (*bytecode.CompiledFunction
 	if sig.Recv() != nil {
 		cf.HasReceiver = true
 		cf.ReceiverTypeName = extractReceiverShortName(sig.Recv().Type())
+		_, cf.ReceiverIsPointer = sig.Recv().Type().(*types.Pointer)
 	}
 
 	c.currentFunc = cf
