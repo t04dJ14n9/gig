@@ -15,4 +15,9 @@ type ExternalFuncInfo struct {
 
 	// DirectCall is a typed wrapper that avoids reflect.Call.
 	DirectCall func(args []value.Value) value.Value
+
+	// PkgPath and FuncName identify the boundary target for diagnostics and
+	// runtime validation.
+	PkgPath  string
+	FuncName string
 }

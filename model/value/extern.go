@@ -1,10 +1,10 @@
 // extern.go provides general-purpose wrapping of interpreter values for
 // crossing into external Go code. When a synthesized struct has compiled
 // methods (e.g., String()), the wrapper implements the corresponding Go
-// interfaces (fmt.Stringer, fmt.Formatter) so that standard library and
+// interfaces (fmt.Stringer, fmt.Formatter, error) so that standard library and
 // third-party code can discover them via type assertion / reflection.
 //
-// DESIGN: Only fmt.Stringer and fmt.Formatter need a wrapper, because
+// DESIGN: Only method-shaped host boundaries need a wrapper, because
 // reflect.StructOf types can't have methods. Encoding packages (json, etc.)
 // work natively on the raw struct via struct tags and reflection —
 // wrapping them would actually *break* native encoding by intercepting it.
@@ -16,34 +16,57 @@ import (
 	"strings"
 )
 
-// gigStructWrapper wraps an interpreter-synthesized struct value to implement
-// Go interfaces (fmt.Stringer, fmt.Formatter) that the underlying anonymous
+// gigStructError wraps an interpreter-synthesized struct value to implement
+// Go interfaces (fmt.Stringer, fmt.Formatter, error, fmt.GoStringer) that the underlying anonymous
 // struct type cannot satisfy because reflect.StructOf doesn't support methods.
 //
 // The wrapper is transparent: it delegates all fmt verbs to the underlying
 // value, and only intercepts %T (for correct type name) and %v/%s (for
 // String() dispatch).
-type gigStructWrapper struct {
-	iface     any           // the underlying struct value (clean, no phantom fields)
-	typeName  string        // qualified type name from gig tag (e.g., "pkg.Type")
-	stringer  func() string // nil if no String() method
-	hasMethod bool          // true if String() method exists
+type gigStructError struct {
+	iface      any
+	typeName   string
+	stringer   func() string
+	errorer    func() string
+	gostringer func() string
 }
 
-// Ensure gigStructWrapper implements the relevant interfaces.
+// Ensure gigStructError implements the relevant interfaces.
 var (
-	_ fmt.Stringer  = (*gigStructWrapper)(nil)
-	_ fmt.Formatter = (*gigStructWrapper)(nil)
+	_ fmt.Stringer   = (*gigStructError)(nil)
+	_ fmt.Formatter  = (*gigStructError)(nil)
+	_ fmt.GoStringer = (*gigStructError)(nil)
+	_ error          = (*gigStructError)(nil)
 )
 
-func (g *gigStructWrapper) String() string {
+func (g *gigStructError) String() string {
+	if g.stringer != nil {
+		return g.stringer()
+	}
+	if g.errorer != nil {
+		return g.errorer()
+	}
+	return fmt.Sprint(g.iface)
+}
+
+func (g *gigStructError) Error() string {
+	if g.errorer != nil {
+		return g.errorer()
+	}
 	if g.stringer != nil {
 		return g.stringer()
 	}
 	return fmt.Sprint(g.iface)
 }
 
-func (g *gigStructWrapper) Format(f fmt.State, verb rune) {
+func (g *gigStructError) GoString() string {
+	if g.gostringer != nil {
+		return g.gostringer()
+	}
+	return g.defaultGoString()
+}
+
+func (g *gigStructError) Format(f fmt.State, verb rune) {
 	switch verb {
 	case 'T':
 		_, _ = fmt.Fprint(f, g.typeName)
@@ -83,6 +106,11 @@ func (g *gigStructWrapper) Format(f fmt.State, verb rune) {
 	}
 }
 
+func asGigStructError(err error) (*gigStructError, bool) {
+	wrapper, ok := err.(*gigStructError) //nolint:errorlint // Internal exact wrapper check; native wrapping is handled by caller traversal.
+	return wrapper, ok
+}
+
 // isGigStruct checks if a Go value is an interpreter-synthesized struct
 // by looking for the "gig" struct tag on its first field.
 // Returns the qualified type name (e.g., "pkg.TypeName") or "" if not a gig struct.
@@ -91,47 +119,45 @@ func isGigStruct(v any) string {
 	if v == nil {
 		return ""
 	}
-	rv := reflect.ValueOf(v)
-	rt := rv.Type()
+	return gigStructNameFromType(baseReflectType(reflect.TypeOf(v)))
+}
 
-	// Handle multiple levels of pointers: **T, ***T, etc.
-	for rv.Kind() == reflect.Ptr {
-		if rv.IsNil() {
-			elemType := rt.Elem()
-			for elemType.Kind() == reflect.Ptr {
-				elemType = elemType.Elem()
-			}
-			if elemType.Kind() != reflect.Struct || elemType.NumField() == 0 {
-				return ""
-			}
-			gigTag := elemType.Field(0).Tag.Get("gig")
-			if gigTag == "" {
-				return ""
-			}
-			if strings.HasPrefix(gigTag, "#") {
-				return gigTag[1:]
-			}
-			return gigTag
-		}
-		rv = rv.Elem()
-		rt = rv.Type()
+func baseReflectType(rt reflect.Type) reflect.Type {
+	for rt.Kind() == reflect.Ptr {
+		rt = rt.Elem()
 	}
+	return rt
+}
 
-	if rv.Kind() != reflect.Struct {
+func gigStructNameFromType(rt reflect.Type) string {
+	if rt.Kind() != reflect.Struct {
 		return ""
 	}
-	rt = rv.Type()
 	if rt.NumField() == 0 {
 		return ""
 	}
 	gigTag := rt.Field(0).Tag.Get("gig")
-	if gigTag == "" {
-		return ""
+	if gigTag != "" {
+		return normalizeGigTag(gigTag)
 	}
+	return gigStructNameFromPkgPath(rt)
+}
+
+func normalizeGigTag(gigTag string) string {
 	if strings.HasPrefix(gigTag, "#") {
 		return gigTag[1:]
 	}
 	return gigTag
+}
+
+func gigStructNameFromPkgPath(rt reflect.Type) string {
+	for i := 0; i < rt.NumField(); i++ {
+		pkgPath := rt.Field(i).PkgPath
+		if idx := strings.LastIndex(pkgPath, "#"); idx >= 0 {
+			return extractBareTypeName(pkgPath[idx+1:])
+		}
+	}
+	return ""
 }
 
 // FmtWrap prepares a value.Value for passing to fmt.* functions.
@@ -154,32 +180,58 @@ func FmtWrap(v Value) any {
 	}
 
 	// Check if the interpreted type has a String() method via the global resolver registry
-	stringerFunc, hasStringer := resolveStringer(v)
+	stringerFunc := resolveStringer(v)
+	errorerFunc, _ := resolveErrorer(v)
+	gostringerFunc := resolveGoStringer(v)
 
 	// Always return the wrapper for gig structs - it handles all fmt verbs correctly
-	return &gigStructWrapper{
-		iface:     iface,
-		typeName:  typeName,
-		stringer:  stringerFunc,
-		hasMethod: hasStringer,
+	return &gigStructError{
+		iface:      iface,
+		typeName:   typeName,
+		stringer:   stringerFunc,
+		errorer:    errorerFunc,
+		gostringer: gostringerFunc,
 	}
 }
 
 // resolveStringer attempts to resolve the String() method for a value.
-// Returns a function that can be called later, and a boolean indicating if found.
-func resolveStringer(v Value) (func() string, bool) {
+// It returns nil when the interpreted type does not define String().
+func resolveStringer(v Value) func() string {
+	defer func() {
+		_ = recover()
+	}()
 	// Try to call String() method via the global resolver registry
-	result, found := callMethod(nil, "String", v)
+	result, found := callMethod("String", v)
 	if !found {
 		// If not found, try with pointer to the value (for pointer receiver methods)
 		if rv, ok := v.ReflectValue(); ok && rv.Kind() == reflect.Struct {
 			ptrRV := reflect.New(rv.Type())
 			ptrRV.Elem().Set(rv)
 			ptrValue := MakeFromReflect(ptrRV)
-			result, found = callMethod(nil, "String", ptrValue)
+			result, found = callMethod("String", ptrValue)
 		}
 	}
 
+	if !found {
+		return nil
+	}
+	str := result.String()
+	return func() string { return str }
+}
+
+func resolveErrorer(v Value) (func() string, bool) {
+	defer func() {
+		_ = recover()
+	}()
+	result, found := callMethod("Error", v)
+	if !found {
+		if rv, ok := v.ReflectValue(); ok && rv.Kind() == reflect.Struct {
+			ptrRV := reflect.New(rv.Type())
+			ptrRV.Elem().Set(rv)
+			ptrValue := MakeFromReflect(ptrRV)
+			result, found = callMethod("Error", ptrValue)
+		}
+	}
 	if !found {
 		return nil, false
 	}
@@ -187,8 +239,42 @@ func resolveStringer(v Value) (func() string, bool) {
 	return func() string { return str }, true
 }
 
+func resolveGoStringer(v Value) func() string {
+	defer func() {
+		_ = recover()
+	}()
+	result, found := callMethod("GoString", v)
+	if !found {
+		if rv, ok := v.ReflectValue(); ok && rv.Kind() == reflect.Struct {
+			ptrRV := reflect.New(rv.Type())
+			ptrRV.Elem().Set(rv)
+			ptrValue := MakeFromReflect(ptrRV)
+			result, found = callMethod("GoString", ptrValue)
+		}
+	}
+	if !found {
+		return nil
+	}
+	str := result.String()
+	return func() string { return str }
+}
+
+func extractBareTypeName(qualName string) string {
+	if idx := strings.LastIndex(qualName, "."); idx >= 0 {
+		return qualName[idx+1:]
+	}
+	return qualName
+}
+
+func extractGigTagFromType(rt reflect.Type) string {
+	if rt.Kind() != reflect.Struct || rt.NumField() == 0 {
+		return ""
+	}
+	return normalizeGigTag(rt.Field(0).Tag.Get("gig"))
+}
+
 // SprintfExtern is a general-purpose fmt.Sprintf replacement that correctly
-// handles %T for gigStructWrapper values. Go's fmt.Sprintf("%T") bypasses
+// handles %T for gigStructError values. Go's fmt.Sprintf("%T") bypasses
 // fmt.Formatter entirely and uses reflect.TypeOf().String(), so we must
 // intercept %T ourselves.
 func SprintfExtern(format string, args ...any) string {
@@ -196,7 +282,7 @@ func SprintfExtern(format string, args ...any) string {
 	if !strings.Contains(format, "%T") {
 		return fmt.Sprintf(format, args...)
 	}
-	// Slow path: replace %T for gigStructWrapper args with their type name
+	// Slow path: replace %T for gigStructError args with their type name
 	var result strings.Builder
 	argIdx := 0
 	i := 0
@@ -226,7 +312,7 @@ func SprintfExtern(format string, args ...any) string {
 			if j < len(format) {
 				verb := format[j]
 				if verb == 'T' && argIdx < len(args) {
-					if w, ok := args[argIdx].(*gigStructWrapper); ok {
+					if w, ok := args[argIdx].(*gigStructError); ok {
 						result.WriteString(w.typeName)
 						argIdx++
 						i = j + 1

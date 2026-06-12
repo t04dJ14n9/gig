@@ -138,6 +138,19 @@ func (v *vm) executeMemory(op bytecode.OpCode, frame *Frame) error { //nolint:go
 			v.push(value.MakeIntPtr(&s[idx]))
 			break
 		}
+		if container.Kind() == value.KindBytes {
+			if b, ok := container.Bytes(); ok {
+				elem := reflect.ValueOf(b).Index(idx)
+				if elem.CanAddr() {
+					v.push(value.MakeFromReflect(elem.Addr()))
+				} else {
+					v.push(value.MakeFromReflect(elem))
+				}
+			} else {
+				v.push(value.MakeNil())
+			}
+			break
+		}
 
 		if rv, ok := container.ReflectValue(); ok {
 			// Dereference pointer if needed

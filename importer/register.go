@@ -28,6 +28,9 @@ type ExternalPackage struct {
 	// Types maps type names to their reflect.Type representations.
 	Types map[string]reflect.Type
 
+	// InterfaceProxies maps interface type names to native proxy metadata.
+	InterfaceProxies map[string]*external.InterfaceProxyInfo
+
 	// registry is a back-reference to the owning registry.
 	registry PackageRegistry
 }
@@ -46,11 +49,15 @@ type PackageRegistry interface {
 	LookupExternalVar(pkgPath, varName string) (ptr any, ok bool)
 	LookupExternalType(t types.Type) (reflect.Type, bool)
 	LookupExternalTypeByName(pkgPath, typeName string) (reflect.Type, bool)
+	LookupInterfaceProxy(pkgPath, typeName string) (*external.InterfaceProxyInfo, bool)
+	LookupInterfaceProxyByType(ifaceType reflect.Type) (*external.InterfaceProxyInfo, bool)
+	LookupInterfaceProxyByInterface(iface *types.Interface) (*external.InterfaceProxyInfo, bool)
 
 	// Write operations
 	RegisterPackage(path, name string) *ExternalPackage
 	SetExternalType(t types.Type, rt reflect.Type)
 	AddMethodDirectCall(typeName, methodName string, dc func([]value.Value) value.Value)
+	AddInterfaceProxy(pkgPath, typeName string, ifaceType reflect.Type, requiredMethods []string, factory external.InterfaceProxyFactory)
 }
 
 // Registry is the concrete implementation of PackageRegistry.
@@ -59,30 +66,35 @@ type PackageRegistry interface {
 // All mutable state is protected by a single RWMutex. Registration happens at init
 // time; reads happen during compilation — there's no contention benefit from separate locks.
 type Registry struct {
-	mu              sync.RWMutex
-	packagesByName  map[string]*ExternalPackage                // keyed by package path
-	packagesByAlias map[string]*ExternalPackage                // keyed by package name (for auto-import)
-	extTypes        map[types.Type]reflect.Type                // types.Type -> reflect.Type
-	methods         map[string]func([]value.Value) value.Value // "pkgPath.TypeName.MethodName" -> DirectCall
+	mu                     sync.RWMutex
+	packagesByName         map[string]*ExternalPackage                // keyed by package path
+	packagesByAlias        map[string]*ExternalPackage                // keyed by package name (for auto-import)
+	extTypes               map[types.Type]reflect.Type                // types.Type -> reflect.Type
+	methods                map[string]func([]value.Value) value.Value // "pkgPath.TypeName.MethodName" -> DirectCall
+	interfaceProxiesByName map[string]*external.InterfaceProxyInfo    // "pkgPath.TypeName" -> proxy metadata
+	interfaceProxiesByType map[reflect.Type]*external.InterfaceProxyInfo
 }
 
 // NewRegistry creates a new empty package registry.
 func NewRegistry() *Registry {
 	return &Registry{
-		packagesByName:  make(map[string]*ExternalPackage),
-		packagesByAlias: make(map[string]*ExternalPackage),
-		extTypes:        make(map[types.Type]reflect.Type),
-		methods:         make(map[string]func([]value.Value) value.Value),
+		packagesByName:         make(map[string]*ExternalPackage),
+		packagesByAlias:        make(map[string]*ExternalPackage),
+		extTypes:               make(map[types.Type]reflect.Type),
+		methods:                make(map[string]func([]value.Value) value.Value),
+		interfaceProxiesByName: make(map[string]*external.InterfaceProxyInfo),
+		interfaceProxiesByType: make(map[reflect.Type]*external.InterfaceProxyInfo),
 	}
 }
 
 func (r *Registry) RegisterPackage(path, name string) *ExternalPackage {
 	pkg := &ExternalPackage{
-		Path:     path,
-		Name:     name,
-		Objects:  make(map[string]*external.ExternalObject),
-		Types:    make(map[string]reflect.Type),
-		registry: r,
+		Path:             path,
+		Name:             name,
+		Objects:          make(map[string]*external.ExternalObject),
+		Types:            make(map[string]reflect.Type),
+		InterfaceProxies: make(map[string]*external.InterfaceProxyInfo),
+		registry:         r,
 	}
 	r.mu.Lock()
 	r.packagesByName[path] = pkg
@@ -246,6 +258,26 @@ func GetAllPackages() map[string]*ExternalPackage {
 // LookupMethodDirectCall looks up a method DirectCall wrapper from the global registry.
 func LookupMethodDirectCall(typeName, methodName string) (func([]value.Value) value.Value, bool) {
 	return globalRegistry.LookupMethodDirectCall(typeName, methodName)
+}
+
+// AddInterfaceProxy registers a native interface proxy in the global registry.
+func AddInterfaceProxy(pkgPath, typeName string, ifaceType reflect.Type, requiredMethods []string, factory external.InterfaceProxyFactory) {
+	globalRegistry.AddInterfaceProxy(pkgPath, typeName, ifaceType, requiredMethods, factory)
+}
+
+// LookupInterfaceProxy looks up a native interface proxy in the global registry.
+func LookupInterfaceProxy(pkgPath, typeName string) (*external.InterfaceProxyInfo, bool) {
+	return globalRegistry.LookupInterfaceProxy(pkgPath, typeName)
+}
+
+// LookupInterfaceProxyByType looks up a native interface proxy by reflect.Type in the global registry.
+func LookupInterfaceProxyByType(ifaceType reflect.Type) (*external.InterfaceProxyInfo, bool) {
+	return globalRegistry.LookupInterfaceProxyByType(ifaceType)
+}
+
+// LookupInterfaceProxyByInterface looks up a native interface proxy by method set in the global registry.
+func LookupInterfaceProxyByInterface(iface *types.Interface) (*external.InterfaceProxyInfo, bool) {
+	return globalRegistry.LookupInterfaceProxyByInterface(iface)
 }
 
 // funcSignature creates a types.Signature from a function value using reflection.

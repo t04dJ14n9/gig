@@ -68,3 +68,11 @@ func (p *ExternalPackage) AddMethodDirectCall(typeName, methodName string, dc fu
 		p.registry.AddMethodDirectCall(p.Path+"."+typeName, methodName, dc)
 	}
 }
+
+// AddInterfaceProxy registers a native proxy for an exported interface type in
+// this package.
+func (p *ExternalPackage) AddInterfaceProxy(typeName string, ifaceType reflect.Type, requiredMethods []string, factory external.InterfaceProxyFactory) {
+	if p.registry != nil {
+		p.registry.AddInterfaceProxy(p.Path, typeName, ifaceType, requiredMethods, factory)
+	}
+}

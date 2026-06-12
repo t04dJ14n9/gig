@@ -13,11 +13,17 @@ import (
 // It receives a method name and receiver value, and returns the result if found.
 type MethodResolverFunc func(methodName string, receiver Value) (Value, bool)
 
+// MethodWithArgsResolverFunc is like MethodResolverFunc but supports arguments
+// beyond the receiver.
+type MethodWithArgsResolverFunc func(methodName string, receiver Value, args []Value) (Value, bool)
+
 // methodResolverRegistry is a thread-safe global registry of per-program method resolvers.
 // This allows fmt DirectCall wrappers (which lack VM context) to resolve compiled methods
 // on interpreted types. Each program registers its resolver on creation and unregisters
 // on cleanup. Using sync.Map eliminates the data race that the old single-global approach had.
 var methodResolverRegistry sync.Map // map[uintptr]MethodResolverFunc
+
+var methodWithArgsResolverRegistry sync.Map // map[uintptr]MethodWithArgsResolverFunc
 
 // RegisterMethodResolver registers a method resolver for a program identified by key.
 // The key should be a unique identifier per program (e.g., uintptr of program pointer).
@@ -25,18 +31,22 @@ func RegisterMethodResolver(key uintptr, resolver MethodResolverFunc) {
 	methodResolverRegistry.Store(key, resolver)
 }
 
+// RegisterMethodWithArgsResolver registers a method resolver that supports
+// arguments beyond the receiver.
+func RegisterMethodWithArgsResolver(key uintptr, resolver MethodWithArgsResolverFunc) {
+	methodWithArgsResolverRegistry.Store(key, resolver)
+}
+
 // UnregisterMethodResolver removes a method resolver for the given program key.
 func UnregisterMethodResolver(key uintptr) {
 	methodResolverRegistry.Delete(key)
+	methodWithArgsResolverRegistry.Delete(key)
 }
 
 // callMethod attempts to call a compiled method on the receiver using the given resolver.
 // If resolver is nil, it falls back to searching all registered per-program resolvers.
 // Returns (result, true) if the method was found and called, or (zero, false) otherwise.
-func callMethod(resolver MethodResolverFunc, methodName string, receiver Value) (Value, bool) {
-	if resolver != nil {
-		return resolver(methodName, receiver)
-	}
+func callMethod(methodName string, receiver Value) (Value, bool) {
 	// Fallback: try all registered resolvers (for fmt DirectCall wrappers lacking VM context)
 	var result Value
 	var found bool
@@ -48,6 +58,24 @@ func callMethod(resolver MethodResolverFunc, methodName string, receiver Value) 
 			}
 		}
 		return true // continue
+	})
+	if found {
+		return result, true
+	}
+	return MakeNil(), false
+}
+
+func callMethodWithArgs(methodName string, receiver Value, args []Value) (Value, bool) {
+	var result Value
+	var found bool
+	methodWithArgsResolverRegistry.Range(func(_, v any) bool {
+		if r, ok := v.(MethodWithArgsResolverFunc); ok {
+			result, found = r(methodName, receiver, args)
+			if found {
+				return false
+			}
+		}
+		return true
 	})
 	if found {
 		return result, true
@@ -147,7 +175,19 @@ func (v Value) Interface() any {
 	case KindString:
 		return v.obj.(string)
 	case KindComplex:
+		if v.size == Size32 {
+			c := v.obj.(complex128)
+			return complex64(complex(float32(real(c)), float32(imag(c))))
+		}
 		return v.obj.(complex128)
+	case KindInterface:
+		if dyn, ok := v.InterpretedInterface(); ok {
+			return dyn.Value.Interface()
+		}
+		if rv, ok := v.obj.(reflect.Value); ok {
+			return rv.Interface()
+		}
+		return v.obj
 	case KindFunc:
 		return v.obj
 	case KindBytes:
@@ -251,12 +291,21 @@ func (v Value) toReflectFunc(typ reflect.Type) reflect.Value {
 
 // toReflectSlice converts Value to reflect.Value for slice types.
 func (v Value) toReflectSlice(typ reflect.Type) reflect.Value {
-	if s, ok := v.obj.([]int64); ok && typ.Kind() == reflect.Slice {
-		target := reflect.MakeSlice(typ, len(s), cap(s))
-		for i, n := range s {
-			target.Index(i).SetInt(n)
+	if s, ok := v.obj.([]int64); ok {
+		if typ.Kind() == reflect.Interface && typ.NumMethod() == 0 {
+			result := make([]int, len(s))
+			for i, n := range s {
+				result[i] = int(n)
+			}
+			return reflect.ValueOf(result)
 		}
-		return target
+		if typ.Kind() == reflect.Slice {
+			target := reflect.MakeSlice(typ, len(s), cap(s))
+			for i, n := range s {
+				target.Index(i).SetInt(n)
+			}
+			return target
+		}
 	}
 	if s, ok := v.obj.([]Value); ok && typ.Kind() == reflect.Slice {
 		target := reflect.MakeSlice(typ, len(s), cap(s))
@@ -325,6 +374,14 @@ func (v Value) ToReflectValue(typ reflect.Type) reflect.Value {
 		return reflect.ValueOf(v.obj.([]byte))
 	case KindSlice:
 		return v.toReflectSlice(typ)
+	case KindInterface:
+		if dyn, ok := v.InterpretedInterface(); ok {
+			return dyn.Value.ToReflectValue(typ)
+		}
+		if rv, ok := v.obj.(reflect.Value); ok {
+			return rv
+		}
+		return reflect.ValueOf(v.obj)
 	case KindReflect:
 		return v.toReflectReflect(typ)
 	default:

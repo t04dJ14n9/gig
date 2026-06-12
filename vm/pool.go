@@ -13,6 +13,16 @@ import (
 // ResolveCompiledMethod finds a compiled method in the program's function table
 // and executes it with the given receiver.
 func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string, receiver value.Value) (value.Value, bool) {
+	return ResolveCompiledMethodWithArgs(program, methodName, receiver, nil)
+}
+
+// ResolveCompiledMethodWithArgs finds a compiled method and executes it with
+// the given receiver plus extra arguments.
+func ResolveCompiledMethodWithArgs(program *bytecode.CompiledProgram, methodName string, receiver value.Value, args []value.Value) (value.Value, bool) {
+	if dyn, ok := receiver.InterpretedInterface(); ok {
+		receiver = dyn.Value
+	}
+
 	rv, ok := receiver.ReflectValue()
 	if !ok {
 		return value.MakeNil(), false
@@ -74,7 +84,10 @@ func ResolveCompiledMethod(program *bytecode.CompiledProgram, methodName string,
 		// Note: tempVM does not have initialGlobals since resolveCompiledMethod
 		// is called without a VM context. This is acceptable because method resolution
 		// only needs to execute the method, not full program init.
-		tempVM.callFunction(fn, []value.Value{receiver}, nil)
+		callArgs := make([]value.Value, 0, len(args)+1)
+		callArgs = append(callArgs, receiver)
+		callArgs = append(callArgs, args...)
+		tempVM.callFunction(fn, callArgs, nil)
 		result, err := tempVM.run()
 		if err != nil {
 			return value.MakeNil(), false

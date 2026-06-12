@@ -155,6 +155,36 @@ type Value struct {
 	obj  any   // string, complex128, reflect.Value, native Go composites, or nil for primitives
 }
 
+// InterpretedInterfaceValue preserves the dynamic type of a script-defined
+// named value stored in an interface{}.
+type InterpretedInterfaceValue struct {
+	Value     Value
+	TypeName  string
+	IsPointer bool
+}
+
+// MakeInterpretedInterface creates an interface value carrying interpreter
+// dynamic type metadata.
+func MakeInterpretedInterface(val Value, typeName string, isPointer bool) Value {
+	return Value{
+		kind: KindInterface,
+		obj: &InterpretedInterfaceValue{
+			Value:     val,
+			TypeName:  typeName,
+			IsPointer: isPointer,
+		},
+	}
+}
+
+// InterpretedInterface returns interpreter dynamic type metadata, if present.
+func (v Value) InterpretedInterface() (*InterpretedInterfaceValue, bool) {
+	if v.kind != KindInterface {
+		return nil, false
+	}
+	dyn, ok := v.obj.(*InterpretedInterfaceValue)
+	return dyn, ok
+}
+
 // Kind returns the kind of the value.
 func (v Value) Kind() Kind { return v.kind }
 
@@ -277,11 +307,30 @@ func MakeString(s string) Value {
 	return Value{kind: KindString, obj: s}
 }
 
-// MakeComplex creates a complex value.
+// MakeComplex creates a complex128 value.
 func MakeComplex(real, imag float64) Value {
 	return Value{
 		kind: KindComplex,
+		size: Size64,
 		obj:  complex(real, imag),
+	}
+}
+
+// MakeComplexSized creates a complex value with the given size.
+func MakeComplexSized(real, imag float64, sz Size) Value {
+	return Value{
+		kind: KindComplex,
+		size: sz,
+		obj:  complex(real, imag),
+	}
+}
+
+// MakeComplex64 creates a complex64 value.
+func MakeComplex64(real, imag float32) Value {
+	return Value{
+		kind: KindComplex,
+		size: Size32,
+		obj:  complex(float64(real), float64(imag)),
 	}
 }
 
@@ -377,7 +426,10 @@ func MakeFromReflect(rv reflect.Value) Value {
 		return MakeFloat(rv.Float())
 	case reflect.String:
 		return MakeString(rv.String())
-	case reflect.Complex64, reflect.Complex128:
+	case reflect.Complex64:
+		c := rv.Complex()
+		return MakeComplex64(float32(real(c)), float32(imag(c)))
+	case reflect.Complex128:
 		c := rv.Complex()
 		return MakeComplex(real(c), imag(c))
 	case reflect.Slice:
@@ -426,7 +478,7 @@ func FromInterface(v any) Value {
 	case float64:
 		return MakeFloat(val)
 	case complex64:
-		return MakeComplex(float64(real(val)), float64(imag(val)))
+		return MakeComplex64(real(val), imag(val))
 	case complex128:
 		return MakeComplex(real(val), imag(val))
 	case string:
