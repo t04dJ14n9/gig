@@ -606,6 +606,9 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 		for _, fn := range candidates {
 			if fn.ReceiverTypeName == receiverTypeName {
 				methodReceiver := methodReceiverForCompiledFunction(args[0], fn)
+				if v.shouldPanicOnNilValueReceiver(methodReceiver, fn) {
+					return nil
+				}
 				for i, arg := range args {
 					if i == 0 {
 						arg = methodReceiver
@@ -624,6 +627,9 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 			for _, fn := range candidates {
 				if fn.ReceiverTypeName == concreteTypeName {
 					methodReceiver := methodReceiverForCompiledFunction(args[0], fn)
+					if v.shouldPanicOnNilValueReceiver(methodReceiver, fn) {
+						return nil
+					}
 					for i, arg := range args {
 						if i == 0 {
 							arg = methodReceiver
@@ -641,6 +647,9 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 	if len(candidates) > 0 {
 		fn := candidates[0]
 		methodReceiver := methodReceiverForCompiledFunction(args[0], fn)
+		if v.shouldPanicOnNilValueReceiver(methodReceiver, fn) {
+			return nil
+		}
 		for i, arg := range args {
 			if i == 0 {
 				arg = methodReceiver
@@ -654,6 +663,19 @@ func (v *vm) callCompiledMethod(methodName string, receiverTypeName string, args
 	// No compiled method found — push nil
 	v.push(value.MakeNil())
 	return nil
+}
+
+func (v *vm) shouldPanicOnNilValueReceiver(receiver value.Value, fn *bytecode.CompiledFunction) bool {
+	if fn == nil || !fn.HasReceiver || fn.ReceiverIsPointer {
+		return false
+	}
+	rv, ok := receiver.ReflectValue()
+	if !ok || rv.Kind() != reflect.Ptr || !rv.IsNil() {
+		return false
+	}
+	v.panicking = true
+	v.panicVal = value.FromInterface("runtime error: invalid memory address or nil pointer dereference")
+	return true
 }
 
 func methodReceiverForCompiledFunction(receiver value.Value, fn *bytecode.CompiledFunction) value.Value {
@@ -687,11 +709,14 @@ func inferReceiverTypeName(receiver value.Value, prog *bytecode.CompiledProgram)
 	if rv.Kind() == reflect.Interface && !rv.IsNil() {
 		rv = rv.Elem()
 	}
-	// Unwrap pointer
+	var t reflect.Type
 	if rv.Kind() == reflect.Ptr {
-		rv = rv.Elem()
+		t = rv.Type().Elem()
+	} else if rv.IsValid() {
+		t = rv.Type()
+	} else {
+		return ""
 	}
-	t := rv.Type()
 	// For real Go types passed through, the name is available directly.
 	if t.Name() != "" {
 		return t.Name()
