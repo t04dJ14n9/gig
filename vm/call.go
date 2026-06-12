@@ -227,11 +227,11 @@ func (v *vm) callFunction(fn *bytecode.CompiledFunction, args []value.Value, fre
 // Supports both DirectCall (fast path) and reflect.Call (slow path).
 // Returns an error if the context is cancelled during or immediately after the call.
 func (v *vm) callExternal(funcIdx, numArgs int) error {
-	// Pop arguments first (before any cache lookup)
-	args := make([]value.Value, numArgs)
-	for i := numArgs - 1; i >= 0; i-- {
-		args[i] = v.pop()
-	}
+	// Arguments are already contiguous on the operand stack in call order.
+	// Slice the stack directly so DirectCall paths avoid per-call arg-slice allocation.
+	argStart := v.sp - numArgs
+	args := v.stack[argStart:v.sp]
+	v.sp = argStart
 
 	// Check if this is a method call (ExternalMethodInfo)
 	if funcIdx < len(v.program.Constants) {
