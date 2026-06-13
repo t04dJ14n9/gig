@@ -6,17 +6,16 @@ import (
 	regexp_syntax "regexp/syntax"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("regexp/syntax", "syntax")
 
 	// Functions
-	pkg.AddFunction("Compile", regexp_syntax.Compile, "", direct_regexp_syntax_Compile)
-	pkg.AddFunction("EmptyOpContext", regexp_syntax.EmptyOpContext, "", direct_regexp_syntax_EmptyOpContext)
-	pkg.AddFunction("IsWordChar", regexp_syntax.IsWordChar, "", direct_regexp_syntax_IsWordChar)
-	pkg.AddFunction("Parse", regexp_syntax.Parse, "", direct_regexp_syntax_Parse)
+	pkg.AddFunction("Compile", regexp_syntax.Compile, "")
+	pkg.AddFunction("EmptyOpContext", regexp_syntax.EmptyOpContext, "")
+	pkg.AddFunction("IsWordChar", regexp_syntax.IsWordChar, "")
+	pkg.AddFunction("Parse", regexp_syntax.Parse, "")
 
 	// Constants
 	pkg.AddConstant("ClassNL", regexp_syntax.ClassNL, "")
@@ -96,132 +95,4 @@ func init() {
 	pkg.AddType("Prog", reflect.TypeOf(regexp_syntax.Prog{}), "")
 	pkg.AddType("Regexp", reflect.TypeOf(regexp_syntax.Regexp{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Error", "Error", direct_method_regexp_syntax_Error_Error)
-	pkg.AddMethodDirectCall("ErrorCode", "String", direct_method_regexp_syntax_ErrorCode_String)
-	pkg.AddMethodDirectCall("Inst", "MatchEmptyWidth", direct_method_regexp_syntax_Inst_MatchEmptyWidth)
-	pkg.AddMethodDirectCall("Inst", "MatchRune", direct_method_regexp_syntax_Inst_MatchRune)
-	pkg.AddMethodDirectCall("Inst", "MatchRunePos", direct_method_regexp_syntax_Inst_MatchRunePos)
-	pkg.AddMethodDirectCall("Inst", "String", direct_method_regexp_syntax_Inst_String)
-	pkg.AddMethodDirectCall("InstOp", "String", direct_method_regexp_syntax_InstOp_String)
-	pkg.AddMethodDirectCall("Op", "String", direct_method_regexp_syntax_Op_String)
-	pkg.AddMethodDirectCall("Prog", "Prefix", direct_method_regexp_syntax_Prog_Prefix)
-	pkg.AddMethodDirectCall("Prog", "StartCond", direct_method_regexp_syntax_Prog_StartCond)
-	pkg.AddMethodDirectCall("Prog", "String", direct_method_regexp_syntax_Prog_String)
-	pkg.AddMethodDirectCall("Regexp", "CapNames", direct_method_regexp_syntax_Regexp_CapNames)
-	pkg.AddMethodDirectCall("Regexp", "Equal", direct_method_regexp_syntax_Regexp_Equal)
-	pkg.AddMethodDirectCall("Regexp", "MaxCap", direct_method_regexp_syntax_Regexp_MaxCap)
-	pkg.AddMethodDirectCall("Regexp", "Simplify", direct_method_regexp_syntax_Regexp_Simplify)
-	pkg.AddMethodDirectCall("Regexp", "String", direct_method_regexp_syntax_Regexp_String)
-
-}
-
-func direct_regexp_syntax_Compile(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*regexp_syntax.Regexp)
-	r0, r1 := regexp_syntax.Compile(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_regexp_syntax_EmptyOpContext(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	a1 := int32(args[1].Int())
-	return value.MakeUint(uint64(uint8(regexp_syntax.EmptyOpContext(a0, a1))))
-}
-
-func direct_regexp_syntax_IsWordChar(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(regexp_syntax.IsWordChar(a0))
-}
-
-func direct_regexp_syntax_Parse(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := regexp_syntax.Flags(uint16(args[1].Uint()))
-	r0, r1 := regexp_syntax.Parse(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_regexp_syntax_Error_Error(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp_syntax.Error)
-	return value.MakeString(string(recv.Error()))
-}
-
-func direct_method_regexp_syntax_ErrorCode_String(args []value.Value) value.Value {
-	recv := regexp_syntax.ErrorCode(args[0].String())
-	return value.MakeString(string(recv.String()))
-}
-
-func direct_method_regexp_syntax_Inst_MatchEmptyWidth(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp_syntax.Inst)
-	a0 := int32(args[1].Int())
-	a1 := int32(args[2].Int())
-	return value.MakeBool(recv.MatchEmptyWidth(a0, a1))
-}
-
-func direct_method_regexp_syntax_Inst_MatchRune(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp_syntax.Inst)
-	a0 := int32(args[1].Int())
-	return value.MakeBool(recv.MatchRune(a0))
-}
-
-func direct_method_regexp_syntax_Inst_MatchRunePos(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp_syntax.Inst)
-	a0 := int32(args[1].Int())
-	return value.MakeInt(int64(recv.MatchRunePos(a0)))
-}
-
-func direct_method_regexp_syntax_Inst_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp_syntax.Inst)
-	return value.MakeString(string(recv.String()))
-}
-
-func direct_method_regexp_syntax_InstOp_String(args []value.Value) value.Value {
-	recv := regexp_syntax.InstOp(byte(args[0].Uint()))
-	return value.MakeString(string(recv.String()))
-}
-
-func direct_method_regexp_syntax_Op_String(args []value.Value) value.Value {
-	recv := regexp_syntax.Op(byte(args[0].Uint()))
-	return value.MakeString(string(recv.String()))
-}
-
-func direct_method_regexp_syntax_Prog_Prefix(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp_syntax.Prog)
-	r0, r1 := recv.Prefix()
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.MakeBool(r1)})
-}
-
-func direct_method_regexp_syntax_Prog_StartCond(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp_syntax.Prog)
-	return value.MakeUint(uint64(uint8(recv.StartCond())))
-}
-
-func direct_method_regexp_syntax_Prog_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp_syntax.Prog)
-	return value.MakeString(string(recv.String()))
-}
-
-func direct_method_regexp_syntax_Regexp_CapNames(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp_syntax.Regexp)
-	return value.FromInterface(recv.CapNames())
-}
-
-func direct_method_regexp_syntax_Regexp_Equal(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp_syntax.Regexp)
-	a0 := args[1].Interface().(*regexp_syntax.Regexp)
-	return value.MakeBool(recv.Equal(a0))
-}
-
-func direct_method_regexp_syntax_Regexp_MaxCap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp_syntax.Regexp)
-	return value.MakeInt(int64(recv.MaxCap()))
-}
-
-func direct_method_regexp_syntax_Regexp_Simplify(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp_syntax.Regexp)
-	return value.FromInterface(recv.Simplify())
-}
-
-func direct_method_regexp_syntax_Regexp_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(*regexp_syntax.Regexp)
-	return value.MakeString(string(recv.String()))
 }

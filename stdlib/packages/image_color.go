@@ -6,18 +6,17 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("image/color", "color")
 
 	// Functions
-	pkg.AddFunction("CMYKToRGB", image_color.CMYKToRGB, "", direct_image_color_CMYKToRGB)
-	pkg.AddFunction("ModelFunc", image_color.ModelFunc, "", direct_image_color_ModelFunc)
-	pkg.AddFunction("RGBToCMYK", image_color.RGBToCMYK, "", direct_image_color_RGBToCMYK)
-	pkg.AddFunction("RGBToYCbCr", image_color.RGBToYCbCr, "", direct_image_color_RGBToYCbCr)
-	pkg.AddFunction("YCbCrToRGB", image_color.YCbCrToRGB, "", direct_image_color_YCbCrToRGB)
+	pkg.AddFunction("CMYKToRGB", image_color.CMYKToRGB, "")
+	pkg.AddFunction("ModelFunc", image_color.ModelFunc, "")
+	pkg.AddFunction("RGBToCMYK", image_color.RGBToCMYK, "")
+	pkg.AddFunction("RGBToYCbCr", image_color.RGBToYCbCr, "")
+	pkg.AddFunction("YCbCrToRGB", image_color.YCbCrToRGB, "")
 
 	// Variables
 	pkg.AddVariable("Alpha16Model", &image_color.Alpha16Model, "")
@@ -52,135 +51,4 @@ func init() {
 	pkg.AddType("RGBA64", reflect.TypeOf(image_color.RGBA64{}), "")
 	pkg.AddType("YCbCr", reflect.TypeOf(image_color.YCbCr{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Alpha", "RGBA", direct_method_image_color_Alpha_RGBA)
-	pkg.AddMethodDirectCall("Alpha16", "RGBA", direct_method_image_color_Alpha16_RGBA)
-	pkg.AddMethodDirectCall("CMYK", "RGBA", direct_method_image_color_CMYK_RGBA)
-	pkg.AddMethodDirectCall("Gray", "RGBA", direct_method_image_color_Gray_RGBA)
-	pkg.AddMethodDirectCall("Gray16", "RGBA", direct_method_image_color_Gray16_RGBA)
-	pkg.AddMethodDirectCall("NRGBA", "RGBA", direct_method_image_color_NRGBA_RGBA)
-	pkg.AddMethodDirectCall("NRGBA64", "RGBA", direct_method_image_color_NRGBA64_RGBA)
-	pkg.AddMethodDirectCall("NYCbCrA", "RGBA", direct_method_image_color_NYCbCrA_RGBA)
-	pkg.AddMethodDirectCall("Palette", "Convert", direct_method_image_color_Palette_Convert)
-	pkg.AddMethodDirectCall("Palette", "Index", direct_method_image_color_Palette_Index)
-	pkg.AddMethodDirectCall("RGBA", "RGBA", direct_method_image_color_RGBA_RGBA)
-	pkg.AddMethodDirectCall("RGBA64", "RGBA", direct_method_image_color_RGBA64_RGBA)
-	pkg.AddMethodDirectCall("YCbCr", "RGBA", direct_method_image_color_YCbCr_RGBA)
-
-}
-
-func direct_image_color_CMYKToRGB(args []value.Value) value.Value {
-	a0 := byte(args[0].Uint())
-	a1 := byte(args[1].Uint())
-	a2 := byte(args[2].Uint())
-	a3 := byte(args[3].Uint())
-	r0, r1, r2 := image_color.CMYKToRGB(a0, a1, a2, a3)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2))})
-}
-
-func direct_image_color_ModelFunc(args []value.Value) value.Value {
-	a0 := args[0].Interface().(func(image_color.Color) image_color.Color)
-	return value.FromInterface(image_color.ModelFunc(a0))
-}
-
-func direct_image_color_RGBToCMYK(args []value.Value) value.Value {
-	a0 := byte(args[0].Uint())
-	a1 := byte(args[1].Uint())
-	a2 := byte(args[2].Uint())
-	r0, r1, r2, r3 := image_color.RGBToCMYK(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
-}
-
-func direct_image_color_RGBToYCbCr(args []value.Value) value.Value {
-	a0 := byte(args[0].Uint())
-	a1 := byte(args[1].Uint())
-	a2 := byte(args[2].Uint())
-	r0, r1, r2 := image_color.RGBToYCbCr(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2))})
-}
-
-func direct_image_color_YCbCrToRGB(args []value.Value) value.Value {
-	a0 := byte(args[0].Uint())
-	a1 := byte(args[1].Uint())
-	a2 := byte(args[2].Uint())
-	r0, r1, r2 := image_color.YCbCrToRGB(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2))})
-}
-
-func direct_method_image_color_Alpha_RGBA(args []value.Value) value.Value {
-	recv := args[0].Interface().(image_color.Alpha)
-	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
-}
-
-func direct_method_image_color_Alpha16_RGBA(args []value.Value) value.Value {
-	recv := args[0].Interface().(image_color.Alpha16)
-	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
-}
-
-func direct_method_image_color_CMYK_RGBA(args []value.Value) value.Value {
-	recv := args[0].Interface().(image_color.CMYK)
-	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
-}
-
-func direct_method_image_color_Gray_RGBA(args []value.Value) value.Value {
-	recv := args[0].Interface().(image_color.Gray)
-	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
-}
-
-func direct_method_image_color_Gray16_RGBA(args []value.Value) value.Value {
-	recv := args[0].Interface().(image_color.Gray16)
-	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
-}
-
-func direct_method_image_color_NRGBA_RGBA(args []value.Value) value.Value {
-	recv := args[0].Interface().(image_color.NRGBA)
-	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
-}
-
-func direct_method_image_color_NRGBA64_RGBA(args []value.Value) value.Value {
-	recv := args[0].Interface().(image_color.NRGBA64)
-	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
-}
-
-func direct_method_image_color_NYCbCrA_RGBA(args []value.Value) value.Value {
-	recv := args[0].Interface().(image_color.NYCbCrA)
-	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
-}
-
-func direct_method_image_color_Palette_Convert(args []value.Value) value.Value {
-	recv := args[0].Interface().(image_color.Palette)
-	a0 := args[1].Interface().(image_color.Color)
-	return value.FromInterface(recv.Convert(a0))
-}
-
-func direct_method_image_color_Palette_Index(args []value.Value) value.Value {
-	recv := args[0].Interface().(image_color.Palette)
-	a0 := args[1].Interface().(image_color.Color)
-	return value.MakeInt(int64(recv.Index(a0)))
-}
-
-func direct_method_image_color_RGBA_RGBA(args []value.Value) value.Value {
-	recv := args[0].Interface().(image_color.RGBA)
-	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
-}
-
-func direct_method_image_color_RGBA64_RGBA(args []value.Value) value.Value {
-	recv := args[0].Interface().(image_color.RGBA64)
-	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
-}
-
-func direct_method_image_color_YCbCr_RGBA(args []value.Value) value.Value {
-	recv := args[0].Interface().(image_color.YCbCr)
-	r0, r1, r2, r3 := recv.RGBA()
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1)), value.MakeUint(uint64(r2)), value.MakeUint(uint64(r3))})
 }

@@ -5,21 +5,20 @@ import (
 	crypto_sha512 "crypto/sha512"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("crypto/sha512", "sha512")
 
 	// Functions
-	pkg.AddFunction("New", crypto_sha512.New, "", direct_crypto_sha512_New)
-	pkg.AddFunction("New384", crypto_sha512.New384, "", direct_crypto_sha512_New384)
-	pkg.AddFunction("New512_224", crypto_sha512.New512_224, "", direct_crypto_sha512_New512_224)
-	pkg.AddFunction("New512_256", crypto_sha512.New512_256, "", direct_crypto_sha512_New512_256)
-	pkg.AddFunction("Sum384", crypto_sha512.Sum384, "", direct_crypto_sha512_Sum384)
-	pkg.AddFunction("Sum512", crypto_sha512.Sum512, "", direct_crypto_sha512_Sum512)
-	pkg.AddFunction("Sum512_224", crypto_sha512.Sum512_224, "", direct_crypto_sha512_Sum512_224)
-	pkg.AddFunction("Sum512_256", crypto_sha512.Sum512_256, "", direct_crypto_sha512_Sum512_256)
+	pkg.AddFunction("New", crypto_sha512.New, "")
+	pkg.AddFunction("New384", crypto_sha512.New384, "")
+	pkg.AddFunction("New512_224", crypto_sha512.New512_224, "")
+	pkg.AddFunction("New512_256", crypto_sha512.New512_256, "")
+	pkg.AddFunction("Sum384", crypto_sha512.Sum384, "")
+	pkg.AddFunction("Sum512", crypto_sha512.Sum512, "")
+	pkg.AddFunction("Sum512_224", crypto_sha512.Sum512_224, "")
+	pkg.AddFunction("Sum512_256", crypto_sha512.Sum512_256, "")
 
 	// Constants
 	pkg.AddConstant("BlockSize", crypto_sha512.BlockSize, "")
@@ -28,76 +27,4 @@ func init() {
 	pkg.AddConstant("Size256", crypto_sha512.Size256, "")
 	pkg.AddConstant("Size384", crypto_sha512.Size384, "")
 
-}
-
-func direct_crypto_sha512_New(args []value.Value) value.Value {
-	return value.FromInterface(crypto_sha512.New())
-}
-
-func direct_crypto_sha512_New384(args []value.Value) value.Value {
-	return value.FromInterface(crypto_sha512.New384())
-}
-
-func direct_crypto_sha512_New512_224(args []value.Value) value.Value {
-	return value.FromInterface(crypto_sha512.New512_224())
-}
-
-func direct_crypto_sha512_New512_256(args []value.Value) value.Value {
-	return value.FromInterface(crypto_sha512.New512_256())
-}
-
-func direct_crypto_sha512_Sum384(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(crypto_sha512.Sum384(a0))
-}
-
-func direct_crypto_sha512_Sum512(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(crypto_sha512.Sum512(a0))
-}
-
-func direct_crypto_sha512_Sum512_224(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(crypto_sha512.Sum512_224(a0))
-}
-
-func direct_crypto_sha512_Sum512_256(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(crypto_sha512.Sum512_256(a0))
 }

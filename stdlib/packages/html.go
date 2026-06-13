@@ -5,24 +5,13 @@ import (
 	"html"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("html", "html")
 
 	// Functions
-	pkg.AddFunction("EscapeString", html.EscapeString, "", direct_html_EscapeString)
-	pkg.AddFunction("UnescapeString", html.UnescapeString, "", direct_html_UnescapeString)
+	pkg.AddFunction("EscapeString", html.EscapeString, "")
+	pkg.AddFunction("UnescapeString", html.UnescapeString, "")
 
-}
-
-func direct_html_EscapeString(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.MakeString(string(html.EscapeString(a0)))
-}
-
-func direct_html_UnescapeString(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.MakeString(string(html.UnescapeString(a0)))
 }

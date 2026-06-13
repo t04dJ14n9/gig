@@ -382,6 +382,9 @@ func Increment() int {
 // TestStatefulGlobals_DefaultStatelessIsolation verifies that the default mode
 // (no WithStatefulGlobals) still resets globals between calls.
 func TestStatefulGlobals_DefaultStatelessIsolation(t *testing.T) {
+	t.Skip("v2 SSA backend uses Go-faithful global semantics: globals " +
+		"persist across Run calls. The legacy default-stateless-isolation " +
+		"mode is dropped in favour of recompiling per request.")
 	source := `
 package main
 

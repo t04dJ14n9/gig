@@ -3,48 +3,20 @@ package packages
 
 import (
 	encoding_pem "encoding/pem"
-	io "io"
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("encoding/pem", "pem")
 
 	// Functions
-	pkg.AddFunction("Decode", encoding_pem.Decode, "", direct_encoding_pem_Decode)
-	pkg.AddFunction("Encode", encoding_pem.Encode, "", direct_encoding_pem_Encode)
-	pkg.AddFunction("EncodeToMemory", encoding_pem.EncodeToMemory, "", direct_encoding_pem_EncodeToMemory)
+	pkg.AddFunction("Decode", encoding_pem.Decode, "")
+	pkg.AddFunction("Encode", encoding_pem.Encode, "")
+	pkg.AddFunction("EncodeToMemory", encoding_pem.EncodeToMemory, "")
 
 	// Types
 	pkg.AddType("Block", reflect.TypeOf(encoding_pem.Block{}), "")
 
-}
-
-func direct_encoding_pem_Decode(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	r0, r1 := encoding_pem.Decode(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.MakeBytes([]byte(r1))})
-}
-
-func direct_encoding_pem_Encode(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	a1 := args[1].Interface().(*encoding_pem.Block)
-	return value.FromInterface(encoding_pem.Encode(a0, a1))
-}
-
-func direct_encoding_pem_EncodeToMemory(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*encoding_pem.Block)
-	return value.MakeBytes([]byte(encoding_pem.EncodeToMemory(a0)))
 }

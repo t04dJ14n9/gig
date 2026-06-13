@@ -1,24 +1,22 @@
-// external.go implements ExternalPackage methods for adding functions, variables,
-// constants, types, and method DirectCall wrappers to a registered package.
+// external.go implements ExternalPackage methods for adding functions,
+// variables, constants, and types to a registered host package.
 package importer
 
 import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/model/external"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 // AddFunction adds a function to the package.
-func (p *ExternalPackage) AddFunction(name string, fn any, doc string, directCall func([]value.Value) value.Value) {
+func (p *ExternalPackage) AddFunction(name string, fn any, doc string) {
 	sig := funcSignature(fn)
 	p.Objects[name] = &external.ExternalObject{
-		Name:       name,
-		Kind:       external.ObjectKindFunction,
-		Value:      fn,
-		Type:       sig,
-		Doc:        doc,
-		DirectCall: directCall,
+		Name:  name,
+		Kind:  external.ObjectKindFunction,
+		Value: fn,
+		Type:  sig,
+		Doc:   doc,
 	}
 }
 
@@ -58,21 +56,5 @@ func (p *ExternalPackage) AddType(name string, typ reflect.Type, doc string) {
 		Value: reflect.Zero(typ).Interface(),
 		Type:  typeOf(typ),
 		Doc:   doc,
-	}
-}
-
-// AddMethodDirectCall registers a DirectCall wrapper for a method on a type in this package.
-// It uses the package's owning registry instance.
-func (p *ExternalPackage) AddMethodDirectCall(typeName, methodName string, dc func([]value.Value) value.Value) {
-	if p.registry != nil {
-		p.registry.AddMethodDirectCall(p.Path+"."+typeName, methodName, dc)
-	}
-}
-
-// AddInterfaceProxy registers a native proxy for an exported interface type in
-// this package.
-func (p *ExternalPackage) AddInterfaceProxy(typeName string, ifaceType reflect.Type, requiredMethods []string, factory external.InterfaceProxyFactory) {
-	if p.registry != nil {
-		p.registry.AddInterfaceProxy(p.Path, typeName, ifaceType, requiredMethods, factory)
 	}
 }

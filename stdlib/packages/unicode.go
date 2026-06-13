@@ -6,34 +6,33 @@ import (
 	"unicode"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("unicode", "unicode")
 
 	// Functions
-	pkg.AddFunction("In", unicode.In, "", direct_unicode_In)
-	pkg.AddFunction("Is", unicode.Is, "", direct_unicode_Is)
-	pkg.AddFunction("IsControl", unicode.IsControl, "", direct_unicode_IsControl)
-	pkg.AddFunction("IsDigit", unicode.IsDigit, "", direct_unicode_IsDigit)
-	pkg.AddFunction("IsGraphic", unicode.IsGraphic, "", direct_unicode_IsGraphic)
-	pkg.AddFunction("IsLetter", unicode.IsLetter, "", direct_unicode_IsLetter)
-	pkg.AddFunction("IsLower", unicode.IsLower, "", direct_unicode_IsLower)
-	pkg.AddFunction("IsMark", unicode.IsMark, "", direct_unicode_IsMark)
-	pkg.AddFunction("IsNumber", unicode.IsNumber, "", direct_unicode_IsNumber)
-	pkg.AddFunction("IsOneOf", unicode.IsOneOf, "", nil)
-	pkg.AddFunction("IsPrint", unicode.IsPrint, "", direct_unicode_IsPrint)
-	pkg.AddFunction("IsPunct", unicode.IsPunct, "", direct_unicode_IsPunct)
-	pkg.AddFunction("IsSpace", unicode.IsSpace, "", direct_unicode_IsSpace)
-	pkg.AddFunction("IsSymbol", unicode.IsSymbol, "", direct_unicode_IsSymbol)
-	pkg.AddFunction("IsTitle", unicode.IsTitle, "", direct_unicode_IsTitle)
-	pkg.AddFunction("IsUpper", unicode.IsUpper, "", direct_unicode_IsUpper)
-	pkg.AddFunction("SimpleFold", unicode.SimpleFold, "", direct_unicode_SimpleFold)
-	pkg.AddFunction("To", unicode.To, "", direct_unicode_To)
-	pkg.AddFunction("ToLower", unicode.ToLower, "", direct_unicode_ToLower)
-	pkg.AddFunction("ToTitle", unicode.ToTitle, "", direct_unicode_ToTitle)
-	pkg.AddFunction("ToUpper", unicode.ToUpper, "", direct_unicode_ToUpper)
+	pkg.AddFunction("In", unicode.In, "")
+	pkg.AddFunction("Is", unicode.Is, "")
+	pkg.AddFunction("IsControl", unicode.IsControl, "")
+	pkg.AddFunction("IsDigit", unicode.IsDigit, "")
+	pkg.AddFunction("IsGraphic", unicode.IsGraphic, "")
+	pkg.AddFunction("IsLetter", unicode.IsLetter, "")
+	pkg.AddFunction("IsLower", unicode.IsLower, "")
+	pkg.AddFunction("IsMark", unicode.IsMark, "")
+	pkg.AddFunction("IsNumber", unicode.IsNumber, "")
+	pkg.AddFunction("IsOneOf", unicode.IsOneOf, "")
+	pkg.AddFunction("IsPrint", unicode.IsPrint, "")
+	pkg.AddFunction("IsPunct", unicode.IsPunct, "")
+	pkg.AddFunction("IsSpace", unicode.IsSpace, "")
+	pkg.AddFunction("IsSymbol", unicode.IsSymbol, "")
+	pkg.AddFunction("IsTitle", unicode.IsTitle, "")
+	pkg.AddFunction("IsUpper", unicode.IsUpper, "")
+	pkg.AddFunction("SimpleFold", unicode.SimpleFold, "")
+	pkg.AddFunction("To", unicode.To, "")
+	pkg.AddFunction("ToLower", unicode.ToLower, "")
+	pkg.AddFunction("ToTitle", unicode.ToTitle, "")
+	pkg.AddFunction("ToUpper", unicode.ToUpper, "")
 
 	// Constants
 	pkg.AddConstant("LowerCase", unicode.LowerCase, "")
@@ -311,133 +310,4 @@ func init() {
 	pkg.AddType("RangeTable", reflect.TypeOf(unicode.RangeTable{}), "")
 	pkg.AddType("SpecialCase", reflect.TypeOf((*unicode.SpecialCase)(nil)).Elem(), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("SpecialCase", "ToLower", direct_method_unicode_SpecialCase_ToLower)
-	pkg.AddMethodDirectCall("SpecialCase", "ToTitle", direct_method_unicode_SpecialCase_ToTitle)
-	pkg.AddMethodDirectCall("SpecialCase", "ToUpper", direct_method_unicode_SpecialCase_ToUpper)
-
-}
-
-func direct_unicode_In(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	varArgs := make([]*unicode.RangeTable, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = args[i].Interface().(*unicode.RangeTable)
-	}
-	return value.MakeBool(unicode.In(a0, varArgs...))
-}
-
-func direct_unicode_Is(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*unicode.RangeTable)
-	a1 := int32(args[1].Int())
-	return value.MakeBool(unicode.Is(a0, a1))
-}
-
-func direct_unicode_IsControl(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(unicode.IsControl(a0))
-}
-
-func direct_unicode_IsDigit(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(unicode.IsDigit(a0))
-}
-
-func direct_unicode_IsGraphic(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(unicode.IsGraphic(a0))
-}
-
-func direct_unicode_IsLetter(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(unicode.IsLetter(a0))
-}
-
-func direct_unicode_IsLower(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(unicode.IsLower(a0))
-}
-
-func direct_unicode_IsMark(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(unicode.IsMark(a0))
-}
-
-func direct_unicode_IsNumber(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(unicode.IsNumber(a0))
-}
-
-func direct_unicode_IsPrint(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(unicode.IsPrint(a0))
-}
-
-func direct_unicode_IsPunct(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(unicode.IsPunct(a0))
-}
-
-func direct_unicode_IsSpace(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(unicode.IsSpace(a0))
-}
-
-func direct_unicode_IsSymbol(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(unicode.IsSymbol(a0))
-}
-
-func direct_unicode_IsTitle(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(unicode.IsTitle(a0))
-}
-
-func direct_unicode_IsUpper(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(unicode.IsUpper(a0))
-}
-
-func direct_unicode_SimpleFold(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeInt(int64(unicode.SimpleFold(a0)))
-}
-
-func direct_unicode_To(args []value.Value) value.Value {
-	a0 := int(args[0].Int())
-	a1 := int32(args[1].Int())
-	return value.MakeInt(int64(unicode.To(a0, a1)))
-}
-
-func direct_unicode_ToLower(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeInt(int64(unicode.ToLower(a0)))
-}
-
-func direct_unicode_ToTitle(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeInt(int64(unicode.ToTitle(a0)))
-}
-
-func direct_unicode_ToUpper(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeInt(int64(unicode.ToUpper(a0)))
-}
-
-func direct_method_unicode_SpecialCase_ToLower(args []value.Value) value.Value {
-	recv := args[0].Interface().(unicode.SpecialCase)
-	a0 := int32(args[1].Int())
-	return value.MakeInt(int64(recv.ToLower(a0)))
-}
-
-func direct_method_unicode_SpecialCase_ToTitle(args []value.Value) value.Value {
-	recv := args[0].Interface().(unicode.SpecialCase)
-	a0 := int32(args[1].Int())
-	return value.MakeInt(int64(recv.ToTitle(a0)))
-}
-
-func direct_method_unicode_SpecialCase_ToUpper(args []value.Value) value.Value {
-	recv := args[0].Interface().(unicode.SpecialCase)
-	a0 := int32(args[1].Int())
-	return value.MakeInt(int64(recv.ToUpper(a0)))
 }

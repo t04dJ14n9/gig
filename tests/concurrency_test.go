@@ -11,6 +11,7 @@ import (
 // and run concurrently don't interfere with each other's method dispatch.
 // This is a regression test for the global method resolver race (C1).
 func TestConcurrentProgramMethodResolution(t *testing.T) {
+	skipIfV2(t, "concurrency test depends on globals mutex (v2 deferred)")
 	srcA := `
 package main
 

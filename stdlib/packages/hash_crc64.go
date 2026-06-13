@@ -6,17 +6,16 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("hash/crc64", "crc64")
 
 	// Functions
-	pkg.AddFunction("Checksum", hash_crc64.Checksum, "", direct_hash_crc64_Checksum)
-	pkg.AddFunction("MakeTable", hash_crc64.MakeTable, "", direct_hash_crc64_MakeTable)
-	pkg.AddFunction("New", hash_crc64.New, "", direct_hash_crc64_New)
-	pkg.AddFunction("Update", hash_crc64.Update, "", direct_hash_crc64_Update)
+	pkg.AddFunction("Checksum", hash_crc64.Checksum, "")
+	pkg.AddFunction("MakeTable", hash_crc64.MakeTable, "")
+	pkg.AddFunction("New", hash_crc64.New, "")
+	pkg.AddFunction("Update", hash_crc64.Update, "")
 
 	// Constants
 	pkg.AddConstant("ECMA", uint64(hash_crc64.ECMA), "")
@@ -26,45 +25,4 @@ func init() {
 	// Types
 	pkg.AddType("Table", reflect.TypeOf((*hash_crc64.Table)(nil)).Elem(), "")
 
-}
-
-func direct_hash_crc64_Checksum(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	a1 := args[1].Interface().(*hash_crc64.Table)
-	return value.MakeUint64(hash_crc64.Checksum(a0, a1))
-}
-
-func direct_hash_crc64_MakeTable(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	return value.FromInterface(hash_crc64.MakeTable(a0))
-}
-
-func direct_hash_crc64_New(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*hash_crc64.Table)
-	return value.FromInterface(hash_crc64.New(a0))
-}
-
-func direct_hash_crc64_Update(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	a1 := args[1].Interface().(*hash_crc64.Table)
-	a2 := func() []byte {
-		if b, ok := (args[2]).Bytes(); ok {
-			return b
-		}
-		v := (args[2]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.MakeUint64(hash_crc64.Update(a0, a1, a2))
 }

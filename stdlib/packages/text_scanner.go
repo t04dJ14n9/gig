@@ -2,19 +2,17 @@
 package packages
 
 import (
-	io "io"
 	"reflect"
 	text_scanner "text/scanner"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("text/scanner", "scanner")
 
 	// Functions
-	pkg.AddFunction("TokenString", text_scanner.TokenString, "", direct_text_scanner_TokenString)
+	pkg.AddFunction("TokenString", text_scanner.TokenString, "")
 
 	// Constants
 	pkg.AddConstant("Char", text_scanner.Char, "")
@@ -40,60 +38,4 @@ func init() {
 	pkg.AddType("Position", reflect.TypeOf(text_scanner.Position{}), "")
 	pkg.AddType("Scanner", reflect.TypeOf(text_scanner.Scanner{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Position", "String", direct_method_text_scanner_Position_String)
-	pkg.AddMethodDirectCall("Position", "IsValid", direct_method_text_scanner_Position_IsValid)
-	pkg.AddMethodDirectCall("Scanner", "Init", direct_method_text_scanner_Scanner_Init)
-	pkg.AddMethodDirectCall("Scanner", "Next", direct_method_text_scanner_Scanner_Next)
-	pkg.AddMethodDirectCall("Scanner", "Peek", direct_method_text_scanner_Scanner_Peek)
-	pkg.AddMethodDirectCall("Scanner", "Pos", direct_method_text_scanner_Scanner_Pos)
-	pkg.AddMethodDirectCall("Scanner", "Scan", direct_method_text_scanner_Scanner_Scan)
-	pkg.AddMethodDirectCall("Scanner", "TokenText", direct_method_text_scanner_Scanner_TokenText)
-
-}
-
-func direct_text_scanner_TokenString(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeString(string(text_scanner.TokenString(a0)))
-}
-
-func direct_method_text_scanner_Position_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(text_scanner.Position)
-	return value.MakeString(string(recv.String()))
-}
-
-func direct_method_text_scanner_Position_IsValid(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_scanner.Position)
-	return value.MakeBool(recv.IsValid())
-}
-
-func direct_method_text_scanner_Scanner_Init(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_scanner.Scanner)
-	a0 := args[1].Interface().(io.Reader)
-	return value.FromInterface(recv.Init(a0))
-}
-
-func direct_method_text_scanner_Scanner_Next(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_scanner.Scanner)
-	return value.MakeInt(int64(recv.Next()))
-}
-
-func direct_method_text_scanner_Scanner_Peek(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_scanner.Scanner)
-	return value.MakeInt(int64(recv.Peek()))
-}
-
-func direct_method_text_scanner_Scanner_Pos(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_scanner.Scanner)
-	return value.FromInterface(recv.Pos())
-}
-
-func direct_method_text_scanner_Scanner_Scan(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_scanner.Scanner)
-	return value.MakeInt(int64(recv.Scan()))
-}
-
-func direct_method_text_scanner_Scanner_TokenText(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_scanner.Scanner)
-	return value.MakeString(string(recv.TokenText()))
 }

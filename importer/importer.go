@@ -1,5 +1,7 @@
 // Package importer provides type information and package registration for the interpreter.
-// This file implements the types.Importer interface and type conversion utilities.
+// This file is the compile-time bridge from Gig's registry to Go's type checker:
+// it turns registered ExternalPackage values into synthetic *types.Package values
+// so source code can import and type-check external packages.
 package importer
 
 import (
@@ -11,7 +13,9 @@ import (
 )
 
 // Importer implements types.Importer for registered external packages.
-// It allows the Go type checker to resolve imports to registered packages.
+//
+// It is used during parsing/type-checking, not during VM execution. Runtime
+// external calls use metadata copied into bytecode.CompiledProgram.
 type Importer struct {
 	// reg is the package registry to use for resolution.
 	reg PackageRegistry
@@ -23,7 +27,7 @@ type Importer struct {
 	mutex sync.RWMutex
 }
 
-// NewImporter creates a new Importer for resolving registered packages.
+// NewImporter creates a new Importer for resolving packages from reg.
 func NewImporter(reg PackageRegistry) *Importer {
 	return &Importer{
 		reg:      reg,
@@ -31,9 +35,15 @@ func NewImporter(reg PackageRegistry) *Importer {
 	}
 }
 
-// Import returns the types.Package for the given import path.
-// It first checks the cache, then looks up registered external packages.
-// Returns an error if the package is not registered.
+// Import returns the synthetic types.Package for an import path.
+//
+// Resolution order:
+//  1. cached *types.Package from a previous type-check
+//  2. registry lookup by full package path, e.g. "encoding/json"
+//  3. registry lookup by package name/alias, e.g. "json"
+//
+// The returned package only needs enough type information for Go type checking.
+// The actual Go values remain in the registry/CompiledProgram for runtime use.
 func (i *Importer) Import(path string) (*types.Package, error) {
 	i.mutex.RLock()
 	if pkg, ok := i.packages[path]; ok {
@@ -65,8 +75,10 @@ func (i *Importer) Import(path string) (*types.Package, error) {
 	return pkg, nil
 }
 
-// buildPackage creates a types.Package from a registered ExternalPackage.
-// It converts all objects (functions, variables, constants, types) to types.Object.
+// buildPackage creates a synthetic types.Package from a registered ExternalPackage.
+// ExternalObject entries become types.Object entries in the package scope:
+// functions become *types.Func, variables become *types.Var, constants become
+// *types.Const, and named types are registered with their reflect.Type mapping.
 func (i *Importer) buildPackage(extPkg *ExternalPackage) *types.Package {
 	pkg := types.NewPackage(extPkg.Path, extPkg.Name)
 

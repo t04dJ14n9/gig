@@ -3,21 +3,18 @@ package packages
 
 import (
 	archive_tar "archive/tar"
-	io "io"
-	io_fs "io/fs"
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("archive/tar", "tar")
 
 	// Functions
-	pkg.AddFunction("FileInfoHeader", archive_tar.FileInfoHeader, "", direct_archive_tar_FileInfoHeader)
-	pkg.AddFunction("NewReader", archive_tar.NewReader, "", direct_archive_tar_NewReader)
-	pkg.AddFunction("NewWriter", archive_tar.NewWriter, "", direct_archive_tar_NewWriter)
+	pkg.AddFunction("FileInfoHeader", archive_tar.FileInfoHeader, "")
+	pkg.AddFunction("NewReader", archive_tar.NewReader, "")
+	pkg.AddFunction("NewWriter", archive_tar.NewWriter, "")
 
 	// Constants
 	pkg.AddConstant("FormatGNU", archive_tar.FormatGNU, "")
@@ -53,102 +50,4 @@ func init() {
 	pkg.AddType("Reader", reflect.TypeOf(archive_tar.Reader{}), "")
 	pkg.AddType("Writer", reflect.TypeOf(archive_tar.Writer{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Format", "String", direct_method_archive_tar_Format_String)
-	pkg.AddMethodDirectCall("Header", "FileInfo", direct_method_archive_tar_Header_FileInfo)
-	pkg.AddMethodDirectCall("Reader", "Next", direct_method_archive_tar_Reader_Next)
-	pkg.AddMethodDirectCall("Reader", "Read", direct_method_archive_tar_Reader_Read)
-	pkg.AddMethodDirectCall("Writer", "AddFS", direct_method_archive_tar_Writer_AddFS)
-	pkg.AddMethodDirectCall("Writer", "Close", direct_method_archive_tar_Writer_Close)
-	pkg.AddMethodDirectCall("Writer", "Flush", direct_method_archive_tar_Writer_Flush)
-	pkg.AddMethodDirectCall("Writer", "Write", direct_method_archive_tar_Writer_Write)
-	pkg.AddMethodDirectCall("Writer", "WriteHeader", direct_method_archive_tar_Writer_WriteHeader)
-
-}
-
-func direct_archive_tar_FileInfoHeader(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io_fs.FileInfo)
-	a1 := args[1].String()
-	r0, r1 := archive_tar.FileInfoHeader(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_archive_tar_NewReader(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	return value.FromInterface(archive_tar.NewReader(a0))
-}
-
-func direct_archive_tar_NewWriter(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	return value.FromInterface(archive_tar.NewWriter(a0))
-}
-
-func direct_method_archive_tar_Format_String(args []value.Value) value.Value {
-	recv := archive_tar.Format(int(args[0].Int()))
-	return value.MakeString(string(recv.String()))
-}
-
-func direct_method_archive_tar_Header_FileInfo(args []value.Value) value.Value {
-	recv := args[0].Interface().(*archive_tar.Header)
-	return value.FromInterface(recv.FileInfo())
-}
-
-func direct_method_archive_tar_Reader_Next(args []value.Value) value.Value {
-	recv := args[0].Interface().(*archive_tar.Reader)
-	r0, r1 := recv.Next()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_archive_tar_Reader_Read(args []value.Value) value.Value {
-	recv := args[0].Interface().(*archive_tar.Reader)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	r0, r1 := recv.Read(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_archive_tar_Writer_AddFS(args []value.Value) value.Value {
-	recv := args[0].Interface().(*archive_tar.Writer)
-	a0 := args[1].Interface().(io_fs.FS)
-	return value.FromInterface(recv.AddFS(a0))
-}
-
-func direct_method_archive_tar_Writer_Close(args []value.Value) value.Value {
-	recv := args[0].Interface().(*archive_tar.Writer)
-	return value.FromInterface(recv.Close())
-}
-
-func direct_method_archive_tar_Writer_Flush(args []value.Value) value.Value {
-	recv := args[0].Interface().(*archive_tar.Writer)
-	return value.FromInterface(recv.Flush())
-}
-
-func direct_method_archive_tar_Writer_Write(args []value.Value) value.Value {
-	recv := args[0].Interface().(*archive_tar.Writer)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	r0, r1 := recv.Write(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_archive_tar_Writer_WriteHeader(args []value.Value) value.Value {
-	recv := args[0].Interface().(*archive_tar.Writer)
-	a0 := args[1].Interface().(*archive_tar.Header)
-	return value.FromInterface(recv.WriteHeader(a0))
 }

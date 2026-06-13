@@ -77,7 +77,7 @@ func TestAddFunction(t *testing.T) {
 	pkg := RegisterPackage("test/funcpkg", "funcpkg")
 
 	fn := func(a, b int) int { return a + b }
-	pkg.AddFunction("Add", fn, "adds two ints", nil)
+	pkg.AddFunction("Add", fn, "adds two ints")
 
 	obj, ok := pkg.Objects["Add"]
 	if !ok {
@@ -174,7 +174,7 @@ func TestAddTypeNil(t *testing.T) {
 func TestSetGetExternalType(t *testing.T) {
 	reg := globalRegistry
 	pkg := RegisterPackage("test/exttype", "exttype")
-	pkg.AddFunction("Sprintf", fmt.Sprintf, "", nil)
+	pkg.AddFunction("Sprintf", fmt.Sprintf, "")
 	obj := pkg.Objects["Sprintf"]
 	if obj.Type == nil {
 		t.Skip("no types.Type available for test")
@@ -213,7 +213,7 @@ func TestNewImporter(t *testing.T) {
 func TestImportRegisteredPackage(t *testing.T) {
 	path := "test/importable"
 	pkg := RegisterPackage(path, "importable")
-	pkg.AddFunction("Hello", func() string { return "world" }, "", nil)
+	pkg.AddFunction("Hello", func() string { return "world" }, "")
 
 	imp := NewImporter(GlobalRegistry())
 	typesPkg, err := imp.Import(path)

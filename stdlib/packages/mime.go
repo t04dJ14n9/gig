@@ -6,18 +6,17 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("mime", "mime")
 
 	// Functions
-	pkg.AddFunction("AddExtensionType", mime.AddExtensionType, "", direct_mime_AddExtensionType)
-	pkg.AddFunction("ExtensionsByType", mime.ExtensionsByType, "", direct_mime_ExtensionsByType)
-	pkg.AddFunction("FormatMediaType", mime.FormatMediaType, "", direct_mime_FormatMediaType)
-	pkg.AddFunction("ParseMediaType", mime.ParseMediaType, "", direct_mime_ParseMediaType)
-	pkg.AddFunction("TypeByExtension", mime.TypeByExtension, "", direct_mime_TypeByExtension)
+	pkg.AddFunction("AddExtensionType", mime.AddExtensionType, "")
+	pkg.AddFunction("ExtensionsByType", mime.ExtensionsByType, "")
+	pkg.AddFunction("FormatMediaType", mime.FormatMediaType, "")
+	pkg.AddFunction("ParseMediaType", mime.ParseMediaType, "")
+	pkg.AddFunction("TypeByExtension", mime.TypeByExtension, "")
 
 	// Constants
 	pkg.AddConstant("BEncoding", mime.BEncoding, "")
@@ -30,59 +29,4 @@ func init() {
 	pkg.AddType("WordDecoder", reflect.TypeOf(mime.WordDecoder{}), "")
 	pkg.AddType("WordEncoder", reflect.TypeOf((*mime.WordEncoder)(nil)).Elem(), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("WordDecoder", "Decode", direct_method_mime_WordDecoder_Decode)
-	pkg.AddMethodDirectCall("WordDecoder", "DecodeHeader", direct_method_mime_WordDecoder_DecodeHeader)
-	pkg.AddMethodDirectCall("WordEncoder", "Encode", direct_method_mime_WordEncoder_Encode)
-
-}
-
-func direct_mime_AddExtensionType(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].String()
-	return value.FromInterface(mime.AddExtensionType(a0, a1))
-}
-
-func direct_mime_ExtensionsByType(args []value.Value) value.Value {
-	a0 := args[0].String()
-	r0, r1 := mime.ExtensionsByType(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_mime_FormatMediaType(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].Interface().(map[string]string)
-	return value.MakeString(string(mime.FormatMediaType(a0, a1)))
-}
-
-func direct_mime_ParseMediaType(args []value.Value) value.Value {
-	a0 := args[0].String()
-	r0, r1, r2 := mime.ParseMediaType(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1), value.FromInterface(r2)})
-}
-
-func direct_mime_TypeByExtension(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.MakeString(string(mime.TypeByExtension(a0)))
-}
-
-func direct_method_mime_WordDecoder_Decode(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime.WordDecoder)
-	a0 := args[1].String()
-	r0, r1 := recv.Decode(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_mime_WordDecoder_DecodeHeader(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime.WordDecoder)
-	a0 := args[1].String()
-	r0, r1 := recv.DecodeHeader(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_mime_WordEncoder_Encode(args []value.Value) value.Value {
-	recv := mime.WordEncoder(byte(args[0].Uint()))
-	a0 := args[1].String()
-	a1 := args[2].String()
-	return value.MakeString(string(recv.Encode(a0, a1)))
 }
