@@ -13,7 +13,7 @@ Gig 是一个用 Go 语言编写的高性能 Go 解释器，采用 SSA 到字节
 - **Tagged-Union 值系统**：基本类型零反射开销
 - **安全性**：在解释代码中禁止 `unsafe`、`reflect` 和 `panic`
 - **可扩展**：支持注册外部 Go 包（内置 40+ 标准库包）
-- **Context 取消支持**：完整支持 `context.Context` 超时和取消（[文档](docs/context-cancellation_CN.md)）
+- **Context 取消支持**：完整支持 `context.Context` 超时和取消（[文档](docs/ARCHITECTURE_CN.md#12-context-取消)）
 
 ## 安装
 

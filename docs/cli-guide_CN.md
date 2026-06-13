@@ -373,5 +373,5 @@ REPL 内置了常见包名到导入路径的映射：
 ## 相关文档
 
 - [README_CN.md](../README_CN.md) - 主要文档
-- [gig-internals_CN.md](gig-internals_CN.md) - 内部架构
+- [gig-internals_CN.md](ARCHITECTURE_CN.md) - 内部架构
 - [examples/](../examples/) - 示例程序

@@ -13,7 +13,7 @@ Gig is a high-performance Go interpreter written in Go, featuring SSA-to-bytecod
 - **Tagged-union Value system**: Zero reflection overhead for primitive types
 - **Security**: Bans `unsafe`, `reflect`, and `panic` in interpreted code
 - **Extensible**: Support for registering external Go packages (40+ stdlib packages built-in)
-- **Context cancellation**: Full support for `context.Context` timeout and cancellation ([docs](docs/context-cancellation.md))
+- **Context cancellation**: Full support for `context.Context` timeout and cancellation ([docs](docs/ARCHITECTURE.md#12-context-cancellation))
 
 ## Installation
 
