@@ -31,8 +31,7 @@ More details:
   interfaces, defer/panic/recover, goroutines, channels, and select.
 - **Direct SSA interpretation**: source goes through parse, type check, and SSA
   generation, then `internal/interp` walks `ssa.Function`, `ssa.BasicBlock`, and
-  `ssa.Instruction` directly. There is no custom bytecode VM in the current
-  runtime.
+  `ssa.Instruction` directly.
 - **Frame-based execution model**: each interpreted call has a frame containing
   the current block, previous block, SSA value slots, fallback cells, free
   variables, iterators, and defer/panic state.
@@ -250,8 +249,7 @@ gig --help
 
 ## Architecture
 
-Gig currently uses a direct SSA interpreter. The old bytecode compiler and
-stack-based VM have been removed from the active runtime.
+Gig uses a direct SSA interpreter.
 
 ```mermaid
 flowchart TB
