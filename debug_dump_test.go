@@ -26,6 +26,7 @@ func Answer() int {
 	wantParts := []string{
 		"# Package: main",
 		"# Member Add",
+		"func Add",
 		"# Member Answer",
 	}
 	for _, part := range wantParts {

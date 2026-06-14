@@ -3,18 +3,20 @@ package packages
 
 import (
 	encoding_base64 "encoding/base64"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
+	"io"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("encoding/base64", "base64")
 
 	// Functions
-	pkg.AddFunction("NewDecoder", encoding_base64.NewDecoder, "")
-	pkg.AddFunction("NewEncoder", encoding_base64.NewEncoder, "")
-	pkg.AddFunction("NewEncoding", encoding_base64.NewEncoding, "")
+	pkg.AddFunction("NewDecoder", encoding_base64.NewDecoder, "", directCallEncodingBase64NewDecoder)
+	pkg.AddFunction("NewEncoder", encoding_base64.NewEncoder, "", directCallEncodingBase64NewEncoder)
+	pkg.AddFunction("NewEncoding", encoding_base64.NewEncoding, "", directCallEncodingBase64NewEncoding)
 
 	// Constants
 	pkg.AddConstant("NoPadding", encoding_base64.NoPadding, "")
@@ -30,4 +32,117 @@ func init() {
 	pkg.AddType("CorruptInputError", reflect.TypeOf((*encoding_base64.CorruptInputError)(nil)).Elem(), "")
 	pkg.AddType("Encoding", reflect.TypeOf(encoding_base64.Encoding{}), "")
 
+}
+
+func directArgEncodingBase64[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsEncodingBase64[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgEncodingBase64[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgEncodingBase64[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgEncodingBase64[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsEncodingBase64(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallEncodingBase64NewDecoder(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingBase64[*encoding_base64.Encoding](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingBase64[io.Reader](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := encoding_base64.NewDecoder(a0, a1)
+	return directResultsEncodingBase64(r0)
+}
+
+func directCallEncodingBase64NewEncoder(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingBase64[*encoding_base64.Encoding](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingBase64[io.Writer](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := encoding_base64.NewEncoder(a0, a1)
+	return directResultsEncodingBase64(r0)
+}
+
+func directCallEncodingBase64NewEncoding(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingBase64[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_base64.NewEncoding(a0)
+	return directResultsEncodingBase64(r0)
 }

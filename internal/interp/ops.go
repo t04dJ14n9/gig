@@ -165,9 +165,9 @@ func (p *program) readValue(fr *frame, v ssa.Value) (value.Value, error) {
 		// address, passing as argument). Wrap it in a reflect-func via
 		// reflect.MakeFunc so it can be called by host code or stored
 		// in slices/maps. No free variables.
-		return p.makeFuncValue(x, nil)
+		return p.makeFuncValue(fr.ctx, x, nil)
 	}
-	cell, ok := fr.cells[v]
+	cell, ok := fr.cell(v)
 	if !ok {
 		return value.Value{}, fmt.Errorf("interp: %s: no cell for %s (%T)", fr.fn.Name(), v.Name(), v)
 	}
@@ -195,24 +195,24 @@ func (p *program) constToValue(c *ssa.Const) (value.Value, error) {
 		// and route through MakeUint when possible.
 		if isUnsignedTargetType(c.Type()) {
 			if u, ok := constant.Uint64Val(c.Value); ok {
-				return p.converter.Convert(value.MakeUint(u), c.Type(), p.resolver)
+				return convertUintResult(u, c.Type(), p)
 			}
 		}
 		if i, ok := constant.Int64Val(c.Value); ok {
-			return p.converter.Convert(value.MakeInt(i), c.Type(), p.resolver)
+			return convertIntResult(i, c.Type(), p)
 		}
 		// Last-resort path for big.Int-sized constants flowing into
 		// untyped contexts: round-trip through uint64.
 		if u, ok := constant.Uint64Val(c.Value); ok {
-			return p.converter.Convert(value.MakeUint(u), c.Type(), p.resolver)
+			return convertUintResult(u, c.Type(), p)
 		}
 		return value.Value{}, fmt.Errorf("interp: integer constant out of representable range: %v", c.Value)
 	case constant.Float:
-		return p.converter.Convert(value.MakeFloat(c.Float64()), c.Type(), p.resolver)
+		return convertFloatResult(c.Float64(), c.Type(), p)
 	case constant.Complex:
 		re, _ := constant.Float64Val(constant.Real(c.Value))
 		im, _ := constant.Float64Val(constant.Imag(c.Value))
-		return p.converter.Convert(value.MakeComplex(re, im), c.Type(), p.resolver)
+		return convertComplexResult(complex(re, im), c.Type(), p)
 	}
 	return value.Value{}, fmt.Errorf("interp: unsupported const kind %v", c.Value.Kind())
 }
@@ -263,11 +263,16 @@ func (p *program) runBinOp(fr *frame, instr *ssa.BinOp) (continuation, []value.V
 	if err != nil {
 		return contNext, nil, err
 	}
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: out}
+	fr.setCell(instr, out)
 	return contNext, nil, nil
 }
 
 func (p *program) runUnOp(fr *frame, instr *ssa.UnOp) (continuation, []value.Value, error) {
+	if instr.Op == token.MUL {
+		if ref, ok := fr.addrRef(instr.X); ok {
+			return p.storeLoadedAddrRef(fr, instr, ref)
+		}
+	}
 	x, err := p.readValue(fr, instr.X)
 	if err != nil {
 		return contNext, nil, err
@@ -286,19 +291,9 @@ func (p *program) runUnOp(fr *frame, instr *ssa.UnOp) (continuation, []value.Val
 				return contNext, nil, fmt.Errorf("interp: nil pointer dereference")
 			}
 			elem := rv.Elem()
-			if isScalarKind(elem.Kind()) {
-				snap := reflect.New(elem.Type()).Elem()
-				snap.Set(elem)
-				elem = snap
-			}
-			out, err := p.converter.FromReflect(elem)
-			if err != nil {
-				return contNext, nil, err
-			}
-			fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: out}
-			return contNext, nil, nil
+			return p.storeLoadedReflect(fr, instr, elem)
 		}
-		fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: x}
+		fr.setCell(instr, x)
 		return contNext, nil, nil
 	}
 	if instr.Op == token.ARROW {
@@ -320,13 +315,13 @@ func (p *program) runUnOp(fr *frame, instr *ssa.UnOp) (continuation, []value.Val
 			holder := reflect.New(rt).Elem()
 			holder.Field(0).Set(recv)
 			holder.Field(1).SetBool(ok)
-			fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: reflectValue(holder)}
+			fr.setCell(instr, reflectValue(holder))
 		} else {
 			out, err := p.converter.FromReflect(recv)
 			if err != nil {
 				return contNext, nil, err
 			}
-			fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: out}
+			fr.setCell(instr, out)
 		}
 		return contNext, nil, nil
 	}
@@ -334,8 +329,45 @@ func (p *program) runUnOp(fr *frame, instr *ssa.UnOp) (continuation, []value.Val
 	if err != nil {
 		return contNext, nil, err
 	}
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: out}
+	fr.setCell(instr, out)
 	return contNext, nil, nil
+}
+
+func (p *program) storeLoadedReflect(fr *frame, instr ssa.Value, elem reflect.Value) (continuation, []value.Value, error) {
+	if s, ok := reflectIntSlice(elem); ok {
+		fr.setCell(instr, value.MakeIntSlice(s))
+		return contNext, nil, nil
+	}
+	if needsReflectSnapshot(elem) {
+		snap := reflect.New(elem.Type()).Elem()
+		snap.Set(elem)
+		elem = snap
+	}
+	out, err := p.converter.FromReflect(elem)
+	if err != nil {
+		return contNext, nil, err
+	}
+	fr.setCell(instr, out)
+	return contNext, nil, nil
+}
+
+func reflectIntSlice(rv reflect.Value) ([]int, bool) {
+	for rv.Kind() == reflect.Interface && !rv.IsNil() {
+		rv = rv.Elem()
+	}
+	if rv.Kind() != reflect.Slice || rv.Type().Elem().Kind() != reflect.Int {
+		return nil, false
+	}
+	s, ok := rv.Interface().([]int)
+	return s, ok
+}
+
+func (p *program) storeLoadedAddrRef(fr *frame, instr ssa.Value, ref addrRef) (continuation, []value.Value, error) {
+	if ref.intSlice != nil {
+		fr.setCell(instr, value.MakeInt(int64(ref.intSlice[ref.index])))
+		return contNext, nil, nil
+	}
+	return p.storeLoadedReflect(fr, instr, ref.elem)
 }
 
 func (p *program) runConvert(fr *frame, instr *ssa.Convert) (continuation, []value.Value, error) {
@@ -347,7 +379,7 @@ func (p *program) runConvert(fr *frame, instr *ssa.Convert) (continuation, []val
 	if err != nil {
 		return contNext, nil, err
 	}
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: out}
+	fr.setCell(instr, out)
 	return contNext, nil, nil
 }
 
@@ -366,12 +398,12 @@ func (p *program) runChangeType(fr *frame, instr *ssa.ChangeType) (continuation,
 			srcRV.Type() != dstRT && srcRV.Type().ConvertibleTo(dstRT) {
 			out, err := p.converter.FromReflect(srcRV.Convert(dstRT))
 			if err == nil {
-				fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: out}
+				fr.setCell(instr, out)
 				return contNext, nil, nil
 			}
 		}
 	}
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: x}
+	fr.setCell(instr, x)
 	return contNext, nil, nil
 }
 
@@ -387,12 +419,12 @@ func (p *program) runChangeInterface(fr *frame, instr *ssa.ChangeInterface) (con
 	}
 	dstRT, err := p.resolver.ResolveType(instr.Type())
 	if err != nil || dstRT.Kind() != reflect.Interface {
-		fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: x}
+		fr.setCell(instr, x)
 		return contNext, nil, nil
 	}
 	srcRV, err := p.reflectOf(x, nil)
 	if err != nil || !srcRV.IsValid() {
-		fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: x}
+		fr.setCell(instr, x)
 		return contNext, nil, nil
 	}
 	holder := reflect.New(dstRT).Elem()
@@ -405,11 +437,7 @@ func (p *program) runChangeInterface(fr *frame, instr *ssa.ChangeInterface) (con
 	} else if dyn.IsValid() && dyn.Type().ConvertibleTo(dstRT) {
 		holder.Set(dyn.Convert(dstRT))
 	}
-	fr.cells[instr] = &Cell{
-		Name:  instr.Name(),
-		Type:  instr.Type(),
-		Value: value.MakeInterfaceBox(holder),
-	}
+	fr.setCell(instr, value.MakeInterfaceBox(holder))
 	return contNext, nil, nil
 }
 
@@ -431,7 +459,13 @@ func (p *program) runCall(_ *frame, fr *frame, instr *ssa.Call, depth int) (cont
 			}
 			args[i] = v
 		}
-		results, err := p.invokeMethodOn(recvV, common.Method.Name(), args)
+		if stored, ok, err := p.invokeMethodOnDirect(recvV, common.Method.Name(), args); err != nil {
+			return contNext, nil, err
+		} else if ok {
+			fr.setCell(instr, stored)
+			return contNext, nil, nil
+		}
+		results, err := p.invokeMethodOn(fr.ctx, recvV, common.Method.Name(), args)
 		if err != nil {
 			return contNext, nil, err
 		}
@@ -439,7 +473,7 @@ func (p *program) runCall(_ *frame, fr *frame, instr *ssa.Call, depth int) (cont
 		if err != nil {
 			return contNext, nil, err
 		}
-		fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: stored}
+		fr.setCell(instr, stored)
 		return contNext, nil, nil
 	}
 	// Built-ins (len, cap, append, ...) come through as *ssa.Builtin.
@@ -448,7 +482,7 @@ func (p *program) runCall(_ *frame, fr *frame, instr *ssa.Call, depth int) (cont
 		if err != nil {
 			return contNext, nil, err
 		}
-		fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: out}
+		fr.setCell(instr, out)
 		return contNext, nil, nil
 	}
 	// Direct call to *ssa.Function — the common case.
@@ -465,7 +499,17 @@ func (p *program) runCall(_ *frame, fr *frame, instr *ssa.Call, depth int) (cont
 		// etc.) declared via the importer but not implemented in the
 		// interpreted source. Dispatch to host.Environment.
 		if len(fn.Blocks) == 0 {
-			results, err := p.callHostFunc(fn, args)
+			if results, ok, err := p.callHostFuncDirect(fn, args); err != nil {
+				return contNext, nil, err
+			} else if ok {
+				stored, err := p.packResults(instr.Type(), results)
+				if err != nil {
+					return contNext, nil, err
+				}
+				fr.setCell(instr, stored)
+				return contNext, nil, nil
+			}
+			results, err := p.callHostFunc(fr.ctx, fn, args)
 			if err != nil {
 				return contNext, nil, err
 			}
@@ -473,10 +517,10 @@ func (p *program) runCall(_ *frame, fr *frame, instr *ssa.Call, depth int) (cont
 			if err != nil {
 				return contNext, nil, err
 			}
-			fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: stored}
+			fr.setCell(instr, stored)
 			return contNext, nil, nil
 		}
-		results, err := p.callSSA(fr, fn, args, nil, depth+1)
+		results, err := p.callSSA(fr.ctx, fr, fn, args, nil, depth+1)
 		if err != nil {
 			return contNext, nil, err
 		}
@@ -484,7 +528,7 @@ func (p *program) runCall(_ *frame, fr *frame, instr *ssa.Call, depth int) (cont
 		if err != nil {
 			return contNext, nil, err
 		}
-		fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: stored}
+		fr.setCell(instr, stored)
 		return contNext, nil, nil
 	}
 	// Indirect call: target is some SSA value whose runtime form is a
@@ -493,6 +537,28 @@ func (p *program) runCall(_ *frame, fr *frame, instr *ssa.Call, depth int) (cont
 	target, err := p.readValue(fr, common.Value)
 	if err != nil {
 		return contNext, nil, err
+	}
+	if fn, ok := target.Func(); ok {
+		if interpreted, ok := fn.(*interpretedFunc); ok {
+			args := make([]value.Value, len(common.Args))
+			for i, a := range common.Args {
+				v, err := p.readValue(fr, a)
+				if err != nil {
+					return contNext, nil, err
+				}
+				args[i] = v
+			}
+			results, err := interpreted.CallContext(fr.ctx, args, depth+1)
+			if err != nil {
+				return contNext, nil, err
+			}
+			stored, err := p.packResults(instr.Type(), results)
+			if err != nil {
+				return contNext, nil, err
+			}
+			fr.setCell(instr, stored)
+			return contNext, nil, nil
+		}
 	}
 	rv, err := p.reflectOf(target, nil)
 	if err != nil {
@@ -527,7 +593,7 @@ func (p *program) runCall(_ *frame, fr *frame, instr *ssa.Call, depth int) (cont
 	if err != nil {
 		return contNext, nil, err
 	}
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: stored}
+	fr.setCell(instr, stored)
 	return contNext, nil, nil
 }
 
@@ -714,11 +780,7 @@ func (p *program) runAlloc(fr *frame, instr *ssa.Alloc) (continuation, []value.V
 		return contNext, nil, err
 	}
 	pointer := addr.Addr()
-	fr.cells[instr] = &Cell{
-		Name:  instr.Name(),
-		Type:  instr.Type(),
-		Value: reflectValue(pointer),
-	}
+	fr.bindCell(instr, reflectValue(pointer))
 	return contNext, nil, nil
 }
 
@@ -736,7 +798,15 @@ func (p *program) runStore(fr *frame, instr *ssa.Store) (continuation, []value.V
 		cell.Value = val
 		return contNext, nil, nil
 	}
-	cell, ok := fr.cells[instr.Addr]
+	if ref, ok := fr.addrRef(instr.Addr); ok {
+		if ref.intSlice != nil {
+			ref.intSlice[ref.index] = int(val.Int())
+		} else if err := p.assignReflectValue(ref.elem, val); err != nil {
+			return contNext, nil, err
+		}
+		return contNext, nil, nil
+	}
+	cell, ok := fr.cell(instr.Addr)
 	if !ok {
 		return contNext, nil,
 			fmt.Errorf("interp: %s: store to unknown address %T %s",
@@ -748,30 +818,36 @@ func (p *program) runStore(fr *frame, instr *ssa.Store) (continuation, []value.V
 	//   - cell holds a plain value (Alloc of basic type): replace the
 	//     cell's Value.
 	if rv, ok := cell.Value.Reflect(); ok && rv.Kind() == reflect.Ptr && !rv.IsNil() {
-		dst := rv.Elem()
-		src, err := p.reflectOf(val, dst.Type())
-		if err != nil {
+		if err := p.assignReflectValue(rv.Elem(), val); err != nil {
 			return contNext, nil, err
 		}
-		// Slice-of-concrete → slice-of-interface{} can show up after the
-		// type-resolver breaks a self-referential cycle by substituting
-		// `any` for the back-edge field. reflect.Set rejects the direct
-		// assignment; rebuild the slice element-wise so each concrete
-		// pointer is boxed into the interface{} slot.
-		if !src.Type().AssignableTo(dst.Type()) &&
-			src.Kind() == reflect.Slice && dst.Type().Kind() == reflect.Slice &&
-			dst.Type().Elem().Kind() == reflect.Interface {
-			out := reflect.MakeSlice(dst.Type(), src.Len(), src.Len())
-			for i := 0; i < src.Len(); i++ {
-				out.Index(i).Set(src.Index(i))
-			}
-			src = out
-		}
-		dst.Set(src)
 		return contNext, nil, nil
 	}
 	cell.Value = val
 	return contNext, nil, nil
+}
+
+func (p *program) assignReflectValue(dst reflect.Value, val value.Value) error {
+	src, err := p.reflectOf(val, dst.Type())
+	if err != nil {
+		return err
+	}
+	// Slice-of-concrete → slice-of-interface{} can show up after the
+	// type-resolver breaks a self-referential cycle by substituting
+	// `any` for the back-edge field. reflect.Set rejects the direct
+	// assignment; rebuild the slice element-wise so each concrete
+	// pointer is boxed into the interface{} slot.
+	if !src.Type().AssignableTo(dst.Type()) &&
+		src.Kind() == reflect.Slice && dst.Type().Kind() == reflect.Slice &&
+		dst.Type().Elem().Kind() == reflect.Interface {
+		out := reflect.MakeSlice(dst.Type(), src.Len(), src.Len())
+		for i := 0; i < src.Len(); i++ {
+			out.Index(i).Set(src.Index(i))
+		}
+		src = out
+	}
+	dst.Set(src)
+	return nil
 }
 
 // derefSSAType returns the pointee type of a *T SSA type. It is the SSA
@@ -801,6 +877,16 @@ func isScalarKind(k reflect.Kind) bool {
 	return false
 }
 
+func needsReflectSnapshot(rv reflect.Value) bool {
+	if !isScalarKind(rv.Kind()) {
+		return false
+	}
+	if rv.Kind() == reflect.Ptr {
+		return true
+	}
+	rt := rv.Type()
+	return rt.Name() != "" && rt.PkgPath() != ""
+}
 
 // isUnsignedTargetType reports whether t is or wraps a Go unsigned
 // integer type. Used to pick between Int64Val/Uint64Val when projecting

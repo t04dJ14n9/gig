@@ -104,6 +104,10 @@ type Value struct {
 	obj  any
 }
 
+type reflectValueProvider interface {
+	ReflectValue() reflect.Value
+}
+
 // Kind returns the dynamic kind tag.
 func (v Value) Kind() Kind { return v.kind }
 
@@ -122,6 +126,11 @@ func (v Value) IsValid() bool { return v.kind != KindInvalid }
 func (v Value) IsNil() bool {
 	if v.kind == KindNil {
 		return true
+	}
+	if v.kind == KindSlice {
+		if s, ok := v.obj.([]int); ok {
+			return s == nil
+		}
 	}
 	if v.kind == KindInterface {
 		rv, ok := v.obj.(reflect.Value)
@@ -188,6 +197,16 @@ func MakeFloat32(f float32) Value {
 
 // MakeString wraps a Go string.
 func MakeString(s string) Value { return Value{kind: KindString, obj: s} }
+
+// MakeIntSlice wraps a native []int. The SSA interpreter uses this as a
+// narrow fast path for hot integer-slice loops; generic slice handling still
+// falls back to KindReflect.
+func MakeIntSlice(s []int) Value { return Value{kind: KindSlice, obj: s} }
+
+// MakeFunc wraps a function-like runtime object. If the object implements
+// ReflectValue() reflect.Value, Converter.ToReflect uses that reflect func
+// when the value crosses a host boundary.
+func MakeFunc(fn any) Value { return Value{kind: KindFunc, obj: fn} }
 
 // MakeComplex wraps a complex128.
 func MakeComplex(re, im float64) Value {
@@ -277,6 +296,24 @@ func (v Value) Str() string {
 	return v.obj.(string)
 }
 
+// IntSlice returns the native []int backing this value when it was created
+// by MakeIntSlice.
+func (v Value) IntSlice() ([]int, bool) {
+	if v.kind != KindSlice {
+		return nil, false
+	}
+	s, ok := v.obj.([]int)
+	return s, ok
+}
+
+// Func returns the function-like payload when v was created by MakeFunc.
+func (v Value) Func() (any, bool) {
+	if v.kind != KindFunc {
+		return nil, false
+	}
+	return v.obj, true
+}
+
 // Complex returns the underlying complex128. Panics on kind mismatch.
 func (v Value) Complex() complex128 {
 	if v.kind != KindComplex {
@@ -288,6 +325,9 @@ func (v Value) Complex() complex128 {
 // Reflect returns the underlying reflect.Value when this Value wraps one.
 // ok is false otherwise.
 func (v Value) Reflect() (reflect.Value, bool) {
+	if r, ok := v.obj.(reflectValueProvider); ok {
+		return r.ReflectValue(), true
+	}
 	rv, ok := v.obj.(reflect.Value)
 	return rv, ok
 }
@@ -344,6 +384,11 @@ func (v Value) Interface() any {
 	case KindReflect:
 		if rv, ok := v.obj.(reflect.Value); ok {
 			return rv.Interface()
+		}
+		return v.obj
+	case KindFunc:
+		if r, ok := v.obj.(reflectValueProvider); ok {
+			return r.ReflectValue().Interface()
 		}
 		return v.obj
 	default:
@@ -593,6 +638,10 @@ func (c defaultConverter) ToReflect(v Value, typ reflect.Type) (reflect.Value, e
 		if rv, ok := v.obj.(reflect.Value); ok {
 			return convertOrBail(rv, typ)
 		}
+	case KindFunc:
+		if r, ok := v.obj.(reflectValueProvider); ok {
+			return convertOrBail(r.ReflectValue(), typ)
+		}
 	}
 	if rv, ok := v.obj.(reflect.Value); ok {
 		return convertOrBail(rv, typ)
@@ -708,6 +757,9 @@ func reflectFloatOf(v Value) reflect.Value {
 
 func convertOrBail(rv reflect.Value, typ reflect.Type) (reflect.Value, error) {
 	if typ == nil || rv.Type() == typ {
+		return rv, nil
+	}
+	if rv.Type().AssignableTo(typ) {
 		return rv, nil
 	}
 	if rv.Type().ConvertibleTo(typ) {

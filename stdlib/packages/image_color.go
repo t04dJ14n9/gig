@@ -2,21 +2,22 @@
 package packages
 
 import (
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 	image_color "image/color"
 	"reflect"
-
-	"github.com/t04dJ14n9/gig/importer"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("image/color", "color")
 
 	// Functions
-	pkg.AddFunction("CMYKToRGB", image_color.CMYKToRGB, "")
-	pkg.AddFunction("ModelFunc", image_color.ModelFunc, "")
-	pkg.AddFunction("RGBToCMYK", image_color.RGBToCMYK, "")
-	pkg.AddFunction("RGBToYCbCr", image_color.RGBToYCbCr, "")
-	pkg.AddFunction("YCbCrToRGB", image_color.YCbCrToRGB, "")
+	pkg.AddFunction("CMYKToRGB", image_color.CMYKToRGB, "", directCallImageColorCMYKToRGB)
+	pkg.AddFunction("ModelFunc", image_color.ModelFunc, "", directCallImageColorModelFunc)
+	pkg.AddFunction("RGBToCMYK", image_color.RGBToCMYK, "", directCallImageColorRGBToCMYK)
+	pkg.AddFunction("RGBToYCbCr", image_color.RGBToYCbCr, "", directCallImageColorRGBToYCbCr)
+	pkg.AddFunction("YCbCrToRGB", image_color.YCbCrToRGB, "", directCallImageColorYCbCrToRGB)
 
 	// Variables
 	pkg.AddVariable("Alpha16Model", &image_color.Alpha16Model, "")
@@ -51,4 +52,169 @@ func init() {
 	pkg.AddType("RGBA64", reflect.TypeOf(image_color.RGBA64{}), "")
 	pkg.AddType("YCbCr", reflect.TypeOf(image_color.YCbCr{}), "")
 
+}
+
+func directArgImageColor[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsImageColor[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgImageColor[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgImageColor[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgImageColor[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsImageColor(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallImageColorCMYKToRGB(args []value.Value) ([]value.Value, error) {
+	if len(args) != 4 {
+		return nil, fmt.Errorf("arg count %d != 4", len(args))
+	}
+	a0, err := directArgImageColor[uint8](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgImageColor[uint8](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgImageColor[uint8](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	a3, err := directArgImageColor[uint8](args[3])
+	if err != nil {
+		return nil, fmt.Errorf("arg 3: %w", err)
+	}
+	r0, r1, r2 := image_color.CMYKToRGB(a0, a1, a2, a3)
+	return directResultsImageColor(r0, r1, r2)
+}
+
+func directCallImageColorModelFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgImageColor[func(image_color.Color) image_color.Color](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := image_color.ModelFunc(a0)
+	return directResultsImageColor(r0)
+}
+
+func directCallImageColorRGBToCMYK(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgImageColor[uint8](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgImageColor[uint8](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgImageColor[uint8](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0, r1, r2, r3 := image_color.RGBToCMYK(a0, a1, a2)
+	return directResultsImageColor(r0, r1, r2, r3)
+}
+
+func directCallImageColorRGBToYCbCr(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgImageColor[uint8](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgImageColor[uint8](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgImageColor[uint8](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0, r1, r2 := image_color.RGBToYCbCr(a0, a1, a2)
+	return directResultsImageColor(r0, r1, r2)
+}
+
+func directCallImageColorYCbCrToRGB(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgImageColor[uint8](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgImageColor[uint8](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgImageColor[uint8](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0, r1, r2 := image_color.YCbCrToRGB(a0, a1, a2)
+	return directResultsImageColor(r0, r1, r2)
 }

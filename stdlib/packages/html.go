@@ -2,16 +2,111 @@
 package packages
 
 import (
-	"html"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
+	"html"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("html", "html")
 
 	// Functions
-	pkg.AddFunction("EscapeString", html.EscapeString, "")
-	pkg.AddFunction("UnescapeString", html.UnescapeString, "")
+	pkg.AddFunction("EscapeString", html.EscapeString, "", directCallHtmlEscapeString)
+	pkg.AddFunction("UnescapeString", html.UnescapeString, "", directCallHtmlUnescapeString)
 
+}
+
+func directArgHtml[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsHtml[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgHtml[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgHtml[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgHtml[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsHtml(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallHtmlEscapeString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgHtml[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := html.EscapeString(a0)
+	return directResultsHtml(r0)
+}
+
+func directCallHtmlUnescapeString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgHtml[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := html.UnescapeString(a0)
+	return directResultsHtml(r0)
 }

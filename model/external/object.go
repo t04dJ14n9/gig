@@ -1,6 +1,10 @@
 package external
 
-import "go/types"
+import (
+	"go/types"
+
+	"github.com/t04dJ14n9/gig/value"
+)
 
 // ObjectKind represents the kind of external object (function, variable, constant, or type).
 type ObjectKind int
@@ -24,11 +28,6 @@ const (
 
 // ExternalObject represents a function, variable, constant, or type from an external package.
 // It stores the Go value and type information needed for the interpreter.
-//
-// In the legacy bytecode VM, this struct also carried a DirectCall
-// wrapper that converted between the legacy model/value.Value type and
-// the host signature. The v2 SSA interpreter dispatches via reflect
-// directly, so DirectCall is no longer needed.
 type ExternalObject struct {
 	// Name is the object's identifier (e.g., "Sprintf", "NoError").
 	Name string
@@ -48,4 +47,9 @@ type ExternalObject struct {
 
 	// Doc is optional documentation text.
 	Doc string
+
+	// DirectCall is an optional zero-reflection wrapper generated or
+	// hand-written for external functions. When present, host dispatch
+	// calls it instead of reflect.Value.Call.
+	DirectCall func([]value.Value) ([]value.Value, error)
 }

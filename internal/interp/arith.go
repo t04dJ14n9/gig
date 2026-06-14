@@ -102,7 +102,7 @@ func shiftInt(op token.Token, x int64, n uint64, t types.Type, p *program) (valu
 	default:
 		return value.Value{}, fmt.Errorf("interp: not a shift op: %s", op)
 	}
-	return p.converter.Convert(value.MakeInt(r), t, p.resolver)
+	return convertIntResult(r, t, p)
 }
 
 func shiftUint(op token.Token, x, n uint64, t types.Type, p *program) (value.Value, error) {
@@ -115,23 +115,23 @@ func shiftUint(op token.Token, x, n uint64, t types.Type, p *program) (value.Val
 	default:
 		return value.Value{}, fmt.Errorf("interp: not a shift op: %s", op)
 	}
-	return p.converter.Convert(value.MakeUint(r), t, p.resolver)
+	return convertUintResult(r, t, p)
 }
 
 func evalComplexBinOp(op token.Token, x, y complex128, t types.Type, p *program) (value.Value, error) {
 	switch op {
 	case token.ADD:
 		r := x + y
-		return p.converter.Convert(value.MakeComplex(real(r), imag(r)), t, p.resolver)
+		return convertComplexResult(r, t, p)
 	case token.SUB:
 		r := x - y
-		return p.converter.Convert(value.MakeComplex(real(r), imag(r)), t, p.resolver)
+		return convertComplexResult(r, t, p)
 	case token.MUL:
 		r := x * y
-		return p.converter.Convert(value.MakeComplex(real(r), imag(r)), t, p.resolver)
+		return convertComplexResult(r, t, p)
 	case token.QUO:
 		r := x / y
-		return p.converter.Convert(value.MakeComplex(real(r), imag(r)), t, p.resolver)
+		return convertComplexResult(r, t, p)
 	}
 	return value.Value{}, fmt.Errorf("interp: complex binop %s not supported", op)
 }
@@ -139,33 +139,33 @@ func evalComplexBinOp(op token.Token, x, y complex128, t types.Type, p *program)
 func evalIntBinOp(op token.Token, x, y int64, t types.Type, p *program) (value.Value, error) {
 	switch op {
 	case token.ADD:
-		return p.converter.Convert(value.MakeInt(x+y), t, p.resolver)
+		return convertIntResult(x+y, t, p)
 	case token.SUB:
-		return p.converter.Convert(value.MakeInt(x-y), t, p.resolver)
+		return convertIntResult(x-y, t, p)
 	case token.MUL:
-		return p.converter.Convert(value.MakeInt(x*y), t, p.resolver)
+		return convertIntResult(x*y, t, p)
 	case token.QUO:
 		if y == 0 {
 			return value.Value{}, fmt.Errorf("interp: integer divide by zero")
 		}
-		return p.converter.Convert(value.MakeInt(x/y), t, p.resolver)
+		return convertIntResult(x/y, t, p)
 	case token.REM:
 		if y == 0 {
 			return value.Value{}, fmt.Errorf("interp: integer modulo by zero")
 		}
-		return p.converter.Convert(value.MakeInt(x%y), t, p.resolver)
+		return convertIntResult(x%y, t, p)
 	case token.AND:
-		return p.converter.Convert(value.MakeInt(x&y), t, p.resolver)
+		return convertIntResult(x&y, t, p)
 	case token.OR:
-		return p.converter.Convert(value.MakeInt(x|y), t, p.resolver)
+		return convertIntResult(x|y, t, p)
 	case token.XOR:
-		return p.converter.Convert(value.MakeInt(x^y), t, p.resolver)
+		return convertIntResult(x^y, t, p)
 	case token.AND_NOT:
-		return p.converter.Convert(value.MakeInt(x&^y), t, p.resolver)
+		return convertIntResult(x&^y, t, p)
 	case token.SHL:
-		return p.converter.Convert(value.MakeInt(x<<uint64(y)), t, p.resolver)
+		return convertIntResult(x<<uint64(y), t, p)
 	case token.SHR:
-		return p.converter.Convert(value.MakeInt(x>>uint64(y)), t, p.resolver)
+		return convertIntResult(x>>uint64(y), t, p)
 	case token.LSS:
 		return value.MakeBool(x < y), nil
 	case token.LEQ:
@@ -181,33 +181,33 @@ func evalIntBinOp(op token.Token, x, y int64, t types.Type, p *program) (value.V
 func evalUintBinOp(op token.Token, x, y uint64, t types.Type, p *program) (value.Value, error) {
 	switch op {
 	case token.ADD:
-		return p.converter.Convert(value.MakeUint(x+y), t, p.resolver)
+		return convertUintResult(x+y, t, p)
 	case token.SUB:
-		return p.converter.Convert(value.MakeUint(x-y), t, p.resolver)
+		return convertUintResult(x-y, t, p)
 	case token.MUL:
-		return p.converter.Convert(value.MakeUint(x*y), t, p.resolver)
+		return convertUintResult(x*y, t, p)
 	case token.QUO:
 		if y == 0 {
 			return value.Value{}, fmt.Errorf("interp: integer divide by zero")
 		}
-		return p.converter.Convert(value.MakeUint(x/y), t, p.resolver)
+		return convertUintResult(x/y, t, p)
 	case token.REM:
 		if y == 0 {
 			return value.Value{}, fmt.Errorf("interp: integer modulo by zero")
 		}
-		return p.converter.Convert(value.MakeUint(x%y), t, p.resolver)
+		return convertUintResult(x%y, t, p)
 	case token.AND:
-		return p.converter.Convert(value.MakeUint(x&y), t, p.resolver)
+		return convertUintResult(x&y, t, p)
 	case token.OR:
-		return p.converter.Convert(value.MakeUint(x|y), t, p.resolver)
+		return convertUintResult(x|y, t, p)
 	case token.XOR:
-		return p.converter.Convert(value.MakeUint(x^y), t, p.resolver)
+		return convertUintResult(x^y, t, p)
 	case token.AND_NOT:
-		return p.converter.Convert(value.MakeUint(x&^y), t, p.resolver)
+		return convertUintResult(x&^y, t, p)
 	case token.SHL:
-		return p.converter.Convert(value.MakeUint(x<<y), t, p.resolver)
+		return convertUintResult(x<<y, t, p)
 	case token.SHR:
-		return p.converter.Convert(value.MakeUint(x>>y), t, p.resolver)
+		return convertUintResult(x>>y, t, p)
 	case token.LSS:
 		return value.MakeBool(x < y), nil
 	case token.LEQ:
@@ -223,13 +223,13 @@ func evalUintBinOp(op token.Token, x, y uint64, t types.Type, p *program) (value
 func evalFloatBinOp(op token.Token, x, y float64, t types.Type, p *program) (value.Value, error) {
 	switch op {
 	case token.ADD:
-		return p.converter.Convert(value.MakeFloat(x+y), t, p.resolver)
+		return convertFloatResult(x+y, t, p)
 	case token.SUB:
-		return p.converter.Convert(value.MakeFloat(x-y), t, p.resolver)
+		return convertFloatResult(x-y, t, p)
 	case token.MUL:
-		return p.converter.Convert(value.MakeFloat(x*y), t, p.resolver)
+		return convertFloatResult(x*y, t, p)
 	case token.QUO:
-		return p.converter.Convert(value.MakeFloat(x/y), t, p.resolver)
+		return convertFloatResult(x/y, t, p)
 	case token.LSS:
 		return value.MakeBool(x < y), nil
 	case token.LEQ:
@@ -340,4 +340,193 @@ func evalUnOp(op token.Token, x value.Value, t types.Type, p *program) (value.Va
 		}
 	}
 	return value.Value{}, fmt.Errorf("interp: unop %s on %s not supported", op, x.Kind())
+}
+
+func convertIntResult(x int64, t types.Type, p *program) (value.Value, error) {
+	if v, ok := makeBasicIntValue(x, t); ok {
+		return v, nil
+	}
+	return p.converter.Convert(value.MakeInt(x), t, p.resolver)
+}
+
+func convertUintResult(x uint64, t types.Type, p *program) (value.Value, error) {
+	if v, ok := makeBasicUintValue(x, t); ok {
+		return v, nil
+	}
+	return p.converter.Convert(value.MakeUint(x), t, p.resolver)
+}
+
+func convertFloatResult(x float64, t types.Type, p *program) (value.Value, error) {
+	if v, ok := makeBasicFloatValue(x, t); ok {
+		return v, nil
+	}
+	return p.converter.Convert(value.MakeFloat(x), t, p.resolver)
+}
+
+func convertComplexResult(x complex128, t types.Type, p *program) (value.Value, error) {
+	if v, ok := makeBasicComplexValue(x, t); ok {
+		return v, nil
+	}
+	return p.converter.Convert(value.MakeComplex(real(x), imag(x)), t, p.resolver)
+}
+
+func makeBasicIntValue(x int64, t types.Type) (value.Value, bool) {
+	switch t {
+	case types.Typ[types.Int], types.Typ[types.UntypedInt]:
+		return value.MakeInt(x), true
+	case types.Typ[types.Int8]:
+		return value.MakeInt8(int8(x)), true
+	case types.Typ[types.Int16]:
+		return value.MakeInt16(int16(x)), true
+	case types.Typ[types.Int32], types.Typ[types.UntypedRune]:
+		return value.MakeInt32(int32(x)), true
+	case types.Typ[types.Int64]:
+		return value.MakeInt64(x), true
+	case types.Typ[types.Uint]:
+		return value.MakeUint(uint64(x)), true
+	case types.Typ[types.Uint8]:
+		return value.MakeUint8(uint8(x)), true
+	case types.Typ[types.Uint16]:
+		return value.MakeUint16(uint16(x)), true
+	case types.Typ[types.Uint32]:
+		return value.MakeUint32(uint32(x)), true
+	case types.Typ[types.Uint64], types.Typ[types.Uintptr]:
+		return value.MakeUint64(uint64(x)), true
+	}
+	if isDefinedNamedType(t) {
+		return value.Value{}, false
+	}
+	b, ok := types.Unalias(t).Underlying().(*types.Basic)
+	if !ok {
+		return value.Value{}, false
+	}
+	switch b.Kind() {
+	case types.Int, types.UntypedInt:
+		return value.MakeInt(x), true
+	case types.Int8:
+		return value.MakeInt8(int8(x)), true
+	case types.Int16:
+		return value.MakeInt16(int16(x)), true
+	case types.Int32, types.UntypedRune:
+		return value.MakeInt32(int32(x)), true
+	case types.Int64:
+		return value.MakeInt64(x), true
+	case types.Uint:
+		return value.MakeUint(uint64(x)), true
+	case types.Uint8:
+		return value.MakeUint8(uint8(x)), true
+	case types.Uint16:
+		return value.MakeUint16(uint16(x)), true
+	case types.Uint32:
+		return value.MakeUint32(uint32(x)), true
+	case types.Uint64, types.Uintptr:
+		return value.MakeUint64(uint64(x)), true
+	}
+	return value.Value{}, false
+}
+
+func makeBasicUintValue(x uint64, t types.Type) (value.Value, bool) {
+	switch t {
+	case types.Typ[types.Uint]:
+		return value.MakeUint(x), true
+	case types.Typ[types.Uint8]:
+		return value.MakeUint8(uint8(x)), true
+	case types.Typ[types.Uint16]:
+		return value.MakeUint16(uint16(x)), true
+	case types.Typ[types.Uint32]:
+		return value.MakeUint32(uint32(x)), true
+	case types.Typ[types.Uint64], types.Typ[types.Uintptr]:
+		return value.MakeUint64(x), true
+	case types.Typ[types.Int], types.Typ[types.UntypedInt]:
+		return value.MakeInt(int64(x)), true
+	case types.Typ[types.Int8]:
+		return value.MakeInt8(int8(x)), true
+	case types.Typ[types.Int16]:
+		return value.MakeInt16(int16(x)), true
+	case types.Typ[types.Int32], types.Typ[types.UntypedRune]:
+		return value.MakeInt32(int32(x)), true
+	case types.Typ[types.Int64]:
+		return value.MakeInt64(int64(x)), true
+	}
+	if isDefinedNamedType(t) {
+		return value.Value{}, false
+	}
+	b, ok := types.Unalias(t).Underlying().(*types.Basic)
+	if !ok {
+		return value.Value{}, false
+	}
+	switch b.Kind() {
+	case types.Uint:
+		return value.MakeUint(x), true
+	case types.Uint8:
+		return value.MakeUint8(uint8(x)), true
+	case types.Uint16:
+		return value.MakeUint16(uint16(x)), true
+	case types.Uint32:
+		return value.MakeUint32(uint32(x)), true
+	case types.Uint64, types.Uintptr:
+		return value.MakeUint64(x), true
+	case types.Int, types.UntypedInt:
+		return value.MakeInt(int64(x)), true
+	case types.Int8:
+		return value.MakeInt8(int8(x)), true
+	case types.Int16:
+		return value.MakeInt16(int16(x)), true
+	case types.Int32, types.UntypedRune:
+		return value.MakeInt32(int32(x)), true
+	case types.Int64:
+		return value.MakeInt64(int64(x)), true
+	}
+	return value.Value{}, false
+}
+
+func makeBasicFloatValue(x float64, t types.Type) (value.Value, bool) {
+	switch t {
+	case types.Typ[types.Float32]:
+		return value.MakeFloat32(float32(x)), true
+	case types.Typ[types.Float64], types.Typ[types.UntypedFloat]:
+		return value.MakeFloat(x), true
+	}
+	if isDefinedNamedType(t) {
+		return value.Value{}, false
+	}
+	b, ok := types.Unalias(t).Underlying().(*types.Basic)
+	if !ok {
+		return value.Value{}, false
+	}
+	switch b.Kind() {
+	case types.Float32:
+		return value.MakeFloat32(float32(x)), true
+	case types.Float64, types.UntypedFloat:
+		return value.MakeFloat(x), true
+	}
+	return value.Value{}, false
+}
+
+func makeBasicComplexValue(x complex128, t types.Type) (value.Value, bool) {
+	switch t {
+	case types.Typ[types.Complex64]:
+		return value.MakeComplex64(float32(real(x)), float32(imag(x))), true
+	case types.Typ[types.Complex128], types.Typ[types.UntypedComplex]:
+		return value.MakeComplex(real(x), imag(x)), true
+	}
+	if isDefinedNamedType(t) {
+		return value.Value{}, false
+	}
+	b, ok := types.Unalias(t).Underlying().(*types.Basic)
+	if !ok {
+		return value.Value{}, false
+	}
+	switch b.Kind() {
+	case types.Complex64:
+		return value.MakeComplex64(float32(real(x)), float32(imag(x))), true
+	case types.Complex128, types.UntypedComplex:
+		return value.MakeComplex(real(x), imag(x)), true
+	}
+	return value.Value{}, false
+}
+
+func isDefinedNamedType(t types.Type) bool {
+	_, ok := types.Unalias(t).(*types.Named)
+	return ok
 }

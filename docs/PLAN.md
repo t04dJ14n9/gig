@@ -2,7 +2,7 @@
 
 **Goal:** Rebuild Gig as a clean, lightweight Go interpreter using direct SSA execution, while keeping `RunWithContext`/`Run` as compatibility wrappers.
 
-**Architecture:** Final pipeline is `Go source -> frontend parse/typecheck -> SSA -> direct SSA interpreter`. There is one backend only: no bytecode compiler, opcodes, stack VM, local slots, function indices, VM pools, or int-specialized bytecode optimizations.
+**Architecture:** Final pipeline is `Go source -> frontend parse/typecheck -> SSA -> direct SSA interpreter`. There is one backend only: no bytecode compiler, opcodes, stack VM, bytecode-local slots, function indices, or int-specialized bytecode optimizations. The SSA interpreter may still use internal frame slots, frame pools, and typed execution plans as implementation details.
 
 **Tech Stack:** Go, `golang.org/x/tools/go/ssa`, `go/parser`, `go/types`, reflection at host boundaries, internal tagged-union `value.Value`.
 
@@ -264,7 +264,7 @@ func NewEnvironment() Environment
 func StandardEnvironment() Environment
 ```
 
-Host function/method calls use `[]value.Value` and return `[]value.Value`; DirectCall remains hidden behind the interface.
+Host function/method calls use `[]value.Value` and return `[]value.Value` on the general path. Hot single-result calls may additionally implement `host.DirectFunction` / `host.DirectMethod` so the interpreter can bypass `reflect.Value.Call` and avoid allocating a result slice.
 
 ### `value`
 

@@ -29,7 +29,13 @@ func NewEngine() Engine { return defaultEngine{} }
 
 type defaultEngine struct{}
 
-func (defaultEngine) NewProgram(_ context.Context, unit frontend.Unit, env host.Environment, cfg Config) (Program, error) {
+func (defaultEngine) NewProgram(ctx context.Context, unit frontend.Unit, env host.Environment, cfg Config) (Program, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if unit == nil {
 		return nil, fmt.Errorf("interp: nil Unit")
 	}
@@ -56,7 +62,7 @@ func (defaultEngine) NewProgram(_ context.Context, unit frontend.Unit, env host.
 	// package-level initialisation are honoured. The vertical slice
 	// has no globals-with-bodies, so this is currently a no-op for the
 	// programs we test, but the call site is kept honest.
-	if err := p.runInit(); err != nil {
+	if err := p.runInit(ctx); err != nil {
 		return nil, err
 	}
 	return p, nil
@@ -68,13 +74,17 @@ const defaultMaxDepth = 1024
 // every package-level *ssa.Global to its Cell, allocated once at
 // construction time (matching gofun and Go semantics).
 type program struct {
-	ssaPkg    *ssa.Package
-	fset      interface{ /* token.FileSet, kept abstract here */ }
-	env       host.Environment
-	converter value.Converter
-	resolver  *typeResolver
-	globals   map[*ssa.Global]*Cell
-	maxDepth  int
+	ssaPkg *ssa.Package
+	fset   interface { /* token.FileSet, kept abstract here */
+	}
+	env         host.Environment
+	converter   value.Converter
+	resolver    *typeResolver
+	globals     map[*ssa.Global]*Cell
+	maxDepth    int
+	hostFuncs   sync.Map // map[*ssa.Function]host.Function
+	hostMethods sync.Map // map[hostMethodCacheKey]host.Method or missingHostMethod
+	layouts     sync.Map // map[*ssa.Function]*frameLayout
 
 	// panicFrame is set during defer-unwind to the frame that is
 	// currently panicking. The recover() builtin consults it so it
@@ -94,7 +104,10 @@ type program struct {
 // Panics that propagate out of the interpreted call (after all defer
 // chains have been consulted) are caught here and surfaced as errors
 // to the embedder.
-func (p *program) Call(_ context.Context, name string, args []value.Value) (results []value.Value, err error) {
+func (p *program) Call(ctx context.Context, name string, args []value.Value) (results []value.Value, err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	fn := p.ssaPkg.Func(name)
 	if fn == nil {
 		return nil, fmt.Errorf("interp: function %q not found", name)
@@ -108,7 +121,7 @@ func (p *program) Call(_ context.Context, name string, args []value.Value) (resu
 			results = nil
 		}
 	}()
-	results, err = p.callSSA(nil, fn, args, nil, 0)
+	results, err = p.callSSA(ctx, nil, fn, args, nil, 0)
 	return results, err
 }
 
@@ -139,12 +152,12 @@ func (p *program) allocateGlobals() error {
 // Phase 6 vertical slice has nothing meaningful to put through init,
 // but a missing function is also fine: SSA only emits init when there
 // is something to do.
-func (p *program) runInit() error {
+func (p *program) runInit(ctx context.Context) error {
 	fn := p.ssaPkg.Func("init")
 	if fn == nil {
 		return nil
 	}
-	_, err := p.callSSA(nil, fn, nil, nil, 0)
+	_, err := p.callSSA(ctx, nil, fn, nil, nil, 0)
 	return err
 }
 

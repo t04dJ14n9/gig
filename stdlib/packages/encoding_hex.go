@@ -3,27 +3,29 @@ package packages
 
 import (
 	encoding_hex "encoding/hex"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
+	"io"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("encoding/hex", "hex")
 
 	// Functions
-	pkg.AddFunction("AppendDecode", encoding_hex.AppendDecode, "")
-	pkg.AddFunction("AppendEncode", encoding_hex.AppendEncode, "")
-	pkg.AddFunction("Decode", encoding_hex.Decode, "")
-	pkg.AddFunction("DecodeString", encoding_hex.DecodeString, "")
-	pkg.AddFunction("DecodedLen", encoding_hex.DecodedLen, "")
-	pkg.AddFunction("Dump", encoding_hex.Dump, "")
-	pkg.AddFunction("Dumper", encoding_hex.Dumper, "")
-	pkg.AddFunction("Encode", encoding_hex.Encode, "")
-	pkg.AddFunction("EncodeToString", encoding_hex.EncodeToString, "")
-	pkg.AddFunction("EncodedLen", encoding_hex.EncodedLen, "")
-	pkg.AddFunction("NewDecoder", encoding_hex.NewDecoder, "")
-	pkg.AddFunction("NewEncoder", encoding_hex.NewEncoder, "")
+	pkg.AddFunction("AppendDecode", encoding_hex.AppendDecode, "", directCallEncodingHexAppendDecode)
+	pkg.AddFunction("AppendEncode", encoding_hex.AppendEncode, "", directCallEncodingHexAppendEncode)
+	pkg.AddFunction("Decode", encoding_hex.Decode, "", directCallEncodingHexDecode)
+	pkg.AddFunction("DecodeString", encoding_hex.DecodeString, "", directCallEncodingHexDecodeString)
+	pkg.AddFunction("DecodedLen", encoding_hex.DecodedLen, "", directCallEncodingHexDecodedLen)
+	pkg.AddFunction("Dump", encoding_hex.Dump, "", directCallEncodingHexDump)
+	pkg.AddFunction("Dumper", encoding_hex.Dumper, "", directCallEncodingHexDumper)
+	pkg.AddFunction("Encode", encoding_hex.Encode, "", directCallEncodingHexEncode)
+	pkg.AddFunction("EncodeToString", encoding_hex.EncodeToString, "", directCallEncodingHexEncodeToString)
+	pkg.AddFunction("EncodedLen", encoding_hex.EncodedLen, "", directCallEncodingHexEncodedLen)
+	pkg.AddFunction("NewDecoder", encoding_hex.NewDecoder, "", directCallEncodingHexNewDecoder)
+	pkg.AddFunction("NewEncoder", encoding_hex.NewEncoder, "", directCallEncodingHexNewEncoder)
 
 	// Variables
 	pkg.AddVariable("ErrLength", &encoding_hex.ErrLength, "")
@@ -31,4 +33,233 @@ func init() {
 	// Types
 	pkg.AddType("InvalidByteError", reflect.TypeOf((*encoding_hex.InvalidByteError)(nil)).Elem(), "")
 
+}
+
+func directArgEncodingHex[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsEncodingHex[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgEncodingHex[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgEncodingHex[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgEncodingHex[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsEncodingHex(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallEncodingHexAppendDecode(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingHex[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingHex[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := encoding_hex.AppendDecode(a0, a1)
+	return directResultsEncodingHex(r0, r1)
+}
+
+func directCallEncodingHexAppendEncode(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingHex[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingHex[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := encoding_hex.AppendEncode(a0, a1)
+	return directResultsEncodingHex(r0)
+}
+
+func directCallEncodingHexDecode(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingHex[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingHex[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := encoding_hex.Decode(a0, a1)
+	return directResultsEncodingHex(r0, r1)
+}
+
+func directCallEncodingHexDecodeString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingHex[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := encoding_hex.DecodeString(a0)
+	return directResultsEncodingHex(r0, r1)
+}
+
+func directCallEncodingHexDecodedLen(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingHex[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_hex.DecodedLen(a0)
+	return directResultsEncodingHex(r0)
+}
+
+func directCallEncodingHexDump(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingHex[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_hex.Dump(a0)
+	return directResultsEncodingHex(r0)
+}
+
+func directCallEncodingHexDumper(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingHex[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_hex.Dumper(a0)
+	return directResultsEncodingHex(r0)
+}
+
+func directCallEncodingHexEncode(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingHex[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingHex[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := encoding_hex.Encode(a0, a1)
+	return directResultsEncodingHex(r0)
+}
+
+func directCallEncodingHexEncodeToString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingHex[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_hex.EncodeToString(a0)
+	return directResultsEncodingHex(r0)
+}
+
+func directCallEncodingHexEncodedLen(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingHex[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_hex.EncodedLen(a0)
+	return directResultsEncodingHex(r0)
+}
+
+func directCallEncodingHexNewDecoder(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingHex[io.Reader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_hex.NewDecoder(a0)
+	return directResultsEncodingHex(r0)
+}
+
+func directCallEncodingHexNewEncoder(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingHex[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_hex.NewEncoder(a0)
+	return directResultsEncodingHex(r0)
 }

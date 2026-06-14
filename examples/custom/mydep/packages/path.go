@@ -2,25 +2,196 @@
 package packages
 
 import (
-	"path"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
+	"path"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("path", "path")
 
 	// Functions
-	pkg.AddFunction("Base", path.Base, "")
-	pkg.AddFunction("Clean", path.Clean, "")
-	pkg.AddFunction("Dir", path.Dir, "")
-	pkg.AddFunction("Ext", path.Ext, "")
-	pkg.AddFunction("IsAbs", path.IsAbs, "")
-	pkg.AddFunction("Join", path.Join, "")
-	pkg.AddFunction("Match", path.Match, "")
-	pkg.AddFunction("Split", path.Split, "")
+	pkg.AddFunction("Base", path.Base, "", directCallPathBase)
+	pkg.AddFunction("Clean", path.Clean, "", directCallPathClean)
+	pkg.AddFunction("Dir", path.Dir, "", directCallPathDir)
+	pkg.AddFunction("Ext", path.Ext, "", directCallPathExt)
+	pkg.AddFunction("IsAbs", path.IsAbs, "", directCallPathIsAbs)
+	pkg.AddFunction("Join", path.Join, "", directCallPathJoin)
+	pkg.AddFunction("Match", path.Match, "", directCallPathMatch)
+	pkg.AddFunction("Split", path.Split, "", directCallPathSplit)
 
 	// Variables
 	pkg.AddVariable("ErrBadPattern", &path.ErrBadPattern, "")
 
+}
+
+func directArgPath[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsPath[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgPath[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgPath[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgPath[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsPath(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallPathBase(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path.Base(a0)
+	return directResultsPath(r0)
+}
+
+func directCallPathClean(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path.Clean(a0)
+	return directResultsPath(r0)
+}
+
+func directCallPathDir(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path.Dir(a0)
+	return directResultsPath(r0)
+}
+
+func directCallPathExt(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path.Ext(a0)
+	return directResultsPath(r0)
+}
+
+func directCallPathIsAbs(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path.IsAbs(a0)
+	return directResultsPath(r0)
+}
+
+func directCallPathJoin(args []value.Value) ([]value.Value, error) {
+	if len(args) < 0 {
+		return nil, fmt.Errorf("arg count %d < 0", len(args))
+	}
+	a0, err := directVariadicArgsPath[string](args[0:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path.Join(a0...)
+	return directResultsPath(r0)
+}
+
+func directCallPathMatch(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgPath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgPath[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := path.Match(a0, a1)
+	return directResultsPath(r0, r1)
+}
+
+func directCallPathSplit(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := path.Split(a0)
+	return directResultsPath(r0, r1)
 }

@@ -52,6 +52,13 @@ type Function interface {
 	Call(args []value.Value) ([]value.Value, error)
 }
 
+// DirectFunction is an optional fast path for host functions that can
+// run without reflect.Call.
+type DirectFunction interface {
+	Function
+	CallDirect(args []value.Value) ([]value.Value, bool, error)
+}
+
 // Variable is a host-provided readable/writable storage slot.
 type Variable interface {
 	Name() string
@@ -80,6 +87,13 @@ type Method interface {
 	Receiver() types.Type
 	Signature() *types.Signature
 	Call(recv value.Value, args []value.Value) ([]value.Value, error)
+}
+
+// DirectMethod is an optional fast path for host methods that can run
+// without reflect.MethodByName and return exactly one value.
+type DirectMethod interface {
+	Method
+	CallDirect(recv value.Value, args []value.Value) (value.Value, bool, error)
 }
 
 // InterfaceProxy lets interpreted code satisfy a host-defined Go

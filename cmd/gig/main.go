@@ -5,7 +5,7 @@
 //	gig init -package <name>    Create a new dependency package directory
 //	gig gen <dir>               Generate registration code from <dir>/pkgs.go
 //	gig repl                    Start interactive Go REPL
-//	gig dump <file|->           Print readable SSA and bytecode
+//	gig dump <file|->           Print readable SSA
 //
 // # Workflow
 //

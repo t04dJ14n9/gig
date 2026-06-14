@@ -16,6 +16,7 @@ package interp
 
 import (
 	"fmt"
+	"go/token"
 	"reflect"
 	"unicode/utf8"
 
@@ -25,6 +26,34 @@ import (
 
 	"github.com/t04dJ14n9/gig/value"
 )
+
+type addrRef struct {
+	elem     reflect.Value
+	intSlice []int
+	index    int
+}
+
+func (fr *frame) setReflectAddrRef(v ssa.Value, elem reflect.Value) {
+	if fr.addrRefs == nil {
+		fr.addrRefs = make(map[ssa.Value]addrRef, 4)
+	}
+	fr.addrRefs[v] = addrRef{elem: elem}
+}
+
+func (fr *frame) setIntSliceAddrRef(v ssa.Value, s []int, idx int) {
+	if fr.addrRefs == nil {
+		fr.addrRefs = make(map[ssa.Value]addrRef, 4)
+	}
+	fr.addrRefs[v] = addrRef{intSlice: s, index: idx}
+}
+
+func (fr *frame) addrRef(v ssa.Value) (addrRef, bool) {
+	if fr.addrRefs == nil {
+		return addrRef{}, false
+	}
+	ref, ok := fr.addrRefs[v]
+	return ref, ok
+}
 
 // reflectOf returns a reflect.Value for any value.Value, using
 // instrType as the target reflect.Type when the conversion needs a
@@ -119,7 +148,7 @@ func (p *program) runMakeInterface(fr *frame, instr *ssa.MakeInterface) (continu
 	// so downstream IsNil()/equality treat it as Go would.
 	ifaceRT, err := p.resolver.ResolveType(instr.Type())
 	if err != nil || ifaceRT.Kind() != reflect.Interface {
-		fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: x}
+		fr.setCell(instr, x)
 		return contNext, nil, nil
 	}
 	// Resolve the source's static type and use it as a hint so that
@@ -142,11 +171,7 @@ func (p *program) runMakeInterface(fr *frame, instr *ssa.MakeInterface) (continu
 			holder.Set(innerRV.Convert(ifaceRT))
 		}
 	}
-	fr.cells[instr] = &Cell{
-		Name:  instr.Name(),
-		Type:  instr.Type(),
-		Value: value.MakeInterfaceBox(holder),
-	}
+	fr.setCell(instr, value.MakeInterfaceBox(holder))
 	return contNext, nil, nil
 }
 
@@ -181,7 +206,7 @@ func (p *program) runField(fr *frame, instr *ssa.Field) (continuation, []value.V
 	if err != nil {
 		return contNext, nil, err
 	}
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: out}
+	fr.setCell(instr, out)
 	return contNext, nil, nil
 }
 
@@ -214,7 +239,7 @@ func (p *program) runFieldAddr(fr *frame, instr *ssa.FieldAddr) (continuation, [
 		rv = holder
 	}
 	addr := rv.Field(instr.Field).Addr()
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: reflectValue(addr)}
+	fr.setCell(instr, reflectValue(addr))
 	return contNext, nil, nil
 }
 
@@ -226,6 +251,16 @@ func (p *program) runIndexAddr(fr *frame, instr *ssa.IndexAddr) (continuation, [
 	idxV, err := p.readValue(fr, instr.Index)
 	if err != nil {
 		return contNext, nil, err
+	}
+	idx := int(idxV.Int())
+	if s, ok := x.IntSlice(); ok {
+		if indexAddrRefEligible(instr) {
+			fr.setIntSliceAddrRef(instr, s, idx)
+			fr.setCell(instr, value.MakeNil())
+			return contNext, nil, nil
+		}
+		// Fall through to the generic reflect-pointer materialization
+		// only when the address escapes beyond Store/Load consumers.
 	}
 	rv, err := p.reflectOf(x, nil)
 	if err != nil {
@@ -248,10 +283,110 @@ func (p *program) runIndexAddr(fr *frame, instr *ssa.IndexAddr) (continuation, [
 		holder.Set(rv)
 		rv = holder
 	}
-	idx := int(idxV.Int())
-	addr := rv.Index(idx).Addr()
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: reflectValue(addr)}
+	elem := rv.Index(idx)
+	if indexAddrRefEligible(instr) {
+		fr.setReflectAddrRef(instr, elem)
+		fr.setCell(instr, value.MakeNil())
+		return contNext, nil, nil
+	}
+	fr.setCell(instr, reflectValue(elem.Addr()))
 	return contNext, nil, nil
+}
+
+func indexAddrRefEligible(v ssa.Value) bool {
+	refs := v.Referrers()
+	if refs == nil || len(*refs) == 0 {
+		return false
+	}
+	for _, ref := range *refs {
+		switch instr := ref.(type) {
+		case *ssa.Store:
+			if instr.Addr != v {
+				return false
+			}
+		case *ssa.UnOp:
+			if instr.Op != token.MUL || instr.X != v {
+				return false
+			}
+		case *ssa.DebugRef:
+			// Debug-only reference; it does not need a materialized pointer.
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func fusableIndexAddrConsumer(indexAddr *ssa.IndexAddr, consumer ssa.Instruction) bool {
+	if indexAddr == nil || consumer == nil {
+		return false
+	}
+	switch instr := consumer.(type) {
+	case *ssa.Store:
+		if instr.Addr != indexAddr {
+			return false
+		}
+	case *ssa.UnOp:
+		if instr.Op != token.MUL || instr.X != indexAddr {
+			return false
+		}
+	default:
+		return false
+	}
+	refs := indexAddr.Referrers()
+	if refs == nil || len(*refs) == 0 {
+		return false
+	}
+	found := false
+	for _, ref := range *refs {
+		if ref == consumer {
+			found = true
+			continue
+		}
+		if _, ok := ref.(*ssa.DebugRef); ok {
+			continue
+		}
+		return false
+	}
+	return found
+}
+
+func (p *program) tryRunFusedIndexAddr(fr *frame, indexAddr *ssa.IndexAddr, consumer ssa.Instruction) (bool, error) {
+	x, err := p.readValue(fr, indexAddr.X)
+	if err != nil {
+		return true, err
+	}
+	s, ok := x.IntSlice()
+	if !ok {
+		return false, nil
+	}
+	idxV, err := p.readValue(fr, indexAddr.Index)
+	if err != nil {
+		return true, err
+	}
+	idx := int(idxV.Int())
+	switch instr := consumer.(type) {
+	case *ssa.UnOp:
+		fr.setCell(instr, value.MakeInt(int64(s[idx])))
+		return true, nil
+	case *ssa.Store:
+		val, err := p.readValue(fr, instr.Val)
+		if err != nil {
+			return true, err
+		}
+		s[idx] = int(val.Int())
+		return true, nil
+	}
+	return false, nil
+}
+
+func isPlainIntSliceType(t types.Type) bool {
+	s, ok := t.Underlying().(*types.Slice)
+	if !ok {
+		return false
+	}
+	b, ok := s.Elem().Underlying().(*types.Basic)
+	return ok && b.Kind() == types.Int
 }
 
 func (p *program) runIndex(fr *frame, instr *ssa.Index) (continuation, []value.Value, error) {
@@ -263,6 +398,11 @@ func (p *program) runIndex(fr *frame, instr *ssa.Index) (continuation, []value.V
 	if err != nil {
 		return contNext, nil, err
 	}
+	idx := int(idxV.Int())
+	if s, ok := x.IntSlice(); ok {
+		fr.setCell(instr, value.MakeInt(int64(s[idx])))
+		return contNext, nil, nil
+	}
 	rv, err := p.reflectOf(x, nil)
 	if err != nil {
 		return contNext, nil, err
@@ -270,12 +410,11 @@ func (p *program) runIndex(fr *frame, instr *ssa.Index) (continuation, []value.V
 	for rv.Kind() == reflect.Ptr || rv.Kind() == reflect.Interface {
 		rv = rv.Elem()
 	}
-	idx := int(idxV.Int())
 	out, err := p.converter.FromReflect(rv.Index(idx))
 	if err != nil {
 		return contNext, nil, err
 	}
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: out}
+	fr.setCell(instr, out)
 	return contNext, nil, nil
 }
 
@@ -319,11 +458,15 @@ func (p *program) runSlice(fr *frame, instr *ssa.Slice) (continuation, []value.V
 	} else {
 		sliced = rv.Slice(low, high)
 	}
+	if s, ok := reflectIntSlice(sliced); ok {
+		fr.setCell(instr, value.MakeIntSlice(s))
+		return contNext, nil, nil
+	}
 	out, err := p.converter.FromReflect(sliced)
 	if err != nil {
 		return contNext, nil, err
 	}
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: out}
+	fr.setCell(instr, out)
 	return contNext, nil, nil
 }
 
@@ -346,11 +489,7 @@ func (p *program) runLookup(fr *frame, instr *ssa.Lookup) (continuation, []value
 	if rv.Kind() == reflect.String {
 		// Lookup on string returns the byte at index.
 		idx := int(keyV.Int())
-		fr.cells[instr] = &Cell{
-			Name:  instr.Name(),
-			Type:  instr.Type(),
-			Value: value.MakeUint8(rv.String()[idx]),
-		}
+		fr.setCell(instr, value.MakeUint8(rv.String()[idx]))
 		return contNext, nil, nil
 	}
 	if rv.Kind() != reflect.Map {
@@ -380,17 +519,9 @@ func (p *program) runLookup(fr *frame, instr *ssa.Lookup) (continuation, []value
 		holder := reflect.New(rt).Elem()
 		holder.Field(0).Set(got)
 		holder.Field(1).SetBool(ok)
-		fr.cells[instr] = &Cell{
-			Name:  instr.Name(),
-			Type:  instr.Type(),
-			Value: reflectValue(holder),
-		}
+		fr.setCell(instr, reflectValue(holder))
 	} else {
-		fr.cells[instr] = &Cell{
-			Name:  instr.Name(),
-			Type:  instr.Type(),
-			Value: gotV,
-		}
+		fr.setCell(instr, gotV)
 	}
 	return contNext, nil, nil
 }
@@ -428,10 +559,6 @@ func (p *program) runMapUpdate(fr *frame, instr *ssa.MapUpdate) (continuation, [
 }
 
 func (p *program) runMakeSlice(fr *frame, instr *ssa.MakeSlice) (continuation, []value.Value, error) {
-	rt, err := p.resolver.ResolveType(instr.Type())
-	if err != nil {
-		return contNext, nil, err
-	}
 	lenV, err := p.readValue(fr, instr.Len)
 	if err != nil {
 		return contNext, nil, err
@@ -440,12 +567,20 @@ func (p *program) runMakeSlice(fr *frame, instr *ssa.MakeSlice) (continuation, [
 	if err != nil {
 		return contNext, nil, err
 	}
+	if isPlainIntSliceType(instr.Type()) {
+		fr.setCell(instr, value.MakeIntSlice(make([]int, int(lenV.Int()), int(capV.Int()))))
+		return contNext, nil, nil
+	}
+	rt, err := p.resolver.ResolveType(instr.Type())
+	if err != nil {
+		return contNext, nil, err
+	}
 	out := reflect.MakeSlice(rt, int(lenV.Int()), int(capV.Int()))
 	v, err := p.converter.FromReflect(out)
 	if err != nil {
 		return contNext, nil, err
 	}
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: v}
+	fr.setCell(instr, v)
 	return contNext, nil, nil
 }
 
@@ -467,7 +602,7 @@ func (p *program) runMakeMap(fr *frame, instr *ssa.MakeMap) (continuation, []val
 	if err != nil {
 		return contNext, nil, err
 	}
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: v}
+	fr.setCell(instr, v)
 	return contNext, nil, nil
 }
 
@@ -485,7 +620,7 @@ func (p *program) runMakeChan(fr *frame, instr *ssa.MakeChan) (continuation, []v
 	if err != nil {
 		return contNext, nil, err
 	}
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: v}
+	fr.setCell(instr, v)
 	return contNext, nil, nil
 }
 
@@ -523,11 +658,7 @@ func (p *program) runRange(fr *frame, instr *ssa.Range) (continuation, []value.V
 	default:
 		return contNext, nil, fmt.Errorf("interp: Range over %s not supported", rv.Kind())
 	}
-	fr.cells[instr] = &Cell{
-		Name:  instr.Name(),
-		Type:  instr.Type(),
-		Value: value.MakeNil(), // sentinel; the iterator goes through obj
-	}
+	fr.setCell(instr, value.MakeNil()) // sentinel; the iterator goes through fr.iters
 	// Stash the iterator in a side-channel keyed by ssa.Value so Next
 	// can find it. Simpler than packaging it inside value.Value.
 	if fr.iters == nil {
@@ -585,11 +716,7 @@ func (p *program) runNext(fr *frame, instr *ssa.Next) (continuation, []value.Val
 			holder.Field(0).SetBool(false)
 		}
 	}
-	fr.cells[instr] = &Cell{
-		Name:  instr.Name(),
-		Type:  instr.Type(),
-		Value: reflectValue(holder),
-	}
+	fr.setCell(instr, reflectValue(holder))
 	return contNext, nil, nil
 }
 
@@ -612,6 +739,6 @@ func (p *program) runExtract(fr *frame, instr *ssa.Extract) (continuation, []val
 	if err != nil {
 		return contNext, nil, err
 	}
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: out}
+	fr.setCell(instr, out)
 	return contNext, nil, nil
 }

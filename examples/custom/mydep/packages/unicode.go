@@ -2,37 +2,38 @@
 package packages
 
 import (
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 	"reflect"
 	"unicode"
-
-	"github.com/t04dJ14n9/gig/importer"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("unicode", "unicode")
 
 	// Functions
-	pkg.AddFunction("In", unicode.In, "")
-	pkg.AddFunction("Is", unicode.Is, "")
-	pkg.AddFunction("IsControl", unicode.IsControl, "")
-	pkg.AddFunction("IsDigit", unicode.IsDigit, "")
-	pkg.AddFunction("IsGraphic", unicode.IsGraphic, "")
-	pkg.AddFunction("IsLetter", unicode.IsLetter, "")
-	pkg.AddFunction("IsLower", unicode.IsLower, "")
-	pkg.AddFunction("IsMark", unicode.IsMark, "")
-	pkg.AddFunction("IsNumber", unicode.IsNumber, "")
-	pkg.AddFunction("IsOneOf", unicode.IsOneOf, "")
-	pkg.AddFunction("IsPrint", unicode.IsPrint, "")
-	pkg.AddFunction("IsPunct", unicode.IsPunct, "")
-	pkg.AddFunction("IsSpace", unicode.IsSpace, "")
-	pkg.AddFunction("IsSymbol", unicode.IsSymbol, "")
-	pkg.AddFunction("IsTitle", unicode.IsTitle, "")
-	pkg.AddFunction("IsUpper", unicode.IsUpper, "")
-	pkg.AddFunction("SimpleFold", unicode.SimpleFold, "")
-	pkg.AddFunction("To", unicode.To, "")
-	pkg.AddFunction("ToLower", unicode.ToLower, "")
-	pkg.AddFunction("ToTitle", unicode.ToTitle, "")
-	pkg.AddFunction("ToUpper", unicode.ToUpper, "")
+	pkg.AddFunction("In", unicode.In, "", directCallUnicodeIn)
+	pkg.AddFunction("Is", unicode.Is, "", directCallUnicodeIs)
+	pkg.AddFunction("IsControl", unicode.IsControl, "", directCallUnicodeIsControl)
+	pkg.AddFunction("IsDigit", unicode.IsDigit, "", directCallUnicodeIsDigit)
+	pkg.AddFunction("IsGraphic", unicode.IsGraphic, "", directCallUnicodeIsGraphic)
+	pkg.AddFunction("IsLetter", unicode.IsLetter, "", directCallUnicodeIsLetter)
+	pkg.AddFunction("IsLower", unicode.IsLower, "", directCallUnicodeIsLower)
+	pkg.AddFunction("IsMark", unicode.IsMark, "", directCallUnicodeIsMark)
+	pkg.AddFunction("IsNumber", unicode.IsNumber, "", directCallUnicodeIsNumber)
+	pkg.AddFunction("IsOneOf", unicode.IsOneOf, "", directCallUnicodeIsOneOf)
+	pkg.AddFunction("IsPrint", unicode.IsPrint, "", directCallUnicodeIsPrint)
+	pkg.AddFunction("IsPunct", unicode.IsPunct, "", directCallUnicodeIsPunct)
+	pkg.AddFunction("IsSpace", unicode.IsSpace, "", directCallUnicodeIsSpace)
+	pkg.AddFunction("IsSymbol", unicode.IsSymbol, "", directCallUnicodeIsSymbol)
+	pkg.AddFunction("IsTitle", unicode.IsTitle, "", directCallUnicodeIsTitle)
+	pkg.AddFunction("IsUpper", unicode.IsUpper, "", directCallUnicodeIsUpper)
+	pkg.AddFunction("SimpleFold", unicode.SimpleFold, "", directCallUnicodeSimpleFold)
+	pkg.AddFunction("To", unicode.To, "", directCallUnicodeTo)
+	pkg.AddFunction("ToLower", unicode.ToLower, "", directCallUnicodeToLower)
+	pkg.AddFunction("ToTitle", unicode.ToTitle, "", directCallUnicodeToTitle)
+	pkg.AddFunction("ToUpper", unicode.ToUpper, "", directCallUnicodeToUpper)
 
 	// Constants
 	pkg.AddConstant("LowerCase", unicode.LowerCase, "")
@@ -72,6 +73,7 @@ func init() {
 	pkg.AddVariable("Carian", &unicode.Carian, "")
 	pkg.AddVariable("CaseRanges", &unicode.CaseRanges, "")
 	pkg.AddVariable("Categories", &unicode.Categories, "")
+	pkg.AddVariable("CategoryAliases", &unicode.CategoryAliases, "")
 	pkg.AddVariable("Caucasian_Albanian", &unicode.Caucasian_Albanian, "")
 	pkg.AddVariable("Cc", &unicode.Cc, "")
 	pkg.AddVariable("Cf", &unicode.Cf, "")
@@ -79,6 +81,7 @@ func init() {
 	pkg.AddVariable("Cham", &unicode.Cham, "")
 	pkg.AddVariable("Cherokee", &unicode.Cherokee, "")
 	pkg.AddVariable("Chorasmian", &unicode.Chorasmian, "")
+	pkg.AddVariable("Cn", &unicode.Cn, "")
 	pkg.AddVariable("Co", &unicode.Co, "")
 	pkg.AddVariable("Common", &unicode.Common, "")
 	pkg.AddVariable("Coptic", &unicode.Coptic, "")
@@ -141,6 +144,7 @@ func init() {
 	pkg.AddVariable("Khojki", &unicode.Khojki, "")
 	pkg.AddVariable("Khudawadi", &unicode.Khudawadi, "")
 	pkg.AddVariable("L", &unicode.L, "")
+	pkg.AddVariable("LC", &unicode.LC, "")
 	pkg.AddVariable("Lao", &unicode.Lao, "")
 	pkg.AddVariable("Latin", &unicode.Latin, "")
 	pkg.AddVariable("Lepcha", &unicode.Lepcha, "")
@@ -310,4 +314,341 @@ func init() {
 	pkg.AddType("RangeTable", reflect.TypeOf(unicode.RangeTable{}), "")
 	pkg.AddType("SpecialCase", reflect.TypeOf((*unicode.SpecialCase)(nil)).Elem(), "")
 
+}
+
+func directArgUnicode[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsUnicode[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgUnicode[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgUnicode[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgUnicode[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsUnicode(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallUnicodeIn(args []value.Value) ([]value.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("arg count %d < 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directVariadicArgsUnicode[*unicode.RangeTable](args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := unicode.In(a0, a1...)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIs(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgUnicode[*unicode.RangeTable](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgUnicode[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := unicode.Is(a0, a1)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIsControl(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.IsControl(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIsDigit(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.IsDigit(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIsGraphic(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.IsGraphic(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIsLetter(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.IsLetter(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIsLower(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.IsLower(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIsMark(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.IsMark(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIsNumber(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.IsNumber(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIsOneOf(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgUnicode[[]*unicode.RangeTable](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgUnicode[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := unicode.IsOneOf(a0, a1)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIsPrint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.IsPrint(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIsPunct(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.IsPunct(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIsSpace(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.IsSpace(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIsSymbol(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.IsSymbol(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIsTitle(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.IsTitle(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeIsUpper(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.IsUpper(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeSimpleFold(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.SimpleFold(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeTo(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgUnicode[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgUnicode[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := unicode.To(a0, a1)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeToLower(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.ToLower(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeToTitle(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.ToTitle(a0)
+	return directResultsUnicode(r0)
+}
+
+func directCallUnicodeToUpper(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicode[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode.ToUpper(a0)
+	return directResultsUnicode(r0)
 }

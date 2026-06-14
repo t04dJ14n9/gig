@@ -2,18 +2,19 @@
 package packages
 
 import (
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 	"reflect"
 	"sync"
-
-	"github.com/t04dJ14n9/gig/importer"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("sync", "sync")
 
 	// Functions
-	pkg.AddFunction("NewCond", sync.NewCond, "")
-	pkg.AddFunction("OnceFunc", sync.OnceFunc, "")
+	pkg.AddFunction("NewCond", sync.NewCond, "", directCallSyncNewCond)
+	pkg.AddFunction("OnceFunc", sync.OnceFunc, "", directCallSyncOnceFunc)
 
 	// Types
 	pkg.AddType("Cond", reflect.TypeOf(sync.Cond{}), "")
@@ -25,4 +26,97 @@ func init() {
 	pkg.AddType("RWMutex", reflect.TypeOf(sync.RWMutex{}), "")
 	pkg.AddType("WaitGroup", reflect.TypeOf(sync.WaitGroup{}), "")
 
+}
+
+func directArgSync[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsSync[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgSync[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgSync[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgSync[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsSync(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallSyncNewCond(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSync[sync.Locker](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := sync.NewCond(a0)
+	return directResultsSync(r0)
+}
+
+func directCallSyncOnceFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSync[func()](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := sync.OnceFunc(a0)
+	return directResultsSync(r0)
 }

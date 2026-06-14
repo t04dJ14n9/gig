@@ -2,30 +2,32 @@
 package packages
 
 import (
-	unicode_utf8 "unicode/utf8"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
+	"reflect"
+	unicode_utf8 "unicode/utf8"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("unicode/utf8", "utf8")
 
 	// Functions
-	pkg.AddFunction("AppendRune", unicode_utf8.AppendRune, "")
-	pkg.AddFunction("DecodeLastRune", unicode_utf8.DecodeLastRune, "")
-	pkg.AddFunction("DecodeLastRuneInString", unicode_utf8.DecodeLastRuneInString, "")
-	pkg.AddFunction("DecodeRune", unicode_utf8.DecodeRune, "")
-	pkg.AddFunction("DecodeRuneInString", unicode_utf8.DecodeRuneInString, "")
-	pkg.AddFunction("EncodeRune", unicode_utf8.EncodeRune, "")
-	pkg.AddFunction("FullRune", unicode_utf8.FullRune, "")
-	pkg.AddFunction("FullRuneInString", unicode_utf8.FullRuneInString, "")
-	pkg.AddFunction("RuneCount", unicode_utf8.RuneCount, "")
-	pkg.AddFunction("RuneCountInString", unicode_utf8.RuneCountInString, "")
-	pkg.AddFunction("RuneLen", unicode_utf8.RuneLen, "")
-	pkg.AddFunction("RuneStart", unicode_utf8.RuneStart, "")
-	pkg.AddFunction("Valid", unicode_utf8.Valid, "")
-	pkg.AddFunction("ValidRune", unicode_utf8.ValidRune, "")
-	pkg.AddFunction("ValidString", unicode_utf8.ValidString, "")
+	pkg.AddFunction("AppendRune", unicode_utf8.AppendRune, "", directCallUnicodeUtf8AppendRune)
+	pkg.AddFunction("DecodeLastRune", unicode_utf8.DecodeLastRune, "", directCallUnicodeUtf8DecodeLastRune)
+	pkg.AddFunction("DecodeLastRuneInString", unicode_utf8.DecodeLastRuneInString, "", directCallUnicodeUtf8DecodeLastRuneInString)
+	pkg.AddFunction("DecodeRune", unicode_utf8.DecodeRune, "", directCallUnicodeUtf8DecodeRune)
+	pkg.AddFunction("DecodeRuneInString", unicode_utf8.DecodeRuneInString, "", directCallUnicodeUtf8DecodeRuneInString)
+	pkg.AddFunction("EncodeRune", unicode_utf8.EncodeRune, "", directCallUnicodeUtf8EncodeRune)
+	pkg.AddFunction("FullRune", unicode_utf8.FullRune, "", directCallUnicodeUtf8FullRune)
+	pkg.AddFunction("FullRuneInString", unicode_utf8.FullRuneInString, "", directCallUnicodeUtf8FullRuneInString)
+	pkg.AddFunction("RuneCount", unicode_utf8.RuneCount, "", directCallUnicodeUtf8RuneCount)
+	pkg.AddFunction("RuneCountInString", unicode_utf8.RuneCountInString, "", directCallUnicodeUtf8RuneCountInString)
+	pkg.AddFunction("RuneLen", unicode_utf8.RuneLen, "", directCallUnicodeUtf8RuneLen)
+	pkg.AddFunction("RuneStart", unicode_utf8.RuneStart, "", directCallUnicodeUtf8RuneStart)
+	pkg.AddFunction("Valid", unicode_utf8.Valid, "", directCallUnicodeUtf8Valid)
+	pkg.AddFunction("ValidRune", unicode_utf8.ValidRune, "", directCallUnicodeUtf8ValidRune)
+	pkg.AddFunction("ValidString", unicode_utf8.ValidString, "", directCallUnicodeUtf8ValidString)
 
 	// Constants
 	pkg.AddConstant("MaxRune", unicode_utf8.MaxRune, "")
@@ -33,4 +35,261 @@ func init() {
 	pkg.AddConstant("RuneSelf", unicode_utf8.RuneSelf, "")
 	pkg.AddConstant("UTFMax", unicode_utf8.UTFMax, "")
 
+}
+
+func directArgUnicodeUtf8[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsUnicodeUtf8[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgUnicodeUtf8[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgUnicodeUtf8[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgUnicodeUtf8[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsUnicodeUtf8(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallUnicodeUtf8AppendRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgUnicodeUtf8[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := unicode_utf8.AppendRune(a0, a1)
+	return directResultsUnicodeUtf8(r0)
+}
+
+func directCallUnicodeUtf8DecodeLastRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := unicode_utf8.DecodeLastRune(a0)
+	return directResultsUnicodeUtf8(r0, r1)
+}
+
+func directCallUnicodeUtf8DecodeLastRuneInString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := unicode_utf8.DecodeLastRuneInString(a0)
+	return directResultsUnicodeUtf8(r0, r1)
+}
+
+func directCallUnicodeUtf8DecodeRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := unicode_utf8.DecodeRune(a0)
+	return directResultsUnicodeUtf8(r0, r1)
+}
+
+func directCallUnicodeUtf8DecodeRuneInString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := unicode_utf8.DecodeRuneInString(a0)
+	return directResultsUnicodeUtf8(r0, r1)
+}
+
+func directCallUnicodeUtf8EncodeRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgUnicodeUtf8[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := unicode_utf8.EncodeRune(a0, a1)
+	return directResultsUnicodeUtf8(r0)
+}
+
+func directCallUnicodeUtf8FullRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode_utf8.FullRune(a0)
+	return directResultsUnicodeUtf8(r0)
+}
+
+func directCallUnicodeUtf8FullRuneInString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode_utf8.FullRuneInString(a0)
+	return directResultsUnicodeUtf8(r0)
+}
+
+func directCallUnicodeUtf8RuneCount(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode_utf8.RuneCount(a0)
+	return directResultsUnicodeUtf8(r0)
+}
+
+func directCallUnicodeUtf8RuneCountInString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode_utf8.RuneCountInString(a0)
+	return directResultsUnicodeUtf8(r0)
+}
+
+func directCallUnicodeUtf8RuneLen(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode_utf8.RuneLen(a0)
+	return directResultsUnicodeUtf8(r0)
+}
+
+func directCallUnicodeUtf8RuneStart(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode_utf8.RuneStart(a0)
+	return directResultsUnicodeUtf8(r0)
+}
+
+func directCallUnicodeUtf8Valid(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode_utf8.Valid(a0)
+	return directResultsUnicodeUtf8(r0)
+}
+
+func directCallUnicodeUtf8ValidRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode_utf8.ValidRune(a0)
+	return directResultsUnicodeUtf8(r0)
+}
+
+func directCallUnicodeUtf8ValidString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf8[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode_utf8.ValidString(a0)
+	return directResultsUnicodeUtf8(r0)
 }

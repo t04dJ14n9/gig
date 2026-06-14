@@ -4,7 +4,7 @@
 //
 // # Pipeline
 //
-//   Go source -> go/parser -> go/types -> go/ssa -> direct SSA interpreter
+//	Go source -> go/parser -> go/types -> go/ssa -> direct SSA interpreter
 //
 // # Quick start
 //
@@ -54,13 +54,6 @@ func WithAllowPanic() BuildOption {
 	return func(c *buildConfig) { c.allowPanic = true }
 }
 
-// WithStatefulGlobals is retained for source compatibility. Under the
-// v2 SSA interpreter all programs use Go-faithful global semantics
-// (globals allocated once, init() runs once, mutations persist across
-// Run calls). The option is now a no-op; callers that want isolation
-// per request should compile a fresh Program.
-func WithStatefulGlobals() BuildOption { return func(*buildConfig) {} }
-
 // Program represents a compiled Go program ready for execution.
 type Program struct {
 	prog       interp.Program
@@ -109,22 +102,6 @@ func (p *Program) Run(funcName string, params ...any) (any, error) {
 // RunWithContext executes a function with the given context.
 func (p *Program) RunWithContext(ctx context.Context, funcName string, params ...any) (any, error) {
 	return p.run(ctx, funcName, params...)
-}
-
-// RunWithValues executes a function with pre-converted Value arguments.
-func (p *Program) RunWithValues(ctx context.Context, funcName string, args []value.Value) (value.Value, error) {
-	results, err := p.prog.Call(ctx, funcName, args)
-	if err != nil {
-		return value.Value{}, err
-	}
-	switch len(results) {
-	case 0:
-		return value.MakeNil(), nil
-	case 1:
-		return results[0], nil
-	default:
-		return value.Value{}, fmt.Errorf("gig: function %q returns %d values; use Run/RunWithContext", funcName, len(results))
-	}
 }
 
 // run is the shared dispatch path. It converts arguments, calls the

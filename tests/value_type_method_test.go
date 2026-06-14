@@ -8,8 +8,9 @@ import (
 	_ "github.com/t04dJ14n9/gig/stdlib/packages"
 )
 
-// TestValueTypeMutexNonShared verifies value-type mutex works in non-stateful mode.
-func TestValueTypeMutexNonShared(t *testing.T) {
+// TestValueTypeMutexSingleCall verifies value-type mutex works for a single
+// interpreted call.
+func TestValueTypeMutexSingleCall(t *testing.T) {
 	src := `
 package main
 
@@ -40,12 +41,12 @@ func IncrementAndGet() int {
 	if got != 1 {
 		t.Fatalf("got %d, want 1", got)
 	}
-	t.Logf("Value-type Mutex (non-shared): Lock/Unlock works correctly")
+	t.Logf("Value-type Mutex: Lock/Unlock works correctly")
 }
 
-// TestValueTypeMutexStatefulSequential verifies value-type mutex accumulates
-// state across sequential calls in stateful mode.
-func TestValueTypeMutexStatefulSequential(t *testing.T) {
+// TestValueTypeMutexSequentialGlobalState verifies value-type mutex
+// accumulates state across sequential calls.
+func TestValueTypeMutexSequentialGlobalState(t *testing.T) {
 	src := `
 package main
 
@@ -62,7 +63,7 @@ func IncrementAndGet() int {
 	return val
 }
 `
-	prog, err := gig.Build(src, gig.WithStatefulGlobals())
+	prog, err := gig.Build(src)
 	if err != nil {
 		t.Fatalf("Build error: %v", err)
 	}
@@ -78,7 +79,7 @@ func IncrementAndGet() int {
 			t.Fatalf("call %d: got %d, want %d", i, got, i)
 		}
 	}
-	t.Logf("Value-type Mutex (stateful, sequential): 10 increments correct")
+	t.Logf("Value-type Mutex (sequential): 10 increments correct")
 }
 
 // TestValueTypeMutexConcurrentExact verifies value-type sync.Mutex provides
@@ -109,7 +110,7 @@ func GetCounter() int {
 	return val
 }
 `
-	prog, err := gig.Build(src, gig.WithStatefulGlobals())
+	prog, err := gig.Build(src)
 	if err != nil {
 		t.Fatalf("Build error: %v", err)
 	}

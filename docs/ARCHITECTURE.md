@@ -26,13 +26,12 @@ the code as you read.
 
 ## 1. Public API — `gig.go`
 
-Five entry points cover almost all usage:
+Four entry points cover almost all usage:
 
 ```go
 prog, err := gig.Build(source, opts...)         // compile
 result, err := prog.Run("Func", args...)        // run with default timeout
 result, err := prog.RunWithContext(ctx, ...)    // run with caller's ctx
-result, err := prog.RunWithValues(ctx, "Func", []value.Value{...})
 prog.Close()                                    // no-op, kept for source compat
 ```
 
@@ -43,15 +42,15 @@ prog.Close()                                    // no-op, kept for source compat
 - `WithAllowPanic()` — without this, `panic()` is rejected at compile time
   by `frontend/builder.go:checkBannedPanic`. With it, panic/recover/defer
   behave per Go.
-- `WithStatefulGlobals()` — kept as no-op for source compatibility.
 
 `Run` runs with a 10-second default timeout (`gig.DefaultTimeout`); cancel
 returns `gig.ErrTimeout` (= `context.DeadlineExceeded`).
 
 The argument-conversion path lives in `Program.run()` — caller's `any` →
 `value.Value` via `value.DefaultConverter().FromAny`, results back the
-opposite way. The `RunWithValues` form skips both conversions for callers
-already holding `[]value.Value`.
+opposite way. Lower-level execution still uses `interp.Program.Call`
+internally, but the public API intentionally exposes only the `any`-based
+`Run` / `RunWithContext` wrappers.
 
 The package-level helpers (`RegisterPackage`, `GetPackageByPath`,
 `GetAllPackages`) are thin wrappers around `importer.GlobalRegistry()` —
@@ -201,6 +200,8 @@ type program struct {
     resolver  *typeResolver
     globals   map[*ssa.Global]*Cell
     maxDepth  int
+    layouts   sync.Map
+    framePools sync.Map
     panicFrame *frame
 }
 ```
@@ -213,8 +214,9 @@ error), and hands off to `callSSA`.
 
 1. Cap recursion at `maxDepth` (1024).
 2. Reject body-less functions (those go through `callHostFunc` instead).
-3. Build the per-call `frame`: SSA function pointer, current/previous block,
-   `cells` map (`ssa.Value → *Cell`), free-variable cells for closures.
+3. Build or reuse the per-call `frame`: SSA function pointer,
+   current/previous block, slot array, fallback `cells` map
+   (`ssa.Value → *Cell`), free-variable cells for closures.
 4. Bind parameters and free variables.
 5. Pre-allocate `Cell`s for every `*ssa.Local` so `Store`/`UnOp(MUL)` can
    address them.
@@ -230,6 +232,20 @@ returns a `continuation`:
 - `contJump` — `fr.block` was changed by the handler (`If`, `Jump`); restart
   the outer loop.
 - `contReturn` — function is returning with the supplied result tuple.
+
+To keep the readable SSA interpreter close to Yaegi performance,
+`frameLayout` precomputes two runtime plans on first use:
+
+- `slotIndex`: most SSA values map to `[]Cell` slots; `ssa.Alloc` remains in
+  the fallback map so closure/address-taking semantics are not broken by slot
+  reuse.
+- typed fast plans: plain `int`/`bool` Phi, BinOp, If, plus common `[]int`
+  load/store patterns run directly from slot/const operands and bypass
+  `readValue` map lookup.
+
+Frame pooling is enabled only for functions that do not create more closures
+inside their body and do not have complex local addresses. Simple closure
+bodies can reuse frames; captured cells still come from the closure object.
 
 ### Instruction handlers — `ops.go`
 
@@ -358,10 +374,13 @@ pkg.AddVariable("BigEndian", &binary.BigEndian, "")
 pkg.AddType("ByteOrder", reflect.TypeOf((*binary.ByteOrder)(nil)).Elem(), "")
 ```
 
-`AddFunction` takes a real `func` value (not a wrapper); dispatch happens
-via `reflect.Call` at runtime. `AddVariable` takes a pointer so reads load
-through `UnOp(MUL)` and writes can `Set` the slot. `AddType` registers a
-`reflect.Type` for type-checker resolution.
+`AddFunction` takes a real `func` value and may also take a
+`func([]value.Value) ([]value.Value, error)` DirectCall wrapper for hot paths. Calls
+without a wrapper dispatch via `reflect.Call` at runtime. `AddVariable`
+takes a pointer so reads load through `UnOp(MUL)` and writes can `Set` the
+slot. `AddType` registers a `reflect.Type` for type-checker resolution.
+Selected methods can register `AddMethodDirectCall(type, method, wrapper)`;
+the wrapper receives the receiver separately from normal args.
 
 `host.FromRegistry(reg)` wraps the importer registry as a
 `host.Environment`. Building exposes:
@@ -380,14 +399,18 @@ body-less function:
 1. Compute the package path from `fn.Pkg.Pkg.Path()`.
 2. If `fn.Signature.Recv() != nil`, it's a host method — route to
    `invokeMethodOn(args[0], fn.Name(), args[1:])`.
-3. Otherwise look up `LookupFunc(pkg, fn.Name())` and call its `Function.Call`.
-4. If lookup fails, fall through to `invokeMethodOn` once — covers a few
+3. Otherwise look up `LookupFunc(pkg, fn.Name())`.
+   If it implements `host.DirectFunction`, call the wrapper and store the
+   single returned value directly.
+4. If there is no direct wrapper, call `Function.Call`.
+5. If lookup fails, fall through to `invokeMethodOn` once — covers a few
    stdlib packages whose methods aren't registered as free functions.
 
-The `host.Function` returned is `reflectFunc{fn: reflect.ValueOf(rawFn)}`.
-Its `Call` builds reflect-typed args via `Converter.ToReflect` and dispatches
-through `reflect.Value.Call` (or `CallSlice` for variadic with a pre-packed
-slice).
+The `host.Function` returned is
+`reflectFunc{fn: reflect.ValueOf(rawFn), directCall: wrapper}`. Its
+`CallDirect` uses the wrapper when present. Its slower `Call` builds
+reflect-typed args via `Converter.ToReflect` and dispatches through
+`reflect.Value.Call` (or `CallSlice` for variadic with a pre-packed slice).
 
 Variadic handling has three shapes (see `reflectFunc.Call` in
 `registry_bridge.go`):
@@ -410,15 +433,18 @@ Steps:
 1. **Unwrap interface boxes.** If the receiver is `KindInterface`,
    `dynRecv = box.Elem()` so the rest of the path sees the dynamic
    concrete value.
-2. **Try interpreted methods first** — `lookupInterpretedMethod` scans
+2. **Try registered host DirectMethod wrappers first.** The lookup is cached
+   by `(reflect.Type, method)` so repeated host method calls do not rebuild
+   package/type keys or bridge objects.
+3. **Try interpreted methods** — `lookupInterpretedMethod` scans
    `ssautil.AllFunctions(prog)` for an `*ssa.Function` in the source
    package whose name matches and whose receiver matches via
    `receiverMatches`.
-3. If found: `adjustReceiverShape` derefs `*T → T` or addresses `T → *T` to
+4. If found: `adjustReceiverShape` derefs `*T → T` or addresses `T → *T` to
    match the SSA-declared receiver type. (Go's spec auto-(de)refs; the
    interpreter has to do the same so cell types and reflect.Set targets
    agree.) Then `callSSA` runs the body.
-4. If no interpreted match: build a reflect.Value for the dynamic receiver,
+5. If no interpreted match: build a reflect.Value for the dynamic receiver,
    try `MethodByName`, then `Addr().MethodByName`, then `Elem().MethodByName`.
    Pack args via `Converter.ToReflect`, call, unwrap results.
 
@@ -585,11 +611,14 @@ func init() {
 
 Three properties of the generated code matter:
 
-1. The function pointer is the real `strings.ToUpper`, no synthesised
-   wrapper. Dispatch is reflect-only at runtime.
-2. `AddFunction` takes `(name, fn, doc)` — three args. There is no "fast
-   path" registration. (The legacy DirectCall path was deleted with the
-   bytecode VM; see `docs/PLAN.md` for the rationale.)
+1. The function pointer is still the real `strings.ToUpper`, so the host
+   bridge always has a correct reflect fallback.
+2. The registration API supports an optional fourth argument:
+   `func([]value.Value) ([]value.Value, error)`. Hot methods may call
+   `AddMethodDirectCall(type, method, wrapper)`, where the wrapper receives
+   the receiver separately from normal arguments. Generated files now emit
+   package-level function wrappers; `stdlib/packages/zz_direct_wrappers.go`
+   only keeps a small method overlay.
 3. The output is one file per import path under `<dir>/packages/`. The user
    blank-imports `<modPath>/packages` to trigger all `init()` registrations.
 
@@ -602,13 +631,13 @@ Three properties of the generated code matter:
 
 `Program.Run(name, args...)` wraps the call in a 10-second
 `context.WithTimeout`. `RunWithContext(ctx, ...)` uses the supplied context
-verbatim. The interpreter currently checks `ctx.Err()` only between phases
-of the frontend pipeline (`builder.go` calls `ctx.Err()` before parse and
-between type-check and SSA). Inside the SSA dispatch loop, cancellation is
-not polled — a script that enters a tight infinite loop will not honour
-cancellation until the goroutine is killed by the surrounding test runner.
-This is a known gap; honouring `ctx.Done()` per N instructions is a future
-addition.
+verbatim. The frontend pipeline checks `ctx.Err()` between build phases.
+The SSA runtime also polls the context at function entry and then roughly
+every 1024 executed SSA/fast instructions, so tight loops return
+`context.DeadlineExceeded` / `context.Canceled` without waiting for the
+outer goroutine to be killed. A blocking host `reflect.Call` cannot be
+preempted from inside Gig; cancellation is observed before or after that
+host call returns.
 
 `Program.run` recovers any propagating panic and converts it to an error
 prefixed `interpreter panic:`, so the embedder always gets a clean error

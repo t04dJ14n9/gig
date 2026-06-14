@@ -2,50 +2,51 @@
 package packages
 
 import (
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 	"reflect"
 	"strconv"
-
-	"github.com/t04dJ14n9/gig/importer"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("strconv", "strconv")
 
 	// Functions
-	pkg.AddFunction("AppendBool", strconv.AppendBool, "")
-	pkg.AddFunction("AppendFloat", strconv.AppendFloat, "")
-	pkg.AddFunction("AppendInt", strconv.AppendInt, "")
-	pkg.AddFunction("AppendQuote", strconv.AppendQuote, "")
-	pkg.AddFunction("AppendQuoteRune", strconv.AppendQuoteRune, "")
-	pkg.AddFunction("AppendQuoteRuneToASCII", strconv.AppendQuoteRuneToASCII, "")
-	pkg.AddFunction("AppendQuoteRuneToGraphic", strconv.AppendQuoteRuneToGraphic, "")
-	pkg.AddFunction("AppendQuoteToASCII", strconv.AppendQuoteToASCII, "")
-	pkg.AddFunction("AppendQuoteToGraphic", strconv.AppendQuoteToGraphic, "")
-	pkg.AddFunction("AppendUint", strconv.AppendUint, "")
-	pkg.AddFunction("Atoi", strconv.Atoi, "")
-	pkg.AddFunction("CanBackquote", strconv.CanBackquote, "")
-	pkg.AddFunction("FormatBool", strconv.FormatBool, "")
-	pkg.AddFunction("FormatComplex", strconv.FormatComplex, "")
-	pkg.AddFunction("FormatFloat", strconv.FormatFloat, "")
-	pkg.AddFunction("FormatInt", strconv.FormatInt, "")
-	pkg.AddFunction("FormatUint", strconv.FormatUint, "")
-	pkg.AddFunction("IsGraphic", strconv.IsGraphic, "")
-	pkg.AddFunction("IsPrint", strconv.IsPrint, "")
-	pkg.AddFunction("Itoa", strconv.Itoa, "")
-	pkg.AddFunction("ParseBool", strconv.ParseBool, "")
-	pkg.AddFunction("ParseComplex", strconv.ParseComplex, "")
-	pkg.AddFunction("ParseFloat", strconv.ParseFloat, "")
-	pkg.AddFunction("ParseInt", strconv.ParseInt, "")
-	pkg.AddFunction("ParseUint", strconv.ParseUint, "")
-	pkg.AddFunction("Quote", strconv.Quote, "")
-	pkg.AddFunction("QuoteRune", strconv.QuoteRune, "")
-	pkg.AddFunction("QuoteRuneToASCII", strconv.QuoteRuneToASCII, "")
-	pkg.AddFunction("QuoteRuneToGraphic", strconv.QuoteRuneToGraphic, "")
-	pkg.AddFunction("QuoteToASCII", strconv.QuoteToASCII, "")
-	pkg.AddFunction("QuoteToGraphic", strconv.QuoteToGraphic, "")
-	pkg.AddFunction("QuotedPrefix", strconv.QuotedPrefix, "")
-	pkg.AddFunction("Unquote", strconv.Unquote, "")
-	pkg.AddFunction("UnquoteChar", strconv.UnquoteChar, "")
+	pkg.AddFunction("AppendBool", strconv.AppendBool, "", directCallStrconvAppendBool)
+	pkg.AddFunction("AppendFloat", strconv.AppendFloat, "", directCallStrconvAppendFloat)
+	pkg.AddFunction("AppendInt", strconv.AppendInt, "", directCallStrconvAppendInt)
+	pkg.AddFunction("AppendQuote", strconv.AppendQuote, "", directCallStrconvAppendQuote)
+	pkg.AddFunction("AppendQuoteRune", strconv.AppendQuoteRune, "", directCallStrconvAppendQuoteRune)
+	pkg.AddFunction("AppendQuoteRuneToASCII", strconv.AppendQuoteRuneToASCII, "", directCallStrconvAppendQuoteRuneToASCII)
+	pkg.AddFunction("AppendQuoteRuneToGraphic", strconv.AppendQuoteRuneToGraphic, "", directCallStrconvAppendQuoteRuneToGraphic)
+	pkg.AddFunction("AppendQuoteToASCII", strconv.AppendQuoteToASCII, "", directCallStrconvAppendQuoteToASCII)
+	pkg.AddFunction("AppendQuoteToGraphic", strconv.AppendQuoteToGraphic, "", directCallStrconvAppendQuoteToGraphic)
+	pkg.AddFunction("AppendUint", strconv.AppendUint, "", directCallStrconvAppendUint)
+	pkg.AddFunction("Atoi", strconv.Atoi, "", directCallStrconvAtoi)
+	pkg.AddFunction("CanBackquote", strconv.CanBackquote, "", directCallStrconvCanBackquote)
+	pkg.AddFunction("FormatBool", strconv.FormatBool, "", directCallStrconvFormatBool)
+	pkg.AddFunction("FormatComplex", strconv.FormatComplex, "", directCallStrconvFormatComplex)
+	pkg.AddFunction("FormatFloat", strconv.FormatFloat, "", directCallStrconvFormatFloat)
+	pkg.AddFunction("FormatInt", strconv.FormatInt, "", directCallStrconvFormatInt)
+	pkg.AddFunction("FormatUint", strconv.FormatUint, "", directCallStrconvFormatUint)
+	pkg.AddFunction("IsGraphic", strconv.IsGraphic, "", directCallStrconvIsGraphic)
+	pkg.AddFunction("IsPrint", strconv.IsPrint, "", directCallStrconvIsPrint)
+	pkg.AddFunction("Itoa", strconv.Itoa, "", directCallStrconvItoa)
+	pkg.AddFunction("ParseBool", strconv.ParseBool, "", directCallStrconvParseBool)
+	pkg.AddFunction("ParseComplex", strconv.ParseComplex, "", directCallStrconvParseComplex)
+	pkg.AddFunction("ParseFloat", strconv.ParseFloat, "", directCallStrconvParseFloat)
+	pkg.AddFunction("ParseInt", strconv.ParseInt, "", directCallStrconvParseInt)
+	pkg.AddFunction("ParseUint", strconv.ParseUint, "", directCallStrconvParseUint)
+	pkg.AddFunction("Quote", strconv.Quote, "", directCallStrconvQuote)
+	pkg.AddFunction("QuoteRune", strconv.QuoteRune, "", directCallStrconvQuoteRune)
+	pkg.AddFunction("QuoteRuneToASCII", strconv.QuoteRuneToASCII, "", directCallStrconvQuoteRuneToASCII)
+	pkg.AddFunction("QuoteRuneToGraphic", strconv.QuoteRuneToGraphic, "", directCallStrconvQuoteRuneToGraphic)
+	pkg.AddFunction("QuoteToASCII", strconv.QuoteToASCII, "", directCallStrconvQuoteToASCII)
+	pkg.AddFunction("QuoteToGraphic", strconv.QuoteToGraphic, "", directCallStrconvQuoteToGraphic)
+	pkg.AddFunction("QuotedPrefix", strconv.QuotedPrefix, "", directCallStrconvQuotedPrefix)
+	pkg.AddFunction("Unquote", strconv.Unquote, "", directCallStrconvUnquote)
+	pkg.AddFunction("UnquoteChar", strconv.UnquoteChar, "", directCallStrconvUnquoteChar)
 
 	// Constants
 	pkg.AddConstant("IntSize", strconv.IntSize, "")
@@ -57,4 +58,601 @@ func init() {
 	// Types
 	pkg.AddType("NumError", reflect.TypeOf(strconv.NumError{}), "")
 
+}
+
+func directArgStrconv[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsStrconv[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgStrconv[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgStrconv[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgStrconv[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsStrconv(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallStrconvAppendBool(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrconv[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strconv.AppendBool(a0, a1)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvAppendFloat(args []value.Value) ([]value.Value, error) {
+	if len(args) != 5 {
+		return nil, fmt.Errorf("arg count %d != 5", len(args))
+	}
+	a0, err := directArgStrconv[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgStrconv[byte](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	a3, err := directArgStrconv[int](args[3])
+	if err != nil {
+		return nil, fmt.Errorf("arg 3: %w", err)
+	}
+	a4, err := directArgStrconv[int](args[4])
+	if err != nil {
+		return nil, fmt.Errorf("arg 4: %w", err)
+	}
+	r0 := strconv.AppendFloat(a0, a1, a2, a3, a4)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvAppendInt(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgStrconv[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[int64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgStrconv[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := strconv.AppendInt(a0, a1, a2)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvAppendQuote(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrconv[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strconv.AppendQuote(a0, a1)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvAppendQuoteRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrconv[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strconv.AppendQuoteRune(a0, a1)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvAppendQuoteRuneToASCII(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrconv[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strconv.AppendQuoteRuneToASCII(a0, a1)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvAppendQuoteRuneToGraphic(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrconv[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strconv.AppendQuoteRuneToGraphic(a0, a1)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvAppendQuoteToASCII(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrconv[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strconv.AppendQuoteToASCII(a0, a1)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvAppendQuoteToGraphic(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrconv[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strconv.AppendQuoteToGraphic(a0, a1)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvAppendUint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgStrconv[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgStrconv[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := strconv.AppendUint(a0, a1, a2)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvAtoi(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := strconv.Atoi(a0)
+	return directResultsStrconv(r0, r1)
+}
+
+func directCallStrconvCanBackquote(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strconv.CanBackquote(a0)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvFormatBool(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[bool](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strconv.FormatBool(a0)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvFormatComplex(args []value.Value) ([]value.Value, error) {
+	if len(args) != 4 {
+		return nil, fmt.Errorf("arg count %d != 4", len(args))
+	}
+	a0, err := directArgStrconv[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgStrconv[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	a3, err := directArgStrconv[int](args[3])
+	if err != nil {
+		return nil, fmt.Errorf("arg 3: %w", err)
+	}
+	r0 := strconv.FormatComplex(a0, a1, a2, a3)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvFormatFloat(args []value.Value) ([]value.Value, error) {
+	if len(args) != 4 {
+		return nil, fmt.Errorf("arg count %d != 4", len(args))
+	}
+	a0, err := directArgStrconv[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgStrconv[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	a3, err := directArgStrconv[int](args[3])
+	if err != nil {
+		return nil, fmt.Errorf("arg 3: %w", err)
+	}
+	r0 := strconv.FormatFloat(a0, a1, a2, a3)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvFormatInt(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrconv[int64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strconv.FormatInt(a0, a1)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvFormatUint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrconv[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strconv.FormatUint(a0, a1)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvIsGraphic(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strconv.IsGraphic(a0)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvIsPrint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strconv.IsPrint(a0)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvItoa(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strconv.Itoa(a0)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvParseBool(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := strconv.ParseBool(a0)
+	return directResultsStrconv(r0, r1)
+}
+
+func directCallStrconvParseComplex(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrconv[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := strconv.ParseComplex(a0, a1)
+	return directResultsStrconv(r0, r1)
+}
+
+func directCallStrconvParseFloat(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrconv[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := strconv.ParseFloat(a0, a1)
+	return directResultsStrconv(r0, r1)
+}
+
+func directCallStrconvParseInt(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgStrconv[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgStrconv[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0, r1 := strconv.ParseInt(a0, a1, a2)
+	return directResultsStrconv(r0, r1)
+}
+
+func directCallStrconvParseUint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgStrconv[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgStrconv[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0, r1 := strconv.ParseUint(a0, a1, a2)
+	return directResultsStrconv(r0, r1)
+}
+
+func directCallStrconvQuote(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strconv.Quote(a0)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvQuoteRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strconv.QuoteRune(a0)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvQuoteRuneToASCII(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strconv.QuoteRuneToASCII(a0)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvQuoteRuneToGraphic(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strconv.QuoteRuneToGraphic(a0)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvQuoteToASCII(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strconv.QuoteToASCII(a0)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvQuoteToGraphic(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strconv.QuoteToGraphic(a0)
+	return directResultsStrconv(r0)
+}
+
+func directCallStrconvQuotedPrefix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := strconv.QuotedPrefix(a0)
+	return directResultsStrconv(r0, r1)
+}
+
+func directCallStrconvUnquote(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrconv[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := strconv.Unquote(a0)
+	return directResultsStrconv(r0, r1)
+}
+
+func directCallStrconvUnquoteChar(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrconv[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrconv[byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1, r2, r3 := strconv.UnquoteChar(a0, a1)
+	return directResultsStrconv(r0, r1, r2, r3)
 }

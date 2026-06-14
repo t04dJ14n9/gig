@@ -2,77 +2,82 @@
 package packages
 
 import (
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
+	io_fs "io/fs"
 	"os"
 	"reflect"
-
-	"github.com/t04dJ14n9/gig/importer"
+	"time"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("os", "os")
 
 	// Functions
-	pkg.AddFunction("Chdir", os.Chdir, "")
-	pkg.AddFunction("Chmod", os.Chmod, "")
-	pkg.AddFunction("Chown", os.Chown, "")
-	pkg.AddFunction("Chtimes", os.Chtimes, "")
-	pkg.AddFunction("Clearenv", os.Clearenv, "")
-	pkg.AddFunction("CopyFS", os.CopyFS, "")
-	pkg.AddFunction("Create", os.Create, "")
-	pkg.AddFunction("CreateTemp", os.CreateTemp, "")
-	pkg.AddFunction("DirFS", os.DirFS, "")
-	pkg.AddFunction("Environ", os.Environ, "")
-	pkg.AddFunction("Executable", os.Executable, "")
-	pkg.AddFunction("Exit", os.Exit, "")
-	pkg.AddFunction("Expand", os.Expand, "")
-	pkg.AddFunction("ExpandEnv", os.ExpandEnv, "")
-	pkg.AddFunction("FindProcess", os.FindProcess, "")
-	pkg.AddFunction("Getegid", os.Getegid, "")
-	pkg.AddFunction("Getenv", os.Getenv, "")
-	pkg.AddFunction("Geteuid", os.Geteuid, "")
-	pkg.AddFunction("Getgid", os.Getgid, "")
-	pkg.AddFunction("Getgroups", os.Getgroups, "")
-	pkg.AddFunction("Getpagesize", os.Getpagesize, "")
-	pkg.AddFunction("Getpid", os.Getpid, "")
-	pkg.AddFunction("Getppid", os.Getppid, "")
-	pkg.AddFunction("Getuid", os.Getuid, "")
-	pkg.AddFunction("Getwd", os.Getwd, "")
-	pkg.AddFunction("Hostname", os.Hostname, "")
-	pkg.AddFunction("IsExist", os.IsExist, "")
-	pkg.AddFunction("IsNotExist", os.IsNotExist, "")
-	pkg.AddFunction("IsPathSeparator", os.IsPathSeparator, "")
-	pkg.AddFunction("IsPermission", os.IsPermission, "")
-	pkg.AddFunction("IsTimeout", os.IsTimeout, "")
-	pkg.AddFunction("Lchown", os.Lchown, "")
-	pkg.AddFunction("Link", os.Link, "")
-	pkg.AddFunction("LookupEnv", os.LookupEnv, "")
-	pkg.AddFunction("Lstat", os.Lstat, "")
-	pkg.AddFunction("Mkdir", os.Mkdir, "")
-	pkg.AddFunction("MkdirAll", os.MkdirAll, "")
-	pkg.AddFunction("MkdirTemp", os.MkdirTemp, "")
-	pkg.AddFunction("NewFile", os.NewFile, "")
-	pkg.AddFunction("NewSyscallError", os.NewSyscallError, "")
-	pkg.AddFunction("Open", os.Open, "")
-	pkg.AddFunction("OpenFile", os.OpenFile, "")
-	pkg.AddFunction("Pipe", os.Pipe, "")
-	pkg.AddFunction("ReadDir", os.ReadDir, "")
-	pkg.AddFunction("ReadFile", os.ReadFile, "")
-	pkg.AddFunction("Readlink", os.Readlink, "")
-	pkg.AddFunction("Remove", os.Remove, "")
-	pkg.AddFunction("RemoveAll", os.RemoveAll, "")
-	pkg.AddFunction("Rename", os.Rename, "")
-	pkg.AddFunction("SameFile", os.SameFile, "")
-	pkg.AddFunction("Setenv", os.Setenv, "")
-	pkg.AddFunction("StartProcess", os.StartProcess, "")
-	pkg.AddFunction("Stat", os.Stat, "")
-	pkg.AddFunction("Symlink", os.Symlink, "")
-	pkg.AddFunction("TempDir", os.TempDir, "")
-	pkg.AddFunction("Truncate", os.Truncate, "")
-	pkg.AddFunction("Unsetenv", os.Unsetenv, "")
-	pkg.AddFunction("UserCacheDir", os.UserCacheDir, "")
-	pkg.AddFunction("UserConfigDir", os.UserConfigDir, "")
-	pkg.AddFunction("UserHomeDir", os.UserHomeDir, "")
-	pkg.AddFunction("WriteFile", os.WriteFile, "")
+	pkg.AddFunction("Chdir", os.Chdir, "", directCallOsChdir)
+	pkg.AddFunction("Chmod", os.Chmod, "", directCallOsChmod)
+	pkg.AddFunction("Chown", os.Chown, "", directCallOsChown)
+	pkg.AddFunction("Chtimes", os.Chtimes, "", directCallOsChtimes)
+	pkg.AddFunction("Clearenv", os.Clearenv, "", directCallOsClearenv)
+	pkg.AddFunction("CopyFS", os.CopyFS, "", directCallOsCopyFS)
+	pkg.AddFunction("Create", os.Create, "", directCallOsCreate)
+	pkg.AddFunction("CreateTemp", os.CreateTemp, "", directCallOsCreateTemp)
+	pkg.AddFunction("DirFS", os.DirFS, "", directCallOsDirFS)
+	pkg.AddFunction("Environ", os.Environ, "", directCallOsEnviron)
+	pkg.AddFunction("Executable", os.Executable, "", directCallOsExecutable)
+	pkg.AddFunction("Exit", os.Exit, "", directCallOsExit)
+	pkg.AddFunction("Expand", os.Expand, "", directCallOsExpand)
+	pkg.AddFunction("ExpandEnv", os.ExpandEnv, "", directCallOsExpandEnv)
+	pkg.AddFunction("FindProcess", os.FindProcess, "", directCallOsFindProcess)
+	pkg.AddFunction("Getegid", os.Getegid, "", directCallOsGetegid)
+	pkg.AddFunction("Getenv", os.Getenv, "", directCallOsGetenv)
+	pkg.AddFunction("Geteuid", os.Geteuid, "", directCallOsGeteuid)
+	pkg.AddFunction("Getgid", os.Getgid, "", directCallOsGetgid)
+	pkg.AddFunction("Getgroups", os.Getgroups, "", directCallOsGetgroups)
+	pkg.AddFunction("Getpagesize", os.Getpagesize, "", directCallOsGetpagesize)
+	pkg.AddFunction("Getpid", os.Getpid, "", directCallOsGetpid)
+	pkg.AddFunction("Getppid", os.Getppid, "", directCallOsGetppid)
+	pkg.AddFunction("Getuid", os.Getuid, "", directCallOsGetuid)
+	pkg.AddFunction("Getwd", os.Getwd, "", directCallOsGetwd)
+	pkg.AddFunction("Hostname", os.Hostname, "", directCallOsHostname)
+	pkg.AddFunction("IsExist", os.IsExist, "", directCallOsIsExist)
+	pkg.AddFunction("IsNotExist", os.IsNotExist, "", directCallOsIsNotExist)
+	pkg.AddFunction("IsPathSeparator", os.IsPathSeparator, "", directCallOsIsPathSeparator)
+	pkg.AddFunction("IsPermission", os.IsPermission, "", directCallOsIsPermission)
+	pkg.AddFunction("IsTimeout", os.IsTimeout, "", directCallOsIsTimeout)
+	pkg.AddFunction("Lchown", os.Lchown, "", directCallOsLchown)
+	pkg.AddFunction("Link", os.Link, "", directCallOsLink)
+	pkg.AddFunction("LookupEnv", os.LookupEnv, "", directCallOsLookupEnv)
+	pkg.AddFunction("Lstat", os.Lstat, "", directCallOsLstat)
+	pkg.AddFunction("Mkdir", os.Mkdir, "", directCallOsMkdir)
+	pkg.AddFunction("MkdirAll", os.MkdirAll, "", directCallOsMkdirAll)
+	pkg.AddFunction("MkdirTemp", os.MkdirTemp, "", directCallOsMkdirTemp)
+	pkg.AddFunction("NewFile", os.NewFile, "", directCallOsNewFile)
+	pkg.AddFunction("NewSyscallError", os.NewSyscallError, "", directCallOsNewSyscallError)
+	pkg.AddFunction("Open", os.Open, "", directCallOsOpen)
+	pkg.AddFunction("OpenFile", os.OpenFile, "", directCallOsOpenFile)
+	pkg.AddFunction("OpenInRoot", os.OpenInRoot, "", directCallOsOpenInRoot)
+	pkg.AddFunction("OpenRoot", os.OpenRoot, "", directCallOsOpenRoot)
+	pkg.AddFunction("Pipe", os.Pipe, "", directCallOsPipe)
+	pkg.AddFunction("ReadDir", os.ReadDir, "", directCallOsReadDir)
+	pkg.AddFunction("ReadFile", os.ReadFile, "", directCallOsReadFile)
+	pkg.AddFunction("Readlink", os.Readlink, "", directCallOsReadlink)
+	pkg.AddFunction("Remove", os.Remove, "", directCallOsRemove)
+	pkg.AddFunction("RemoveAll", os.RemoveAll, "", directCallOsRemoveAll)
+	pkg.AddFunction("Rename", os.Rename, "", directCallOsRename)
+	pkg.AddFunction("SameFile", os.SameFile, "", directCallOsSameFile)
+	pkg.AddFunction("Setenv", os.Setenv, "", directCallOsSetenv)
+	pkg.AddFunction("StartProcess", os.StartProcess, "", directCallOsStartProcess)
+	pkg.AddFunction("Stat", os.Stat, "", directCallOsStat)
+	pkg.AddFunction("Symlink", os.Symlink, "", directCallOsSymlink)
+	pkg.AddFunction("TempDir", os.TempDir, "", directCallOsTempDir)
+	pkg.AddFunction("Truncate", os.Truncate, "", directCallOsTruncate)
+	pkg.AddFunction("Unsetenv", os.Unsetenv, "", directCallOsUnsetenv)
+	pkg.AddFunction("UserCacheDir", os.UserCacheDir, "", directCallOsUserCacheDir)
+	pkg.AddFunction("UserConfigDir", os.UserConfigDir, "", directCallOsUserConfigDir)
+	pkg.AddFunction("UserHomeDir", os.UserHomeDir, "", directCallOsUserHomeDir)
+	pkg.AddFunction("WriteFile", os.WriteFile, "", directCallOsWriteFile)
 
 	// Constants
 	pkg.AddConstant("DevNull", os.DevNull, "")
@@ -112,6 +117,7 @@ func init() {
 	pkg.AddVariable("ErrExist", &os.ErrExist, "")
 	pkg.AddVariable("ErrInvalid", &os.ErrInvalid, "")
 	pkg.AddVariable("ErrNoDeadline", &os.ErrNoDeadline, "")
+	pkg.AddVariable("ErrNoHandle", &os.ErrNoHandle, "")
 	pkg.AddVariable("ErrNotExist", &os.ErrNotExist, "")
 	pkg.AddVariable("ErrPermission", &os.ErrPermission, "")
 	pkg.AddVariable("ErrProcessDone", &os.ErrProcessDone, "")
@@ -127,7 +133,873 @@ func init() {
 	pkg.AddType("ProcAttr", reflect.TypeOf(os.ProcAttr{}), "")
 	pkg.AddType("Process", reflect.TypeOf(os.Process{}), "")
 	pkg.AddType("ProcessState", reflect.TypeOf(os.ProcessState{}), "")
+	pkg.AddType("Root", reflect.TypeOf(os.Root{}), "")
 	pkg.AddType("Signal", reflect.TypeOf((*os.Signal)(nil)).Elem(), "")
 	pkg.AddType("SyscallError", reflect.TypeOf(os.SyscallError{}), "")
 
+}
+
+func directArgOs[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsOs[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgOs[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgOs[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgOs[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsOs(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallOsChdir(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := os.Chdir(a0)
+	return directResultsOs(r0)
+}
+
+func directCallOsChmod(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[os.FileMode](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := os.Chmod(a0, a1)
+	return directResultsOs(r0)
+}
+
+func directCallOsChown(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgOs[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := os.Chown(a0, a1, a2)
+	return directResultsOs(r0)
+}
+
+func directCallOsChtimes(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[time.Time](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgOs[time.Time](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := os.Chtimes(a0, a1, a2)
+	return directResultsOs(r0)
+}
+
+func directCallOsClearenv(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	os.Clearenv()
+	return nil, nil
+}
+
+func directCallOsCopyFS(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[io_fs.FS](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := os.CopyFS(a0, a1)
+	return directResultsOs(r0)
+}
+
+func directCallOsCreate(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := os.Create(a0)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsCreateTemp(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := os.CreateTemp(a0, a1)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsDirFS(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := os.DirFS(a0)
+	return directResultsOs(r0)
+}
+
+func directCallOsEnviron(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := os.Environ()
+	return directResultsOs(r0)
+}
+
+func directCallOsExecutable(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0, r1 := os.Executable()
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsExit(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	os.Exit(a0)
+	return nil, nil
+}
+
+func directCallOsExpand(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[func(string) string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := os.Expand(a0, a1)
+	return directResultsOs(r0)
+}
+
+func directCallOsExpandEnv(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := os.ExpandEnv(a0)
+	return directResultsOs(r0)
+}
+
+func directCallOsFindProcess(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := os.FindProcess(a0)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsGetegid(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := os.Getegid()
+	return directResultsOs(r0)
+}
+
+func directCallOsGetenv(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := os.Getenv(a0)
+	return directResultsOs(r0)
+}
+
+func directCallOsGeteuid(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := os.Geteuid()
+	return directResultsOs(r0)
+}
+
+func directCallOsGetgid(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := os.Getgid()
+	return directResultsOs(r0)
+}
+
+func directCallOsGetgroups(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0, r1 := os.Getgroups()
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsGetpagesize(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := os.Getpagesize()
+	return directResultsOs(r0)
+}
+
+func directCallOsGetpid(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := os.Getpid()
+	return directResultsOs(r0)
+}
+
+func directCallOsGetppid(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := os.Getppid()
+	return directResultsOs(r0)
+}
+
+func directCallOsGetuid(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := os.Getuid()
+	return directResultsOs(r0)
+}
+
+func directCallOsGetwd(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0, r1 := os.Getwd()
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsHostname(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0, r1 := os.Hostname()
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsIsExist(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[error](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := os.IsExist(a0)
+	return directResultsOs(r0)
+}
+
+func directCallOsIsNotExist(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[error](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := os.IsNotExist(a0)
+	return directResultsOs(r0)
+}
+
+func directCallOsIsPathSeparator(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[uint8](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := os.IsPathSeparator(a0)
+	return directResultsOs(r0)
+}
+
+func directCallOsIsPermission(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[error](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := os.IsPermission(a0)
+	return directResultsOs(r0)
+}
+
+func directCallOsIsTimeout(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[error](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := os.IsTimeout(a0)
+	return directResultsOs(r0)
+}
+
+func directCallOsLchown(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgOs[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := os.Lchown(a0, a1, a2)
+	return directResultsOs(r0)
+}
+
+func directCallOsLink(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := os.Link(a0, a1)
+	return directResultsOs(r0)
+}
+
+func directCallOsLookupEnv(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := os.LookupEnv(a0)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsLstat(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := os.Lstat(a0)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsMkdir(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[os.FileMode](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := os.Mkdir(a0, a1)
+	return directResultsOs(r0)
+}
+
+func directCallOsMkdirAll(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[os.FileMode](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := os.MkdirAll(a0, a1)
+	return directResultsOs(r0)
+}
+
+func directCallOsMkdirTemp(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := os.MkdirTemp(a0, a1)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsNewFile(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[uintptr](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := os.NewFile(a0, a1)
+	return directResultsOs(r0)
+}
+
+func directCallOsNewSyscallError(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[error](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := os.NewSyscallError(a0, a1)
+	return directResultsOs(r0)
+}
+
+func directCallOsOpen(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := os.Open(a0)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsOpenFile(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgOs[os.FileMode](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0, r1 := os.OpenFile(a0, a1, a2)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsOpenInRoot(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := os.OpenInRoot(a0, a1)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsOpenRoot(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := os.OpenRoot(a0)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsPipe(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0, r1, r2 := os.Pipe()
+	return directResultsOs(r0, r1, r2)
+}
+
+func directCallOsReadDir(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := os.ReadDir(a0)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsReadFile(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := os.ReadFile(a0)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsReadlink(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := os.Readlink(a0)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsRemove(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := os.Remove(a0)
+	return directResultsOs(r0)
+}
+
+func directCallOsRemoveAll(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := os.RemoveAll(a0)
+	return directResultsOs(r0)
+}
+
+func directCallOsRename(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := os.Rename(a0, a1)
+	return directResultsOs(r0)
+}
+
+func directCallOsSameFile(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[os.FileInfo](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[os.FileInfo](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := os.SameFile(a0, a1)
+	return directResultsOs(r0)
+}
+
+func directCallOsSetenv(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := os.Setenv(a0, a1)
+	return directResultsOs(r0)
+}
+
+func directCallOsStartProcess(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[[]string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgOs[*os.ProcAttr](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0, r1 := os.StartProcess(a0, a1, a2)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsStat(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := os.Stat(a0)
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsSymlink(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := os.Symlink(a0, a1)
+	return directResultsOs(r0)
+}
+
+func directCallOsTempDir(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := os.TempDir()
+	return directResultsOs(r0)
+}
+
+func directCallOsTruncate(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[int64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := os.Truncate(a0, a1)
+	return directResultsOs(r0)
+}
+
+func directCallOsUnsetenv(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := os.Unsetenv(a0)
+	return directResultsOs(r0)
+}
+
+func directCallOsUserCacheDir(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0, r1 := os.UserCacheDir()
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsUserConfigDir(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0, r1 := os.UserConfigDir()
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsUserHomeDir(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0, r1 := os.UserHomeDir()
+	return directResultsOs(r0, r1)
+}
+
+func directCallOsWriteFile(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgOs[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgOs[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgOs[os.FileMode](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := os.WriteFile(a0, a1, a2)
+	return directResultsOs(r0)
 }

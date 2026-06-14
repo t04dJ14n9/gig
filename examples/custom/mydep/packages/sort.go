@@ -2,34 +2,35 @@
 package packages
 
 import (
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 	"reflect"
 	"sort"
-
-	"github.com/t04dJ14n9/gig/importer"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("sort", "sort")
 
 	// Functions
-	pkg.AddFunction("Find", sort.Find, "")
-	pkg.AddFunction("Float64s", sort.Float64s, "")
-	pkg.AddFunction("Float64sAreSorted", sort.Float64sAreSorted, "")
-	pkg.AddFunction("Ints", sort.Ints, "")
-	pkg.AddFunction("IntsAreSorted", sort.IntsAreSorted, "")
-	pkg.AddFunction("IsSorted", sort.IsSorted, "")
-	pkg.AddFunction("Reverse", sort.Reverse, "")
-	pkg.AddFunction("Search", sort.Search, "")
-	pkg.AddFunction("SearchFloat64s", sort.SearchFloat64s, "")
-	pkg.AddFunction("SearchInts", sort.SearchInts, "")
-	pkg.AddFunction("SearchStrings", sort.SearchStrings, "")
-	pkg.AddFunction("Slice", sort.Slice, "")
-	pkg.AddFunction("SliceIsSorted", sort.SliceIsSorted, "")
-	pkg.AddFunction("SliceStable", sort.SliceStable, "")
-	pkg.AddFunction("Sort", sort.Sort, "")
-	pkg.AddFunction("Stable", sort.Stable, "")
-	pkg.AddFunction("Strings", sort.Strings, "")
-	pkg.AddFunction("StringsAreSorted", sort.StringsAreSorted, "")
+	pkg.AddFunction("Find", sort.Find, "", directCallSortFind)
+	pkg.AddFunction("Float64s", sort.Float64s, "", directCallSortFloat64s)
+	pkg.AddFunction("Float64sAreSorted", sort.Float64sAreSorted, "", directCallSortFloat64sAreSorted)
+	pkg.AddFunction("Ints", sort.Ints, "", directCallSortInts)
+	pkg.AddFunction("IntsAreSorted", sort.IntsAreSorted, "", directCallSortIntsAreSorted)
+	pkg.AddFunction("IsSorted", sort.IsSorted, "", directCallSortIsSorted)
+	pkg.AddFunction("Reverse", sort.Reverse, "", directCallSortReverse)
+	pkg.AddFunction("Search", sort.Search, "", directCallSortSearch)
+	pkg.AddFunction("SearchFloat64s", sort.SearchFloat64s, "", directCallSortSearchFloat64s)
+	pkg.AddFunction("SearchInts", sort.SearchInts, "", directCallSortSearchInts)
+	pkg.AddFunction("SearchStrings", sort.SearchStrings, "", directCallSortSearchStrings)
+	pkg.AddFunction("Slice", sort.Slice, "", directCallSortSlice)
+	pkg.AddFunction("SliceIsSorted", sort.SliceIsSorted, "", directCallSortSliceIsSorted)
+	pkg.AddFunction("SliceStable", sort.SliceStable, "", directCallSortSliceStable)
+	pkg.AddFunction("Sort", sort.Sort, "", directCallSortSort)
+	pkg.AddFunction("Stable", sort.Stable, "", directCallSortStable)
+	pkg.AddFunction("Strings", sort.Strings, "", directCallSortStrings)
+	pkg.AddFunction("StringsAreSorted", sort.StringsAreSorted, "", directCallSortStringsAreSorted)
 
 	// Types
 	pkg.AddType("Float64Slice", reflect.TypeOf((*sort.Float64Slice)(nil)).Elem(), "")
@@ -37,4 +38,321 @@ func init() {
 	pkg.AddType("Interface", reflect.TypeOf((*sort.Interface)(nil)).Elem(), "")
 	pkg.AddType("StringSlice", reflect.TypeOf((*sort.StringSlice)(nil)).Elem(), "")
 
+}
+
+func directArgSort[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsSort[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgSort[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgSort[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgSort[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsSort(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallSortFind(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSort[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSort[func(int) int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := sort.Find(a0, a1)
+	return directResultsSort(r0, r1)
+}
+
+func directCallSortFloat64s(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSort[[]float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	sort.Float64s(a0)
+	return nil, nil
+}
+
+func directCallSortFloat64sAreSorted(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSort[[]float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := sort.Float64sAreSorted(a0)
+	return directResultsSort(r0)
+}
+
+func directCallSortInts(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSort[[]int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	sort.Ints(a0)
+	return nil, nil
+}
+
+func directCallSortIntsAreSorted(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSort[[]int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := sort.IntsAreSorted(a0)
+	return directResultsSort(r0)
+}
+
+func directCallSortIsSorted(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSort[sort.Interface](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := sort.IsSorted(a0)
+	return directResultsSort(r0)
+}
+
+func directCallSortReverse(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSort[sort.Interface](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := sort.Reverse(a0)
+	return directResultsSort(r0)
+}
+
+func directCallSortSearch(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSort[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSort[func(int) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sort.Search(a0, a1)
+	return directResultsSort(r0)
+}
+
+func directCallSortSearchFloat64s(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSort[[]float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSort[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sort.SearchFloat64s(a0, a1)
+	return directResultsSort(r0)
+}
+
+func directCallSortSearchInts(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSort[[]int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSort[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sort.SearchInts(a0, a1)
+	return directResultsSort(r0)
+}
+
+func directCallSortSearchStrings(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSort[[]string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSort[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sort.SearchStrings(a0, a1)
+	return directResultsSort(r0)
+}
+
+func directCallSortSlice(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSort[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSort[func(i int, j int) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	sort.Slice(a0, a1)
+	return nil, nil
+}
+
+func directCallSortSliceIsSorted(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSort[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSort[func(i int, j int) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sort.SliceIsSorted(a0, a1)
+	return directResultsSort(r0)
+}
+
+func directCallSortSliceStable(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSort[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSort[func(i int, j int) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	sort.SliceStable(a0, a1)
+	return nil, nil
+}
+
+func directCallSortSort(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSort[sort.Interface](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	sort.Sort(a0)
+	return nil, nil
+}
+
+func directCallSortStable(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSort[sort.Interface](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	sort.Stable(a0)
+	return nil, nil
+}
+
+func directCallSortStrings(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSort[[]string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	sort.Strings(a0)
+	return nil, nil
+}
+
+func directCallSortStringsAreSorted(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSort[[]string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := sort.StringsAreSorted(a0)
+	return directResultsSort(r0)
 }

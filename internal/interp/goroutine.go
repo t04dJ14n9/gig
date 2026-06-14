@@ -27,9 +27,10 @@ func (p *program) runGo(fr *frame, instr *ssa.Go) (continuation, []value.Value, 
 	}
 	switch tgt := common.Value.(type) {
 	case *ssa.Function:
+		ctx := fr.ctx
 		go func() {
 			defer func() { _ = recover() }()
-			_, _ = p.callSSA(fr, tgt, args, nil, 0)
+			_, _ = p.callSSA(ctx, fr, tgt, args, nil, 0)
 		}()
 		return contNext, nil, nil
 	case *ssa.Builtin:
@@ -97,8 +98,8 @@ func (p *program) runSelect(fr *frame, instr *ssa.Select) (continuation, []value
 		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectDefault})
 	}
 	type recvSlot struct {
-		idx     int
-		elemRT  reflect.Type
+		idx      int
+		elemRT   reflect.Type
 		assigned bool
 	}
 	for _, st := range instr.States {
@@ -169,10 +170,6 @@ func (p *program) runSelect(fr *frame, instr *ssa.Select) (continuation, []value
 		}
 		recvFieldIdx++
 	}
-	fr.cells[instr] = &Cell{
-		Name:  instr.Name(),
-		Type:  instr.Type(),
-		Value: reflectValue(holder),
-	}
+	fr.setCell(instr, reflectValue(holder))
 	return contNext, nil, nil
 }

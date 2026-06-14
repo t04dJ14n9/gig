@@ -2,38 +2,39 @@
 package packages
 
 import (
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 	math_rand_v2 "math/rand/v2"
 	"reflect"
-
-	"github.com/t04dJ14n9/gig/importer"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("math/rand/v2", "rand")
 
 	// Functions
-	pkg.AddFunction("ExpFloat64", math_rand_v2.ExpFloat64, "")
-	pkg.AddFunction("Float32", math_rand_v2.Float32, "")
-	pkg.AddFunction("Float64", math_rand_v2.Float64, "")
-	pkg.AddFunction("Int", math_rand_v2.Int, "")
-	pkg.AddFunction("Int32", math_rand_v2.Int32, "")
-	pkg.AddFunction("Int32N", math_rand_v2.Int32N, "")
-	pkg.AddFunction("Int64", math_rand_v2.Int64, "")
-	pkg.AddFunction("Int64N", math_rand_v2.Int64N, "")
-	pkg.AddFunction("IntN", math_rand_v2.IntN, "")
-	pkg.AddFunction("New", math_rand_v2.New, "")
-	pkg.AddFunction("NewChaCha8", math_rand_v2.NewChaCha8, "")
-	pkg.AddFunction("NewPCG", math_rand_v2.NewPCG, "")
-	pkg.AddFunction("NewZipf", math_rand_v2.NewZipf, "")
-	pkg.AddFunction("NormFloat64", math_rand_v2.NormFloat64, "")
-	pkg.AddFunction("Perm", math_rand_v2.Perm, "")
-	pkg.AddFunction("Shuffle", math_rand_v2.Shuffle, "")
-	pkg.AddFunction("Uint", math_rand_v2.Uint, "")
-	pkg.AddFunction("Uint32", math_rand_v2.Uint32, "")
-	pkg.AddFunction("Uint32N", math_rand_v2.Uint32N, "")
-	pkg.AddFunction("Uint64", math_rand_v2.Uint64, "")
-	pkg.AddFunction("Uint64N", math_rand_v2.Uint64N, "")
-	pkg.AddFunction("UintN", math_rand_v2.UintN, "")
+	pkg.AddFunction("ExpFloat64", math_rand_v2.ExpFloat64, "", directCallMathRandV2ExpFloat64)
+	pkg.AddFunction("Float32", math_rand_v2.Float32, "", directCallMathRandV2Float32)
+	pkg.AddFunction("Float64", math_rand_v2.Float64, "", directCallMathRandV2Float64)
+	pkg.AddFunction("Int", math_rand_v2.Int, "", directCallMathRandV2Int)
+	pkg.AddFunction("Int32", math_rand_v2.Int32, "", directCallMathRandV2Int32)
+	pkg.AddFunction("Int32N", math_rand_v2.Int32N, "", directCallMathRandV2Int32N)
+	pkg.AddFunction("Int64", math_rand_v2.Int64, "", directCallMathRandV2Int64)
+	pkg.AddFunction("Int64N", math_rand_v2.Int64N, "", directCallMathRandV2Int64N)
+	pkg.AddFunction("IntN", math_rand_v2.IntN, "", directCallMathRandV2IntN)
+	pkg.AddFunction("New", math_rand_v2.New, "", directCallMathRandV2New)
+	pkg.AddFunction("NewChaCha8", math_rand_v2.NewChaCha8, "", directCallMathRandV2NewChaCha8)
+	pkg.AddFunction("NewPCG", math_rand_v2.NewPCG, "", directCallMathRandV2NewPCG)
+	pkg.AddFunction("NewZipf", math_rand_v2.NewZipf, "", directCallMathRandV2NewZipf)
+	pkg.AddFunction("NormFloat64", math_rand_v2.NormFloat64, "", directCallMathRandV2NormFloat64)
+	pkg.AddFunction("Perm", math_rand_v2.Perm, "", directCallMathRandV2Perm)
+	pkg.AddFunction("Shuffle", math_rand_v2.Shuffle, "", directCallMathRandV2Shuffle)
+	pkg.AddFunction("Uint", math_rand_v2.Uint, "", directCallMathRandV2Uint)
+	pkg.AddFunction("Uint32", math_rand_v2.Uint32, "", directCallMathRandV2Uint32)
+	pkg.AddFunction("Uint32N", math_rand_v2.Uint32N, "", directCallMathRandV2Uint32N)
+	pkg.AddFunction("Uint64", math_rand_v2.Uint64, "", directCallMathRandV2Uint64)
+	pkg.AddFunction("Uint64N", math_rand_v2.Uint64N, "", directCallMathRandV2Uint64N)
+	pkg.AddFunction("UintN", math_rand_v2.UintN, "", directCallMathRandV2UintN)
 
 	// Types
 	pkg.AddType("ChaCha8", reflect.TypeOf(math_rand_v2.ChaCha8{}), "")
@@ -42,4 +43,317 @@ func init() {
 	pkg.AddType("Source", reflect.TypeOf((*math_rand_v2.Source)(nil)).Elem(), "")
 	pkg.AddType("Zipf", reflect.TypeOf(math_rand_v2.Zipf{}), "")
 
+}
+
+func directArgMathRandV2[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsMathRandV2[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgMathRandV2[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgMathRandV2[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgMathRandV2[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsMathRandV2(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallMathRandV2ExpFloat64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := math_rand_v2.ExpFloat64()
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2Float32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := math_rand_v2.Float32()
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2Float64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := math_rand_v2.Float64()
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2Int(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := math_rand_v2.Int()
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2Int32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := math_rand_v2.Int32()
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2Int32N(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathRandV2[int32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_rand_v2.Int32N(a0)
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2Int64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := math_rand_v2.Int64()
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2Int64N(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathRandV2[int64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_rand_v2.Int64N(a0)
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2IntN(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathRandV2[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_rand_v2.IntN(a0)
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2New(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathRandV2[math_rand_v2.Source](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_rand_v2.New(a0)
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2NewChaCha8(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathRandV2[[32]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_rand_v2.NewChaCha8(a0)
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2NewPCG(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMathRandV2[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathRandV2[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math_rand_v2.NewPCG(a0, a1)
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2NewZipf(args []value.Value) ([]value.Value, error) {
+	if len(args) != 4 {
+		return nil, fmt.Errorf("arg count %d != 4", len(args))
+	}
+	a0, err := directArgMathRandV2[*math_rand_v2.Rand](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathRandV2[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgMathRandV2[float64](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	a3, err := directArgMathRandV2[uint64](args[3])
+	if err != nil {
+		return nil, fmt.Errorf("arg 3: %w", err)
+	}
+	r0 := math_rand_v2.NewZipf(a0, a1, a2, a3)
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2NormFloat64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := math_rand_v2.NormFloat64()
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2Perm(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathRandV2[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_rand_v2.Perm(a0)
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2Shuffle(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMathRandV2[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathRandV2[func(i int, j int)](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	math_rand_v2.Shuffle(a0, a1)
+	return nil, nil
+}
+
+func directCallMathRandV2Uint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := math_rand_v2.Uint()
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2Uint32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := math_rand_v2.Uint32()
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2Uint32N(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathRandV2[uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_rand_v2.Uint32N(a0)
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2Uint64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := math_rand_v2.Uint64()
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2Uint64N(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathRandV2[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_rand_v2.Uint64N(a0)
+	return directResultsMathRandV2(r0)
+}
+
+func directCallMathRandV2UintN(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathRandV2[uint](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_rand_v2.UintN(a0)
+	return directResultsMathRandV2(r0)
 }

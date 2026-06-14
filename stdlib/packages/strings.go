@@ -2,72 +2,1036 @@
 package packages
 
 import (
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 	"reflect"
 	"strings"
-
-	"github.com/t04dJ14n9/gig/importer"
+	"unicode"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("strings", "strings")
 
 	// Functions
-	pkg.AddFunction("Clone", strings.Clone, "")
-	pkg.AddFunction("Compare", strings.Compare, "")
-	pkg.AddFunction("Contains", strings.Contains, "")
-	pkg.AddFunction("ContainsAny", strings.ContainsAny, "")
-	pkg.AddFunction("ContainsFunc", strings.ContainsFunc, "")
-	pkg.AddFunction("ContainsRune", strings.ContainsRune, "")
-	pkg.AddFunction("Count", strings.Count, "")
-	pkg.AddFunction("Cut", strings.Cut, "")
-	pkg.AddFunction("CutPrefix", strings.CutPrefix, "")
-	pkg.AddFunction("CutSuffix", strings.CutSuffix, "")
-	pkg.AddFunction("EqualFold", strings.EqualFold, "")
-	pkg.AddFunction("Fields", strings.Fields, "")
-	pkg.AddFunction("FieldsFunc", strings.FieldsFunc, "")
-	pkg.AddFunction("HasPrefix", strings.HasPrefix, "")
-	pkg.AddFunction("HasSuffix", strings.HasSuffix, "")
-	pkg.AddFunction("Index", strings.Index, "")
-	pkg.AddFunction("IndexAny", strings.IndexAny, "")
-	pkg.AddFunction("IndexByte", strings.IndexByte, "")
-	pkg.AddFunction("IndexFunc", strings.IndexFunc, "")
-	pkg.AddFunction("IndexRune", strings.IndexRune, "")
-	pkg.AddFunction("Join", strings.Join, "")
-	pkg.AddFunction("LastIndex", strings.LastIndex, "")
-	pkg.AddFunction("LastIndexAny", strings.LastIndexAny, "")
-	pkg.AddFunction("LastIndexByte", strings.LastIndexByte, "")
-	pkg.AddFunction("LastIndexFunc", strings.LastIndexFunc, "")
-	pkg.AddFunction("Map", strings.Map, "")
-	pkg.AddFunction("NewReader", strings.NewReader, "")
-	pkg.AddFunction("NewReplacer", strings.NewReplacer, "")
-	pkg.AddFunction("Repeat", strings.Repeat, "")
-	pkg.AddFunction("Replace", strings.Replace, "")
-	pkg.AddFunction("ReplaceAll", strings.ReplaceAll, "")
-	pkg.AddFunction("Split", strings.Split, "")
-	pkg.AddFunction("SplitAfter", strings.SplitAfter, "")
-	pkg.AddFunction("SplitAfterN", strings.SplitAfterN, "")
-	pkg.AddFunction("SplitN", strings.SplitN, "")
-	pkg.AddFunction("Title", strings.Title, "")
-	pkg.AddFunction("ToLower", strings.ToLower, "")
-	pkg.AddFunction("ToLowerSpecial", strings.ToLowerSpecial, "")
-	pkg.AddFunction("ToTitle", strings.ToTitle, "")
-	pkg.AddFunction("ToTitleSpecial", strings.ToTitleSpecial, "")
-	pkg.AddFunction("ToUpper", strings.ToUpper, "")
-	pkg.AddFunction("ToUpperSpecial", strings.ToUpperSpecial, "")
-	pkg.AddFunction("ToValidUTF8", strings.ToValidUTF8, "")
-	pkg.AddFunction("Trim", strings.Trim, "")
-	pkg.AddFunction("TrimFunc", strings.TrimFunc, "")
-	pkg.AddFunction("TrimLeft", strings.TrimLeft, "")
-	pkg.AddFunction("TrimLeftFunc", strings.TrimLeftFunc, "")
-	pkg.AddFunction("TrimPrefix", strings.TrimPrefix, "")
-	pkg.AddFunction("TrimRight", strings.TrimRight, "")
-	pkg.AddFunction("TrimRightFunc", strings.TrimRightFunc, "")
-	pkg.AddFunction("TrimSpace", strings.TrimSpace, "")
-	pkg.AddFunction("TrimSuffix", strings.TrimSuffix, "")
+	pkg.AddFunction("Clone", strings.Clone, "", directCallStringsClone)
+	pkg.AddFunction("Compare", strings.Compare, "", directCallStringsCompare)
+	pkg.AddFunction("Contains", strings.Contains, "", directCallStringsContains)
+	pkg.AddFunction("ContainsAny", strings.ContainsAny, "", directCallStringsContainsAny)
+	pkg.AddFunction("ContainsFunc", strings.ContainsFunc, "", directCallStringsContainsFunc)
+	pkg.AddFunction("ContainsRune", strings.ContainsRune, "", directCallStringsContainsRune)
+	pkg.AddFunction("Count", strings.Count, "", directCallStringsCount)
+	pkg.AddFunction("Cut", strings.Cut, "", directCallStringsCut)
+	pkg.AddFunction("CutPrefix", strings.CutPrefix, "", directCallStringsCutPrefix)
+	pkg.AddFunction("CutSuffix", strings.CutSuffix, "", directCallStringsCutSuffix)
+	pkg.AddFunction("EqualFold", strings.EqualFold, "", directCallStringsEqualFold)
+	pkg.AddFunction("Fields", strings.Fields, "", directCallStringsFields)
+	pkg.AddFunction("FieldsFunc", strings.FieldsFunc, "", directCallStringsFieldsFunc)
+	pkg.AddFunction("FieldsFuncSeq", strings.FieldsFuncSeq, "", directCallStringsFieldsFuncSeq)
+	pkg.AddFunction("FieldsSeq", strings.FieldsSeq, "", directCallStringsFieldsSeq)
+	pkg.AddFunction("HasPrefix", strings.HasPrefix, "", directCallStringsHasPrefix)
+	pkg.AddFunction("HasSuffix", strings.HasSuffix, "", directCallStringsHasSuffix)
+	pkg.AddFunction("Index", strings.Index, "", directCallStringsIndex)
+	pkg.AddFunction("IndexAny", strings.IndexAny, "", directCallStringsIndexAny)
+	pkg.AddFunction("IndexByte", strings.IndexByte, "", directCallStringsIndexByte)
+	pkg.AddFunction("IndexFunc", strings.IndexFunc, "", directCallStringsIndexFunc)
+	pkg.AddFunction("IndexRune", strings.IndexRune, "", directCallStringsIndexRune)
+	pkg.AddFunction("Join", strings.Join, "", directCallStringsJoin)
+	pkg.AddFunction("LastIndex", strings.LastIndex, "", directCallStringsLastIndex)
+	pkg.AddFunction("LastIndexAny", strings.LastIndexAny, "", directCallStringsLastIndexAny)
+	pkg.AddFunction("LastIndexByte", strings.LastIndexByte, "", directCallStringsLastIndexByte)
+	pkg.AddFunction("LastIndexFunc", strings.LastIndexFunc, "", directCallStringsLastIndexFunc)
+	pkg.AddFunction("Lines", strings.Lines, "", directCallStringsLines)
+	pkg.AddFunction("Map", strings.Map, "", directCallStringsMap)
+	pkg.AddFunction("NewReader", strings.NewReader, "", directCallStringsNewReader)
+	pkg.AddFunction("NewReplacer", strings.NewReplacer, "", directCallStringsNewReplacer)
+	pkg.AddFunction("Repeat", strings.Repeat, "", directCallStringsRepeat)
+	pkg.AddFunction("Replace", strings.Replace, "", directCallStringsReplace)
+	pkg.AddFunction("ReplaceAll", strings.ReplaceAll, "", directCallStringsReplaceAll)
+	pkg.AddFunction("Split", strings.Split, "", directCallStringsSplit)
+	pkg.AddFunction("SplitAfter", strings.SplitAfter, "", directCallStringsSplitAfter)
+	pkg.AddFunction("SplitAfterN", strings.SplitAfterN, "", directCallStringsSplitAfterN)
+	pkg.AddFunction("SplitAfterSeq", strings.SplitAfterSeq, "", directCallStringsSplitAfterSeq)
+	pkg.AddFunction("SplitN", strings.SplitN, "", directCallStringsSplitN)
+	pkg.AddFunction("SplitSeq", strings.SplitSeq, "", directCallStringsSplitSeq)
+	pkg.AddFunction("Title", strings.Title, "", directCallStringsTitle)
+	pkg.AddFunction("ToLower", strings.ToLower, "", directCallStringsToLower)
+	pkg.AddFunction("ToLowerSpecial", strings.ToLowerSpecial, "", directCallStringsToLowerSpecial)
+	pkg.AddFunction("ToTitle", strings.ToTitle, "", directCallStringsToTitle)
+	pkg.AddFunction("ToTitleSpecial", strings.ToTitleSpecial, "", directCallStringsToTitleSpecial)
+	pkg.AddFunction("ToUpper", strings.ToUpper, "", directCallStringsToUpper)
+	pkg.AddFunction("ToUpperSpecial", strings.ToUpperSpecial, "", directCallStringsToUpperSpecial)
+	pkg.AddFunction("ToValidUTF8", strings.ToValidUTF8, "", directCallStringsToValidUTF8)
+	pkg.AddFunction("Trim", strings.Trim, "", directCallStringsTrim)
+	pkg.AddFunction("TrimFunc", strings.TrimFunc, "", directCallStringsTrimFunc)
+	pkg.AddFunction("TrimLeft", strings.TrimLeft, "", directCallStringsTrimLeft)
+	pkg.AddFunction("TrimLeftFunc", strings.TrimLeftFunc, "", directCallStringsTrimLeftFunc)
+	pkg.AddFunction("TrimPrefix", strings.TrimPrefix, "", directCallStringsTrimPrefix)
+	pkg.AddFunction("TrimRight", strings.TrimRight, "", directCallStringsTrimRight)
+	pkg.AddFunction("TrimRightFunc", strings.TrimRightFunc, "", directCallStringsTrimRightFunc)
+	pkg.AddFunction("TrimSpace", strings.TrimSpace, "", directCallStringsTrimSpace)
+	pkg.AddFunction("TrimSuffix", strings.TrimSuffix, "", directCallStringsTrimSuffix)
 
 	// Types
 	pkg.AddType("Builder", reflect.TypeOf(strings.Builder{}), "")
 	pkg.AddType("Reader", reflect.TypeOf(strings.Reader{}), "")
 	pkg.AddType("Replacer", reflect.TypeOf(strings.Replacer{}), "")
 
+}
+
+func directArgStrings[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsStrings[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgStrings[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgStrings[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgStrings[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsStrings(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallStringsClone(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strings.Clone(a0)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsCompare(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.Compare(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsContains(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.Contains(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsContainsAny(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.ContainsAny(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsContainsFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[func(rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.ContainsFunc(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsContainsRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.ContainsRune(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsCount(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.Count(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsCut(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1, r2 := strings.Cut(a0, a1)
+	return directResultsStrings(r0, r1, r2)
+}
+
+func directCallStringsCutPrefix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := strings.CutPrefix(a0, a1)
+	return directResultsStrings(r0, r1)
+}
+
+func directCallStringsCutSuffix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := strings.CutSuffix(a0, a1)
+	return directResultsStrings(r0, r1)
+}
+
+func directCallStringsEqualFold(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.EqualFold(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsFields(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strings.Fields(a0)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsFieldsFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[func(rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.FieldsFunc(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsFieldsFuncSeq(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[func(rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.FieldsFuncSeq(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsFieldsSeq(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strings.FieldsSeq(a0)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsHasPrefix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.HasPrefix(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsHasSuffix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.HasSuffix(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsIndex(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.Index(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsIndexAny(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.IndexAny(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsIndexByte(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.IndexByte(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsIndexFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[func(rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.IndexFunc(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsIndexRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.IndexRune(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsJoin(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[[]string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.Join(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsLastIndex(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.LastIndex(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsLastIndexAny(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.LastIndexAny(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsLastIndexByte(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.LastIndexByte(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsLastIndexFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[func(rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.LastIndexFunc(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsLines(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strings.Lines(a0)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsMap(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[func(rune) rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.Map(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsNewReader(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strings.NewReader(a0)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsNewReplacer(args []value.Value) ([]value.Value, error) {
+	if len(args) < 0 {
+		return nil, fmt.Errorf("arg count %d < 0", len(args))
+	}
+	a0, err := directVariadicArgsStrings[string](args[0:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strings.NewReplacer(a0...)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsRepeat(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.Repeat(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsReplace(args []value.Value) ([]value.Value, error) {
+	if len(args) != 4 {
+		return nil, fmt.Errorf("arg count %d != 4", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgStrings[string](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	a3, err := directArgStrings[int](args[3])
+	if err != nil {
+		return nil, fmt.Errorf("arg 3: %w", err)
+	}
+	r0 := strings.Replace(a0, a1, a2, a3)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsReplaceAll(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgStrings[string](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := strings.ReplaceAll(a0, a1, a2)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsSplit(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.Split(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsSplitAfter(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.SplitAfter(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsSplitAfterN(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgStrings[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := strings.SplitAfterN(a0, a1, a2)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsSplitAfterSeq(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.SplitAfterSeq(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsSplitN(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgStrings[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := strings.SplitN(a0, a1, a2)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsSplitSeq(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.SplitSeq(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsTitle(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strings.Title(a0)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsToLower(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strings.ToLower(a0)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsToLowerSpecial(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[unicode.SpecialCase](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.ToLowerSpecial(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsToTitle(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strings.ToTitle(a0)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsToTitleSpecial(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[unicode.SpecialCase](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.ToTitleSpecial(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsToUpper(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strings.ToUpper(a0)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsToUpperSpecial(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[unicode.SpecialCase](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.ToUpperSpecial(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsToValidUTF8(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.ToValidUTF8(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsTrim(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.Trim(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsTrimFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[func(rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.TrimFunc(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsTrimLeft(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.TrimLeft(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsTrimLeftFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[func(rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.TrimLeftFunc(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsTrimPrefix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.TrimPrefix(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsTrimRight(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.TrimRight(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsTrimRightFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[func(rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.TrimRightFunc(a0, a1)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsTrimSpace(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := strings.TrimSpace(a0)
+	return directResultsStrings(r0)
+}
+
+func directCallStringsTrimSuffix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgStrings[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgStrings[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := strings.TrimSuffix(a0, a1)
+	return directResultsStrings(r0)
 }

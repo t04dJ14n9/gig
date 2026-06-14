@@ -3,19 +3,97 @@ package packages
 
 import (
 	container_list "container/list"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("container/list", "list")
 
 	// Functions
-	pkg.AddFunction("New", container_list.New, "")
+	pkg.AddFunction("New", container_list.New, "", directCallContainerListNew)
 
 	// Types
 	pkg.AddType("Element", reflect.TypeOf(container_list.Element{}), "")
 	pkg.AddType("List", reflect.TypeOf(container_list.List{}), "")
 
+}
+
+func directArgContainerList[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsContainerList[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgContainerList[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgContainerList[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgContainerList[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsContainerList(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallContainerListNew(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := container_list.New()
+	return directResultsContainerList(r0)
 }

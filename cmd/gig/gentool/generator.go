@@ -5,7 +5,9 @@
 // file that, at init time, registers the package's functions, vars,
 // constants, and named types with the importer's global registry.
 // The v2 host bridge in package host reads these registrations and
-// dispatches calls via reflect.Call.
+// dispatches calls through generated direct wrappers when possible,
+// falling back to reflect.Call only for signatures that cannot be
+// expressed from generated Go code.
 //
 // # Generated shape
 //
@@ -15,18 +17,14 @@
 //	import (
 //	    "fmt"
 //	    "github.com/t04dJ14n9/gig/importer"
+//	    "github.com/t04dJ14n9/gig/value"
 //	)
 //
 //	func init() {
 //	    pkg := importer.RegisterPackage("fmt", "fmt")
-//	    pkg.AddFunction("Sprintf", fmt.Sprintf, "")
+//	    pkg.AddFunction("Sprintf", fmt.Sprintf, "", directCallSprintf)
 //	    // ...
 //	}
-//
-// The legacy bytecode-VM DirectCall wrappers — typed adapters between
-// model/value.Value and host signatures — are no longer generated; the
-// v2 SSA interpreter dispatches via reflect uniformly. Removing them
-// dropped roughly two-thirds of the generator's code.
 package gentool
 
 import (
@@ -39,8 +37,11 @@ import (
 	"go/types"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
+
+const valueImportPath = "github.com/t04dJ14n9/gig/value"
 
 // ParsePkgsFile parses a Go source file and extracts all import paths.
 // The file should contain blank imports (_ "package/path") for packages
@@ -151,10 +152,26 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	}
 
 	goPkgName := sanitizePkgName(path)
+	directPrefix := exportedIdent(goPkgName)
 	needReflect := false
 	for _, ti := range typeNames {
 		if typeToReflectExpr(ti.Obj.Type(), pkgRef) != "" {
 			needReflect = true
+			break
+		}
+	}
+	typeImports := map[string]string{}
+	for _, fi := range funcs {
+		if params, variadicElem, ok := directSignature(fi.Sig, path, pkgRef, typeImports); ok {
+			fi.Direct = true
+			fi.ParamTypes = params
+			fi.VariadicElem = variadicElem
+		}
+	}
+	needDirect := false
+	for _, fi := range funcs {
+		if fi.Direct {
+			needDirect = true
 			break
 		}
 	}
@@ -164,16 +181,35 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	fmt.Fprintf(b, "package %s\n\n", pkgName)
 
 	b.WriteString("import (\n")
+	imports := newImportSet()
 	if importAlias != "" {
-		fmt.Fprintf(b, "\t%s %q\n", importAlias, path)
+		imports.add(path, importAlias)
 	} else {
-		fmt.Fprintf(b, "\t%q\n", path)
+		imports.add(path, "")
 	}
-	if needReflect {
-		b.WriteString("\t\"reflect\"\n")
+	typeImportPaths := make([]string, 0, len(typeImports))
+	for path := range typeImports {
+		typeImportPaths = append(typeImportPaths, path)
 	}
-	b.WriteString("\n")
-	b.WriteString("\t\"github.com/t04dJ14n9/gig/importer\"\n")
+	sort.Strings(typeImportPaths)
+	for _, path := range typeImportPaths {
+		imports.add(path, typeImports[path])
+	}
+	if needDirect {
+		imports.add("fmt", "")
+		imports.add("reflect", "")
+		imports.add(valueImportPath, "")
+	} else if needReflect {
+		imports.add("reflect", "")
+	}
+	imports.add("github.com/t04dJ14n9/gig/importer", "")
+	for _, imp := range imports.list {
+		if imp.alias != "" {
+			fmt.Fprintf(b, "\t%s %q\n", imp.alias, imp.path)
+		} else {
+			fmt.Fprintf(b, "\t%q\n", imp.path)
+		}
+	}
 	b.WriteString(")\n\n")
 
 	b.WriteString("func init() {\n")
@@ -182,7 +218,11 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	if len(funcs) > 0 {
 		b.WriteString("\t// Functions\n")
 		for _, fi := range funcs {
-			fmt.Fprintf(b, "\tpkg.AddFunction(%q, %s.%s, \"\")\n", fi.Name, pkgRef, fi.Name)
+			if fi.Direct {
+				fmt.Fprintf(b, "\tpkg.AddFunction(%q, %s.%s, \"\", %s)\n", fi.Name, pkgRef, fi.Name, directWrapperName(directPrefix, fi.Name))
+			} else {
+				fmt.Fprintf(b, "\tpkg.AddFunction(%q, %s.%s, \"\")\n", fi.Name, pkgRef, fi.Name)
+			}
 		}
 		b.WriteString("\n")
 	}
@@ -219,6 +259,14 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	}
 
 	b.WriteString("}\n")
+	if needDirect {
+		writeDirectHelpers(b, directPrefix)
+		for _, fi := range funcs {
+			if fi.Direct {
+				writeDirectWrapper(b, pkgRef, fi, directPrefix)
+			}
+		}
+	}
 
 	src := b.String()
 	code, err := format.Source([]byte(src))
@@ -232,11 +280,415 @@ func PackageImport(path string, outDir string, pkgName string) error {
 	return os.WriteFile(filename, code, 0o666)
 }
 
+type importSpec struct {
+	path  string
+	alias string
+}
+
+type importSet struct {
+	seen map[string]int
+	list []importSpec
+}
+
+func newImportSet() *importSet {
+	return &importSet{seen: map[string]int{}}
+}
+
+func (s *importSet) add(path, alias string) {
+	if path == "" {
+		return
+	}
+	if idx, ok := s.seen[path]; ok {
+		if s.list[idx].alias == "" && alias != "" {
+			s.list[idx].alias = alias
+		}
+		return
+	}
+	s.seen[path] = len(s.list)
+	s.list = append(s.list, importSpec{path: path, alias: alias})
+}
+
+func directSignature(sig *types.Signature, targetPath, targetRef string, imports map[string]string) ([]string, string, bool) {
+	params := sig.Params()
+	paramTypes := make([]string, params.Len())
+	qualifier := func(pkg *types.Package) string {
+		if pkg == nil {
+			return ""
+		}
+		if pkg.Path() == targetPath {
+			return targetRef
+		}
+		name := importNameFor(pkg)
+		if name == pkg.Name() {
+			imports[pkg.Path()] = ""
+		} else {
+			imports[pkg.Path()] = name
+		}
+		return name
+	}
+	for i := 0; i < params.Len(); i++ {
+		t := params.At(i).Type()
+		if !canNameType(t, targetPath) {
+			return nil, "", false
+		}
+		if typeUsesUnsafePointer(t) {
+			imports["unsafe"] = ""
+		}
+		paramTypes[i] = types.TypeString(t, qualifier)
+	}
+	var variadicElem string
+	if sig.Variadic() && params.Len() > 0 {
+		last := params.At(params.Len() - 1).Type()
+		slice, ok := last.(*types.Slice)
+		if !ok {
+			return nil, "", false
+		}
+		elem := slice.Elem()
+		if !canNameType(elem, targetPath) {
+			return nil, "", false
+		}
+		if typeUsesUnsafePointer(elem) {
+			imports["unsafe"] = ""
+		}
+		variadicElem = types.TypeString(elem, qualifier)
+	}
+	return paramTypes, variadicElem, true
+}
+
+func importNameFor(pkg *types.Package) string {
+	if pkg == nil {
+		return ""
+	}
+	if !strings.Contains(pkg.Path(), "/") && !strings.Contains(pkg.Path(), ".") && !strings.Contains(pkg.Path(), "-") {
+		return pkg.Name()
+	}
+	return sanitizePkgName(pkg.Path())
+}
+
+func canNameType(t types.Type, targetPath string) bool {
+	switch t := t.(type) {
+	case *types.Basic:
+		return true
+	case *types.Array:
+		return canNameType(t.Elem(), targetPath)
+	case *types.Slice:
+		return canNameType(t.Elem(), targetPath)
+	case *types.Pointer:
+		return canNameType(t.Elem(), targetPath)
+	case *types.Map:
+		return canNameType(t.Key(), targetPath) && canNameType(t.Elem(), targetPath)
+	case *types.Chan:
+		return canNameType(t.Elem(), targetPath)
+	case *types.Named:
+		obj := t.Obj()
+		if obj != nil && obj.Pkg() != nil && !ast.IsExported(obj.Name()) {
+			return false
+		}
+		for i := 0; i < t.TypeArgs().Len(); i++ {
+			if !canNameType(t.TypeArgs().At(i), targetPath) {
+				return false
+			}
+		}
+		return true
+	case *types.Alias:
+		obj := t.Obj()
+		if obj != nil && obj.Pkg() != nil && !ast.IsExported(obj.Name()) {
+			return false
+		}
+		for i := 0; i < t.TypeArgs().Len(); i++ {
+			if !canNameType(t.TypeArgs().At(i), targetPath) {
+				return false
+			}
+		}
+		return true
+	case *types.Signature:
+		if t.TypeParams().Len() > 0 {
+			return false
+		}
+		return canNameTuple(t.Params(), targetPath) && canNameTuple(t.Results(), targetPath)
+	case *types.Tuple:
+		return canNameTuple(t, targetPath)
+	case *types.Struct:
+		for i := 0; i < t.NumFields(); i++ {
+			if !canNameType(t.Field(i).Type(), targetPath) {
+				return false
+			}
+		}
+		return true
+	case *types.Interface:
+		for i := 0; i < t.NumEmbeddeds(); i++ {
+			if !canNameType(t.EmbeddedType(i), targetPath) {
+				return false
+			}
+		}
+		for i := 0; i < t.NumExplicitMethods(); i++ {
+			if !canNameType(t.ExplicitMethod(i).Type(), targetPath) {
+				return false
+			}
+		}
+		return true
+	case *types.TypeParam:
+		return false
+	default:
+		return false
+	}
+}
+
+func canNameTuple(tuple *types.Tuple, targetPath string) bool {
+	if tuple == nil {
+		return true
+	}
+	for i := 0; i < tuple.Len(); i++ {
+		if !canNameType(tuple.At(i).Type(), targetPath) {
+			return false
+		}
+	}
+	return true
+}
+
+func typeUsesUnsafePointer(t types.Type) bool {
+	switch t := t.(type) {
+	case *types.Basic:
+		return t.Kind() == types.UnsafePointer
+	case *types.Array:
+		return typeUsesUnsafePointer(t.Elem())
+	case *types.Slice:
+		return typeUsesUnsafePointer(t.Elem())
+	case *types.Pointer:
+		return typeUsesUnsafePointer(t.Elem())
+	case *types.Map:
+		return typeUsesUnsafePointer(t.Key()) || typeUsesUnsafePointer(t.Elem())
+	case *types.Chan:
+		return typeUsesUnsafePointer(t.Elem())
+	case *types.Named:
+		for i := 0; i < t.TypeArgs().Len(); i++ {
+			if typeUsesUnsafePointer(t.TypeArgs().At(i)) {
+				return true
+			}
+		}
+		return false
+	case *types.Alias:
+		for i := 0; i < t.TypeArgs().Len(); i++ {
+			if typeUsesUnsafePointer(t.TypeArgs().At(i)) {
+				return true
+			}
+		}
+		return false
+	case *types.Signature:
+		return tupleUsesUnsafePointer(t.Params()) || tupleUsesUnsafePointer(t.Results())
+	case *types.Tuple:
+		return tupleUsesUnsafePointer(t)
+	case *types.Struct:
+		for i := 0; i < t.NumFields(); i++ {
+			if typeUsesUnsafePointer(t.Field(i).Type()) {
+				return true
+			}
+		}
+		return false
+	case *types.Interface:
+		for i := 0; i < t.NumEmbeddeds(); i++ {
+			if typeUsesUnsafePointer(t.EmbeddedType(i)) {
+				return true
+			}
+		}
+		for i := 0; i < t.NumExplicitMethods(); i++ {
+			if typeUsesUnsafePointer(t.ExplicitMethod(i).Type()) {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
+	}
+}
+
+func tupleUsesUnsafePointer(tuple *types.Tuple) bool {
+	if tuple == nil {
+		return false
+	}
+	for i := 0; i < tuple.Len(); i++ {
+		if typeUsesUnsafePointer(tuple.At(i).Type()) {
+			return true
+		}
+	}
+	return false
+}
+
+func exportedIdent(s string) string {
+	parts := strings.FieldsFunc(s, func(r rune) bool {
+		return r == '_' || r == '-' || r == '.' || r == '/'
+	})
+	if len(parts) == 0 {
+		return "Pkg"
+	}
+	var b strings.Builder
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		b.WriteString(strings.ToUpper(part[:1]))
+		if len(part) > 1 {
+			b.WriteString(part[1:])
+		}
+	}
+	if b.Len() == 0 {
+		return "Pkg"
+	}
+	return b.String()
+}
+
+func directWrapperName(prefix, name string) string {
+	return "directCall" + prefix + name
+}
+
+func writeDirectHelpers(b *strings.Builder, prefix string) {
+	fmt.Fprintf(b, `
+func directArg%s[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %%s to %%s", rv.Type(), rt)
+}
+
+func directVariadicArgs%s[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArg%s[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %%d: %%w", i, err)
+					}
+					out[i], err = directArg%s[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %%d: %%w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArg%s[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %%d: %%w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResults%s(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %%d: %%w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+`, prefix, prefix, prefix, prefix, prefix, prefix)
+}
+
+func writeDirectWrapper(b *strings.Builder, pkgRef string, fi *funcInfo, prefix string) {
+	fmt.Fprintf(b, "\nfunc %s(args []value.Value) ([]value.Value, error) {\n", directWrapperName(prefix, fi.Name))
+	params := fi.Sig.Params()
+	fixed := params.Len()
+	if fi.Sig.Variadic() {
+		fixed--
+		fmt.Fprintf(b, "\tif len(args) < %d {\n", fixed)
+		fmt.Fprintf(b, "\t\treturn nil, fmt.Errorf(\"arg count %%d < %d\", len(args))\n", fixed)
+		b.WriteString("\t}\n")
+	} else {
+		fmt.Fprintf(b, "\tif len(args) != %d {\n", params.Len())
+		fmt.Fprintf(b, "\t\treturn nil, fmt.Errorf(\"arg count %%d != %d\", len(args))\n", params.Len())
+		b.WriteString("\t}\n")
+	}
+	for i := 0; i < fixed; i++ {
+		fmt.Fprintf(b, "\ta%d, err := directArg%s[%s](args[%d])\n", i, prefix, fi.ParamTypes[i], i)
+		b.WriteString("\tif err != nil {\n")
+		fmt.Fprintf(b, "\t\treturn nil, fmt.Errorf(\"arg %d: %%w\", err)\n", i)
+		b.WriteString("\t}\n")
+	}
+	if fi.Sig.Variadic() {
+		fmt.Fprintf(b, "\ta%d, err := directVariadicArgs%s[%s](args[%d:])\n", fixed, prefix, fi.VariadicElem, fixed)
+		b.WriteString("\tif err != nil {\n")
+		fmt.Fprintf(b, "\t\treturn nil, fmt.Errorf(\"arg %d: %%w\", err)\n", fixed)
+		b.WriteString("\t}\n")
+	}
+	writeDirectFunctionCall(b, pkgRef, fi, fixed, prefix)
+	b.WriteString("}\n")
+}
+
+func writeDirectFunctionCall(b *strings.Builder, pkgRef string, fi *funcInfo, fixed int, prefix string) {
+	resultCount := fi.Sig.Results().Len()
+	if resultCount > 0 {
+		for i := 0; i < resultCount; i++ {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			fmt.Fprintf(b, "r%d", i)
+		}
+		fmt.Fprintf(b, " := %s.%s(", pkgRef, fi.Name)
+	} else {
+		fmt.Fprintf(b, "\t%s.%s(", pkgRef, fi.Name)
+	}
+	for i := 0; i < fi.Sig.Params().Len(); i++ {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		fmt.Fprintf(b, "a%d", i)
+		if fi.Sig.Variadic() && i == fixed {
+			b.WriteString("...")
+		}
+	}
+	b.WriteString(")\n")
+	if resultCount == 0 {
+		b.WriteString("\treturn nil, nil\n")
+		return
+	}
+	fmt.Fprintf(b, "\treturn directResults%s(", prefix)
+	for i := 0; i < resultCount; i++ {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		fmt.Fprintf(b, "r%d", i)
+	}
+	b.WriteString(")\n")
+}
+
 // --- Type info structs ---
 
 type funcInfo struct {
-	Name string
-	Sig  *types.Signature
+	Name         string
+	Sig          *types.Signature
+	Direct       bool
+	ParamTypes   []string
+	VariadicElem string
 }
 
 type constInfo struct {

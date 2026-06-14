@@ -2,25 +2,28 @@
 package packages
 
 import (
+	"bytes"
 	encoding_json "encoding/json"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
+	"io"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("encoding/json", "json")
 
 	// Functions
-	pkg.AddFunction("Compact", encoding_json.Compact, "")
-	pkg.AddFunction("HTMLEscape", encoding_json.HTMLEscape, "")
-	pkg.AddFunction("Indent", encoding_json.Indent, "")
-	pkg.AddFunction("Marshal", encoding_json.Marshal, "")
-	pkg.AddFunction("MarshalIndent", encoding_json.MarshalIndent, "")
-	pkg.AddFunction("NewDecoder", encoding_json.NewDecoder, "")
-	pkg.AddFunction("NewEncoder", encoding_json.NewEncoder, "")
-	pkg.AddFunction("Unmarshal", encoding_json.Unmarshal, "")
-	pkg.AddFunction("Valid", encoding_json.Valid, "")
+	pkg.AddFunction("Compact", encoding_json.Compact, "", directCallEncodingJsonCompact)
+	pkg.AddFunction("HTMLEscape", encoding_json.HTMLEscape, "", directCallEncodingJsonHTMLEscape)
+	pkg.AddFunction("Indent", encoding_json.Indent, "", directCallEncodingJsonIndent)
+	pkg.AddFunction("Marshal", encoding_json.Marshal, "", directCallEncodingJsonMarshal)
+	pkg.AddFunction("MarshalIndent", encoding_json.MarshalIndent, "", directCallEncodingJsonMarshalIndent)
+	pkg.AddFunction("NewDecoder", encoding_json.NewDecoder, "", directCallEncodingJsonNewDecoder)
+	pkg.AddFunction("NewEncoder", encoding_json.NewEncoder, "", directCallEncodingJsonNewEncoder)
+	pkg.AddFunction("Unmarshal", encoding_json.Unmarshal, "", directCallEncodingJsonUnmarshal)
+	pkg.AddFunction("Valid", encoding_json.Valid, "", directCallEncodingJsonValid)
 
 	// Types
 	pkg.AddType("Decoder", reflect.TypeOf(encoding_json.Decoder{}), "")
@@ -40,4 +43,213 @@ func init() {
 	pkg.AddType("UnsupportedTypeError", reflect.TypeOf(encoding_json.UnsupportedTypeError{}), "")
 	pkg.AddType("UnsupportedValueError", reflect.TypeOf(encoding_json.UnsupportedValueError{}), "")
 
+}
+
+func directArgEncodingJson[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsEncodingJson[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgEncodingJson[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgEncodingJson[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgEncodingJson[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsEncodingJson(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallEncodingJsonCompact(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingJson[*bytes.Buffer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingJson[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := encoding_json.Compact(a0, a1)
+	return directResultsEncodingJson(r0)
+}
+
+func directCallEncodingJsonHTMLEscape(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingJson[*bytes.Buffer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingJson[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	encoding_json.HTMLEscape(a0, a1)
+	return nil, nil
+}
+
+func directCallEncodingJsonIndent(args []value.Value) ([]value.Value, error) {
+	if len(args) != 4 {
+		return nil, fmt.Errorf("arg count %d != 4", len(args))
+	}
+	a0, err := directArgEncodingJson[*bytes.Buffer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingJson[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgEncodingJson[string](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	a3, err := directArgEncodingJson[string](args[3])
+	if err != nil {
+		return nil, fmt.Errorf("arg 3: %w", err)
+	}
+	r0 := encoding_json.Indent(a0, a1, a2, a3)
+	return directResultsEncodingJson(r0)
+}
+
+func directCallEncodingJsonMarshal(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingJson[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := encoding_json.Marshal(a0)
+	return directResultsEncodingJson(r0, r1)
+}
+
+func directCallEncodingJsonMarshalIndent(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgEncodingJson[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingJson[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgEncodingJson[string](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0, r1 := encoding_json.MarshalIndent(a0, a1, a2)
+	return directResultsEncodingJson(r0, r1)
+}
+
+func directCallEncodingJsonNewDecoder(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingJson[io.Reader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_json.NewDecoder(a0)
+	return directResultsEncodingJson(r0)
+}
+
+func directCallEncodingJsonNewEncoder(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingJson[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_json.NewEncoder(a0)
+	return directResultsEncodingJson(r0)
+}
+
+func directCallEncodingJsonUnmarshal(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingJson[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingJson[any](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := encoding_json.Unmarshal(a0, a1)
+	return directResultsEncodingJson(r0)
+}
+
+func directCallEncodingJsonValid(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingJson[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_json.Valid(a0)
+	return directResultsEncodingJson(r0)
 }

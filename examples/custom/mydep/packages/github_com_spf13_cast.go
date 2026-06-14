@@ -2,86 +2,1034 @@
 package packages
 
 import (
+	"fmt"
 	github_com_spf13_cast "github.com/spf13/cast"
-
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
+	"reflect"
+	"time"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("github.com/spf13/cast", "cast")
 
 	// Functions
-	pkg.AddFunction("StringToDate", github_com_spf13_cast.StringToDate, "")
-	pkg.AddFunction("StringToDateInDefaultLocation", github_com_spf13_cast.StringToDateInDefaultLocation, "")
-	pkg.AddFunction("ToBool", github_com_spf13_cast.ToBool, "")
-	pkg.AddFunction("ToBoolE", github_com_spf13_cast.ToBoolE, "")
-	pkg.AddFunction("ToBoolSlice", github_com_spf13_cast.ToBoolSlice, "")
-	pkg.AddFunction("ToBoolSliceE", github_com_spf13_cast.ToBoolSliceE, "")
-	pkg.AddFunction("ToDuration", github_com_spf13_cast.ToDuration, "")
-	pkg.AddFunction("ToDurationE", github_com_spf13_cast.ToDurationE, "")
-	pkg.AddFunction("ToDurationSlice", github_com_spf13_cast.ToDurationSlice, "")
-	pkg.AddFunction("ToDurationSliceE", github_com_spf13_cast.ToDurationSliceE, "")
-	pkg.AddFunction("ToFloat32", github_com_spf13_cast.ToFloat32, "")
-	pkg.AddFunction("ToFloat32E", github_com_spf13_cast.ToFloat32E, "")
-	pkg.AddFunction("ToFloat32SliceE", github_com_spf13_cast.ToFloat32SliceE, "")
-	pkg.AddFunction("ToFloat64", github_com_spf13_cast.ToFloat64, "")
-	pkg.AddFunction("ToFloat64E", github_com_spf13_cast.ToFloat64E, "")
-	pkg.AddFunction("ToFloat64Slice", github_com_spf13_cast.ToFloat64Slice, "")
-	pkg.AddFunction("ToFloat64SliceE", github_com_spf13_cast.ToFloat64SliceE, "")
-	pkg.AddFunction("ToInt", github_com_spf13_cast.ToInt, "")
-	pkg.AddFunction("ToInt16", github_com_spf13_cast.ToInt16, "")
-	pkg.AddFunction("ToInt16E", github_com_spf13_cast.ToInt16E, "")
-	pkg.AddFunction("ToInt16SliceE", github_com_spf13_cast.ToInt16SliceE, "")
-	pkg.AddFunction("ToInt32", github_com_spf13_cast.ToInt32, "")
-	pkg.AddFunction("ToInt32E", github_com_spf13_cast.ToInt32E, "")
-	pkg.AddFunction("ToInt32SliceE", github_com_spf13_cast.ToInt32SliceE, "")
-	pkg.AddFunction("ToInt64", github_com_spf13_cast.ToInt64, "")
-	pkg.AddFunction("ToInt64E", github_com_spf13_cast.ToInt64E, "")
-	pkg.AddFunction("ToInt64Slice", github_com_spf13_cast.ToInt64Slice, "")
-	pkg.AddFunction("ToInt64SliceE", github_com_spf13_cast.ToInt64SliceE, "")
-	pkg.AddFunction("ToInt8", github_com_spf13_cast.ToInt8, "")
-	pkg.AddFunction("ToInt8E", github_com_spf13_cast.ToInt8E, "")
-	pkg.AddFunction("ToInt8SliceE", github_com_spf13_cast.ToInt8SliceE, "")
-	pkg.AddFunction("ToIntE", github_com_spf13_cast.ToIntE, "")
-	pkg.AddFunction("ToIntSlice", github_com_spf13_cast.ToIntSlice, "")
-	pkg.AddFunction("ToIntSliceE", github_com_spf13_cast.ToIntSliceE, "")
-	pkg.AddFunction("ToSlice", github_com_spf13_cast.ToSlice, "")
-	pkg.AddFunction("ToSliceE", github_com_spf13_cast.ToSliceE, "")
-	pkg.AddFunction("ToString", github_com_spf13_cast.ToString, "")
-	pkg.AddFunction("ToStringE", github_com_spf13_cast.ToStringE, "")
-	pkg.AddFunction("ToStringMap", github_com_spf13_cast.ToStringMap, "")
-	pkg.AddFunction("ToStringMapBool", github_com_spf13_cast.ToStringMapBool, "")
-	pkg.AddFunction("ToStringMapBoolE", github_com_spf13_cast.ToStringMapBoolE, "")
-	pkg.AddFunction("ToStringMapE", github_com_spf13_cast.ToStringMapE, "")
-	pkg.AddFunction("ToStringMapInt", github_com_spf13_cast.ToStringMapInt, "")
-	pkg.AddFunction("ToStringMapInt64", github_com_spf13_cast.ToStringMapInt64, "")
-	pkg.AddFunction("ToStringMapInt64E", github_com_spf13_cast.ToStringMapInt64E, "")
-	pkg.AddFunction("ToStringMapIntE", github_com_spf13_cast.ToStringMapIntE, "")
-	pkg.AddFunction("ToStringMapString", github_com_spf13_cast.ToStringMapString, "")
-	pkg.AddFunction("ToStringMapStringE", github_com_spf13_cast.ToStringMapStringE, "")
-	pkg.AddFunction("ToStringMapStringSlice", github_com_spf13_cast.ToStringMapStringSlice, "")
-	pkg.AddFunction("ToStringMapStringSliceE", github_com_spf13_cast.ToStringMapStringSliceE, "")
-	pkg.AddFunction("ToStringSlice", github_com_spf13_cast.ToStringSlice, "")
-	pkg.AddFunction("ToStringSliceE", github_com_spf13_cast.ToStringSliceE, "")
-	pkg.AddFunction("ToTime", github_com_spf13_cast.ToTime, "")
-	pkg.AddFunction("ToTimeE", github_com_spf13_cast.ToTimeE, "")
-	pkg.AddFunction("ToTimeInDefaultLocation", github_com_spf13_cast.ToTimeInDefaultLocation, "")
-	pkg.AddFunction("ToTimeInDefaultLocationE", github_com_spf13_cast.ToTimeInDefaultLocationE, "")
-	pkg.AddFunction("ToUint", github_com_spf13_cast.ToUint, "")
-	pkg.AddFunction("ToUint16", github_com_spf13_cast.ToUint16, "")
-	pkg.AddFunction("ToUint16E", github_com_spf13_cast.ToUint16E, "")
-	pkg.AddFunction("ToUint16SliceE", github_com_spf13_cast.ToUint16SliceE, "")
-	pkg.AddFunction("ToUint32", github_com_spf13_cast.ToUint32, "")
-	pkg.AddFunction("ToUint32E", github_com_spf13_cast.ToUint32E, "")
-	pkg.AddFunction("ToUint32SliceE", github_com_spf13_cast.ToUint32SliceE, "")
-	pkg.AddFunction("ToUint64", github_com_spf13_cast.ToUint64, "")
-	pkg.AddFunction("ToUint64E", github_com_spf13_cast.ToUint64E, "")
-	pkg.AddFunction("ToUint64SliceE", github_com_spf13_cast.ToUint64SliceE, "")
-	pkg.AddFunction("ToUint8", github_com_spf13_cast.ToUint8, "")
-	pkg.AddFunction("ToUint8E", github_com_spf13_cast.ToUint8E, "")
-	pkg.AddFunction("ToUint8SliceE", github_com_spf13_cast.ToUint8SliceE, "")
-	pkg.AddFunction("ToUintE", github_com_spf13_cast.ToUintE, "")
-	pkg.AddFunction("ToUintSlice", github_com_spf13_cast.ToUintSlice, "")
-	pkg.AddFunction("ToUintSliceE", github_com_spf13_cast.ToUintSliceE, "")
+	pkg.AddFunction("StringToDate", github_com_spf13_cast.StringToDate, "", directCallGithubComSpf13CastStringToDate)
+	pkg.AddFunction("StringToDateInDefaultLocation", github_com_spf13_cast.StringToDateInDefaultLocation, "", directCallGithubComSpf13CastStringToDateInDefaultLocation)
+	pkg.AddFunction("ToBool", github_com_spf13_cast.ToBool, "", directCallGithubComSpf13CastToBool)
+	pkg.AddFunction("ToBoolE", github_com_spf13_cast.ToBoolE, "", directCallGithubComSpf13CastToBoolE)
+	pkg.AddFunction("ToBoolSlice", github_com_spf13_cast.ToBoolSlice, "", directCallGithubComSpf13CastToBoolSlice)
+	pkg.AddFunction("ToBoolSliceE", github_com_spf13_cast.ToBoolSliceE, "", directCallGithubComSpf13CastToBoolSliceE)
+	pkg.AddFunction("ToDuration", github_com_spf13_cast.ToDuration, "", directCallGithubComSpf13CastToDuration)
+	pkg.AddFunction("ToDurationE", github_com_spf13_cast.ToDurationE, "", directCallGithubComSpf13CastToDurationE)
+	pkg.AddFunction("ToDurationSlice", github_com_spf13_cast.ToDurationSlice, "", directCallGithubComSpf13CastToDurationSlice)
+	pkg.AddFunction("ToDurationSliceE", github_com_spf13_cast.ToDurationSliceE, "", directCallGithubComSpf13CastToDurationSliceE)
+	pkg.AddFunction("ToFloat32", github_com_spf13_cast.ToFloat32, "", directCallGithubComSpf13CastToFloat32)
+	pkg.AddFunction("ToFloat32E", github_com_spf13_cast.ToFloat32E, "", directCallGithubComSpf13CastToFloat32E)
+	pkg.AddFunction("ToFloat32SliceE", github_com_spf13_cast.ToFloat32SliceE, "", directCallGithubComSpf13CastToFloat32SliceE)
+	pkg.AddFunction("ToFloat64", github_com_spf13_cast.ToFloat64, "", directCallGithubComSpf13CastToFloat64)
+	pkg.AddFunction("ToFloat64E", github_com_spf13_cast.ToFloat64E, "", directCallGithubComSpf13CastToFloat64E)
+	pkg.AddFunction("ToFloat64Slice", github_com_spf13_cast.ToFloat64Slice, "", directCallGithubComSpf13CastToFloat64Slice)
+	pkg.AddFunction("ToFloat64SliceE", github_com_spf13_cast.ToFloat64SliceE, "", directCallGithubComSpf13CastToFloat64SliceE)
+	pkg.AddFunction("ToInt", github_com_spf13_cast.ToInt, "", directCallGithubComSpf13CastToInt)
+	pkg.AddFunction("ToInt16", github_com_spf13_cast.ToInt16, "", directCallGithubComSpf13CastToInt16)
+	pkg.AddFunction("ToInt16E", github_com_spf13_cast.ToInt16E, "", directCallGithubComSpf13CastToInt16E)
+	pkg.AddFunction("ToInt16SliceE", github_com_spf13_cast.ToInt16SliceE, "", directCallGithubComSpf13CastToInt16SliceE)
+	pkg.AddFunction("ToInt32", github_com_spf13_cast.ToInt32, "", directCallGithubComSpf13CastToInt32)
+	pkg.AddFunction("ToInt32E", github_com_spf13_cast.ToInt32E, "", directCallGithubComSpf13CastToInt32E)
+	pkg.AddFunction("ToInt32SliceE", github_com_spf13_cast.ToInt32SliceE, "", directCallGithubComSpf13CastToInt32SliceE)
+	pkg.AddFunction("ToInt64", github_com_spf13_cast.ToInt64, "", directCallGithubComSpf13CastToInt64)
+	pkg.AddFunction("ToInt64E", github_com_spf13_cast.ToInt64E, "", directCallGithubComSpf13CastToInt64E)
+	pkg.AddFunction("ToInt64Slice", github_com_spf13_cast.ToInt64Slice, "", directCallGithubComSpf13CastToInt64Slice)
+	pkg.AddFunction("ToInt64SliceE", github_com_spf13_cast.ToInt64SliceE, "", directCallGithubComSpf13CastToInt64SliceE)
+	pkg.AddFunction("ToInt8", github_com_spf13_cast.ToInt8, "", directCallGithubComSpf13CastToInt8)
+	pkg.AddFunction("ToInt8E", github_com_spf13_cast.ToInt8E, "", directCallGithubComSpf13CastToInt8E)
+	pkg.AddFunction("ToInt8SliceE", github_com_spf13_cast.ToInt8SliceE, "", directCallGithubComSpf13CastToInt8SliceE)
+	pkg.AddFunction("ToIntE", github_com_spf13_cast.ToIntE, "", directCallGithubComSpf13CastToIntE)
+	pkg.AddFunction("ToIntSlice", github_com_spf13_cast.ToIntSlice, "", directCallGithubComSpf13CastToIntSlice)
+	pkg.AddFunction("ToIntSliceE", github_com_spf13_cast.ToIntSliceE, "", directCallGithubComSpf13CastToIntSliceE)
+	pkg.AddFunction("ToSlice", github_com_spf13_cast.ToSlice, "", directCallGithubComSpf13CastToSlice)
+	pkg.AddFunction("ToSliceE", github_com_spf13_cast.ToSliceE, "", directCallGithubComSpf13CastToSliceE)
+	pkg.AddFunction("ToString", github_com_spf13_cast.ToString, "", directCallGithubComSpf13CastToString)
+	pkg.AddFunction("ToStringE", github_com_spf13_cast.ToStringE, "", directCallGithubComSpf13CastToStringE)
+	pkg.AddFunction("ToStringMap", github_com_spf13_cast.ToStringMap, "", directCallGithubComSpf13CastToStringMap)
+	pkg.AddFunction("ToStringMapBool", github_com_spf13_cast.ToStringMapBool, "", directCallGithubComSpf13CastToStringMapBool)
+	pkg.AddFunction("ToStringMapBoolE", github_com_spf13_cast.ToStringMapBoolE, "", directCallGithubComSpf13CastToStringMapBoolE)
+	pkg.AddFunction("ToStringMapE", github_com_spf13_cast.ToStringMapE, "", directCallGithubComSpf13CastToStringMapE)
+	pkg.AddFunction("ToStringMapInt", github_com_spf13_cast.ToStringMapInt, "", directCallGithubComSpf13CastToStringMapInt)
+	pkg.AddFunction("ToStringMapInt64", github_com_spf13_cast.ToStringMapInt64, "", directCallGithubComSpf13CastToStringMapInt64)
+	pkg.AddFunction("ToStringMapInt64E", github_com_spf13_cast.ToStringMapInt64E, "", directCallGithubComSpf13CastToStringMapInt64E)
+	pkg.AddFunction("ToStringMapIntE", github_com_spf13_cast.ToStringMapIntE, "", directCallGithubComSpf13CastToStringMapIntE)
+	pkg.AddFunction("ToStringMapString", github_com_spf13_cast.ToStringMapString, "", directCallGithubComSpf13CastToStringMapString)
+	pkg.AddFunction("ToStringMapStringE", github_com_spf13_cast.ToStringMapStringE, "", directCallGithubComSpf13CastToStringMapStringE)
+	pkg.AddFunction("ToStringMapStringSlice", github_com_spf13_cast.ToStringMapStringSlice, "", directCallGithubComSpf13CastToStringMapStringSlice)
+	pkg.AddFunction("ToStringMapStringSliceE", github_com_spf13_cast.ToStringMapStringSliceE, "", directCallGithubComSpf13CastToStringMapStringSliceE)
+	pkg.AddFunction("ToStringSlice", github_com_spf13_cast.ToStringSlice, "", directCallGithubComSpf13CastToStringSlice)
+	pkg.AddFunction("ToStringSliceE", github_com_spf13_cast.ToStringSliceE, "", directCallGithubComSpf13CastToStringSliceE)
+	pkg.AddFunction("ToTime", github_com_spf13_cast.ToTime, "", directCallGithubComSpf13CastToTime)
+	pkg.AddFunction("ToTimeE", github_com_spf13_cast.ToTimeE, "", directCallGithubComSpf13CastToTimeE)
+	pkg.AddFunction("ToTimeInDefaultLocation", github_com_spf13_cast.ToTimeInDefaultLocation, "", directCallGithubComSpf13CastToTimeInDefaultLocation)
+	pkg.AddFunction("ToTimeInDefaultLocationE", github_com_spf13_cast.ToTimeInDefaultLocationE, "", directCallGithubComSpf13CastToTimeInDefaultLocationE)
+	pkg.AddFunction("ToUint", github_com_spf13_cast.ToUint, "", directCallGithubComSpf13CastToUint)
+	pkg.AddFunction("ToUint16", github_com_spf13_cast.ToUint16, "", directCallGithubComSpf13CastToUint16)
+	pkg.AddFunction("ToUint16E", github_com_spf13_cast.ToUint16E, "", directCallGithubComSpf13CastToUint16E)
+	pkg.AddFunction("ToUint16SliceE", github_com_spf13_cast.ToUint16SliceE, "", directCallGithubComSpf13CastToUint16SliceE)
+	pkg.AddFunction("ToUint32", github_com_spf13_cast.ToUint32, "", directCallGithubComSpf13CastToUint32)
+	pkg.AddFunction("ToUint32E", github_com_spf13_cast.ToUint32E, "", directCallGithubComSpf13CastToUint32E)
+	pkg.AddFunction("ToUint32SliceE", github_com_spf13_cast.ToUint32SliceE, "", directCallGithubComSpf13CastToUint32SliceE)
+	pkg.AddFunction("ToUint64", github_com_spf13_cast.ToUint64, "", directCallGithubComSpf13CastToUint64)
+	pkg.AddFunction("ToUint64E", github_com_spf13_cast.ToUint64E, "", directCallGithubComSpf13CastToUint64E)
+	pkg.AddFunction("ToUint64SliceE", github_com_spf13_cast.ToUint64SliceE, "", directCallGithubComSpf13CastToUint64SliceE)
+	pkg.AddFunction("ToUint8", github_com_spf13_cast.ToUint8, "", directCallGithubComSpf13CastToUint8)
+	pkg.AddFunction("ToUint8E", github_com_spf13_cast.ToUint8E, "", directCallGithubComSpf13CastToUint8E)
+	pkg.AddFunction("ToUint8SliceE", github_com_spf13_cast.ToUint8SliceE, "", directCallGithubComSpf13CastToUint8SliceE)
+	pkg.AddFunction("ToUintE", github_com_spf13_cast.ToUintE, "", directCallGithubComSpf13CastToUintE)
+	pkg.AddFunction("ToUintSlice", github_com_spf13_cast.ToUintSlice, "", directCallGithubComSpf13CastToUintSlice)
+	pkg.AddFunction("ToUintSliceE", github_com_spf13_cast.ToUintSliceE, "", directCallGithubComSpf13CastToUintSliceE)
 
+}
+
+func directArgGithubComSpf13Cast[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsGithubComSpf13Cast[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgGithubComSpf13Cast[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgGithubComSpf13Cast[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgGithubComSpf13Cast[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsGithubComSpf13Cast(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallGithubComSpf13CastStringToDate(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.StringToDate(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastStringToDateInDefaultLocation(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgGithubComSpf13Cast[*time.Location](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.StringToDateInDefaultLocation(a0, a1)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToBool(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToBool(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToBoolE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToBoolE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToBoolSlice(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToBoolSlice(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToBoolSliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToBoolSliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToDuration(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToDuration(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToDurationE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToDurationE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToDurationSlice(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToDurationSlice(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToDurationSliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToDurationSliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToFloat32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToFloat32(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToFloat32E(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToFloat32E(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToFloat32SliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToFloat32SliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToFloat64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToFloat64(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToFloat64E(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToFloat64E(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToFloat64Slice(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToFloat64Slice(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToFloat64SliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToFloat64SliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToInt(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToInt(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToInt16(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToInt16(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToInt16E(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToInt16E(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToInt16SliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToInt16SliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToInt32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToInt32(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToInt32E(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToInt32E(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToInt32SliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToInt32SliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToInt64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToInt64(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToInt64E(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToInt64E(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToInt64Slice(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToInt64Slice(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToInt64SliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToInt64SliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToInt8(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToInt8(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToInt8E(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToInt8E(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToInt8SliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToInt8SliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToIntE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToIntE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToIntSlice(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToIntSlice(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToIntSliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToIntSliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToSlice(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToSlice(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToSliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToSliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToString(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToStringE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToStringE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToStringMap(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToStringMap(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToStringMapBool(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToStringMapBool(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToStringMapBoolE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToStringMapBoolE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToStringMapE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToStringMapE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToStringMapInt(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToStringMapInt(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToStringMapInt64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToStringMapInt64(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToStringMapInt64E(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToStringMapInt64E(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToStringMapIntE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToStringMapIntE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToStringMapString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToStringMapString(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToStringMapStringE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToStringMapStringE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToStringMapStringSlice(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToStringMapStringSlice(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToStringMapStringSliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToStringMapStringSliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToStringSlice(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToStringSlice(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToStringSliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToStringSliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToTime(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToTime(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToTimeE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToTimeE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToTimeInDefaultLocation(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgGithubComSpf13Cast[*time.Location](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToTimeInDefaultLocation(a0, a1)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToTimeInDefaultLocationE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgGithubComSpf13Cast[*time.Location](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToTimeInDefaultLocationE(a0, a1)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToUint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToUint(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToUint16(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToUint16(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToUint16E(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToUint16E(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToUint16SliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToUint16SliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToUint32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToUint32(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToUint32E(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToUint32E(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToUint32SliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToUint32SliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToUint64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToUint64(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToUint64E(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToUint64E(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToUint64SliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToUint64SliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToUint8(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToUint8(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToUint8E(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToUint8E(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToUint8SliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToUint8SliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToUintE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToUintE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
+}
+
+func directCallGithubComSpf13CastToUintSlice(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := github_com_spf13_cast.ToUintSlice(a0)
+	return directResultsGithubComSpf13Cast(r0)
+}
+
+func directCallGithubComSpf13CastToUintSliceE(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgGithubComSpf13Cast[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := github_com_spf13_cast.ToUintSliceE(a0)
+	return directResultsGithubComSpf13Cast(r0, r1)
 }

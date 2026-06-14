@@ -2,26 +2,205 @@
 package packages
 
 import (
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
+	"io"
 	"reflect"
 	"regexp"
-
-	"github.com/t04dJ14n9/gig/importer"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("regexp", "regexp")
 
 	// Functions
-	pkg.AddFunction("Compile", regexp.Compile, "")
-	pkg.AddFunction("CompilePOSIX", regexp.CompilePOSIX, "")
-	pkg.AddFunction("Match", regexp.Match, "")
-	pkg.AddFunction("MatchReader", regexp.MatchReader, "")
-	pkg.AddFunction("MatchString", regexp.MatchString, "")
-	pkg.AddFunction("MustCompile", regexp.MustCompile, "")
-	pkg.AddFunction("MustCompilePOSIX", regexp.MustCompilePOSIX, "")
-	pkg.AddFunction("QuoteMeta", regexp.QuoteMeta, "")
+	pkg.AddFunction("Compile", regexp.Compile, "", directCallRegexpCompile)
+	pkg.AddFunction("CompilePOSIX", regexp.CompilePOSIX, "", directCallRegexpCompilePOSIX)
+	pkg.AddFunction("Match", regexp.Match, "", directCallRegexpMatch)
+	pkg.AddFunction("MatchReader", regexp.MatchReader, "", directCallRegexpMatchReader)
+	pkg.AddFunction("MatchString", regexp.MatchString, "", directCallRegexpMatchString)
+	pkg.AddFunction("MustCompile", regexp.MustCompile, "", directCallRegexpMustCompile)
+	pkg.AddFunction("MustCompilePOSIX", regexp.MustCompilePOSIX, "", directCallRegexpMustCompilePOSIX)
+	pkg.AddFunction("QuoteMeta", regexp.QuoteMeta, "", directCallRegexpQuoteMeta)
 
 	// Types
 	pkg.AddType("Regexp", reflect.TypeOf(regexp.Regexp{}), "")
 
+}
+
+func directArgRegexp[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsRegexp[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgRegexp[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgRegexp[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgRegexp[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsRegexp(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallRegexpCompile(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgRegexp[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := regexp.Compile(a0)
+	return directResultsRegexp(r0, r1)
+}
+
+func directCallRegexpCompilePOSIX(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgRegexp[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := regexp.CompilePOSIX(a0)
+	return directResultsRegexp(r0, r1)
+}
+
+func directCallRegexpMatch(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgRegexp[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgRegexp[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := regexp.Match(a0, a1)
+	return directResultsRegexp(r0, r1)
+}
+
+func directCallRegexpMatchReader(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgRegexp[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgRegexp[io.RuneReader](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := regexp.MatchReader(a0, a1)
+	return directResultsRegexp(r0, r1)
+}
+
+func directCallRegexpMatchString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgRegexp[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgRegexp[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := regexp.MatchString(a0, a1)
+	return directResultsRegexp(r0, r1)
+}
+
+func directCallRegexpMustCompile(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgRegexp[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := regexp.MustCompile(a0)
+	return directResultsRegexp(r0)
+}
+
+func directCallRegexpMustCompilePOSIX(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgRegexp[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := regexp.MustCompilePOSIX(a0)
+	return directResultsRegexp(r0)
+}
+
+func directCallRegexpQuoteMeta(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgRegexp[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := regexp.QuoteMeta(a0)
+	return directResultsRegexp(r0)
 }

@@ -1,12 +1,9 @@
 // register.go implements the global registry: package registration,
 // type mapping, and auto-import.
 //
-// The legacy method-DirectCall fast path AND the interface-proxy
-// machinery were removed after the v2 SSA backend replaced the
-// bytecode VM. The v2 host dispatcher invokes methods via
-// reflect.Value.MethodByName and rejects interpreted-types-as-host-
-// interfaces at compile time (see G_iface_ban in
-// internal/frontend/host_iface_check.go).
+// The v2 SSA backend uses this registry as the explicit host-symbol
+// boundary. External functions and selected methods may also register
+// DirectCall wrappers so hot host calls avoid reflect.Call.
 package importer
 
 import (
@@ -17,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/t04dJ14n9/gig/model/external"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // ExternalPackage represents a registered external package.
@@ -50,10 +48,12 @@ type PackageRegistry interface {
 	LookupExternalVar(pkgPath, varName string) (ptr any, ok bool)
 	LookupExternalType(t types.Type) (reflect.Type, bool)
 	LookupExternalTypeByName(pkgPath, typeName string) (reflect.Type, bool)
+	LookupMethodDirectCall(typeKey, methodName string) (func(value.Value, []value.Value) value.Value, bool)
 
 	// Write operations
 	RegisterPackage(path, name string) *ExternalPackage
 	SetExternalType(t types.Type, rt reflect.Type)
+	AddMethodDirectCall(typeKey, methodName string, dc func(value.Value, []value.Value) value.Value)
 }
 
 // Registry is the concrete implementation of PackageRegistry.
@@ -65,6 +65,7 @@ type Registry struct {
 	packagesByName  map[string]*ExternalPackage // keyed by package path
 	packagesByAlias map[string]*ExternalPackage // keyed by package name (for auto-import)
 	extTypes        map[types.Type]reflect.Type // types.Type -> reflect.Type
+	methodDirect    map[string]map[string]func(value.Value, []value.Value) value.Value
 }
 
 // NewRegistry creates a new empty package registry.
@@ -73,6 +74,7 @@ func NewRegistry() *Registry {
 		packagesByName:  make(map[string]*ExternalPackage),
 		packagesByAlias: make(map[string]*ExternalPackage),
 		extTypes:        make(map[types.Type]reflect.Type),
+		methodDirect:    make(map[string]map[string]func(value.Value, []value.Value) value.Value),
 	}
 }
 
@@ -196,6 +198,31 @@ func (r *Registry) LookupExternalTypeByName(pkgPath, typeName string) (reflect.T
 	}
 	rt, ok := pkg.Types[typeName]
 	return rt, ok
+}
+
+func (r *Registry) AddMethodDirectCall(typeKey, methodName string, dc func(value.Value, []value.Value) value.Value) {
+	if dc == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	methods := r.methodDirect[typeKey]
+	if methods == nil {
+		methods = make(map[string]func(value.Value, []value.Value) value.Value)
+		r.methodDirect[typeKey] = methods
+	}
+	methods[methodName] = dc
+}
+
+func (r *Registry) LookupMethodDirectCall(typeKey, methodName string) (func(value.Value, []value.Value) value.Value, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	methods := r.methodDirect[typeKey]
+	if methods == nil {
+		return nil, false
+	}
+	dc, ok := methods[methodName]
+	return dc, ok
 }
 
 // --- Global registry (backward compatibility) ---

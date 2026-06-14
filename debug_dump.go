@@ -6,6 +6,7 @@ package gig
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -59,17 +60,11 @@ func DebugDump(sourceCode string, opts ...BuildOption) (string, error) {
 // memberFunc returns a writer for SSA functions, or false for other
 // member kinds. We delegate to the SSA package's WriteTo when present.
 func memberFunc(m any) (func(*strings.Builder) (int64, error), bool) {
-	type writerTo interface {
-		WriteTo(strings.Builder) (int64, error)
-	}
-	type stdWriterTo interface {
-		WriteTo(out interface{ Write([]byte) (int, error) }) (int64, error)
-	}
 	// Avoid hard import on go/ssa here; SSA Function exposes WriteTo
 	// via *os.File. We adapt to a strings.Builder by capturing through
 	// a temporary buffer.
 	if fn, ok := m.(interface {
-		WriteTo(out interface{ Write([]byte) (int, error) }) (int64, error)
+		WriteTo(out io.Writer) (int64, error)
 	}); ok {
 		return func(b *strings.Builder) (int64, error) {
 			return fn.WriteTo(builderWriter{b})

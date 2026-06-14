@@ -3,70 +3,77 @@ package packages
 
 import (
 	"bytes"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
+	"reflect"
+	"unicode"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("bytes", "bytes")
 
 	// Functions
-	pkg.AddFunction("Clone", bytes.Clone, "")
-	pkg.AddFunction("Compare", bytes.Compare, "")
-	pkg.AddFunction("Contains", bytes.Contains, "")
-	pkg.AddFunction("ContainsAny", bytes.ContainsAny, "")
-	pkg.AddFunction("ContainsFunc", bytes.ContainsFunc, "")
-	pkg.AddFunction("ContainsRune", bytes.ContainsRune, "")
-	pkg.AddFunction("Count", bytes.Count, "")
-	pkg.AddFunction("Cut", bytes.Cut, "")
-	pkg.AddFunction("CutPrefix", bytes.CutPrefix, "")
-	pkg.AddFunction("CutSuffix", bytes.CutSuffix, "")
-	pkg.AddFunction("Equal", bytes.Equal, "")
-	pkg.AddFunction("EqualFold", bytes.EqualFold, "")
-	pkg.AddFunction("Fields", bytes.Fields, "")
-	pkg.AddFunction("FieldsFunc", bytes.FieldsFunc, "")
-	pkg.AddFunction("HasPrefix", bytes.HasPrefix, "")
-	pkg.AddFunction("HasSuffix", bytes.HasSuffix, "")
-	pkg.AddFunction("Index", bytes.Index, "")
-	pkg.AddFunction("IndexAny", bytes.IndexAny, "")
-	pkg.AddFunction("IndexByte", bytes.IndexByte, "")
-	pkg.AddFunction("IndexFunc", bytes.IndexFunc, "")
-	pkg.AddFunction("IndexRune", bytes.IndexRune, "")
-	pkg.AddFunction("Join", bytes.Join, "")
-	pkg.AddFunction("LastIndex", bytes.LastIndex, "")
-	pkg.AddFunction("LastIndexAny", bytes.LastIndexAny, "")
-	pkg.AddFunction("LastIndexByte", bytes.LastIndexByte, "")
-	pkg.AddFunction("LastIndexFunc", bytes.LastIndexFunc, "")
-	pkg.AddFunction("Map", bytes.Map, "")
-	pkg.AddFunction("NewBuffer", bytes.NewBuffer, "")
-	pkg.AddFunction("NewBufferString", bytes.NewBufferString, "")
-	pkg.AddFunction("NewReader", bytes.NewReader, "")
-	pkg.AddFunction("Repeat", bytes.Repeat, "")
-	pkg.AddFunction("Replace", bytes.Replace, "")
-	pkg.AddFunction("ReplaceAll", bytes.ReplaceAll, "")
-	pkg.AddFunction("Runes", bytes.Runes, "")
-	pkg.AddFunction("Split", bytes.Split, "")
-	pkg.AddFunction("SplitAfter", bytes.SplitAfter, "")
-	pkg.AddFunction("SplitAfterN", bytes.SplitAfterN, "")
-	pkg.AddFunction("SplitN", bytes.SplitN, "")
-	pkg.AddFunction("Title", bytes.Title, "")
-	pkg.AddFunction("ToLower", bytes.ToLower, "")
-	pkg.AddFunction("ToLowerSpecial", bytes.ToLowerSpecial, "")
-	pkg.AddFunction("ToTitle", bytes.ToTitle, "")
-	pkg.AddFunction("ToTitleSpecial", bytes.ToTitleSpecial, "")
-	pkg.AddFunction("ToUpper", bytes.ToUpper, "")
-	pkg.AddFunction("ToUpperSpecial", bytes.ToUpperSpecial, "")
-	pkg.AddFunction("ToValidUTF8", bytes.ToValidUTF8, "")
-	pkg.AddFunction("Trim", bytes.Trim, "")
-	pkg.AddFunction("TrimFunc", bytes.TrimFunc, "")
-	pkg.AddFunction("TrimLeft", bytes.TrimLeft, "")
-	pkg.AddFunction("TrimLeftFunc", bytes.TrimLeftFunc, "")
-	pkg.AddFunction("TrimPrefix", bytes.TrimPrefix, "")
-	pkg.AddFunction("TrimRight", bytes.TrimRight, "")
-	pkg.AddFunction("TrimRightFunc", bytes.TrimRightFunc, "")
-	pkg.AddFunction("TrimSpace", bytes.TrimSpace, "")
-	pkg.AddFunction("TrimSuffix", bytes.TrimSuffix, "")
+	pkg.AddFunction("Clone", bytes.Clone, "", directCallBytesClone)
+	pkg.AddFunction("Compare", bytes.Compare, "", directCallBytesCompare)
+	pkg.AddFunction("Contains", bytes.Contains, "", directCallBytesContains)
+	pkg.AddFunction("ContainsAny", bytes.ContainsAny, "", directCallBytesContainsAny)
+	pkg.AddFunction("ContainsFunc", bytes.ContainsFunc, "", directCallBytesContainsFunc)
+	pkg.AddFunction("ContainsRune", bytes.ContainsRune, "", directCallBytesContainsRune)
+	pkg.AddFunction("Count", bytes.Count, "", directCallBytesCount)
+	pkg.AddFunction("Cut", bytes.Cut, "", directCallBytesCut)
+	pkg.AddFunction("CutPrefix", bytes.CutPrefix, "", directCallBytesCutPrefix)
+	pkg.AddFunction("CutSuffix", bytes.CutSuffix, "", directCallBytesCutSuffix)
+	pkg.AddFunction("Equal", bytes.Equal, "", directCallBytesEqual)
+	pkg.AddFunction("EqualFold", bytes.EqualFold, "", directCallBytesEqualFold)
+	pkg.AddFunction("Fields", bytes.Fields, "", directCallBytesFields)
+	pkg.AddFunction("FieldsFunc", bytes.FieldsFunc, "", directCallBytesFieldsFunc)
+	pkg.AddFunction("FieldsFuncSeq", bytes.FieldsFuncSeq, "", directCallBytesFieldsFuncSeq)
+	pkg.AddFunction("FieldsSeq", bytes.FieldsSeq, "", directCallBytesFieldsSeq)
+	pkg.AddFunction("HasPrefix", bytes.HasPrefix, "", directCallBytesHasPrefix)
+	pkg.AddFunction("HasSuffix", bytes.HasSuffix, "", directCallBytesHasSuffix)
+	pkg.AddFunction("Index", bytes.Index, "", directCallBytesIndex)
+	pkg.AddFunction("IndexAny", bytes.IndexAny, "", directCallBytesIndexAny)
+	pkg.AddFunction("IndexByte", bytes.IndexByte, "", directCallBytesIndexByte)
+	pkg.AddFunction("IndexFunc", bytes.IndexFunc, "", directCallBytesIndexFunc)
+	pkg.AddFunction("IndexRune", bytes.IndexRune, "", directCallBytesIndexRune)
+	pkg.AddFunction("Join", bytes.Join, "", directCallBytesJoin)
+	pkg.AddFunction("LastIndex", bytes.LastIndex, "", directCallBytesLastIndex)
+	pkg.AddFunction("LastIndexAny", bytes.LastIndexAny, "", directCallBytesLastIndexAny)
+	pkg.AddFunction("LastIndexByte", bytes.LastIndexByte, "", directCallBytesLastIndexByte)
+	pkg.AddFunction("LastIndexFunc", bytes.LastIndexFunc, "", directCallBytesLastIndexFunc)
+	pkg.AddFunction("Lines", bytes.Lines, "", directCallBytesLines)
+	pkg.AddFunction("Map", bytes.Map, "", directCallBytesMap)
+	pkg.AddFunction("NewBuffer", bytes.NewBuffer, "", directCallBytesNewBuffer)
+	pkg.AddFunction("NewBufferString", bytes.NewBufferString, "", directCallBytesNewBufferString)
+	pkg.AddFunction("NewReader", bytes.NewReader, "", directCallBytesNewReader)
+	pkg.AddFunction("Repeat", bytes.Repeat, "", directCallBytesRepeat)
+	pkg.AddFunction("Replace", bytes.Replace, "", directCallBytesReplace)
+	pkg.AddFunction("ReplaceAll", bytes.ReplaceAll, "", directCallBytesReplaceAll)
+	pkg.AddFunction("Runes", bytes.Runes, "", directCallBytesRunes)
+	pkg.AddFunction("Split", bytes.Split, "", directCallBytesSplit)
+	pkg.AddFunction("SplitAfter", bytes.SplitAfter, "", directCallBytesSplitAfter)
+	pkg.AddFunction("SplitAfterN", bytes.SplitAfterN, "", directCallBytesSplitAfterN)
+	pkg.AddFunction("SplitAfterSeq", bytes.SplitAfterSeq, "", directCallBytesSplitAfterSeq)
+	pkg.AddFunction("SplitN", bytes.SplitN, "", directCallBytesSplitN)
+	pkg.AddFunction("SplitSeq", bytes.SplitSeq, "", directCallBytesSplitSeq)
+	pkg.AddFunction("Title", bytes.Title, "", directCallBytesTitle)
+	pkg.AddFunction("ToLower", bytes.ToLower, "", directCallBytesToLower)
+	pkg.AddFunction("ToLowerSpecial", bytes.ToLowerSpecial, "", directCallBytesToLowerSpecial)
+	pkg.AddFunction("ToTitle", bytes.ToTitle, "", directCallBytesToTitle)
+	pkg.AddFunction("ToTitleSpecial", bytes.ToTitleSpecial, "", directCallBytesToTitleSpecial)
+	pkg.AddFunction("ToUpper", bytes.ToUpper, "", directCallBytesToUpper)
+	pkg.AddFunction("ToUpperSpecial", bytes.ToUpperSpecial, "", directCallBytesToUpperSpecial)
+	pkg.AddFunction("ToValidUTF8", bytes.ToValidUTF8, "", directCallBytesToValidUTF8)
+	pkg.AddFunction("Trim", bytes.Trim, "", directCallBytesTrim)
+	pkg.AddFunction("TrimFunc", bytes.TrimFunc, "", directCallBytesTrimFunc)
+	pkg.AddFunction("TrimLeft", bytes.TrimLeft, "", directCallBytesTrimLeft)
+	pkg.AddFunction("TrimLeftFunc", bytes.TrimLeftFunc, "", directCallBytesTrimLeftFunc)
+	pkg.AddFunction("TrimPrefix", bytes.TrimPrefix, "", directCallBytesTrimPrefix)
+	pkg.AddFunction("TrimRight", bytes.TrimRight, "", directCallBytesTrimRight)
+	pkg.AddFunction("TrimRightFunc", bytes.TrimRightFunc, "", directCallBytesTrimRightFunc)
+	pkg.AddFunction("TrimSpace", bytes.TrimSpace, "", directCallBytesTrimSpace)
+	pkg.AddFunction("TrimSuffix", bytes.TrimSuffix, "", directCallBytesTrimSuffix)
 
 	// Constants
 	pkg.AddConstant("MinRead", bytes.MinRead, "")
@@ -78,4 +85,1001 @@ func init() {
 	pkg.AddType("Buffer", reflect.TypeOf(bytes.Buffer{}), "")
 	pkg.AddType("Reader", reflect.TypeOf(bytes.Reader{}), "")
 
+}
+
+func directArgBytes[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsBytes[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgBytes[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgBytes[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgBytes[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsBytes(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallBytesClone(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := bytes.Clone(a0)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesCompare(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.Compare(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesContains(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.Contains(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesContainsAny(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.ContainsAny(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesContainsFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[func(rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.ContainsFunc(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesContainsRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.ContainsRune(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesCount(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.Count(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesCut(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1, r2 := bytes.Cut(a0, a1)
+	return directResultsBytes(r0, r1, r2)
+}
+
+func directCallBytesCutPrefix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := bytes.CutPrefix(a0, a1)
+	return directResultsBytes(r0, r1)
+}
+
+func directCallBytesCutSuffix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := bytes.CutSuffix(a0, a1)
+	return directResultsBytes(r0, r1)
+}
+
+func directCallBytesEqual(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.Equal(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesEqualFold(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.EqualFold(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesFields(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := bytes.Fields(a0)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesFieldsFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[func(rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.FieldsFunc(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesFieldsFuncSeq(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[func(rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.FieldsFuncSeq(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesFieldsSeq(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := bytes.FieldsSeq(a0)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesHasPrefix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.HasPrefix(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesHasSuffix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.HasSuffix(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesIndex(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.Index(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesIndexAny(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.IndexAny(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesIndexByte(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.IndexByte(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesIndexFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[func(r rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.IndexFunc(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesIndexRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.IndexRune(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesJoin(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[][]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.Join(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesLastIndex(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.LastIndex(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesLastIndexAny(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.LastIndexAny(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesLastIndexByte(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.LastIndexByte(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesLastIndexFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[func(r rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.LastIndexFunc(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesLines(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := bytes.Lines(a0)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesMap(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[func(r rune) rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.Map(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesNewBuffer(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := bytes.NewBuffer(a0)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesNewBufferString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgBytes[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := bytes.NewBufferString(a0)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesNewReader(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := bytes.NewReader(a0)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesRepeat(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.Repeat(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesReplace(args []value.Value) ([]value.Value, error) {
+	if len(args) != 4 {
+		return nil, fmt.Errorf("arg count %d != 4", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgBytes[[]byte](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	a3, err := directArgBytes[int](args[3])
+	if err != nil {
+		return nil, fmt.Errorf("arg 3: %w", err)
+	}
+	r0 := bytes.Replace(a0, a1, a2, a3)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesReplaceAll(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgBytes[[]byte](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := bytes.ReplaceAll(a0, a1, a2)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesRunes(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := bytes.Runes(a0)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesSplit(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.Split(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesSplitAfter(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.SplitAfter(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesSplitAfterN(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgBytes[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := bytes.SplitAfterN(a0, a1, a2)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesSplitAfterSeq(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.SplitAfterSeq(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesSplitN(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgBytes[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := bytes.SplitN(a0, a1, a2)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesSplitSeq(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.SplitSeq(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesTitle(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := bytes.Title(a0)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesToLower(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := bytes.ToLower(a0)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesToLowerSpecial(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[unicode.SpecialCase](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.ToLowerSpecial(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesToTitle(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := bytes.ToTitle(a0)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesToTitleSpecial(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[unicode.SpecialCase](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.ToTitleSpecial(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesToUpper(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := bytes.ToUpper(a0)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesToUpperSpecial(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[unicode.SpecialCase](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.ToUpperSpecial(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesToValidUTF8(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.ToValidUTF8(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesTrim(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.Trim(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesTrimFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[func(r rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.TrimFunc(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesTrimLeft(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.TrimLeft(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesTrimLeftFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[func(r rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.TrimLeftFunc(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesTrimPrefix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.TrimPrefix(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesTrimRight(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.TrimRight(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesTrimRightFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[func(r rune) bool](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.TrimRightFunc(a0, a1)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesTrimSpace(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := bytes.TrimSpace(a0)
+	return directResultsBytes(r0)
+}
+
+func directCallBytesTrimSuffix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgBytes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgBytes[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := bytes.TrimSuffix(a0, a1)
+	return directResultsBytes(r0)
 }

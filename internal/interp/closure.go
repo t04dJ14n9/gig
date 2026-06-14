@@ -5,6 +5,7 @@
 package interp
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -13,16 +14,39 @@ import (
 	"github.com/t04dJ14n9/gig/value"
 )
 
-// makeFuncValue wraps an *ssa.Function as a reflect-callable Value.
+type interpretedFunc struct {
+	p        *program
+	ctx      context.Context
+	fn       *ssa.Function
+	freeVars []*Cell
+	rv       reflect.Value
+}
+
+func (f *interpretedFunc) ReflectValue() reflect.Value { return f.rv }
+
+func (f *interpretedFunc) Call(args []value.Value, depth int) ([]value.Value, error) {
+	ctx := f.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return f.CallContext(ctx, args, depth)
+}
+
+func (f *interpretedFunc) CallContext(ctx context.Context, args []value.Value, depth int) ([]value.Value, error) {
+	return f.p.callSSA(ctx, nil, f.fn, args, f.freeVars, depth)
+}
+
+// makeFuncValue wraps an *ssa.Function as a callable Value.
 // freeVars is non-nil only for closures (MakeClosure); plain function
-// references use nil. The reflect.MakeFunc path goes through ToReflect
-// for arguments and FromReflect for results, so host code can call
-// interpreted functions transparently.
-func (p *program) makeFuncValue(fn *ssa.Function, freeVars []*Cell) (value.Value, error) {
+// references use nil. Interpreted code can call the returned value directly;
+// the reflect.MakeFunc fallback still lets host code call interpreted
+// functions transparently.
+func (p *program) makeFuncValue(ctx context.Context, fn *ssa.Function, freeVars []*Cell) (value.Value, error) {
 	rt, err := p.resolver.ResolveType(fn.Signature)
 	if err != nil {
 		return value.Value{}, err
 	}
+	callable := &interpretedFunc{p: p, ctx: ctx, fn: fn, freeVars: freeVars}
 	wrapper := reflect.MakeFunc(rt, func(rargs []reflect.Value) []reflect.Value {
 		args := make([]value.Value, len(rargs))
 		for i, ra := range rargs {
@@ -32,7 +56,7 @@ func (p *program) makeFuncValue(fn *ssa.Function, freeVars []*Cell) (value.Value
 			}
 			args[i] = v
 		}
-		results, err := p.callSSA(nil, fn, args, freeVars, 0)
+		results, err := callable.CallContext(ctx, args, 0)
 		if err != nil {
 			panic(err)
 		}
@@ -51,11 +75,8 @@ func (p *program) makeFuncValue(fn *ssa.Function, freeVars []*Cell) (value.Value
 		}
 		return out
 	})
-	v, err := p.converter.FromReflect(wrapper)
-	if err != nil {
-		return value.Value{}, err
-	}
-	return v, nil
+	callable.rv = wrapper
+	return value.MakeFunc(callable), nil
 }
 
 // runMakeClosure handles ssa.MakeClosure: build a free-vars list from
@@ -68,24 +89,21 @@ func (p *program) runMakeClosure(fr *frame, instr *ssa.MakeClosure) (continuatio
 	}
 	freeVars := make([]*Cell, len(instr.Bindings))
 	for i, b := range instr.Bindings {
-		// Each binding is some SSA value in the current frame; we
-		// reference the *cell* (not its value) so closures can mutate
-		// captured locals.
-		if cell, ok := fr.cells[b]; ok {
-			freeVars[i] = cell
-			continue
-		}
-		// Bindings can also be globals or constants — read once.
+		// Capture the current binding value, not the outer frame's Cell.
+		// Addressable locals are already represented as pointer Values, so
+		// mutations still go through shared storage. Snapshotting the Value
+		// matters for loop-body Alloc instructions: the same SSA instruction
+		// executes each iteration but must produce a fresh address.
 		v, err := p.readValue(fr, b)
 		if err != nil {
 			return contNext, nil, err
 		}
 		freeVars[i] = &Cell{Name: b.Name(), Type: b.Type(), Value: v}
 	}
-	v, err := p.makeFuncValue(fn, freeVars)
+	v, err := p.makeFuncValue(fr.ctx, fn, freeVars)
 	if err != nil {
 		return contNext, nil, err
 	}
-	fr.cells[instr] = &Cell{Name: instr.Name(), Type: instr.Type(), Value: v}
+	fr.setCell(instr, v)
 	return contNext, nil, nil
 }

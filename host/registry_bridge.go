@@ -2,13 +2,9 @@
 // that delegates to the legacy importer.PackageRegistry. It exists so
 // the new SSA pipeline can run against the same external-package
 // definitions (fmt, strings, ...) that legacy gig already supports —
-// without rewriting the 71 pre-generated DirectCall wrappers in
-// stdlib/packages/.
-//
-// The bridge dispatches host calls via reflect.Call against the raw
-// `fn any` the legacy registry exposes, ignoring its generated
-// DirectCall wrappers (which take a different value type). This is
-// slower than DirectCall but works without value-bridging.
+// while still allowing hot external functions and methods to register
+// value.Value-based DirectCall wrappers. Calls without wrappers fall
+// back to reflect.Call.
 package host
 
 import (
@@ -54,7 +50,8 @@ func (b *registryBridge) AutoImport(name string) (Import, bool) {
 }
 
 // LookupFunc returns a host.Function backed by the legacy registry's
-// reflect.Value-typed function pointer. Calls go through reflect.Call.
+// function metadata. Generated DirectCall wrappers run without
+// reflect.Value.Call; functions without wrappers fall back to reflect.
 func (b *registryBridge) LookupFunc(pkgPath, name string) (Function, bool) {
 	if b.reg == nil {
 		return nil, false
@@ -63,7 +60,13 @@ func (b *registryBridge) LookupFunc(pkgPath, name string) (Function, bool) {
 	if !ok {
 		return nil, false
 	}
-	return &reflectFunc{name: name, fn: reflect.ValueOf(fn)}, true
+	var directCall func([]value.Value) ([]value.Value, error)
+	if pkg := b.reg.GetPackageByPath(pkgPath); pkg != nil {
+		if obj := pkg.Objects[name]; obj != nil {
+			directCall = obj.DirectCall
+		}
+	}
+	return &reflectFunc{name: name, fn: reflect.ValueOf(fn), directCall: directCall}, true
 }
 
 // LookupVar returns the host-side address of a registered variable.
@@ -168,14 +171,18 @@ func (b *registryBridge) LookupReflectType(t types.Type) (reflect.Type, bool) {
 	return nil, false
 }
 
-// LookupMethod resolves a method on a host-defined named type. Many
-// legacy DirectCall wrappers register methods alongside functions; the
-// reflect.Method dispatch path through legacy Method DirectCalls is
-// not yet implemented here, so we return false and let the interpreter
-// surface a clear error if anyone calls a host method through this
-// path.
-func (b *registryBridge) LookupMethod(string, string) (Method, bool) {
-	return nil, false
+// LookupMethod resolves a method DirectCall wrapper registered for a
+// host-defined named type. typeName uses the legacy key convention:
+// import/path.TypeName, for example "strings.Reader".
+func (b *registryBridge) LookupMethod(typeName, methodName string) (Method, bool) {
+	if b.reg == nil {
+		return nil, false
+	}
+	dc, ok := b.reg.LookupMethodDirectCall(typeName, methodName)
+	if !ok {
+		return nil, false
+	}
+	return &directMethod{typeName: typeName, name: methodName, directCall: dc}, true
 }
 
 func (b *registryBridge) LookupInterfaceProxy(*types.Interface) (InterfaceProxy, bool) {
@@ -185,14 +192,18 @@ func (b *registryBridge) LookupInterfaceProxy(*types.Interface) (InterfaceProxy,
 // --- helpers ----------------------------------------------------------------
 
 type reflectFunc struct {
-	name string
-	fn   reflect.Value
+	name       string
+	fn         reflect.Value
+	directCall func([]value.Value) ([]value.Value, error)
 }
 
-func (f *reflectFunc) Name() string                  { return f.name }
-func (f *reflectFunc) Signature() *types.Signature   { return nil }
+func (f *reflectFunc) Name() string                { return f.name }
+func (f *reflectFunc) Signature() *types.Signature { return nil }
 
 func (f *reflectFunc) Call(args []value.Value) ([]value.Value, error) {
+	if f.directCall != nil {
+		return f.directCall(args)
+	}
 	if f.fn.Kind() != reflect.Func {
 		return nil, fmt.Errorf("host: %s is not a function", f.name)
 	}
@@ -267,6 +278,14 @@ func (f *reflectFunc) Call(args []value.Value) ([]value.Value, error) {
 	return f.callAndConvert(rargs, false)
 }
 
+func (f *reflectFunc) CallDirect(args []value.Value) ([]value.Value, bool, error) {
+	if f.directCall == nil {
+		return nil, false, nil
+	}
+	results, err := f.directCall(args)
+	return results, true, err
+}
+
 func (f *reflectFunc) callAndConvert(rargs []reflect.Value, variadicSpread bool) ([]value.Value, error) {
 	conv := value.DefaultConverter()
 	var rresults []reflect.Value
@@ -284,6 +303,24 @@ func (f *reflectFunc) callAndConvert(rargs []reflect.Value, variadicSpread bool)
 		out[i] = v
 	}
 	return out, nil
+}
+
+type directMethod struct {
+	typeName   string
+	name       string
+	directCall func(value.Value, []value.Value) value.Value
+}
+
+func (m *directMethod) Name() string                { return m.name }
+func (m *directMethod) Receiver() types.Type        { return nil }
+func (m *directMethod) Signature() *types.Signature { return nil }
+
+func (m *directMethod) Call(recv value.Value, args []value.Value) ([]value.Value, error) {
+	return []value.Value{m.directCall(recv, args)}, nil
+}
+
+func (m *directMethod) CallDirect(recv value.Value, args []value.Value) (value.Value, bool, error) {
+	return m.directCall(recv, args), true, nil
 }
 
 // Variable is the host-provided storage. Get returns the addressable
@@ -339,6 +376,6 @@ type reflectType struct {
 	rt   reflect.Type
 }
 
-func (t *reflectType) Name() string             { return t.name }
-func (t *reflectType) GoType() types.Type       { return nil }
+func (t *reflectType) Name() string              { return t.name }
+func (t *reflectType) GoType() types.Type        { return nil }
 func (t *reflectType) ReflectType() reflect.Type { return t.rt }

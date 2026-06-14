@@ -111,17 +111,17 @@ func (p *program) runDeferRec(fr *frame, rec *deferRecord) error {
 	}()
 	switch {
 	case rec.invokeMethod != "":
-		_, err := p.invokeMethodOn(rec.invokeRecv, rec.invokeMethod, rec.args)
+		_, err := p.invokeMethodOn(fr.ctx, rec.invokeRecv, rec.invokeMethod, rec.args)
 		return err
 	case rec.fnSSA != nil:
 		// A deferred SSA function may be either an interpreted body or
 		// a host method (e.g. `defer mu.Unlock()`). The latter has no
 		// SSA blocks; route those through the host bridge.
 		if len(rec.fnSSA.Blocks) == 0 {
-			_, err := p.callHostFunc(rec.fnSSA, rec.args)
+			_, err := p.callHostFunc(fr.ctx, rec.fnSSA, rec.args)
 			return err
 		}
-		_, err := p.callSSA(fr, rec.fnSSA, rec.args, nil, 0)
+		_, err := p.callSSA(fr.ctx, fr, rec.fnSSA, rec.args, nil, 0)
 		return err
 	case rec.builtin != nil:
 		// Builtins as defer targets are rare (close, print).

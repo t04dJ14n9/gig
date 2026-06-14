@@ -6,17 +6,23 @@ import (
 	"reflect"
 
 	"github.com/t04dJ14n9/gig/model/external"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // AddFunction adds a function to the package.
-func (p *ExternalPackage) AddFunction(name string, fn any, doc string) {
+func (p *ExternalPackage) AddFunction(name string, fn any, doc string, directCall ...func([]value.Value) ([]value.Value, error)) {
 	sig := funcSignature(fn)
+	var dc func([]value.Value) ([]value.Value, error)
+	if len(directCall) > 0 {
+		dc = directCall[0]
+	}
 	p.Objects[name] = &external.ExternalObject{
-		Name:  name,
-		Kind:  external.ObjectKindFunction,
-		Value: fn,
-		Type:  sig,
-		Doc:   doc,
+		Name:       name,
+		Kind:       external.ObjectKindFunction,
+		Value:      fn,
+		Type:       sig,
+		Doc:        doc,
+		DirectCall: dc,
 	}
 }
 
@@ -57,4 +63,14 @@ func (p *ExternalPackage) AddType(name string, typ reflect.Type, doc string) {
 		Type:  typeOf(typ),
 		Doc:   doc,
 	}
+}
+
+// AddMethodDirectCall registers a zero-reflection wrapper for a method on a
+// named type in this package. typeName is the exported type name without the
+// package path, for example "Reader" for strings.Reader.
+func (p *ExternalPackage) AddMethodDirectCall(typeName, methodName string, dc func(value.Value, []value.Value) value.Value) {
+	if p.registry == nil {
+		return
+	}
+	p.registry.AddMethodDirectCall(p.Path+"."+typeName, methodName, dc)
 }
