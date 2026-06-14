@@ -308,10 +308,10 @@ func (p *program) runFastIndexAddr(fr *frame, instr fastIndexAddr) bool {
 }
 
 func (p *program) runFastBlock(fr *frame, ops []fastOp) (continuation, []value.Value, error) {
+	if err := fr.checkContext(); err != nil {
+		return contNext, nil, err
+	}
 	for _, op := range ops {
-		if err := fr.checkContext(); err != nil {
-			return contNext, nil, err
-		}
 		switch op.kind {
 		case fastOpInstr:
 			contState, ret, err := p.runFastInstr(fr, op.instr)
