@@ -3,31 +3,31 @@ package packages
 
 import (
 	encoding_binary "encoding/binary"
-	io "io"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"io"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("encoding/binary", "binary")
 
 	// Functions
-	pkg.AddFunction("Append", encoding_binary.Append, "", direct_encoding_binary_Append)
-	pkg.AddFunction("AppendUvarint", encoding_binary.AppendUvarint, "", direct_encoding_binary_AppendUvarint)
-	pkg.AddFunction("AppendVarint", encoding_binary.AppendVarint, "", direct_encoding_binary_AppendVarint)
-	pkg.AddFunction("Decode", encoding_binary.Decode, "", direct_encoding_binary_Decode)
-	pkg.AddFunction("Encode", encoding_binary.Encode, "", direct_encoding_binary_Encode)
-	pkg.AddFunction("PutUvarint", encoding_binary.PutUvarint, "", direct_encoding_binary_PutUvarint)
-	pkg.AddFunction("PutVarint", encoding_binary.PutVarint, "", direct_encoding_binary_PutVarint)
-	pkg.AddFunction("Read", encoding_binary.Read, "", direct_encoding_binary_Read)
-	pkg.AddFunction("ReadUvarint", encoding_binary.ReadUvarint, "", direct_encoding_binary_ReadUvarint)
-	pkg.AddFunction("ReadVarint", encoding_binary.ReadVarint, "", direct_encoding_binary_ReadVarint)
-	pkg.AddFunction("Size", encoding_binary.Size, "", direct_encoding_binary_Size)
-	pkg.AddFunction("Uvarint", encoding_binary.Uvarint, "", direct_encoding_binary_Uvarint)
-	pkg.AddFunction("Varint", encoding_binary.Varint, "", direct_encoding_binary_Varint)
-	pkg.AddFunction("Write", encoding_binary.Write, "", direct_encoding_binary_Write)
+	pkg.AddFunction("Append", encoding_binary.Append, "", directCallEncodingBinaryAppend)
+	pkg.AddFunction("AppendUvarint", encoding_binary.AppendUvarint, "", directCallEncodingBinaryAppendUvarint)
+	pkg.AddFunction("AppendVarint", encoding_binary.AppendVarint, "", directCallEncodingBinaryAppendVarint)
+	pkg.AddFunction("Decode", encoding_binary.Decode, "", directCallEncodingBinaryDecode)
+	pkg.AddFunction("Encode", encoding_binary.Encode, "", directCallEncodingBinaryEncode)
+	pkg.AddFunction("PutUvarint", encoding_binary.PutUvarint, "", directCallEncodingBinaryPutUvarint)
+	pkg.AddFunction("PutVarint", encoding_binary.PutVarint, "", directCallEncodingBinaryPutVarint)
+	pkg.AddFunction("Read", encoding_binary.Read, "", directCallEncodingBinaryRead)
+	pkg.AddFunction("ReadUvarint", encoding_binary.ReadUvarint, "", directCallEncodingBinaryReadUvarint)
+	pkg.AddFunction("ReadVarint", encoding_binary.ReadVarint, "", directCallEncodingBinaryReadVarint)
+	pkg.AddFunction("Size", encoding_binary.Size, "", directCallEncodingBinarySize)
+	pkg.AddFunction("Uvarint", encoding_binary.Uvarint, "", directCallEncodingBinaryUvarint)
+	pkg.AddFunction("Varint", encoding_binary.Varint, "", directCallEncodingBinaryVarint)
+	pkg.AddFunction("Write", encoding_binary.Write, "", directCallEncodingBinaryWrite)
 
 	// Constants
 	pkg.AddConstant("MaxVarintLen16", encoding_binary.MaxVarintLen16, "")
@@ -45,174 +45,295 @@ func init() {
 
 }
 
-func direct_encoding_binary_Append(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
+func directArgEncodingBinary[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsEncodingBinary[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgEncodingBinary[[]T](args[0]); err == nil {
+			return packed, nil
 		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgEncodingBinary[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
 		}
-		return v.([]byte)
-	}()
-	a1 := args[1].Interface().(encoding_binary.ByteOrder)
-	a2 := args[2].Interface()
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgEncodingBinary[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsEncodingBinary(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallEncodingBinaryAppend(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgEncodingBinary[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingBinary[encoding_binary.ByteOrder](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgEncodingBinary[any](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := encoding_binary.Append(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+	return directResultsEncodingBinary(r0, r1)
 }
 
-func direct_encoding_binary_AppendUvarint(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	a1 := args[1].Uint()
-	return value.MakeBytes([]byte(encoding_binary.AppendUvarint(a0, a1)))
+func directCallEncodingBinaryAppendUvarint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingBinary[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingBinary[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := encoding_binary.AppendUvarint(a0, a1)
+	return directResultsEncodingBinary(r0)
 }
 
-func direct_encoding_binary_AppendVarint(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	a1 := args[1].Int()
-	return value.MakeBytes([]byte(encoding_binary.AppendVarint(a0, a1)))
+func directCallEncodingBinaryAppendVarint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingBinary[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingBinary[int64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := encoding_binary.AppendVarint(a0, a1)
+	return directResultsEncodingBinary(r0)
 }
 
-func direct_encoding_binary_Decode(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	a1 := args[1].Interface().(encoding_binary.ByteOrder)
-	a2 := args[2].Interface()
+func directCallEncodingBinaryDecode(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgEncodingBinary[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingBinary[encoding_binary.ByteOrder](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgEncodingBinary[any](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := encoding_binary.Decode(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return directResultsEncodingBinary(r0, r1)
 }
 
-func direct_encoding_binary_Encode(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	a1 := args[1].Interface().(encoding_binary.ByteOrder)
-	a2 := args[2].Interface()
+func directCallEncodingBinaryEncode(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgEncodingBinary[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingBinary[encoding_binary.ByteOrder](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgEncodingBinary[any](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := encoding_binary.Encode(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return directResultsEncodingBinary(r0, r1)
 }
 
-func direct_encoding_binary_PutUvarint(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	a1 := args[1].Uint()
-	return value.MakeInt(int64(encoding_binary.PutUvarint(a0, a1)))
+func directCallEncodingBinaryPutUvarint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingBinary[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingBinary[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := encoding_binary.PutUvarint(a0, a1)
+	return directResultsEncodingBinary(r0)
 }
 
-func direct_encoding_binary_PutVarint(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	a1 := args[1].Int()
-	return value.MakeInt(int64(encoding_binary.PutVarint(a0, a1)))
+func directCallEncodingBinaryPutVarint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingBinary[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingBinary[int64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := encoding_binary.PutVarint(a0, a1)
+	return directResultsEncodingBinary(r0)
 }
 
-func direct_encoding_binary_Read(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	a1 := args[1].Interface().(encoding_binary.ByteOrder)
-	a2 := args[2].Interface()
-	return value.FromInterface(encoding_binary.Read(a0, a1, a2))
+func directCallEncodingBinaryRead(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgEncodingBinary[io.Reader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingBinary[encoding_binary.ByteOrder](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgEncodingBinary[any](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := encoding_binary.Read(a0, a1, a2)
+	return directResultsEncodingBinary(r0)
 }
 
-func direct_encoding_binary_ReadUvarint(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.ByteReader)
+func directCallEncodingBinaryReadUvarint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingBinary[io.ByteReader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := encoding_binary.ReadUvarint(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeUint64(r0), value.FromInterface(r1)})
+	return directResultsEncodingBinary(r0, r1)
 }
 
-func direct_encoding_binary_ReadVarint(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.ByteReader)
+func directCallEncodingBinaryReadVarint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingBinary[io.ByteReader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := encoding_binary.ReadVarint(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.FromInterface(r1)})
+	return directResultsEncodingBinary(r0, r1)
 }
 
-func direct_encoding_binary_Size(args []value.Value) value.Value {
-	a0 := args[0].Interface()
-	return value.MakeInt(int64(encoding_binary.Size(a0)))
+func directCallEncodingBinarySize(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingBinary[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_binary.Size(a0)
+	return directResultsEncodingBinary(r0)
 }
 
-func direct_encoding_binary_Uvarint(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
+func directCallEncodingBinaryUvarint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingBinary[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := encoding_binary.Uvarint(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeUint64(r0), value.MakeInt(int64(r1))})
+	return directResultsEncodingBinary(r0, r1)
 }
 
-func direct_encoding_binary_Varint(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
+func directCallEncodingBinaryVarint(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingBinary[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := encoding_binary.Varint(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt64(r0), value.MakeInt(int64(r1))})
+	return directResultsEncodingBinary(r0, r1)
 }
 
-func direct_encoding_binary_Write(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	a1 := args[1].Interface().(encoding_binary.ByteOrder)
-	a2 := args[2].Interface()
-	return value.FromInterface(encoding_binary.Write(a0, a1, a2))
+func directCallEncodingBinaryWrite(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgEncodingBinary[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingBinary[encoding_binary.ByteOrder](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgEncodingBinary[any](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := encoding_binary.Write(a0, a1, a2)
+	return directResultsEncodingBinary(r0)
 }

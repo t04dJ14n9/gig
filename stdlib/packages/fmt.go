@@ -3,40 +3,39 @@ package packages
 
 import (
 	"fmt"
-	io "io"
-	"reflect"
-
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"io"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("fmt", "fmt")
 
 	// Functions
-	pkg.AddFunction("Append", fmt.Append, "", direct_fmt_Append)
-	pkg.AddFunction("Appendf", fmt.Appendf, "", direct_fmt_Appendf)
-	pkg.AddFunction("Appendln", fmt.Appendln, "", direct_fmt_Appendln)
-	pkg.AddFunction("Errorf", fmt.Errorf, "", direct_fmt_Errorf)
-	pkg.AddFunction("FormatString", fmt.FormatString, "", direct_fmt_FormatString)
-	pkg.AddFunction("Fprint", fmt.Fprint, "", direct_fmt_Fprint)
-	pkg.AddFunction("Fprintf", fmt.Fprintf, "", direct_fmt_Fprintf)
-	pkg.AddFunction("Fprintln", fmt.Fprintln, "", direct_fmt_Fprintln)
-	pkg.AddFunction("Fscan", fmt.Fscan, "", direct_fmt_Fscan)
-	pkg.AddFunction("Fscanf", fmt.Fscanf, "", direct_fmt_Fscanf)
-	pkg.AddFunction("Fscanln", fmt.Fscanln, "", direct_fmt_Fscanln)
-	pkg.AddFunction("Print", fmt.Print, "", direct_fmt_Print)
-	pkg.AddFunction("Printf", fmt.Printf, "", direct_fmt_Printf)
-	pkg.AddFunction("Println", fmt.Println, "", direct_fmt_Println)
-	pkg.AddFunction("Scan", fmt.Scan, "", direct_fmt_Scan)
-	pkg.AddFunction("Scanf", fmt.Scanf, "", direct_fmt_Scanf)
-	pkg.AddFunction("Scanln", fmt.Scanln, "", direct_fmt_Scanln)
-	pkg.AddFunction("Sprint", fmt.Sprint, "", direct_fmt_Sprint)
-	pkg.AddFunction("Sprintf", fmt.Sprintf, "", direct_fmt_Sprintf)
-	pkg.AddFunction("Sprintln", fmt.Sprintln, "", direct_fmt_Sprintln)
-	pkg.AddFunction("Sscan", fmt.Sscan, "", direct_fmt_Sscan)
-	pkg.AddFunction("Sscanf", fmt.Sscanf, "", direct_fmt_Sscanf)
-	pkg.AddFunction("Sscanln", fmt.Sscanln, "", direct_fmt_Sscanln)
+	pkg.AddFunction("Append", fmt.Append, "", directCallFmtAppend)
+	pkg.AddFunction("Appendf", fmt.Appendf, "", directCallFmtAppendf)
+	pkg.AddFunction("Appendln", fmt.Appendln, "", directCallFmtAppendln)
+	pkg.AddFunction("Errorf", fmt.Errorf, "", directCallFmtErrorf)
+	pkg.AddFunction("FormatString", fmt.FormatString, "", directCallFmtFormatString)
+	pkg.AddFunction("Fprint", fmt.Fprint, "", directCallFmtFprint)
+	pkg.AddFunction("Fprintf", fmt.Fprintf, "", directCallFmtFprintf)
+	pkg.AddFunction("Fprintln", fmt.Fprintln, "", directCallFmtFprintln)
+	pkg.AddFunction("Fscan", fmt.Fscan, "", directCallFmtFscan)
+	pkg.AddFunction("Fscanf", fmt.Fscanf, "", directCallFmtFscanf)
+	pkg.AddFunction("Fscanln", fmt.Fscanln, "", directCallFmtFscanln)
+	pkg.AddFunction("Print", fmt.Print, "", directCallFmtPrint)
+	pkg.AddFunction("Printf", fmt.Printf, "", directCallFmtPrintf)
+	pkg.AddFunction("Println", fmt.Println, "", directCallFmtPrintln)
+	pkg.AddFunction("Scan", fmt.Scan, "", directCallFmtScan)
+	pkg.AddFunction("Scanf", fmt.Scanf, "", directCallFmtScanf)
+	pkg.AddFunction("Scanln", fmt.Scanln, "", directCallFmtScanln)
+	pkg.AddFunction("Sprint", fmt.Sprint, "", directCallFmtSprint)
+	pkg.AddFunction("Sprintf", fmt.Sprintf, "", directCallFmtSprintf)
+	pkg.AddFunction("Sprintln", fmt.Sprintln, "", directCallFmtSprintln)
+	pkg.AddFunction("Sscan", fmt.Sscan, "", directCallFmtSscan)
+	pkg.AddFunction("Sscanf", fmt.Sscanf, "", directCallFmtSscanf)
+	pkg.AddFunction("Sscanln", fmt.Sscanln, "", directCallFmtSscanln)
 
 	// Types
 	pkg.AddType("Formatter", reflect.TypeOf((*fmt.Formatter)(nil)).Elem(), "")
@@ -48,246 +47,431 @@ func init() {
 
 }
 
-func direct_fmt_Append(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
+func directArgFmt[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsFmt[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgFmt[[]T](args[0]); err == nil {
+			return packed, nil
 		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgFmt[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
 		}
-		return v.([]byte)
-	}()
-	varArgs := make([]interface{}, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = value.FmtWrap(args[i])
 	}
-	return value.MakeBytes([]byte(fmt.Append(a0, varArgs...)))
-}
-
-func direct_fmt_Appendf(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgFmt[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
 		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsFmt(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
 		}
-		return v.([]byte)
-	}()
-	a1 := args[1].String()
-	varArgs := make([]interface{}, len(args)-2)
-	for i := 2; i < len(args); i++ {
-		varArgs[i-2] = value.FmtWrap(args[i])
+		out[i] = vv
 	}
-	return value.MakeBytes([]byte(fmt.Appendf(a0, a1, varArgs...)))
+	return out, nil
 }
 
-func direct_fmt_Appendln(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	varArgs := make([]interface{}, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = value.FmtWrap(args[i])
+func directCallFmtAppend(args []value.Value) ([]value.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("arg count %d < 1", len(args))
 	}
-	return value.MakeBytes([]byte(fmt.Appendln(a0, varArgs...)))
+	a0, err := directArgFmt[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directVariadicArgsFmt[any](args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := fmt.Append(a0, a1...)
+	return directResultsFmt(r0)
 }
 
-func direct_fmt_Errorf(args []value.Value) value.Value {
-	a0 := args[0].String()
-	varArgs := make([]interface{}, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = value.FmtWrap(args[i])
+func directCallFmtAppendf(args []value.Value) ([]value.Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("arg count %d < 2", len(args))
 	}
-	return value.FromInterface(fmt.Errorf(a0, varArgs...))
+	a0, err := directArgFmt[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgFmt[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directVariadicArgsFmt[any](args[2:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := fmt.Appendf(a0, a1, a2...)
+	return directResultsFmt(r0)
 }
 
-func direct_fmt_FormatString(args []value.Value) value.Value {
-	a0 := args[0].Interface().(fmt.State)
-	a1 := int32(args[1].Int())
-	return value.MakeString(string(fmt.FormatString(a0, a1)))
+func directCallFmtAppendln(args []value.Value) ([]value.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("arg count %d < 1", len(args))
+	}
+	a0, err := directArgFmt[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directVariadicArgsFmt[any](args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := fmt.Appendln(a0, a1...)
+	return directResultsFmt(r0)
 }
 
-func direct_fmt_Fprint(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	varArgs := make([]interface{}, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = value.FmtWrap(args[i])
+func directCallFmtErrorf(args []value.Value) ([]value.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("arg count %d < 1", len(args))
 	}
-	r0, r1 := fmt.Fprint(a0, varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directArgFmt[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directVariadicArgsFmt[any](args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := fmt.Errorf(a0, a1...)
+	return directResultsFmt(r0)
 }
 
-func direct_fmt_Fprintf(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	a1 := args[1].String()
-	varArgs := make([]interface{}, len(args)-2)
-	for i := 2; i < len(args); i++ {
-		varArgs[i-2] = value.FmtWrap(args[i])
+func directCallFmtFormatString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
 	}
-	r0, r1 := fmt.Fprintf(a0, a1, varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directArgFmt[fmt.State](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgFmt[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := fmt.FormatString(a0, a1)
+	return directResultsFmt(r0)
 }
 
-func direct_fmt_Fprintln(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	varArgs := make([]interface{}, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = value.FmtWrap(args[i])
+func directCallFmtFprint(args []value.Value) ([]value.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("arg count %d < 1", len(args))
 	}
-	r0, r1 := fmt.Fprintln(a0, varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directArgFmt[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directVariadicArgsFmt[any](args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := fmt.Fprint(a0, a1...)
+	return directResultsFmt(r0, r1)
 }
 
-func direct_fmt_Fscan(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	varArgs := make([]interface{}, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = value.FmtWrap(args[i])
+func directCallFmtFprintf(args []value.Value) ([]value.Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("arg count %d < 2", len(args))
 	}
-	r0, r1 := fmt.Fscan(a0, varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directArgFmt[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgFmt[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directVariadicArgsFmt[any](args[2:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0, r1 := fmt.Fprintf(a0, a1, a2...)
+	return directResultsFmt(r0, r1)
 }
 
-func direct_fmt_Fscanf(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	a1 := args[1].String()
-	varArgs := make([]interface{}, len(args)-2)
-	for i := 2; i < len(args); i++ {
-		varArgs[i-2] = value.FmtWrap(args[i])
+func directCallFmtFprintln(args []value.Value) ([]value.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("arg count %d < 1", len(args))
 	}
-	r0, r1 := fmt.Fscanf(a0, a1, varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directArgFmt[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directVariadicArgsFmt[any](args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := fmt.Fprintln(a0, a1...)
+	return directResultsFmt(r0, r1)
 }
 
-func direct_fmt_Fscanln(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	varArgs := make([]interface{}, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = value.FmtWrap(args[i])
+func directCallFmtFscan(args []value.Value) ([]value.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("arg count %d < 1", len(args))
 	}
-	r0, r1 := fmt.Fscanln(a0, varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directArgFmt[io.Reader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directVariadicArgsFmt[any](args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := fmt.Fscan(a0, a1...)
+	return directResultsFmt(r0, r1)
 }
 
-func direct_fmt_Print(args []value.Value) value.Value {
-	varArgs := make([]interface{}, len(args)-0)
-	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = value.FmtWrap(args[i])
+func directCallFmtFscanf(args []value.Value) ([]value.Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("arg count %d < 2", len(args))
 	}
-	r0, r1 := fmt.Print(varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directArgFmt[io.Reader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgFmt[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directVariadicArgsFmt[any](args[2:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0, r1 := fmt.Fscanf(a0, a1, a2...)
+	return directResultsFmt(r0, r1)
 }
 
-func direct_fmt_Printf(args []value.Value) value.Value {
-	a0 := args[0].String()
-	varArgs := make([]interface{}, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = value.FmtWrap(args[i])
+func directCallFmtFscanln(args []value.Value) ([]value.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("arg count %d < 1", len(args))
 	}
-	r0, r1 := fmt.Printf(a0, varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directArgFmt[io.Reader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directVariadicArgsFmt[any](args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := fmt.Fscanln(a0, a1...)
+	return directResultsFmt(r0, r1)
 }
 
-func direct_fmt_Println(args []value.Value) value.Value {
-	varArgs := make([]interface{}, len(args)-0)
-	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = value.FmtWrap(args[i])
+func directCallFmtPrint(args []value.Value) ([]value.Value, error) {
+	if len(args) < 0 {
+		return nil, fmt.Errorf("arg count %d < 0", len(args))
 	}
-	r0, r1 := fmt.Println(varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directVariadicArgsFmt[any](args[0:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := fmt.Print(a0...)
+	return directResultsFmt(r0, r1)
 }
 
-func direct_fmt_Scan(args []value.Value) value.Value {
-	varArgs := make([]interface{}, len(args)-0)
-	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = value.FmtWrap(args[i])
+func directCallFmtPrintf(args []value.Value) ([]value.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("arg count %d < 1", len(args))
 	}
-	r0, r1 := fmt.Scan(varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directArgFmt[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directVariadicArgsFmt[any](args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := fmt.Printf(a0, a1...)
+	return directResultsFmt(r0, r1)
 }
 
-func direct_fmt_Scanf(args []value.Value) value.Value {
-	a0 := args[0].String()
-	varArgs := make([]interface{}, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = value.FmtWrap(args[i])
+func directCallFmtPrintln(args []value.Value) ([]value.Value, error) {
+	if len(args) < 0 {
+		return nil, fmt.Errorf("arg count %d < 0", len(args))
 	}
-	r0, r1 := fmt.Scanf(a0, varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directVariadicArgsFmt[any](args[0:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := fmt.Println(a0...)
+	return directResultsFmt(r0, r1)
 }
 
-func direct_fmt_Scanln(args []value.Value) value.Value {
-	varArgs := make([]interface{}, len(args)-0)
-	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = value.FmtWrap(args[i])
+func directCallFmtScan(args []value.Value) ([]value.Value, error) {
+	if len(args) < 0 {
+		return nil, fmt.Errorf("arg count %d < 0", len(args))
 	}
-	r0, r1 := fmt.Scanln(varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directVariadicArgsFmt[any](args[0:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := fmt.Scan(a0...)
+	return directResultsFmt(r0, r1)
 }
 
-func direct_fmt_Sprint(args []value.Value) value.Value {
-	varArgs := make([]interface{}, len(args)-0)
-	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = value.FmtWrap(args[i])
+func directCallFmtScanf(args []value.Value) ([]value.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("arg count %d < 1", len(args))
 	}
-	return value.MakeString(string(fmt.Sprint(varArgs...)))
+	a0, err := directArgFmt[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directVariadicArgsFmt[any](args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := fmt.Scanf(a0, a1...)
+	return directResultsFmt(r0, r1)
 }
 
-func direct_fmt_Sprintf(args []value.Value) value.Value {
-	a0 := args[0].String()
-	varArgs := make([]interface{}, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = value.FmtWrap(args[i])
+func directCallFmtScanln(args []value.Value) ([]value.Value, error) {
+	if len(args) < 0 {
+		return nil, fmt.Errorf("arg count %d < 0", len(args))
 	}
-	return value.MakeString(string(value.SprintfExtern(a0, varArgs...)))
+	a0, err := directVariadicArgsFmt[any](args[0:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := fmt.Scanln(a0...)
+	return directResultsFmt(r0, r1)
 }
 
-func direct_fmt_Sprintln(args []value.Value) value.Value {
-	varArgs := make([]interface{}, len(args)-0)
-	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = value.FmtWrap(args[i])
+func directCallFmtSprint(args []value.Value) ([]value.Value, error) {
+	if len(args) < 0 {
+		return nil, fmt.Errorf("arg count %d < 0", len(args))
 	}
-	return value.MakeString(string(fmt.Sprintln(varArgs...)))
+	a0, err := directVariadicArgsFmt[any](args[0:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := fmt.Sprint(a0...)
+	return directResultsFmt(r0)
 }
 
-func direct_fmt_Sscan(args []value.Value) value.Value {
-	a0 := args[0].String()
-	varArgs := make([]interface{}, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = value.FmtWrap(args[i])
+func directCallFmtSprintf(args []value.Value) ([]value.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("arg count %d < 1", len(args))
 	}
-	r0, r1 := fmt.Sscan(a0, varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directArgFmt[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directVariadicArgsFmt[any](args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := fmt.Sprintf(a0, a1...)
+	return directResultsFmt(r0)
 }
 
-func direct_fmt_Sscanf(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].String()
-	varArgs := make([]interface{}, len(args)-2)
-	for i := 2; i < len(args); i++ {
-		varArgs[i-2] = value.FmtWrap(args[i])
+func directCallFmtSprintln(args []value.Value) ([]value.Value, error) {
+	if len(args) < 0 {
+		return nil, fmt.Errorf("arg count %d < 0", len(args))
 	}
-	r0, r1 := fmt.Sscanf(a0, a1, varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directVariadicArgsFmt[any](args[0:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := fmt.Sprintln(a0...)
+	return directResultsFmt(r0)
 }
 
-func direct_fmt_Sscanln(args []value.Value) value.Value {
-	a0 := args[0].String()
-	varArgs := make([]interface{}, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		varArgs[i-1] = value.FmtWrap(args[i])
+func directCallFmtSscan(args []value.Value) ([]value.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("arg count %d < 1", len(args))
 	}
-	r0, r1 := fmt.Sscanln(a0, varArgs...)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	a0, err := directArgFmt[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directVariadicArgsFmt[any](args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := fmt.Sscan(a0, a1...)
+	return directResultsFmt(r0, r1)
+}
+
+func directCallFmtSscanf(args []value.Value) ([]value.Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("arg count %d < 2", len(args))
+	}
+	a0, err := directArgFmt[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgFmt[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directVariadicArgsFmt[any](args[2:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0, r1 := fmt.Sscanf(a0, a1, a2...)
+	return directResultsFmt(r0, r1)
+}
+
+func directCallFmtSscanln(args []value.Value) ([]value.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("arg count %d < 1", len(args))
+	}
+	a0, err := directArgFmt[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directVariadicArgsFmt[any](args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0, r1 := fmt.Sscanln(a0, a1...)
+	return directResultsFmt(r0, r1)
 }

@@ -2,19 +2,18 @@
 package packages
 
 import (
-	io "io"
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 	"reflect"
 	text_scanner "text/scanner"
-
-	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("text/scanner", "scanner")
 
 	// Functions
-	pkg.AddFunction("TokenString", text_scanner.TokenString, "", direct_text_scanner_TokenString)
+	pkg.AddFunction("TokenString", text_scanner.TokenString, "", directCallTextScannerTokenString)
 
 	// Constants
 	pkg.AddConstant("Char", text_scanner.Char, "")
@@ -40,60 +39,85 @@ func init() {
 	pkg.AddType("Position", reflect.TypeOf(text_scanner.Position{}), "")
 	pkg.AddType("Scanner", reflect.TypeOf(text_scanner.Scanner{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Position", "String", direct_method_text_scanner_Position_String)
-	pkg.AddMethodDirectCall("Position", "IsValid", direct_method_text_scanner_Position_IsValid)
-	pkg.AddMethodDirectCall("Scanner", "Init", direct_method_text_scanner_Scanner_Init)
-	pkg.AddMethodDirectCall("Scanner", "Next", direct_method_text_scanner_Scanner_Next)
-	pkg.AddMethodDirectCall("Scanner", "Peek", direct_method_text_scanner_Scanner_Peek)
-	pkg.AddMethodDirectCall("Scanner", "Pos", direct_method_text_scanner_Scanner_Pos)
-	pkg.AddMethodDirectCall("Scanner", "Scan", direct_method_text_scanner_Scanner_Scan)
-	pkg.AddMethodDirectCall("Scanner", "TokenText", direct_method_text_scanner_Scanner_TokenText)
-
 }
 
-func direct_text_scanner_TokenString(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeString(string(text_scanner.TokenString(a0)))
+func directArgTextScanner[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_method_text_scanner_Position_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(text_scanner.Position)
-	return value.MakeString(string(recv.String()))
+func directVariadicArgsTextScanner[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgTextScanner[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgTextScanner[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgTextScanner[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
 }
 
-func direct_method_text_scanner_Position_IsValid(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_scanner.Position)
-	return value.MakeBool(recv.IsValid())
+func directResultsTextScanner(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_method_text_scanner_Scanner_Init(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_scanner.Scanner)
-	a0 := args[1].Interface().(io.Reader)
-	return value.FromInterface(recv.Init(a0))
-}
-
-func direct_method_text_scanner_Scanner_Next(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_scanner.Scanner)
-	return value.MakeInt(int64(recv.Next()))
-}
-
-func direct_method_text_scanner_Scanner_Peek(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_scanner.Scanner)
-	return value.MakeInt(int64(recv.Peek()))
-}
-
-func direct_method_text_scanner_Scanner_Pos(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_scanner.Scanner)
-	return value.FromInterface(recv.Pos())
-}
-
-func direct_method_text_scanner_Scanner_Scan(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_scanner.Scanner)
-	return value.MakeInt(int64(recv.Scan()))
-}
-
-func direct_method_text_scanner_Scanner_TokenText(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_scanner.Scanner)
-	return value.MakeString(string(recv.TokenText()))
+func directCallTextScannerTokenString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgTextScanner[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := text_scanner.TokenString(a0)
+	return directResultsTextScanner(r0)
 }

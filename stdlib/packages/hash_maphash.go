@@ -2,137 +2,132 @@
 package packages
 
 import (
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 	hash_maphash "hash/maphash"
 	"reflect"
-
-	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("hash/maphash", "maphash")
 
 	// Functions
-	pkg.AddFunction("Bytes", hash_maphash.Bytes, "", direct_hash_maphash_Bytes)
-	pkg.AddFunction("MakeSeed", hash_maphash.MakeSeed, "", direct_hash_maphash_MakeSeed)
-	pkg.AddFunction("String", hash_maphash.String, "", direct_hash_maphash_String)
+	pkg.AddFunction("Bytes", hash_maphash.Bytes, "", directCallHashMaphashBytes)
+	pkg.AddFunction("MakeSeed", hash_maphash.MakeSeed, "", directCallHashMaphashMakeSeed)
+	pkg.AddFunction("String", hash_maphash.String, "", directCallHashMaphashString)
 
 	// Types
 	pkg.AddType("Hash", reflect.TypeOf(hash_maphash.Hash{}), "")
 	pkg.AddType("Seed", reflect.TypeOf(hash_maphash.Seed{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Hash", "BlockSize", direct_method_hash_maphash_Hash_BlockSize)
-	pkg.AddMethodDirectCall("Hash", "Reset", direct_method_hash_maphash_Hash_Reset)
-	pkg.AddMethodDirectCall("Hash", "Seed", direct_method_hash_maphash_Hash_Seed)
-	pkg.AddMethodDirectCall("Hash", "SetSeed", direct_method_hash_maphash_Hash_SetSeed)
-	pkg.AddMethodDirectCall("Hash", "Size", direct_method_hash_maphash_Hash_Size)
-	pkg.AddMethodDirectCall("Hash", "Sum", direct_method_hash_maphash_Hash_Sum)
-	pkg.AddMethodDirectCall("Hash", "Sum64", direct_method_hash_maphash_Hash_Sum64)
-	pkg.AddMethodDirectCall("Hash", "Write", direct_method_hash_maphash_Hash_Write)
-	pkg.AddMethodDirectCall("Hash", "WriteByte", direct_method_hash_maphash_Hash_WriteByte)
-	pkg.AddMethodDirectCall("Hash", "WriteString", direct_method_hash_maphash_Hash_WriteString)
-
 }
 
-func direct_hash_maphash_Bytes(args []value.Value) value.Value {
-	a0 := args[0].Interface().(hash_maphash.Seed)
-	a1 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
+func directArgHashMaphash[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsHashMaphash[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgHashMaphash[[]T](args[0]); err == nil {
+			return packed, nil
 		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgHashMaphash[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
 		}
-		return v.([]byte)
-	}()
-	return value.MakeUint64(hash_maphash.Bytes(a0, a1))
-}
-
-func direct_hash_maphash_MakeSeed(args []value.Value) value.Value {
-	return value.FromInterface(hash_maphash.MakeSeed())
-}
-
-func direct_hash_maphash_String(args []value.Value) value.Value {
-	a0 := args[0].Interface().(hash_maphash.Seed)
-	a1 := args[1].String()
-	return value.MakeUint64(hash_maphash.String(a0, a1))
-}
-
-func direct_method_hash_maphash_Hash_BlockSize(args []value.Value) value.Value {
-	recv := args[0].Interface().(*hash_maphash.Hash)
-	return value.MakeInt(int64(recv.BlockSize()))
-}
-
-func direct_method_hash_maphash_Hash_Reset(args []value.Value) value.Value {
-	recv := args[0].Interface().(*hash_maphash.Hash)
-	recv.Reset()
-	return value.MakeNil()
-}
-
-func direct_method_hash_maphash_Hash_Seed(args []value.Value) value.Value {
-	recv := args[0].Interface().(*hash_maphash.Hash)
-	return value.FromInterface(recv.Seed())
-}
-
-func direct_method_hash_maphash_Hash_SetSeed(args []value.Value) value.Value {
-	recv := args[0].Interface().(*hash_maphash.Hash)
-	a0 := args[1].Interface().(hash_maphash.Seed)
-	recv.SetSeed(a0)
-	return value.MakeNil()
-}
-
-func direct_method_hash_maphash_Hash_Size(args []value.Value) value.Value {
-	recv := args[0].Interface().(*hash_maphash.Hash)
-	return value.MakeInt(int64(recv.Size()))
-}
-
-func direct_method_hash_maphash_Hash_Sum(args []value.Value) value.Value {
-	recv := args[0].Interface().(*hash_maphash.Hash)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgHashMaphash[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
 		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsHashMaphash(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
 		}
-		return v.([]byte)
-	}()
-	return value.MakeBytes([]byte(recv.Sum(a0)))
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_method_hash_maphash_Hash_Sum64(args []value.Value) value.Value {
-	recv := args[0].Interface().(*hash_maphash.Hash)
-	return value.MakeUint64(recv.Sum64())
+func directCallHashMaphashBytes(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgHashMaphash[hash_maphash.Seed](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgHashMaphash[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := hash_maphash.Bytes(a0, a1)
+	return directResultsHashMaphash(r0)
 }
 
-func direct_method_hash_maphash_Hash_Write(args []value.Value) value.Value {
-	recv := args[0].Interface().(*hash_maphash.Hash)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	r0, r1 := recv.Write(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+func directCallHashMaphashMakeSeed(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := hash_maphash.MakeSeed()
+	return directResultsHashMaphash(r0)
 }
 
-func direct_method_hash_maphash_Hash_WriteByte(args []value.Value) value.Value {
-	recv := args[0].Interface().(*hash_maphash.Hash)
-	a0 := byte(args[1].Uint())
-	return value.FromInterface(recv.WriteByte(a0))
-}
-
-func direct_method_hash_maphash_Hash_WriteString(args []value.Value) value.Value {
-	recv := args[0].Interface().(*hash_maphash.Hash)
-	a0 := args[1].String()
-	r0, r1 := recv.WriteString(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+func directCallHashMaphashString(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgHashMaphash[hash_maphash.Seed](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgHashMaphash[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := hash_maphash.String(a0, a1)
+	return directResultsHashMaphash(r0)
 }

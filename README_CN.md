@@ -1,19 +1,28 @@
-# Gig - Go 语言实现的Go 解释器
+# Gig - Go 语言规则解释执行引擎
 
 [![中文](https://img.shields.io/badge/lang-中文-red.svg)](README_CN.md) [![English](https://img.shields.io/badge/lang-English-blue.svg)](README.md)
 
-Gig 是一个用 Go 语言编写的高性能 Go 解释器，采用 SSA 到字节码的编译方式和基于栈的虚拟机。
+Gig 是一个可嵌入 Go 应用的规则解释执行引擎。它复用 Go 官方 parser、type checker 和 `golang.org/x/tools/go/ssa` 构建中间表示，再通过轻量 SSA interpreter 直接执行规则代码；同时用生成式 DirectCall wrapper 接入标准库和第三方 Go 包，避免外部函数调用落到 `reflect.Value.Call` 的高成本路径。
+
+这个项目的目标不是做一个完整通用的 Go 运行时，而是解决业务系统里“规则变化快、硬编码发布慢、模板函数扩展成本高”的问题：让规则仍然用 Go 语法表达，让宿主系统可以治理依赖、超时、安全边界和上下线流程。
 
 > **说明**：本项目大量使用 AI 工具进行开发。它包含了全面的测试（40+ 测试文件）和基准测试，以确保正确性和性能。
 
+更多材料：
+
+- [当前架构与创新点总览](docs/GIG_RULE_ENGINE_OVERVIEW_CN.md)
+- [内部实现走读](docs/ARCHITECTURE_CN.md)
+- [性能优化记录](docs/PERFORMANCE_OPTIMIZATION_2026-06_CN.md)
+
 ## 特性
 
-- **基于 SSA 的编译**：使用 `golang.org/x/tools/go/ssa` 作为中间表示
-- **基于栈的虚拟机**：高效字节码执行，开销极小
-- **Tagged-Union 值系统**：基本类型零反射开销
-- **安全性**：在解释代码中禁止 `unsafe`、`reflect` 和 `panic`
-- **可扩展**：支持注册外部 Go 包（内置 40+ 标准库包）
-- **Context 取消支持**：完整支持 `context.Context` 超时和取消（[文档](docs/context-cancellation_CN.md)）
+- **Go 语法规则引擎**：业务规则可以写成普通 Go 函数，支持控制流、闭包、多返回值、结构体、方法、defer/panic/recover、goroutine/channel/select 等常用语义。
+- **直接 SSA 解释执行**：源码经过 parse/typecheck/SSA 后直接由 `internal/interp` 执行，不再经过自定义字节码和栈式 VM 层。
+- **Typed Value 系统**：`value.Value` 使用 32 字节 tagged union，基础类型以内联字段保存，复合/宿主类型才进入 reflect fallback。
+- **生成式外部调用桥**：`gig gen` 为标准库和第三方包生成注册文件与 DirectCall wrapper；当前内置标准库 package-level functions 全部走 DirectCall。
+- **可治理宿主边界**：外部包由 registry 显式注册，前端禁止 `unsafe`、`reflect`，默认拒绝 `panic`，并拒绝解释期 struct 直接冒充宿主非空 interface。
+- **Context 取消支持**：完整支持 `context.Context` 超时和取消（[文档](docs/ARCHITECTURE_CN.md#12-context-取消)）
+- **AI harness 语义回归**：测试体系覆盖解释执行与原生 Go 结果对比，用于校验 AI 生成代码和解释器语义一致性。
 
 ## 安装
 
@@ -180,7 +189,7 @@ import "github.com/t04dJ14n9/gig/importer"
 
 // 手动注册包（通常通过生成的代码完成）
 pkg := importer.RegisterPackage("mypkg", "mypkg")
-pkg.AddFunction("MyFunc", MyFunc, "", directCall_MyFunc)
+pkg.AddFunction("MyFunc", MyFunc, "", directCallMyFunc) // 可选 DirectCall wrapper
 pkg.AddConstant("MyConst", MyConst, "")
 pkg.AddVariable("MyVar", &MyVar, "")
 pkg.AddType("MyType", reflect.TypeOf(MyType{}), "")
@@ -238,6 +247,10 @@ gig gen ./mydep                 # 在 myapp/mydep/packages/ 生成注册代码
 - ✅ 外部 Go 函数调用
 
 ## 性能
+
+最新 Gig/Yaegi 对比和简历可用数据见 [项目总览](docs/GIG_RULE_ENGINE_OVERVIEW_CN.md#最新性能快照)。当前实现的结论是：外部函数、方法和混合调用场景均快于 Yaegi；纯算术微循环仍是后续优化重点。
+
+下面保留的表格来自早期栈式 VM 版本的历史 benchmark，用于展示项目演进背景；当前版本请以上面的最新快照为准。
 
 在同一台机器上使用相同算法，对比 **Gig**、**Yaegi**（Go 解释器）、**GopherLua**（Lua 解释器）和 **原生 Go** 的真实基准测试。
 
@@ -366,56 +379,84 @@ Gig 通过禁止某些导入来强制安全性：
 
 ## 架构
 
-Gig 使用多阶段编译流水线将 Go 源代码转换为高效字节码，然后由基于栈的虚拟机执行。
+Gig 当前使用直接 SSA 解释执行架构：源码先经过 Go 官方 parser、type checker 和 SSA builder，再由 `internal/interp` 直接解释 `ssa.Function` / `ssa.BasicBlock` / `ssa.Instruction`。外部包通过 `gentool` 生成注册代码和 DirectCall wrapper，优先绕过 `reflect.Value.Call`。
 
-### 高层架构
+完整架构图和创新点见 [Gig 项目总览](docs/GIG_RULE_ENGINE_OVERVIEW_CN.md)。
+
+### 当前高层架构
 
 ```mermaid
 flowchart TB
-    subgraph Input["📥 输入"]
-        SRC["Go 源代码"]
+    subgraph Input["输入与治理"]
+        SRC["Go 规则源码"]
+        CTX["context.Context<br/>超时/取消"]
+        PKGS["pkgs.go<br/>依赖白名单"]
     end
 
-    subgraph Frontend["🔍 前端"]
-        PARSER["go/parser<br/>AST 生成"]
-        TYPECHECK["go/types<br/>类型检查"]
-        SSA["golang.org/x/tools/go/ssa<br/>SSA IR 生成"]
+    subgraph Frontend["Go 官方前端"]
+        PARSER["go/parser<br/>AST"]
+        SAFETY["安全检查<br/>ban unsafe/reflect/panic"]
+        TYPECHECK["go/types<br/>host importer 类型检查"]
+        SSA["go/ssa<br/>SSA IR"]
     end
 
-    subgraph Compiler["⚙️ 编译器"]
-        COMP["SSA → 字节码<br/>~100 操作码"]
-        CONST["常量池"]
-        TYPES["类型池"]
-        FUNCS["函数注册表"]
+    subgraph Interpreter["SSA Interpreter"]
+        ENGINE["interp.program"]
+        FRAME["frame<br/>block/prevBlock/slots/cells"]
+        DISPATCH["runFrame<br/>Phi + SSA instruction dispatch"]
+        FAST["fast_plan<br/>typed int/bool 热路径"]
+        VALUE["value.Value<br/>32-byte tagged union"]
     end
 
-    subgraph Runtime["🚀 运行时"]
-        VM["基于栈的虚拟机"]
-        VALUE["Tagged-Union<br/>值系统"]
-        EXT["外部包<br/>注册表"]
+    subgraph Host["宿主桥"]
+        REG["importer.Registry"]
+        ENV["host.Environment"]
+        DIRECT["Generated DirectCall<br/>stdlib/third-party"]
+        REFLECT["reflect fallback"]
     end
 
-    subgraph Output["📤 输出"]
-        RESULT["结果<br/>(interface{})"]
+    subgraph Quality["验证与观测"]
+        TEST["native parity / AI harness"]
+        BENCH["benchmarks<br/>Gig vs Yaegi"]
     end
 
     SRC --> PARSER
-    PARSER --> TYPECHECK
+    PARSER --> SAFETY
+    SAFETY --> TYPECHECK
     TYPECHECK --> SSA
-    SSA --> COMP
-    COMP --> CONST
-    COMP --> TYPES
-    COMP --> FUNCS
-    CONST --> VM
-    TYPES --> VM
-    FUNCS --> VM
-    VM --> VALUE
-    VM --> EXT
-    EXT --> VALUE
-    VALUE --> RESULT
+    SSA --> ENGINE --> FRAME --> DISPATCH
+    DISPATCH --> FAST
+    DISPATCH --> VALUE
+    CTX --> ENGINE
+
+    PKGS --> REG
+    REG --> ENV
+    TYPECHECK --> ENV
+    DISPATCH --> ENV
+    ENV --> DIRECT --> VALUE
+    ENV --> REFLECT --> VALUE
+
+    ENGINE --> TEST
+    ENGINE --> BENCH
 ```
 
-### 详细组件架构
+### 当前组件概览
+
+| 组件 | 包/文件 | 职责 |
+| --- | --- | --- |
+| 入口 API | `gig.go` | `Build`、`Run`、`RunWithContext`，负责公开 API 与 `any`/`value.Value` 转换 |
+| 前端 | `internal/frontend/` | parse、类型检查、自动导入、安全检查、G_iface_ban、SSA 构建 |
+| SSA 解释器 | `internal/interp/` | `callSSA`、`runFrame`、SSA instruction dispatch、defer/panic/recover、goroutine/channel/select |
+| 热路径计划 | `internal/interp/fast_plan.go` | plain `int`/`bool` Phi/BinOp/If 和 full fast block 执行计划 |
+| 值系统 | `value/` | 32-byte tagged union、typed zero/convert、reflect fallback、interface box |
+| 宿主桥 | `host/`、`importer/` | 外部函数/变量/常量/类型注册，`host.Environment`，DirectFunction/DirectMethod |
+| 依赖生成 | `cmd/gig/gentool/` | 从 `pkgs.go` 生成 `packages/*.go`、DirectCall wrapper、类型注册 |
+| 内置标准库 | `stdlib/packages/` | 预生成标准库注册文件，package-level functions 全部带 DirectCall |
+| 正确性/性能 | `tests/`、`benchmarks/` | native parity、语义回归、Gig vs Yaegi benchmark |
+
+下面部分历史图描述的是早期栈式 VM/字节码实现，保留用于理解项目演进；当前实现以本节和 [内部实现走读](docs/ARCHITECTURE_CN.md) 为准。
+
+### 历史组件架构（早期栈式 VM）
 
 ```mermaid
 flowchart LR
@@ -736,7 +777,7 @@ flowchart TB
 
 ---
 
-### 组件概览
+### 历史组件概览（早期栈式 VM）
 
 | 组件         | 包                | 用途                                             |
 | ------------ | ----------------- | ------------------------------------------------ |
@@ -751,17 +792,17 @@ flowchart TB
 | **标准库包** | `stdlib/packages/`| 40+ 预注册标准库包                               |
 | **CLI**      | `cmd/gig`         | 代码生成工具                                     |
 
-### 关键设计决策
+### 当前关键设计决策
 
-1. **基于 SSA 的编译**：使用 Go 官方 SSA 库，正确处理复杂控制流、闭包和方法调用。
+1. **复用 Go 官方前端和 SSA**：使用 `go/parser`、`go/types`、`go/ssa` 处理语法、类型、控制流、闭包和方法调用。
 
-2. **Tagged-Union 值**：基本类型操作避免反射开销，将值存储在联合体中的原生 Go 类型中。
+2. **直接 SSA 解释执行**：当前后端直接执行 `ssa.Function` / `ssa.BasicBlock` / `ssa.Instruction`，不再依赖自定义 bytecode/opcode 层。
 
-3. **内联缓存**：外部函数调用缓存已解析的函数信息，实现快速分发。
+3. **Typed Value + 热路径计划**：基础类型保存在 32-byte tagged union 中，热点 int/bool 指令和 `[]int` 访问由 fast plan/side-channel 降低分配。
 
-4. **上下文集成**：虚拟机每 1024 条指令检查一次上下文取消，实现响应式超时处理。
+4. **生成式宿主桥**：`gig gen` 自动生成标准库/第三方库注册代码和 DirectCall wrapper，优先绕过 `reflect.Value.Call`。
 
-5. **默认安全**：在解释代码中禁止 `unsafe`、`reflect` 和 `panic`，实现受控执行。
+5. **默认安全与可治理**：在解释代码中禁止 `unsafe`、`reflect`，默认拒绝 `panic`，并通过 `context.Context` 实现响应式超时控制。
 
 ## 更新日志
 

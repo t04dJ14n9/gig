@@ -3,19 +3,19 @@ package packages
 
 import (
 	compress_lzw "compress/lzw"
-	io "io"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"io"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("compress/lzw", "lzw")
 
 	// Functions
-	pkg.AddFunction("NewReader", compress_lzw.NewReader, "", direct_compress_lzw_NewReader)
-	pkg.AddFunction("NewWriter", compress_lzw.NewWriter, "", direct_compress_lzw_NewWriter)
+	pkg.AddFunction("NewReader", compress_lzw.NewReader, "", directCallCompressLzwNewReader)
+	pkg.AddFunction("NewWriter", compress_lzw.NewWriter, "", directCallCompressLzwNewWriter)
 
 	// Constants
 	pkg.AddConstant("LSB", compress_lzw.LSB, "")
@@ -26,86 +26,113 @@ func init() {
 	pkg.AddType("Reader", reflect.TypeOf(compress_lzw.Reader{}), "")
 	pkg.AddType("Writer", reflect.TypeOf(compress_lzw.Writer{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Reader", "Close", direct_method_compress_lzw_Reader_Close)
-	pkg.AddMethodDirectCall("Reader", "Read", direct_method_compress_lzw_Reader_Read)
-	pkg.AddMethodDirectCall("Reader", "Reset", direct_method_compress_lzw_Reader_Reset)
-	pkg.AddMethodDirectCall("Writer", "Close", direct_method_compress_lzw_Writer_Close)
-	pkg.AddMethodDirectCall("Writer", "Reset", direct_method_compress_lzw_Writer_Reset)
-	pkg.AddMethodDirectCall("Writer", "Write", direct_method_compress_lzw_Writer_Write)
-
 }
 
-func direct_compress_lzw_NewReader(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	a1 := compress_lzw.Order(int(args[1].Int()))
-	a2 := int(args[2].Int())
-	return value.FromInterface(compress_lzw.NewReader(a0, a1, a2))
+func directArgCompressLzw[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_compress_lzw_NewWriter(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	a1 := compress_lzw.Order(int(args[1].Int()))
-	a2 := int(args[2].Int())
-	return value.FromInterface(compress_lzw.NewWriter(a0, a1, a2))
-}
-
-func direct_method_compress_lzw_Reader_Close(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_lzw.Reader)
-	return value.FromInterface(recv.Close())
-}
-
-func direct_method_compress_lzw_Reader_Read(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_lzw.Reader)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
+func directVariadicArgsCompressLzw[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgCompressLzw[[]T](args[0]); err == nil {
+			return packed, nil
 		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgCompressLzw[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
 		}
-		return v.([]byte)
-	}()
-	r0, r1 := recv.Read(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_compress_lzw_Reader_Reset(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_lzw.Reader)
-	a0 := args[1].Interface().(io.Reader)
-	a1 := compress_lzw.Order(int(args[2].Int()))
-	a2 := int(args[3].Int())
-	recv.Reset(a0, a1, a2)
-	return value.MakeNil()
-}
-
-func direct_method_compress_lzw_Writer_Close(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_lzw.Writer)
-	return value.FromInterface(recv.Close())
-}
-
-func direct_method_compress_lzw_Writer_Reset(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_lzw.Writer)
-	a0 := args[1].Interface().(io.Writer)
-	a1 := compress_lzw.Order(int(args[2].Int()))
-	a2 := int(args[3].Int())
-	recv.Reset(a0, a1, a2)
-	return value.MakeNil()
-}
-
-func direct_method_compress_lzw_Writer_Write(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_lzw.Writer)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgCompressLzw[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
 		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsCompressLzw(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
 		}
-		return v.([]byte)
-	}()
-	r0, r1 := recv.Write(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallCompressLzwNewReader(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgCompressLzw[io.Reader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgCompressLzw[compress_lzw.Order](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgCompressLzw[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := compress_lzw.NewReader(a0, a1, a2)
+	return directResultsCompressLzw(r0)
+}
+
+func directCallCompressLzwNewWriter(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgCompressLzw[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgCompressLzw[compress_lzw.Order](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgCompressLzw[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := compress_lzw.NewWriter(a0, a1, a2)
+	return directResultsCompressLzw(r0)
 }

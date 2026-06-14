@@ -3,19 +3,20 @@ package packages
 
 import (
 	crypto_sha256 "crypto/sha256"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("crypto/sha256", "sha256")
 
 	// Functions
-	pkg.AddFunction("New", crypto_sha256.New, "", direct_crypto_sha256_New)
-	pkg.AddFunction("New224", crypto_sha256.New224, "", direct_crypto_sha256_New224)
-	pkg.AddFunction("Sum224", crypto_sha256.Sum224, "", direct_crypto_sha256_Sum224)
-	pkg.AddFunction("Sum256", crypto_sha256.Sum256, "", direct_crypto_sha256_Sum256)
+	pkg.AddFunction("New", crypto_sha256.New, "", directCallCryptoSha256New)
+	pkg.AddFunction("New224", crypto_sha256.New224, "", directCallCryptoSha256New224)
+	pkg.AddFunction("Sum224", crypto_sha256.Sum224, "", directCallCryptoSha256Sum224)
+	pkg.AddFunction("Sum256", crypto_sha256.Sum256, "", directCallCryptoSha256Sum256)
 
 	// Constants
 	pkg.AddConstant("BlockSize", crypto_sha256.BlockSize, "")
@@ -24,38 +25,111 @@ func init() {
 
 }
 
-func direct_crypto_sha256_New(args []value.Value) value.Value {
-	return value.FromInterface(crypto_sha256.New())
+func directArgCryptoSha256[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_crypto_sha256_New224(args []value.Value) value.Value {
-	return value.FromInterface(crypto_sha256.New224())
+func directVariadicArgsCryptoSha256[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgCryptoSha256[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgCryptoSha256[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgCryptoSha256[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
 }
 
-func direct_crypto_sha256_Sum224(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
+func directResultsCryptoSha256(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
 		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(crypto_sha256.Sum224(a0))
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_crypto_sha256_Sum256(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(crypto_sha256.Sum256(a0))
+func directCallCryptoSha256New(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := crypto_sha256.New()
+	return directResultsCryptoSha256(r0)
+}
+
+func directCallCryptoSha256New224(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := crypto_sha256.New224()
+	return directResultsCryptoSha256(r0)
+}
+
+func directCallCryptoSha256Sum224(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgCryptoSha256[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := crypto_sha256.Sum224(a0)
+	return directResultsCryptoSha256(r0)
+}
+
+func directCallCryptoSha256Sum256(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgCryptoSha256[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := crypto_sha256.Sum256(a0)
+	return directResultsCryptoSha256(r0)
 }

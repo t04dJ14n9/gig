@@ -86,7 +86,6 @@ result, err := prog.RunWithContext(ctx, "main", args...)
 
 // Build options
 gig.WithRegistry(r)          // Custom package registry
-gig.WithStatefulGlobals()    // Persistent globals across Run() calls
 gig.WithAllowPanic()         // Allow panic() in interpreted code
 ```
 

@@ -3,73 +3,100 @@ package packages
 
 import (
 	container_ring "container/ring"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("container/ring", "ring")
 
 	// Functions
-	pkg.AddFunction("New", container_ring.New, "", direct_container_ring_New)
+	pkg.AddFunction("New", container_ring.New, "", directCallContainerRingNew)
 
 	// Types
 	pkg.AddType("Ring", reflect.TypeOf(container_ring.Ring{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Ring", "Do", direct_method_container_ring_Ring_Do)
-	pkg.AddMethodDirectCall("Ring", "Len", direct_method_container_ring_Ring_Len)
-	pkg.AddMethodDirectCall("Ring", "Link", direct_method_container_ring_Ring_Link)
-	pkg.AddMethodDirectCall("Ring", "Move", direct_method_container_ring_Ring_Move)
-	pkg.AddMethodDirectCall("Ring", "Next", direct_method_container_ring_Ring_Next)
-	pkg.AddMethodDirectCall("Ring", "Prev", direct_method_container_ring_Ring_Prev)
-	pkg.AddMethodDirectCall("Ring", "Unlink", direct_method_container_ring_Ring_Unlink)
-
 }
 
-func direct_container_ring_New(args []value.Value) value.Value {
-	a0 := int(args[0].Int())
-	return value.FromInterface(container_ring.New(a0))
+func directArgContainerRing[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_method_container_ring_Ring_Do(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_ring.Ring)
-	a0 := args[1].Interface().(func(any))
-	recv.Do(a0)
-	return value.MakeNil()
+func directVariadicArgsContainerRing[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgContainerRing[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgContainerRing[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgContainerRing[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
 }
 
-func direct_method_container_ring_Ring_Len(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_ring.Ring)
-	return value.MakeInt(int64(recv.Len()))
+func directResultsContainerRing(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_method_container_ring_Ring_Link(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_ring.Ring)
-	a0 := args[1].Interface().(*container_ring.Ring)
-	return value.FromInterface(recv.Link(a0))
-}
-
-func direct_method_container_ring_Ring_Move(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_ring.Ring)
-	a0 := int(args[1].Int())
-	return value.FromInterface(recv.Move(a0))
-}
-
-func direct_method_container_ring_Ring_Next(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_ring.Ring)
-	return value.FromInterface(recv.Next())
-}
-
-func direct_method_container_ring_Ring_Prev(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_ring.Ring)
-	return value.FromInterface(recv.Prev())
-}
-
-func direct_method_container_ring_Ring_Unlink(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_ring.Ring)
-	a0 := int(args[1].Int())
-	return value.FromInterface(recv.Unlink(a0))
+func directCallContainerRingNew(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgContainerRing[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := container_ring.New(a0)
+	return directResultsContainerRing(r0)
 }

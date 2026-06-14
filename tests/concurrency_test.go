@@ -9,7 +9,9 @@ import (
 
 // TestConcurrentProgramMethodResolution verifies that two programs compiled
 // and run concurrently don't interfere with each other's method dispatch.
-// This is a regression test for the global method resolver race (C1).
+// The interpreted method-set lookup (`lookupInterpretedMethod`) scans the
+// program's SSA package, so two programs whose anonymous types collapse to
+// the same reflect identity must remain isolated. Run with -race.
 func TestConcurrentProgramMethodResolution(t *testing.T) {
 	srcA := `
 package main

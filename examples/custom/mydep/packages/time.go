@@ -2,36 +2,36 @@
 package packages
 
 import (
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 	"reflect"
 	"time"
-
-	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("time", "time")
 
 	// Functions
-	pkg.AddFunction("After", time.After, "", direct_time_After)
-	pkg.AddFunction("AfterFunc", time.AfterFunc, "", direct_time_AfterFunc)
-	pkg.AddFunction("Date", time.Date, "", direct_time_Date)
-	pkg.AddFunction("FixedZone", time.FixedZone, "", direct_time_FixedZone)
-	pkg.AddFunction("LoadLocation", time.LoadLocation, "", direct_time_LoadLocation)
-	pkg.AddFunction("LoadLocationFromTZData", time.LoadLocationFromTZData, "", direct_time_LoadLocationFromTZData)
-	pkg.AddFunction("NewTicker", time.NewTicker, "", direct_time_NewTicker)
-	pkg.AddFunction("NewTimer", time.NewTimer, "", direct_time_NewTimer)
-	pkg.AddFunction("Now", time.Now, "", direct_time_Now)
-	pkg.AddFunction("Parse", time.Parse, "", direct_time_Parse)
-	pkg.AddFunction("ParseDuration", time.ParseDuration, "", direct_time_ParseDuration)
-	pkg.AddFunction("ParseInLocation", time.ParseInLocation, "", direct_time_ParseInLocation)
-	pkg.AddFunction("Since", time.Since, "", direct_time_Since)
-	pkg.AddFunction("Sleep", time.Sleep, "", direct_time_Sleep)
-	pkg.AddFunction("Tick", time.Tick, "", direct_time_Tick)
-	pkg.AddFunction("Unix", time.Unix, "", direct_time_Unix)
-	pkg.AddFunction("UnixMicro", time.UnixMicro, "", direct_time_UnixMicro)
-	pkg.AddFunction("UnixMilli", time.UnixMilli, "", direct_time_UnixMilli)
-	pkg.AddFunction("Until", time.Until, "", direct_time_Until)
+	pkg.AddFunction("After", time.After, "", directCallTimeAfter)
+	pkg.AddFunction("AfterFunc", time.AfterFunc, "", directCallTimeAfterFunc)
+	pkg.AddFunction("Date", time.Date, "", directCallTimeDate)
+	pkg.AddFunction("FixedZone", time.FixedZone, "", directCallTimeFixedZone)
+	pkg.AddFunction("LoadLocation", time.LoadLocation, "", directCallTimeLoadLocation)
+	pkg.AddFunction("LoadLocationFromTZData", time.LoadLocationFromTZData, "", directCallTimeLoadLocationFromTZData)
+	pkg.AddFunction("NewTicker", time.NewTicker, "", directCallTimeNewTicker)
+	pkg.AddFunction("NewTimer", time.NewTimer, "", directCallTimeNewTimer)
+	pkg.AddFunction("Now", time.Now, "", directCallTimeNow)
+	pkg.AddFunction("Parse", time.Parse, "", directCallTimeParse)
+	pkg.AddFunction("ParseDuration", time.ParseDuration, "", directCallTimeParseDuration)
+	pkg.AddFunction("ParseInLocation", time.ParseInLocation, "", directCallTimeParseInLocation)
+	pkg.AddFunction("Since", time.Since, "", directCallTimeSince)
+	pkg.AddFunction("Sleep", time.Sleep, "", directCallTimeSleep)
+	pkg.AddFunction("Tick", time.Tick, "", directCallTimeTick)
+	pkg.AddFunction("Unix", time.Unix, "", directCallTimeUnix)
+	pkg.AddFunction("UnixMicro", time.UnixMicro, "", directCallTimeUnixMicro)
+	pkg.AddFunction("UnixMilli", time.UnixMilli, "", directCallTimeUnixMilli)
+	pkg.AddFunction("Until", time.Until, "", directCallTimeUntil)
 
 	// Constants
 	pkg.AddConstant("ANSIC", time.ANSIC, "")
@@ -93,586 +93,353 @@ func init() {
 	pkg.AddType("Timer", reflect.TypeOf(time.Timer{}), "")
 	pkg.AddType("Weekday", reflect.TypeOf((*time.Weekday)(nil)).Elem(), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Duration", "Abs", direct_method_time_Duration_Abs)
-	pkg.AddMethodDirectCall("Duration", "Hours", direct_method_time_Duration_Hours)
-	pkg.AddMethodDirectCall("Duration", "Microseconds", direct_method_time_Duration_Microseconds)
-	pkg.AddMethodDirectCall("Duration", "Milliseconds", direct_method_time_Duration_Milliseconds)
-	pkg.AddMethodDirectCall("Duration", "Minutes", direct_method_time_Duration_Minutes)
-	pkg.AddMethodDirectCall("Duration", "Nanoseconds", direct_method_time_Duration_Nanoseconds)
-	pkg.AddMethodDirectCall("Duration", "Round", direct_method_time_Duration_Round)
-	pkg.AddMethodDirectCall("Duration", "Seconds", direct_method_time_Duration_Seconds)
-	pkg.AddMethodDirectCall("Duration", "String", direct_method_time_Duration_String)
-	pkg.AddMethodDirectCall("Duration", "Truncate", direct_method_time_Duration_Truncate)
-	pkg.AddMethodDirectCall("Location", "String", direct_method_time_Location_String)
-	pkg.AddMethodDirectCall("Month", "String", direct_method_time_Month_String)
-	pkg.AddMethodDirectCall("ParseError", "Error", direct_method_time_ParseError_Error)
-	pkg.AddMethodDirectCall("Ticker", "Reset", direct_method_time_Ticker_Reset)
-	pkg.AddMethodDirectCall("Ticker", "Stop", direct_method_time_Ticker_Stop)
-	pkg.AddMethodDirectCall("Time", "Add", direct_method_time_Time_Add)
-	pkg.AddMethodDirectCall("Time", "AddDate", direct_method_time_Time_AddDate)
-	pkg.AddMethodDirectCall("Time", "After", direct_method_time_Time_After)
-	pkg.AddMethodDirectCall("Time", "AppendFormat", direct_method_time_Time_AppendFormat)
-	pkg.AddMethodDirectCall("Time", "Before", direct_method_time_Time_Before)
-	pkg.AddMethodDirectCall("Time", "Clock", direct_method_time_Time_Clock)
-	pkg.AddMethodDirectCall("Time", "Compare", direct_method_time_Time_Compare)
-	pkg.AddMethodDirectCall("Time", "Date", direct_method_time_Time_Date)
-	pkg.AddMethodDirectCall("Time", "Day", direct_method_time_Time_Day)
-	pkg.AddMethodDirectCall("Time", "Equal", direct_method_time_Time_Equal)
-	pkg.AddMethodDirectCall("Time", "Format", direct_method_time_Time_Format)
-	pkg.AddMethodDirectCall("Time", "GoString", direct_method_time_Time_GoString)
-	pkg.AddMethodDirectCall("Time", "GobEncode", direct_method_time_Time_GobEncode)
-	pkg.AddMethodDirectCall("Time", "Hour", direct_method_time_Time_Hour)
-	pkg.AddMethodDirectCall("Time", "ISOWeek", direct_method_time_Time_ISOWeek)
-	pkg.AddMethodDirectCall("Time", "In", direct_method_time_Time_In)
-	pkg.AddMethodDirectCall("Time", "IsDST", direct_method_time_Time_IsDST)
-	pkg.AddMethodDirectCall("Time", "IsZero", direct_method_time_Time_IsZero)
-	pkg.AddMethodDirectCall("Time", "Local", direct_method_time_Time_Local)
-	pkg.AddMethodDirectCall("Time", "Location", direct_method_time_Time_Location)
-	pkg.AddMethodDirectCall("Time", "MarshalBinary", direct_method_time_Time_MarshalBinary)
-	pkg.AddMethodDirectCall("Time", "MarshalJSON", direct_method_time_Time_MarshalJSON)
-	pkg.AddMethodDirectCall("Time", "MarshalText", direct_method_time_Time_MarshalText)
-	pkg.AddMethodDirectCall("Time", "Minute", direct_method_time_Time_Minute)
-	pkg.AddMethodDirectCall("Time", "Month", direct_method_time_Time_Month)
-	pkg.AddMethodDirectCall("Time", "Nanosecond", direct_method_time_Time_Nanosecond)
-	pkg.AddMethodDirectCall("Time", "Round", direct_method_time_Time_Round)
-	pkg.AddMethodDirectCall("Time", "Second", direct_method_time_Time_Second)
-	pkg.AddMethodDirectCall("Time", "String", direct_method_time_Time_String)
-	pkg.AddMethodDirectCall("Time", "Sub", direct_method_time_Time_Sub)
-	pkg.AddMethodDirectCall("Time", "Truncate", direct_method_time_Time_Truncate)
-	pkg.AddMethodDirectCall("Time", "UTC", direct_method_time_Time_UTC)
-	pkg.AddMethodDirectCall("Time", "Unix", direct_method_time_Time_Unix)
-	pkg.AddMethodDirectCall("Time", "UnixMicro", direct_method_time_Time_UnixMicro)
-	pkg.AddMethodDirectCall("Time", "UnixMilli", direct_method_time_Time_UnixMilli)
-	pkg.AddMethodDirectCall("Time", "UnixNano", direct_method_time_Time_UnixNano)
-	pkg.AddMethodDirectCall("Time", "Weekday", direct_method_time_Time_Weekday)
-	pkg.AddMethodDirectCall("Time", "Year", direct_method_time_Time_Year)
-	pkg.AddMethodDirectCall("Time", "YearDay", direct_method_time_Time_YearDay)
-	pkg.AddMethodDirectCall("Time", "Zone", direct_method_time_Time_Zone)
-	pkg.AddMethodDirectCall("Time", "ZoneBounds", direct_method_time_Time_ZoneBounds)
-	pkg.AddMethodDirectCall("Time", "GobDecode", direct_method_time_Time_GobDecode)
-	pkg.AddMethodDirectCall("Time", "UnmarshalBinary", direct_method_time_Time_UnmarshalBinary)
-	pkg.AddMethodDirectCall("Time", "UnmarshalJSON", direct_method_time_Time_UnmarshalJSON)
-	pkg.AddMethodDirectCall("Time", "UnmarshalText", direct_method_time_Time_UnmarshalText)
-	pkg.AddMethodDirectCall("Timer", "Reset", direct_method_time_Timer_Reset)
-	pkg.AddMethodDirectCall("Timer", "Stop", direct_method_time_Timer_Stop)
-	pkg.AddMethodDirectCall("Weekday", "String", direct_method_time_Weekday_String)
-
 }
 
-func direct_time_After(args []value.Value) value.Value {
-	a0 := time.Duration(args[0].Int())
-	return value.FromInterface(time.After(a0))
+func directArgTime[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_time_AfterFunc(args []value.Value) value.Value {
-	a0 := time.Duration(args[0].Int())
-	a1 := args[1].Interface().(func())
-	return value.FromInterface(time.AfterFunc(a0, a1))
+func directVariadicArgsTime[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgTime[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgTime[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgTime[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
 }
 
-func direct_time_Date(args []value.Value) value.Value {
-	a0 := int(args[0].Int())
-	a1 := time.Month(int(args[1].Int()))
-	a2 := int(args[2].Int())
-	a3 := int(args[3].Int())
-	a4 := int(args[4].Int())
-	a5 := int(args[5].Int())
-	a6 := int(args[6].Int())
-	a7 := args[7].Interface().(*time.Location)
-	return value.FromInterface(time.Date(a0, a1, a2, a3, a4, a5, a6, a7))
+func directResultsTime(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_time_FixedZone(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := int(args[1].Int())
-	return value.FromInterface(time.FixedZone(a0, a1))
+func directCallTimeAfter(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgTime[time.Duration](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := time.After(a0)
+	return directResultsTime(r0)
 }
 
-func direct_time_LoadLocation(args []value.Value) value.Value {
-	a0 := args[0].String()
+func directCallTimeAfterFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgTime[time.Duration](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgTime[func()](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := time.AfterFunc(a0, a1)
+	return directResultsTime(r0)
+}
+
+func directCallTimeDate(args []value.Value) ([]value.Value, error) {
+	if len(args) != 8 {
+		return nil, fmt.Errorf("arg count %d != 8", len(args))
+	}
+	a0, err := directArgTime[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgTime[time.Month](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgTime[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	a3, err := directArgTime[int](args[3])
+	if err != nil {
+		return nil, fmt.Errorf("arg 3: %w", err)
+	}
+	a4, err := directArgTime[int](args[4])
+	if err != nil {
+		return nil, fmt.Errorf("arg 4: %w", err)
+	}
+	a5, err := directArgTime[int](args[5])
+	if err != nil {
+		return nil, fmt.Errorf("arg 5: %w", err)
+	}
+	a6, err := directArgTime[int](args[6])
+	if err != nil {
+		return nil, fmt.Errorf("arg 6: %w", err)
+	}
+	a7, err := directArgTime[*time.Location](args[7])
+	if err != nil {
+		return nil, fmt.Errorf("arg 7: %w", err)
+	}
+	r0 := time.Date(a0, a1, a2, a3, a4, a5, a6, a7)
+	return directResultsTime(r0)
+}
+
+func directCallTimeFixedZone(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgTime[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgTime[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := time.FixedZone(a0, a1)
+	return directResultsTime(r0)
+}
+
+func directCallTimeLoadLocation(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgTime[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := time.LoadLocation(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsTime(r0, r1)
 }
 
-func direct_time_LoadLocationFromTZData(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
+func directCallTimeLoadLocationFromTZData(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgTime[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgTime[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := time.LoadLocationFromTZData(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsTime(r0, r1)
 }
 
-func direct_time_NewTicker(args []value.Value) value.Value {
-	a0 := time.Duration(args[0].Int())
-	return value.FromInterface(time.NewTicker(a0))
+func directCallTimeNewTicker(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgTime[time.Duration](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := time.NewTicker(a0)
+	return directResultsTime(r0)
 }
 
-func direct_time_NewTimer(args []value.Value) value.Value {
-	a0 := time.Duration(args[0].Int())
-	return value.FromInterface(time.NewTimer(a0))
+func directCallTimeNewTimer(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgTime[time.Duration](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := time.NewTimer(a0)
+	return directResultsTime(r0)
 }
 
-func direct_time_Now(args []value.Value) value.Value {
-	return value.FromInterface(time.Now())
+func directCallTimeNow(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := time.Now()
+	return directResultsTime(r0)
 }
 
-func direct_time_Parse(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].String()
+func directCallTimeParse(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgTime[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgTime[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := time.Parse(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsTime(r0, r1)
 }
 
-func direct_time_ParseDuration(args []value.Value) value.Value {
-	a0 := args[0].String()
+func directCallTimeParseDuration(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgTime[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := time.ParseDuration(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt64(int64(r0)), value.FromInterface(r1)})
+	return directResultsTime(r0, r1)
 }
 
-func direct_time_ParseInLocation(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].String()
-	a2 := args[2].Interface().(*time.Location)
+func directCallTimeParseInLocation(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgTime[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgTime[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgTime[*time.Location](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := time.ParseInLocation(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsTime(r0, r1)
 }
 
-func direct_time_Since(args []value.Value) value.Value {
-	a0 := args[0].Interface().(time.Time)
-	return value.MakeInt64(int64(time.Since(a0)))
+func directCallTimeSince(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgTime[time.Time](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := time.Since(a0)
+	return directResultsTime(r0)
 }
 
-func direct_time_Sleep(args []value.Value) value.Value {
-	a0 := time.Duration(args[0].Int())
+func directCallTimeSleep(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgTime[time.Duration](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	time.Sleep(a0)
-	return value.MakeNil()
-}
-
-func direct_time_Tick(args []value.Value) value.Value {
-	a0 := time.Duration(args[0].Int())
-	return value.FromInterface(time.Tick(a0))
-}
-
-func direct_time_Unix(args []value.Value) value.Value {
-	a0 := args[0].Int()
-	a1 := args[1].Int()
-	return value.FromInterface(time.Unix(a0, a1))
-}
-
-func direct_time_UnixMicro(args []value.Value) value.Value {
-	a0 := args[0].Int()
-	return value.FromInterface(time.UnixMicro(a0))
-}
-
-func direct_time_UnixMilli(args []value.Value) value.Value {
-	a0 := args[0].Int()
-	return value.FromInterface(time.UnixMilli(a0))
-}
-
-func direct_time_Until(args []value.Value) value.Value {
-	a0 := args[0].Interface().(time.Time)
-	return value.MakeInt64(int64(time.Until(a0)))
-}
-
-func direct_method_time_Duration_Abs(args []value.Value) value.Value {
-	recv := time.Duration(args[0].Int())
-	return value.MakeInt64(int64(recv.Abs()))
-}
-
-func direct_method_time_Duration_Hours(args []value.Value) value.Value {
-	recv := time.Duration(args[0].Int())
-	return value.MakeFloat(float64(recv.Hours()))
-}
-
-func direct_method_time_Duration_Microseconds(args []value.Value) value.Value {
-	recv := time.Duration(args[0].Int())
-	return value.MakeInt64(recv.Microseconds())
-}
-
-func direct_method_time_Duration_Milliseconds(args []value.Value) value.Value {
-	recv := time.Duration(args[0].Int())
-	return value.MakeInt64(recv.Milliseconds())
-}
-
-func direct_method_time_Duration_Minutes(args []value.Value) value.Value {
-	recv := time.Duration(args[0].Int())
-	return value.MakeFloat(float64(recv.Minutes()))
-}
-
-func direct_method_time_Duration_Nanoseconds(args []value.Value) value.Value {
-	recv := time.Duration(args[0].Int())
-	return value.MakeInt64(recv.Nanoseconds())
-}
-
-func direct_method_time_Duration_Round(args []value.Value) value.Value {
-	recv := time.Duration(args[0].Int())
-	a0 := time.Duration(args[1].Int())
-	return value.MakeInt64(int64(recv.Round(a0)))
-}
-
-func direct_method_time_Duration_Seconds(args []value.Value) value.Value {
-	recv := time.Duration(args[0].Int())
-	return value.MakeFloat(float64(recv.Seconds()))
-}
-
-func direct_method_time_Duration_String(args []value.Value) value.Value {
-	recv := time.Duration(args[0].Int())
-	return value.MakeString(string(recv.String()))
-}
-
-func direct_method_time_Duration_Truncate(args []value.Value) value.Value {
-	recv := time.Duration(args[0].Int())
-	a0 := time.Duration(args[1].Int())
-	return value.MakeInt64(int64(recv.Truncate(a0)))
-}
-
-func direct_method_time_Location_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(*time.Location)
-	return value.MakeString(string(recv.String()))
-}
-
-func direct_method_time_Month_String(args []value.Value) value.Value {
-	recv := time.Month(int(args[0].Int()))
-	return value.MakeString(string(recv.String()))
-}
-
-func direct_method_time_ParseError_Error(args []value.Value) value.Value {
-	recv := args[0].Interface().(*time.ParseError)
-	return value.MakeString(string(recv.Error()))
-}
-
-func direct_method_time_Ticker_Reset(args []value.Value) value.Value {
-	recv := args[0].Interface().(*time.Ticker)
-	a0 := time.Duration(args[1].Int())
-	recv.Reset(a0)
-	return value.MakeNil()
-}
-
-func direct_method_time_Ticker_Stop(args []value.Value) value.Value {
-	recv := args[0].Interface().(*time.Ticker)
-	recv.Stop()
-	return value.MakeNil()
-}
-
-func direct_method_time_Time_Add(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := time.Duration(args[1].Int())
-	return value.FromInterface(recv.Add(a0))
-}
-
-func direct_method_time_Time_AddDate(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := int(args[1].Int())
-	a1 := int(args[2].Int())
-	a2 := int(args[3].Int())
-	return value.FromInterface(recv.AddDate(a0, a1, a2))
-}
-
-func direct_method_time_Time_After(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := args[1].Interface().(time.Time)
-	return value.MakeBool(recv.After(a0))
-}
-
-func direct_method_time_Time_AppendFormat(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	a1 := args[2].String()
-	return value.MakeBytes([]byte(recv.AppendFormat(a0, a1)))
-}
-
-func direct_method_time_Time_Before(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := args[1].Interface().(time.Time)
-	return value.MakeBool(recv.Before(a0))
-}
-
-func direct_method_time_Time_Clock(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	r0, r1, r2 := recv.Clock()
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1)), value.MakeInt(int64(r2))})
-}
-
-func direct_method_time_Time_Compare(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := args[1].Interface().(time.Time)
-	return value.MakeInt(int64(recv.Compare(a0)))
-}
-
-func direct_method_time_Time_Date(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	r0, r1, r2 := recv.Date()
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(int(r1))), value.MakeInt(int64(r2))})
-}
-
-func direct_method_time_Time_Day(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(recv.Day()))
-}
-
-func direct_method_time_Time_Equal(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := args[1].Interface().(time.Time)
-	return value.MakeBool(recv.Equal(a0))
-}
-
-func direct_method_time_Time_Format(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := args[1].String()
-	return value.MakeString(string(recv.Format(a0)))
-}
-
-func direct_method_time_Time_GoString(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeString(string(recv.GoString()))
-}
-
-func direct_method_time_Time_GobEncode(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	r0, r1 := recv.GobEncode()
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_time_Time_Hour(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(recv.Hour()))
-}
-
-func direct_method_time_Time_ISOWeek(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	r0, r1 := recv.ISOWeek()
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1))})
-}
-
-func direct_method_time_Time_In(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := args[1].Interface().(*time.Location)
-	return value.FromInterface(recv.In(a0))
-}
-
-func direct_method_time_Time_IsDST(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeBool(recv.IsDST())
-}
-
-func direct_method_time_Time_IsZero(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeBool(recv.IsZero())
-}
-
-func direct_method_time_Time_Local(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.FromInterface(recv.Local())
-}
-
-func direct_method_time_Time_Location(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.FromInterface(recv.Location())
-}
-
-func direct_method_time_Time_MarshalBinary(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	r0, r1 := recv.MarshalBinary()
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_time_Time_MarshalJSON(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	r0, r1 := recv.MarshalJSON()
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_time_Time_MarshalText(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	r0, r1 := recv.MarshalText()
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_time_Time_Minute(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(recv.Minute()))
-}
-
-func direct_method_time_Time_Month(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(int(recv.Month())))
-}
-
-func direct_method_time_Time_Nanosecond(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(recv.Nanosecond()))
-}
-
-func direct_method_time_Time_Round(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := time.Duration(args[1].Int())
-	return value.FromInterface(recv.Round(a0))
-}
-
-func direct_method_time_Time_Second(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(recv.Second()))
-}
-
-func direct_method_time_Time_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeString(string(recv.String()))
-}
-
-func direct_method_time_Time_Sub(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := args[1].Interface().(time.Time)
-	return value.MakeInt64(int64(recv.Sub(a0)))
-}
-
-func direct_method_time_Time_Truncate(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	a0 := time.Duration(args[1].Int())
-	return value.FromInterface(recv.Truncate(a0))
-}
-
-func direct_method_time_Time_UTC(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.FromInterface(recv.UTC())
-}
-
-func direct_method_time_Time_Unix(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeInt64(recv.Unix())
-}
-
-func direct_method_time_Time_UnixMicro(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeInt64(recv.UnixMicro())
-}
-
-func direct_method_time_Time_UnixMilli(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeInt64(recv.UnixMilli())
-}
-
-func direct_method_time_Time_UnixNano(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeInt64(recv.UnixNano())
-}
-
-func direct_method_time_Time_Weekday(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(int(recv.Weekday())))
-}
-
-func direct_method_time_Time_Year(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(recv.Year()))
-}
-
-func direct_method_time_Time_YearDay(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	return value.MakeInt(int64(recv.YearDay()))
-}
-
-func direct_method_time_Time_Zone(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	r0, r1 := recv.Zone()
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.MakeInt(int64(r1))})
-}
-
-func direct_method_time_Time_ZoneBounds(args []value.Value) value.Value {
-	recv := args[0].Interface().(time.Time)
-	r0, r1 := recv.ZoneBounds()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_time_Time_GobDecode(args []value.Value) value.Value {
-	recv := args[0].Interface().(*time.Time)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(recv.GobDecode(a0))
-}
-
-func direct_method_time_Time_UnmarshalBinary(args []value.Value) value.Value {
-	recv := args[0].Interface().(*time.Time)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(recv.UnmarshalBinary(a0))
-}
-
-func direct_method_time_Time_UnmarshalJSON(args []value.Value) value.Value {
-	recv := args[0].Interface().(*time.Time)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(recv.UnmarshalJSON(a0))
-}
-
-func direct_method_time_Time_UnmarshalText(args []value.Value) value.Value {
-	recv := args[0].Interface().(*time.Time)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(recv.UnmarshalText(a0))
-}
-
-func direct_method_time_Timer_Reset(args []value.Value) value.Value {
-	recv := args[0].Interface().(*time.Timer)
-	a0 := time.Duration(args[1].Int())
-	return value.MakeBool(recv.Reset(a0))
-}
-
-func direct_method_time_Timer_Stop(args []value.Value) value.Value {
-	recv := args[0].Interface().(*time.Timer)
-	return value.MakeBool(recv.Stop())
-}
-
-func direct_method_time_Weekday_String(args []value.Value) value.Value {
-	recv := time.Weekday(int(args[0].Int()))
-	return value.MakeString(string(recv.String()))
+	return nil, nil
+}
+
+func directCallTimeTick(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgTime[time.Duration](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := time.Tick(a0)
+	return directResultsTime(r0)
+}
+
+func directCallTimeUnix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgTime[int64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgTime[int64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := time.Unix(a0, a1)
+	return directResultsTime(r0)
+}
+
+func directCallTimeUnixMicro(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgTime[int64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := time.UnixMicro(a0)
+	return directResultsTime(r0)
+}
+
+func directCallTimeUnixMilli(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgTime[int64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := time.UnixMilli(a0)
+	return directResultsTime(r0)
+}
+
+func directCallTimeUntil(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgTime[time.Time](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := time.Until(a0)
+	return directResultsTime(r0)
 }

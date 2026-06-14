@@ -3,20 +3,20 @@ package packages
 
 import (
 	encoding_asn1 "encoding/asn1"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("encoding/asn1", "asn1")
 
 	// Functions
-	pkg.AddFunction("Marshal", encoding_asn1.Marshal, "", direct_encoding_asn1_Marshal)
-	pkg.AddFunction("MarshalWithParams", encoding_asn1.MarshalWithParams, "", direct_encoding_asn1_MarshalWithParams)
-	pkg.AddFunction("Unmarshal", encoding_asn1.Unmarshal, "", direct_encoding_asn1_Unmarshal)
-	pkg.AddFunction("UnmarshalWithParams", encoding_asn1.UnmarshalWithParams, "", direct_encoding_asn1_UnmarshalWithParams)
+	pkg.AddFunction("Marshal", encoding_asn1.Marshal, "", directCallEncodingAsn1Marshal)
+	pkg.AddFunction("MarshalWithParams", encoding_asn1.MarshalWithParams, "", directCallEncodingAsn1MarshalWithParams)
+	pkg.AddFunction("Unmarshal", encoding_asn1.Unmarshal, "", directCallEncodingAsn1Unmarshal)
+	pkg.AddFunction("UnmarshalWithParams", encoding_asn1.UnmarshalWithParams, "", directCallEncodingAsn1UnmarshalWithParams)
 
 	// Constants
 	pkg.AddConstant("ClassApplication", encoding_asn1.ClassApplication, "")
@@ -56,106 +56,137 @@ func init() {
 	pkg.AddType("StructuralError", reflect.TypeOf(encoding_asn1.StructuralError{}), "")
 	pkg.AddType("SyntaxError", reflect.TypeOf(encoding_asn1.SyntaxError{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("BitString", "At", direct_method_encoding_asn1_BitString_At)
-	pkg.AddMethodDirectCall("BitString", "RightAlign", direct_method_encoding_asn1_BitString_RightAlign)
-	pkg.AddMethodDirectCall("ObjectIdentifier", "Equal", direct_method_encoding_asn1_ObjectIdentifier_Equal)
-	pkg.AddMethodDirectCall("ObjectIdentifier", "String", direct_method_encoding_asn1_ObjectIdentifier_String)
-	pkg.AddMethodDirectCall("StructuralError", "Error", direct_method_encoding_asn1_StructuralError_Error)
-	pkg.AddMethodDirectCall("SyntaxError", "Error", direct_method_encoding_asn1_SyntaxError_Error)
-
 }
 
-func direct_encoding_asn1_Marshal(args []value.Value) value.Value {
-	a0 := args[0].Interface()
+func directArgEncodingAsn1[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsEncodingAsn1[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgEncodingAsn1[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgEncodingAsn1[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgEncodingAsn1[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsEncodingAsn1(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallEncodingAsn1Marshal(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingAsn1[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := encoding_asn1.Marshal(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+	return directResultsEncodingAsn1(r0, r1)
 }
 
-func direct_encoding_asn1_MarshalWithParams(args []value.Value) value.Value {
-	a0 := args[0].Interface()
-	a1 := args[1].String()
+func directCallEncodingAsn1MarshalWithParams(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingAsn1[any](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingAsn1[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := encoding_asn1.MarshalWithParams(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+	return directResultsEncodingAsn1(r0, r1)
 }
 
-func direct_encoding_asn1_Unmarshal(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	a1 := args[1].Interface()
+func directCallEncodingAsn1Unmarshal(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingAsn1[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingAsn1[any](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := encoding_asn1.Unmarshal(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
+	return directResultsEncodingAsn1(r0, r1)
 }
 
-func direct_encoding_asn1_UnmarshalWithParams(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	a1 := args[1].Interface()
-	a2 := args[2].String()
+func directCallEncodingAsn1UnmarshalWithParams(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgEncodingAsn1[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingAsn1[any](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgEncodingAsn1[string](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := encoding_asn1.UnmarshalWithParams(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_encoding_asn1_BitString_At(args []value.Value) value.Value {
-	recv := args[0].Interface().(encoding_asn1.BitString)
-	a0 := int(args[1].Int())
-	return value.MakeInt(int64(recv.At(a0)))
-}
-
-func direct_method_encoding_asn1_BitString_RightAlign(args []value.Value) value.Value {
-	recv := args[0].Interface().(encoding_asn1.BitString)
-	return value.MakeBytes([]byte(recv.RightAlign()))
-}
-
-func direct_method_encoding_asn1_ObjectIdentifier_Equal(args []value.Value) value.Value {
-	recv := args[0].Interface().(encoding_asn1.ObjectIdentifier)
-	var _back0 []int64
-	var a0 []int
-	if _s, _ok := args[1].IntSlice(); _ok {
-		_back0 = _s
-		a0 = make([]int, len(_s))
-		for _i, _v := range _s {
-			a0[_i] = int(_v)
-		}
-	} else {
-		a0 = args[1].Interface().([]int)
-	}
-	_ret := recv.Equal(a0)
-	if _back0 != nil {
-		for _i, _v := range a0 {
-			_back0[_i] = int64(_v)
-		}
-	}
-	return value.MakeBool(_ret)
-}
-
-func direct_method_encoding_asn1_ObjectIdentifier_String(args []value.Value) value.Value {
-	recv := args[0].Interface().(encoding_asn1.ObjectIdentifier)
-	return value.MakeString(string(recv.String()))
-}
-
-func direct_method_encoding_asn1_StructuralError_Error(args []value.Value) value.Value {
-	recv := args[0].Interface().(encoding_asn1.StructuralError)
-	return value.MakeString(string(recv.Error()))
-}
-
-func direct_method_encoding_asn1_SyntaxError_Error(args []value.Value) value.Value {
-	recv := args[0].Interface().(encoding_asn1.SyntaxError)
-	return value.MakeString(string(recv.Error()))
+	return directResultsEncodingAsn1(r0, r1)
 }

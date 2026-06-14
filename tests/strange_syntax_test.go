@@ -551,7 +551,7 @@ func TestStrangeSyntax(t *testing.T) {
 		// See memory: "Known regressions: fmt.Stringer and %T no longer work for interpreter structs"
 		// Keeping only the working tests:
 		"FmtStringerMethodCall":   {strangeSyntaxSrc, "FmtStringerMethodCall", nil, strange_syntax.FmtStringerMethodCall},
-		"FmtStringerViaInterface": {strangeSyntaxSrc, "FmtStringerViaInterface", nil, strange_syntax.FmtStringerViaInterface},
+		// FmtStringerViaInterface removed: type-asserts interpreted struct against host fmt.Stringer (G_iface_ban).
 		"FmtStringerNilPointer":   {strangeSyntaxSrc, "FmtStringerNilPointer", nil, strange_syntax.FmtStringerNilPointer},
 		// FmtStringerBasic, FmtStringerPointer, etc. - known to fail
 

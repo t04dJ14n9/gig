@@ -2,21 +2,21 @@
 package packages
 
 import (
-	io "io"
-	mime_multipart "mime/multipart"
-	net_textproto "net/textproto"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"io"
+	mime_multipart "mime/multipart"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("mime/multipart", "multipart")
 
 	// Functions
-	pkg.AddFunction("NewReader", mime_multipart.NewReader, "", direct_mime_multipart_NewReader)
-	pkg.AddFunction("NewWriter", mime_multipart.NewWriter, "", direct_mime_multipart_NewWriter)
+	pkg.AddFunction("FileContentDisposition", mime_multipart.FileContentDisposition, "", directCallMimeMultipartFileContentDisposition)
+	pkg.AddFunction("NewReader", mime_multipart.NewReader, "", directCallMimeMultipartNewReader)
+	pkg.AddFunction("NewWriter", mime_multipart.NewWriter, "", directCallMimeMultipartNewWriter)
 
 	// Variables
 	pkg.AddVariable("ErrMessageTooLarge", &mime_multipart.ErrMessageTooLarge, "")
@@ -29,145 +29,117 @@ func init() {
 	pkg.AddType("Reader", reflect.TypeOf(mime_multipart.Reader{}), "")
 	pkg.AddType("Writer", reflect.TypeOf(mime_multipart.Writer{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("FileHeader", "Open", direct_method_mime_multipart_FileHeader_Open)
-	pkg.AddMethodDirectCall("Form", "RemoveAll", direct_method_mime_multipart_Form_RemoveAll)
-	pkg.AddMethodDirectCall("Part", "Close", direct_method_mime_multipart_Part_Close)
-	pkg.AddMethodDirectCall("Part", "FileName", direct_method_mime_multipart_Part_FileName)
-	pkg.AddMethodDirectCall("Part", "FormName", direct_method_mime_multipart_Part_FormName)
-	pkg.AddMethodDirectCall("Part", "Read", direct_method_mime_multipart_Part_Read)
-	pkg.AddMethodDirectCall("Reader", "NextPart", direct_method_mime_multipart_Reader_NextPart)
-	pkg.AddMethodDirectCall("Reader", "NextRawPart", direct_method_mime_multipart_Reader_NextRawPart)
-	pkg.AddMethodDirectCall("Reader", "ReadForm", direct_method_mime_multipart_Reader_ReadForm)
-	pkg.AddMethodDirectCall("Writer", "Boundary", direct_method_mime_multipart_Writer_Boundary)
-	pkg.AddMethodDirectCall("Writer", "Close", direct_method_mime_multipart_Writer_Close)
-	pkg.AddMethodDirectCall("Writer", "CreateFormField", direct_method_mime_multipart_Writer_CreateFormField)
-	pkg.AddMethodDirectCall("Writer", "CreateFormFile", direct_method_mime_multipart_Writer_CreateFormFile)
-	pkg.AddMethodDirectCall("Writer", "CreatePart", direct_method_mime_multipart_Writer_CreatePart)
-	pkg.AddMethodDirectCall("Writer", "FormDataContentType", direct_method_mime_multipart_Writer_FormDataContentType)
-	pkg.AddMethodDirectCall("Writer", "SetBoundary", direct_method_mime_multipart_Writer_SetBoundary)
-	pkg.AddMethodDirectCall("Writer", "WriteField", direct_method_mime_multipart_Writer_WriteField)
-
 }
 
-func direct_mime_multipart_NewReader(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	a1 := args[1].String()
-	return value.FromInterface(mime_multipart.NewReader(a0, a1))
+func directArgMimeMultipart[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_mime_multipart_NewWriter(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	return value.FromInterface(mime_multipart.NewWriter(a0))
-}
-
-func direct_method_mime_multipart_FileHeader_Open(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.FileHeader)
-	r0, r1 := recv.Open()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_mime_multipart_Form_RemoveAll(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Form)
-	return value.FromInterface(recv.RemoveAll())
-}
-
-func direct_method_mime_multipart_Part_Close(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Part)
-	return value.FromInterface(recv.Close())
-}
-
-func direct_method_mime_multipart_Part_FileName(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Part)
-	return value.MakeString(string(recv.FileName()))
-}
-
-func direct_method_mime_multipart_Part_FormName(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Part)
-	return value.MakeString(string(recv.FormName()))
-}
-
-func direct_method_mime_multipart_Part_Read(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Part)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
+func directVariadicArgsMimeMultipart[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgMimeMultipart[[]T](args[0]); err == nil {
+			return packed, nil
 		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgMimeMultipart[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
 		}
-		return v.([]byte)
-	}()
-	r0, r1 := recv.Read(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgMimeMultipart[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
 }
 
-func direct_method_mime_multipart_Reader_NextPart(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Reader)
-	r0, r1 := recv.NextPart()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+func directResultsMimeMultipart(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_method_mime_multipart_Reader_NextRawPart(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Reader)
-	r0, r1 := recv.NextRawPart()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+func directCallMimeMultipartFileContentDisposition(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMimeMultipart[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMimeMultipart[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := mime_multipart.FileContentDisposition(a0, a1)
+	return directResultsMimeMultipart(r0)
 }
 
-func direct_method_mime_multipart_Reader_ReadForm(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Reader)
-	a0 := args[1].Int()
-	r0, r1 := recv.ReadForm(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+func directCallMimeMultipartNewReader(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMimeMultipart[io.Reader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMimeMultipart[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := mime_multipart.NewReader(a0, a1)
+	return directResultsMimeMultipart(r0)
 }
 
-func direct_method_mime_multipart_Writer_Boundary(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Writer)
-	return value.MakeString(string(recv.Boundary()))
-}
-
-func direct_method_mime_multipart_Writer_Close(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Writer)
-	return value.FromInterface(recv.Close())
-}
-
-func direct_method_mime_multipart_Writer_CreateFormField(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Writer)
-	a0 := args[1].String()
-	r0, r1 := recv.CreateFormField(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_mime_multipart_Writer_CreateFormFile(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Writer)
-	a0 := args[1].String()
-	a1 := args[2].String()
-	r0, r1 := recv.CreateFormFile(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_mime_multipart_Writer_CreatePart(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Writer)
-	a0 := args[1].Interface().(net_textproto.MIMEHeader)
-	r0, r1 := recv.CreatePart(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_mime_multipart_Writer_FormDataContentType(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Writer)
-	return value.MakeString(string(recv.FormDataContentType()))
-}
-
-func direct_method_mime_multipart_Writer_SetBoundary(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Writer)
-	a0 := args[1].String()
-	return value.FromInterface(recv.SetBoundary(a0))
-}
-
-func direct_method_mime_multipart_Writer_WriteField(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime_multipart.Writer)
-	a0 := args[1].String()
-	a1 := args[2].String()
-	return value.FromInterface(recv.WriteField(a0, a1))
+func directCallMimeMultipartNewWriter(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMimeMultipart[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := mime_multipart.NewWriter(a0)
+	return directResultsMimeMultipart(r0)
 }

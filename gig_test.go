@@ -1,13 +1,74 @@
 package gig
 
 import (
+	"context"
+	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"io/fs"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	_ "github.com/t04dJ14n9/gig/stdlib/packages" // register stdlib packages
 )
+
+func TestPublicAPIDoesNotExposeRemovedAPIs(t *testing.T) {
+	if _, ok := reflect.TypeOf((*Program)(nil)).MethodByName("RunWithValues"); ok {
+		t.Fatal("Program should not expose RunWithValues; use Run or RunWithContext")
+	}
+
+	forbiddenFuncs := map[string]bool{
+		"WithStatefulGlobals": true,
+	}
+	pkgs, err := parser.ParseDir(token.NewFileSet(), ".", func(info fs.FileInfo) bool {
+		name := info.Name()
+		return strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go")
+	}, 0)
+	if err != nil {
+		t.Fatalf("parse package: %v", err)
+	}
+	for _, pkg := range pkgs {
+		for _, file := range pkg.Files {
+			for _, decl := range file.Decls {
+				fn, ok := decl.(*ast.FuncDecl)
+				if ok && fn.Recv == nil && forbiddenFuncs[fn.Name.Name] {
+					t.Fatalf("package gig should not expose %s", fn.Name.Name)
+				}
+			}
+		}
+	}
+}
+
+func TestRunWithContextStopsLongRunningLoop(t *testing.T) {
+	source := `
+package main
+
+func BusyLoop() int {
+	sum := 0
+	for i := 0; i < 10000000; i++ {
+		sum += i
+	}
+	return sum
+}
+`
+	prog, err := Build(source)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	defer cancel()
+
+	_, err = prog.RunWithContext(ctx, "BusyLoop")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("RunWithContext error = %v, want DeadlineExceeded", err)
+	}
+}
 
 // TestAutoImport_SinglePackage verifies that a program referencing fmt without
 // an explicit import declaration is compiled and executed successfully.
@@ -274,9 +335,9 @@ func toInt64(v any) (int64, bool) {
 	}
 }
 
-// TestStatefulGlobals_PersistAcrossRuns verifies that package-level variable
-// mutations persist across multiple Run calls when WithStatefulGlobals is set.
-func TestStatefulGlobals_PersistAcrossRuns(t *testing.T) {
+// TestGlobals_PersistAcrossRuns verifies that package-level variable mutations
+// persist across multiple Run calls, matching normal Go package semantics.
+func TestGlobals_PersistAcrossRuns(t *testing.T) {
 	source := `
 package main
 
@@ -291,7 +352,7 @@ func Increment() int {
 	return counter
 }
 `
-	prog, err := Build(source, WithStatefulGlobals())
+	prog, err := Build(source)
 	if err != nil {
 		t.Fatalf("Build failed: %v", err)
 	}
@@ -311,14 +372,14 @@ func Increment() int {
 	}
 }
 
-// TestStatefulGlobals_ConcurrentRuns verifies that concurrent Run calls on a
-// stateful program execute concurrently without panics or data corruption.
+// TestGlobals_ConcurrentRuns verifies that concurrent Run calls on a program
+// with global state execute concurrently without panics or data corruption.
 // Note: counter = counter + 1 is a read-modify-write pattern that naturally
 // has lost updates under concurrency (same as Go). The test verifies:
 // 1. No panics or crashes
 // 2. All results are positive integers
 // 3. Final counter is positive (some lost updates are expected)
-func TestStatefulGlobals_ConcurrentRuns(t *testing.T) {
+func TestGlobals_ConcurrentRuns(t *testing.T) {
 	source := `
 package main
 
@@ -333,7 +394,7 @@ func Increment() int {
 	return counter
 }
 `
-	prog, err := Build(source, WithStatefulGlobals())
+	prog, err := Build(source)
 	if err != nil {
 		t.Fatalf("Build failed: %v", err)
 	}
@@ -379,47 +440,9 @@ func Increment() int {
 	}
 }
 
-// TestStatefulGlobals_DefaultStatelessIsolation verifies that the default mode
-// (no WithStatefulGlobals) still resets globals between calls.
-func TestStatefulGlobals_DefaultStatelessIsolation(t *testing.T) {
-	source := `
-package main
-
-var counter int
-
-func init() {
-	counter = 0
-}
-
-func Increment() int {
-	counter++
-	return counter
-}
-`
-	prog, err := Build(source)
-	if err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
-
-	// Each call should start from 0 and return 1
-	for i := 0; i < 3; i++ {
-		result, err := prog.Run("Increment")
-		if err != nil {
-			t.Fatalf("Run %d failed: %v", i+1, err)
-		}
-		got, ok := toInt64(result)
-		if !ok {
-			t.Fatalf("Run %d: unexpected type %T", i+1, result)
-		}
-		if got != 1 {
-			t.Errorf("Run %d: got %d, want 1 (stateless isolation)", i+1, got)
-		}
-	}
-}
-
-// TestStatefulGlobals_InitSeeded verifies that init()-seeded globals are
-// preserved and further mutated across calls in stateful mode.
-func TestStatefulGlobals_InitSeeded(t *testing.T) {
+// TestGlobals_InitSeeded verifies that init()-seeded globals are preserved and
+// further mutated across calls.
+func TestGlobals_InitSeeded(t *testing.T) {
 	source := `
 package main
 
@@ -434,7 +457,7 @@ func AddAndGet(n int) int {
 	return base
 }
 `
-	prog, err := Build(source, WithStatefulGlobals())
+	prog, err := Build(source)
 	if err != nil {
 		t.Fatalf("Build failed: %v", err)
 	}
@@ -460,9 +483,9 @@ func AddAndGet(n int) int {
 	}
 }
 
-// TestStatefulGlobals_MapCache verifies that a package-level map can serve as
-// a cross-call cache in stateful mode.
-func TestStatefulGlobals_MapCache(t *testing.T) {
+// TestGlobals_MapCache verifies that a package-level map can serve as a
+// cross-call cache.
+func TestGlobals_MapCache(t *testing.T) {
 	source := `
 package main
 
@@ -484,7 +507,7 @@ func CacheLen() int {
 	return len(cache)
 }
 `
-	prog, err := Build(source, WithStatefulGlobals())
+	prog, err := Build(source)
 	if err != nil {
 		t.Fatalf("Build failed: %v", err)
 	}
@@ -530,9 +553,9 @@ func CacheLen() int {
 	}
 }
 
-// TestStatefulGlobals_SeparateProgramsIsolated verifies that two separate
-// Program instances with stateful globals have independent state.
-func TestStatefulGlobals_SeparateProgramsIsolated(t *testing.T) {
+// TestGlobals_SeparateProgramsIsolated verifies that two separate Program
+// instances have independent global state.
+func TestGlobals_SeparateProgramsIsolated(t *testing.T) {
 	source := `
 package main
 
@@ -547,11 +570,11 @@ func Increment() int {
 	return counter
 }
 `
-	prog1, err := Build(source, WithStatefulGlobals())
+	prog1, err := Build(source)
 	if err != nil {
 		t.Fatalf("Build prog1 failed: %v", err)
 	}
-	prog2, err := Build(source, WithStatefulGlobals())
+	prog2, err := Build(source)
 	if err != nil {
 		t.Fatalf("Build prog2 failed: %v", err)
 	}
@@ -572,11 +595,9 @@ func Increment() int {
 	}
 }
 
-// TestStatefulGlobals_IncCounterSequence verifies that the IncCounter pattern
-// from the initialize testdata works correctly with stateful globals.
-// This test is isolated from the main correctness suite because it requires
-// stateful globals mode.
-func TestStatefulGlobals_IncCounterSequence(t *testing.T) {
+// TestGlobals_IncCounterSequence verifies that the IncCounter pattern from the
+// initialize testdata works correctly with persistent globals.
+func TestGlobals_IncCounterSequence(t *testing.T) {
 	// Use the same source as tests/testdata/initialize/main.go IncCounter functions
 	// Note: init() is required to properly initialize the counter to a valid int value
 	source := `
@@ -598,7 +619,7 @@ func IncCounter2() int {
 	return counter
 }
 `
-	prog, err := Build(source, WithStatefulGlobals())
+	prog, err := Build(source)
 	if err != nil {
 		t.Fatalf("Build failed: %v", err)
 	}
@@ -634,9 +655,9 @@ func IncCounter2() int {
 	}
 }
 
-// TestStatefulGlobals_InitSeededCounter verifies that a counter initialized
-// via init() works correctly with stateful globals.
-func TestStatefulGlobals_InitSeededCounter(t *testing.T) {
+// TestGlobals_InitSeededCounter verifies that a counter initialized via init()
+// works correctly with persistent globals.
+func TestGlobals_InitSeededCounter(t *testing.T) {
 	source := `
 package main
 
@@ -655,7 +676,7 @@ func GetCounter() int {
 	return counter
 }
 `
-	prog, err := Build(source, WithStatefulGlobals())
+	prog, err := Build(source)
 	if err != nil {
 		t.Fatalf("Build failed: %v", err)
 	}

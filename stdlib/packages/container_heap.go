@@ -3,54 +3,164 @@ package packages
 
 import (
 	container_heap "container/heap"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("container/heap", "heap")
 
 	// Functions
-	pkg.AddFunction("Fix", container_heap.Fix, "", direct_container_heap_Fix)
-	pkg.AddFunction("Init", container_heap.Init, "", direct_container_heap_Init)
-	pkg.AddFunction("Pop", container_heap.Pop, "", direct_container_heap_Pop)
-	pkg.AddFunction("Push", container_heap.Push, "", direct_container_heap_Push)
-	pkg.AddFunction("Remove", container_heap.Remove, "", direct_container_heap_Remove)
+	pkg.AddFunction("Fix", container_heap.Fix, "", directCallContainerHeapFix)
+	pkg.AddFunction("Init", container_heap.Init, "", directCallContainerHeapInit)
+	pkg.AddFunction("Pop", container_heap.Pop, "", directCallContainerHeapPop)
+	pkg.AddFunction("Push", container_heap.Push, "", directCallContainerHeapPush)
+	pkg.AddFunction("Remove", container_heap.Remove, "", directCallContainerHeapRemove)
 
 	// Types
 	pkg.AddType("Interface", reflect.TypeOf((*container_heap.Interface)(nil)).Elem(), "")
 
 }
 
-func direct_container_heap_Fix(args []value.Value) value.Value {
-	a0 := args[0].Interface().(container_heap.Interface)
-	a1 := int(args[1].Int())
+func directArgContainerHeap[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsContainerHeap[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgContainerHeap[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgContainerHeap[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgContainerHeap[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsContainerHeap(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallContainerHeapFix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgContainerHeap[container_heap.Interface](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgContainerHeap[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	container_heap.Fix(a0, a1)
-	return value.MakeNil()
+	return nil, nil
 }
 
-func direct_container_heap_Init(args []value.Value) value.Value {
-	a0 := args[0].Interface().(container_heap.Interface)
+func directCallContainerHeapInit(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgContainerHeap[container_heap.Interface](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	container_heap.Init(a0)
-	return value.MakeNil()
+	return nil, nil
 }
 
-func direct_container_heap_Pop(args []value.Value) value.Value {
-	a0 := args[0].Interface().(container_heap.Interface)
-	return value.FromInterface(container_heap.Pop(a0))
+func directCallContainerHeapPop(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgContainerHeap[container_heap.Interface](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := container_heap.Pop(a0)
+	return directResultsContainerHeap(r0)
 }
 
-func direct_container_heap_Push(args []value.Value) value.Value {
-	a0 := args[0].Interface().(container_heap.Interface)
-	a1 := args[1].Interface()
+func directCallContainerHeapPush(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgContainerHeap[container_heap.Interface](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgContainerHeap[any](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	container_heap.Push(a0, a1)
-	return value.MakeNil()
+	return nil, nil
 }
 
-func direct_container_heap_Remove(args []value.Value) value.Value {
-	a0 := args[0].Interface().(container_heap.Interface)
-	a1 := int(args[1].Int())
-	return value.FromInterface(container_heap.Remove(a0, a1))
+func directCallContainerHeapRemove(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgContainerHeap[container_heap.Interface](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgContainerHeap[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := container_heap.Remove(a0, a1)
+	return directResultsContainerHeap(r0)
 }

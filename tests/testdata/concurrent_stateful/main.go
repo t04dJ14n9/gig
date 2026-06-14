@@ -127,7 +127,7 @@ func GetState() int {
 }
 
 // ============================================================================
-// Pure function (no globals, stateless — verify concurrent RunWithValues)
+// Pure function (no globals, stateless — verify concurrent execution)
 // ============================================================================
 
 // Add returns a + b. Stateless, safe for concurrent execution.

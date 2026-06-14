@@ -2,39 +2,39 @@
 package packages
 
 import (
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 	io_fs "io/fs"
 	path_filepath "path/filepath"
 	"reflect"
-
-	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("path/filepath", "filepath")
 
 	// Functions
-	pkg.AddFunction("Abs", path_filepath.Abs, "", direct_path_filepath_Abs)
-	pkg.AddFunction("Base", path_filepath.Base, "", direct_path_filepath_Base)
-	pkg.AddFunction("Clean", path_filepath.Clean, "", direct_path_filepath_Clean)
-	pkg.AddFunction("Dir", path_filepath.Dir, "", direct_path_filepath_Dir)
-	pkg.AddFunction("EvalSymlinks", path_filepath.EvalSymlinks, "", direct_path_filepath_EvalSymlinks)
-	pkg.AddFunction("Ext", path_filepath.Ext, "", direct_path_filepath_Ext)
-	pkg.AddFunction("FromSlash", path_filepath.FromSlash, "", direct_path_filepath_FromSlash)
-	pkg.AddFunction("Glob", path_filepath.Glob, "", direct_path_filepath_Glob)
-	pkg.AddFunction("HasPrefix", path_filepath.HasPrefix, "", direct_path_filepath_HasPrefix)
-	pkg.AddFunction("IsAbs", path_filepath.IsAbs, "", direct_path_filepath_IsAbs)
-	pkg.AddFunction("IsLocal", path_filepath.IsLocal, "", direct_path_filepath_IsLocal)
-	pkg.AddFunction("Join", path_filepath.Join, "", direct_path_filepath_Join)
-	pkg.AddFunction("Localize", path_filepath.Localize, "", direct_path_filepath_Localize)
-	pkg.AddFunction("Match", path_filepath.Match, "", direct_path_filepath_Match)
-	pkg.AddFunction("Rel", path_filepath.Rel, "", direct_path_filepath_Rel)
-	pkg.AddFunction("Split", path_filepath.Split, "", direct_path_filepath_Split)
-	pkg.AddFunction("SplitList", path_filepath.SplitList, "", direct_path_filepath_SplitList)
-	pkg.AddFunction("ToSlash", path_filepath.ToSlash, "", direct_path_filepath_ToSlash)
-	pkg.AddFunction("VolumeName", path_filepath.VolumeName, "", direct_path_filepath_VolumeName)
-	pkg.AddFunction("Walk", path_filepath.Walk, "", direct_path_filepath_Walk)
-	pkg.AddFunction("WalkDir", path_filepath.WalkDir, "", direct_path_filepath_WalkDir)
+	pkg.AddFunction("Abs", path_filepath.Abs, "", directCallPathFilepathAbs)
+	pkg.AddFunction("Base", path_filepath.Base, "", directCallPathFilepathBase)
+	pkg.AddFunction("Clean", path_filepath.Clean, "", directCallPathFilepathClean)
+	pkg.AddFunction("Dir", path_filepath.Dir, "", directCallPathFilepathDir)
+	pkg.AddFunction("EvalSymlinks", path_filepath.EvalSymlinks, "", directCallPathFilepathEvalSymlinks)
+	pkg.AddFunction("Ext", path_filepath.Ext, "", directCallPathFilepathExt)
+	pkg.AddFunction("FromSlash", path_filepath.FromSlash, "", directCallPathFilepathFromSlash)
+	pkg.AddFunction("Glob", path_filepath.Glob, "", directCallPathFilepathGlob)
+	pkg.AddFunction("HasPrefix", path_filepath.HasPrefix, "", directCallPathFilepathHasPrefix)
+	pkg.AddFunction("IsAbs", path_filepath.IsAbs, "", directCallPathFilepathIsAbs)
+	pkg.AddFunction("IsLocal", path_filepath.IsLocal, "", directCallPathFilepathIsLocal)
+	pkg.AddFunction("Join", path_filepath.Join, "", directCallPathFilepathJoin)
+	pkg.AddFunction("Localize", path_filepath.Localize, "", directCallPathFilepathLocalize)
+	pkg.AddFunction("Match", path_filepath.Match, "", directCallPathFilepathMatch)
+	pkg.AddFunction("Rel", path_filepath.Rel, "", directCallPathFilepathRel)
+	pkg.AddFunction("Split", path_filepath.Split, "", directCallPathFilepathSplit)
+	pkg.AddFunction("SplitList", path_filepath.SplitList, "", directCallPathFilepathSplitList)
+	pkg.AddFunction("ToSlash", path_filepath.ToSlash, "", directCallPathFilepathToSlash)
+	pkg.AddFunction("VolumeName", path_filepath.VolumeName, "", directCallPathFilepathVolumeName)
+	pkg.AddFunction("Walk", path_filepath.Walk, "", directCallPathFilepathWalk)
+	pkg.AddFunction("WalkDir", path_filepath.WalkDir, "", directCallPathFilepathWalkDir)
 
 	// Constants
 	pkg.AddConstant("ListSeparator", path_filepath.ListSeparator, "")
@@ -50,122 +50,343 @@ func init() {
 
 }
 
-func direct_path_filepath_Abs(args []value.Value) value.Value {
-	a0 := args[0].String()
-	r0, r1 := path_filepath.Abs(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
-}
-
-func direct_path_filepath_Base(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.MakeString(string(path_filepath.Base(a0)))
-}
-
-func direct_path_filepath_Clean(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.MakeString(string(path_filepath.Clean(a0)))
-}
-
-func direct_path_filepath_Dir(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.MakeString(string(path_filepath.Dir(a0)))
-}
-
-func direct_path_filepath_EvalSymlinks(args []value.Value) value.Value {
-	a0 := args[0].String()
-	r0, r1 := path_filepath.EvalSymlinks(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
-}
-
-func direct_path_filepath_Ext(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.MakeString(string(path_filepath.Ext(a0)))
-}
-
-func direct_path_filepath_FromSlash(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.MakeString(string(path_filepath.FromSlash(a0)))
-}
-
-func direct_path_filepath_Glob(args []value.Value) value.Value {
-	a0 := args[0].String()
-	r0, r1 := path_filepath.Glob(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_path_filepath_HasPrefix(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].String()
-	return value.MakeBool(path_filepath.HasPrefix(a0, a1))
-}
-
-func direct_path_filepath_IsAbs(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.MakeBool(path_filepath.IsAbs(a0))
-}
-
-func direct_path_filepath_IsLocal(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.MakeBool(path_filepath.IsLocal(a0))
-}
-
-func direct_path_filepath_Join(args []value.Value) value.Value {
-	varArgs := make([]string, len(args)-0)
-	for i := 0; i < len(args); i++ {
-		varArgs[i-0] = args[i].String()
+func directArgPathFilepath[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
 	}
-	return value.MakeString(string(path_filepath.Join(varArgs...)))
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_path_filepath_Localize(args []value.Value) value.Value {
-	a0 := args[0].String()
+func directVariadicArgsPathFilepath[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgPathFilepath[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgPathFilepath[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgPathFilepath[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsPathFilepath(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallPathFilepathAbs(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := path_filepath.Abs(a0)
+	return directResultsPathFilepath(r0, r1)
+}
+
+func directCallPathFilepathBase(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path_filepath.Base(a0)
+	return directResultsPathFilepath(r0)
+}
+
+func directCallPathFilepathClean(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path_filepath.Clean(a0)
+	return directResultsPathFilepath(r0)
+}
+
+func directCallPathFilepathDir(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path_filepath.Dir(a0)
+	return directResultsPathFilepath(r0)
+}
+
+func directCallPathFilepathEvalSymlinks(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := path_filepath.EvalSymlinks(a0)
+	return directResultsPathFilepath(r0, r1)
+}
+
+func directCallPathFilepathExt(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path_filepath.Ext(a0)
+	return directResultsPathFilepath(r0)
+}
+
+func directCallPathFilepathFromSlash(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path_filepath.FromSlash(a0)
+	return directResultsPathFilepath(r0)
+}
+
+func directCallPathFilepathGlob(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0, r1 := path_filepath.Glob(a0)
+	return directResultsPathFilepath(r0, r1)
+}
+
+func directCallPathFilepathHasPrefix(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgPathFilepath[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := path_filepath.HasPrefix(a0, a1)
+	return directResultsPathFilepath(r0)
+}
+
+func directCallPathFilepathIsAbs(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path_filepath.IsAbs(a0)
+	return directResultsPathFilepath(r0)
+}
+
+func directCallPathFilepathIsLocal(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path_filepath.IsLocal(a0)
+	return directResultsPathFilepath(r0)
+}
+
+func directCallPathFilepathJoin(args []value.Value) ([]value.Value, error) {
+	if len(args) < 0 {
+		return nil, fmt.Errorf("arg count %d < 0", len(args))
+	}
+	a0, err := directVariadicArgsPathFilepath[string](args[0:])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path_filepath.Join(a0...)
+	return directResultsPathFilepath(r0)
+}
+
+func directCallPathFilepathLocalize(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := path_filepath.Localize(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
+	return directResultsPathFilepath(r0, r1)
 }
 
-func direct_path_filepath_Match(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].String()
+func directCallPathFilepathMatch(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgPathFilepath[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := path_filepath.Match(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeBool(r0), value.FromInterface(r1)})
+	return directResultsPathFilepath(r0, r1)
 }
 
-func direct_path_filepath_Rel(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].String()
+func directCallPathFilepathRel(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgPathFilepath[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := path_filepath.Rel(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
+	return directResultsPathFilepath(r0, r1)
 }
 
-func direct_path_filepath_Split(args []value.Value) value.Value {
-	a0 := args[0].String()
+func directCallPathFilepathSplit(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := path_filepath.Split(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.MakeString(string(r1))})
+	return directResultsPathFilepath(r0, r1)
 }
 
-func direct_path_filepath_SplitList(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.FromInterface(path_filepath.SplitList(a0))
+func directCallPathFilepathSplitList(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path_filepath.SplitList(a0)
+	return directResultsPathFilepath(r0)
 }
 
-func direct_path_filepath_ToSlash(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.MakeString(string(path_filepath.ToSlash(a0)))
+func directCallPathFilepathToSlash(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path_filepath.ToSlash(a0)
+	return directResultsPathFilepath(r0)
 }
 
-func direct_path_filepath_VolumeName(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.MakeString(string(path_filepath.VolumeName(a0)))
+func directCallPathFilepathVolumeName(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := path_filepath.VolumeName(a0)
+	return directResultsPathFilepath(r0)
 }
 
-func direct_path_filepath_Walk(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].Interface().(path_filepath.WalkFunc)
-	return value.FromInterface(path_filepath.Walk(a0, a1))
+func directCallPathFilepathWalk(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgPathFilepath[path_filepath.WalkFunc](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := path_filepath.Walk(a0, a1)
+	return directResultsPathFilepath(r0)
 }
 
-func direct_path_filepath_WalkDir(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].Interface().(io_fs.WalkDirFunc)
-	return value.FromInterface(path_filepath.WalkDir(a0, a1))
+func directCallPathFilepathWalkDir(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgPathFilepath[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgPathFilepath[io_fs.WalkDirFunc](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := path_filepath.WalkDir(a0, a1)
+	return directResultsPathFilepath(r0)
 }

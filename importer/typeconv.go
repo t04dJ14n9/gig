@@ -1,4 +1,10 @@
-// typeconv.go converts reflect.Type to go/types.Type for external package types.
+// typeconv.go converts reflect.Type to go/types.Type for registered external packages.
+//
+// Keep the direction straight:
+//   - reflect.Type describes real host Go values registered in importer.Registry.
+//   - go/types.Type is what the parser/type checker and SSA builder need.
+//
+// This file builds the compile-time mirror of host types.
 package importer
 
 import (
@@ -8,20 +14,57 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-
-	"github.com/t04dJ14n9/gig/model/bytecode"
 )
 
-// typeOf is a function that converts reflect.Type to types.Type.
-// It is initialized by init() to break the circular dependency between
-// register.go (which uses typeOf in AddVariable/AddConstant) and typeconv.go.
+// reflectKindToBasicKind maps reflect.Kind to go/types.BasicKind. The
+// table is the single source of truth for basic-type conversions inside
+// the importer; it was historically shared with the legacy bytecode VM
+// but is now duplicated here so the importer carries no dependency on
+// bytecode/.
+var reflectKindToBasicKind = map[reflect.Kind]types.BasicKind{
+	reflect.Bool:          types.Bool,
+	reflect.Int:           types.Int,
+	reflect.Int8:          types.Int8,
+	reflect.Int16:         types.Int16,
+	reflect.Int32:         types.Int32,
+	reflect.Int64:         types.Int64,
+	reflect.Uint:          types.Uint,
+	reflect.Uint8:         types.Uint8,
+	reflect.Uint16:        types.Uint16,
+	reflect.Uint32:        types.Uint32,
+	reflect.Uint64:        types.Uint64,
+	reflect.Uintptr:       types.Uintptr,
+	reflect.Float32:       types.Float32,
+	reflect.Float64:       types.Float64,
+	reflect.Complex64:     types.Complex64,
+	reflect.Complex128:    types.Complex128,
+	reflect.String:        types.String,
+	reflect.UnsafePointer: types.UnsafePointer,
+}
+
+// basicTypeFromReflectKind returns the canonical *types.Basic for a
+// reflect.Kind, or nil if the kind is not a basic type.
+func basicTypeFromReflectKind(k reflect.Kind) *types.Basic {
+	if bk, ok := reflectKindToBasicKind[k]; ok {
+		return types.Typ[bk]
+	}
+	return nil
+}
+
+// typeOf converts reflect.Type to types.Type.
+//
+// register.go uses this variable while constructing ExternalObject entries. The
+// indirection keeps registration code decoupled from the full conversion helpers
+// in this file and avoids initialization cycles.
 var typeOf func(reflect.Type) types.Type
 
 func init() {
 	typeOf = convertReflectType
 }
 
-// typeCache caches converted types to prevent infinite recursion for self-referential types.
+// typeCache caches converted types and breaks recursion for self-referential
+// types such as linked-list nodes. Named types are inserted as placeholders
+// before their underlying type is fully converted.
 var typeCache sync.Map // map[reflect.Type]types.Type
 
 // convertToConstantValue converts a Go value to a constant.Value for use in types.Const.
@@ -49,9 +92,12 @@ func convertToConstantValue(val any) constant.Value {
 	}
 }
 
-// convertReflectType converts a reflect.Type to types.Type.
-// This is the main entry point for type conversion, handling all Go types.
-// Uses a cache to prevent infinite recursion for self-referential types.
+// convertReflectType converts a host reflect.Type to the go/types.Type seen by
+// interpreted source code.
+//
+// This is the main entry point for compile-time type conversion. It preserves
+// named types, method sets, package identity, struct fields/tags, function
+// signatures, and interface method sets closely enough for type checking and SSA.
 func convertReflectType(rt reflect.Type) types.Type {
 	if rt == nil {
 		return types.Typ[types.Invalid]
@@ -75,7 +121,7 @@ func convertReflectType(rt reflect.Type) types.Type {
 		// For basic kinds, types.Typ[kind] gives the canonical type with the kind's name.
 		// If the reflect type's name matches the canonical kind name, it's a basic type alias.
 		isBasicAlias := false
-		if bt := bytecode.BasicTypeFromReflectKind(rt.Kind()); bt != nil && bt.Name() == rt.Name() {
+		if bt := basicTypeFromReflectKind(rt.Kind()); bt != nil && bt.Name() == rt.Name() {
 			isBasicAlias = true
 		}
 		// If it's a basic type alias, don't treat as named type - fall through to basic handling
@@ -107,7 +153,7 @@ func convertReflectType(rt reflect.Type) types.Type {
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
 		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
 		reflect.String, reflect.UnsafePointer:
-		return bytecode.BasicTypeFromReflectKind(rt.Kind())
+		return basicTypeFromReflectKind(rt.Kind())
 
 	case reflect.Array:
 		elem := convertReflectType(rt.Elem())
@@ -184,7 +230,7 @@ func convertReflectType(rt reflect.Type) types.Type {
 // would overwrite the Named type entry that the caller stored for recursion breaking.
 func convertReflectTypeForUnderlying(rt reflect.Type) types.Type {
 	// For basic named types, return the corresponding basic type
-	if bt := bytecode.BasicTypeFromReflectKind(rt.Kind()); bt != nil {
+	if bt := basicTypeFromReflectKind(rt.Kind()); bt != nil {
 		return bt
 	}
 

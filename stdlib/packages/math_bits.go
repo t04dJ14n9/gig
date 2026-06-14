@@ -2,356 +2,853 @@
 package packages
 
 import (
-	math_bits "math/bits"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	math_bits "math/bits"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("math/bits", "bits")
 
 	// Functions
-	pkg.AddFunction("Add", math_bits.Add, "", direct_math_bits_Add)
-	pkg.AddFunction("Add32", math_bits.Add32, "", direct_math_bits_Add32)
-	pkg.AddFunction("Add64", math_bits.Add64, "", direct_math_bits_Add64)
-	pkg.AddFunction("Div", math_bits.Div, "", direct_math_bits_Div)
-	pkg.AddFunction("Div32", math_bits.Div32, "", direct_math_bits_Div32)
-	pkg.AddFunction("Div64", math_bits.Div64, "", direct_math_bits_Div64)
-	pkg.AddFunction("LeadingZeros", math_bits.LeadingZeros, "", direct_math_bits_LeadingZeros)
-	pkg.AddFunction("LeadingZeros16", math_bits.LeadingZeros16, "", direct_math_bits_LeadingZeros16)
-	pkg.AddFunction("LeadingZeros32", math_bits.LeadingZeros32, "", direct_math_bits_LeadingZeros32)
-	pkg.AddFunction("LeadingZeros64", math_bits.LeadingZeros64, "", direct_math_bits_LeadingZeros64)
-	pkg.AddFunction("LeadingZeros8", math_bits.LeadingZeros8, "", direct_math_bits_LeadingZeros8)
-	pkg.AddFunction("Len", math_bits.Len, "", direct_math_bits_Len)
-	pkg.AddFunction("Len16", math_bits.Len16, "", direct_math_bits_Len16)
-	pkg.AddFunction("Len32", math_bits.Len32, "", direct_math_bits_Len32)
-	pkg.AddFunction("Len64", math_bits.Len64, "", direct_math_bits_Len64)
-	pkg.AddFunction("Len8", math_bits.Len8, "", direct_math_bits_Len8)
-	pkg.AddFunction("Mul", math_bits.Mul, "", direct_math_bits_Mul)
-	pkg.AddFunction("Mul32", math_bits.Mul32, "", direct_math_bits_Mul32)
-	pkg.AddFunction("Mul64", math_bits.Mul64, "", direct_math_bits_Mul64)
-	pkg.AddFunction("OnesCount", math_bits.OnesCount, "", direct_math_bits_OnesCount)
-	pkg.AddFunction("OnesCount16", math_bits.OnesCount16, "", direct_math_bits_OnesCount16)
-	pkg.AddFunction("OnesCount32", math_bits.OnesCount32, "", direct_math_bits_OnesCount32)
-	pkg.AddFunction("OnesCount64", math_bits.OnesCount64, "", direct_math_bits_OnesCount64)
-	pkg.AddFunction("OnesCount8", math_bits.OnesCount8, "", direct_math_bits_OnesCount8)
-	pkg.AddFunction("Rem", math_bits.Rem, "", direct_math_bits_Rem)
-	pkg.AddFunction("Rem32", math_bits.Rem32, "", direct_math_bits_Rem32)
-	pkg.AddFunction("Rem64", math_bits.Rem64, "", direct_math_bits_Rem64)
-	pkg.AddFunction("Reverse", math_bits.Reverse, "", direct_math_bits_Reverse)
-	pkg.AddFunction("Reverse16", math_bits.Reverse16, "", direct_math_bits_Reverse16)
-	pkg.AddFunction("Reverse32", math_bits.Reverse32, "", direct_math_bits_Reverse32)
-	pkg.AddFunction("Reverse64", math_bits.Reverse64, "", direct_math_bits_Reverse64)
-	pkg.AddFunction("Reverse8", math_bits.Reverse8, "", direct_math_bits_Reverse8)
-	pkg.AddFunction("ReverseBytes", math_bits.ReverseBytes, "", direct_math_bits_ReverseBytes)
-	pkg.AddFunction("ReverseBytes16", math_bits.ReverseBytes16, "", direct_math_bits_ReverseBytes16)
-	pkg.AddFunction("ReverseBytes32", math_bits.ReverseBytes32, "", direct_math_bits_ReverseBytes32)
-	pkg.AddFunction("ReverseBytes64", math_bits.ReverseBytes64, "", direct_math_bits_ReverseBytes64)
-	pkg.AddFunction("RotateLeft", math_bits.RotateLeft, "", direct_math_bits_RotateLeft)
-	pkg.AddFunction("RotateLeft16", math_bits.RotateLeft16, "", direct_math_bits_RotateLeft16)
-	pkg.AddFunction("RotateLeft32", math_bits.RotateLeft32, "", direct_math_bits_RotateLeft32)
-	pkg.AddFunction("RotateLeft64", math_bits.RotateLeft64, "", direct_math_bits_RotateLeft64)
-	pkg.AddFunction("RotateLeft8", math_bits.RotateLeft8, "", direct_math_bits_RotateLeft8)
-	pkg.AddFunction("Sub", math_bits.Sub, "", direct_math_bits_Sub)
-	pkg.AddFunction("Sub32", math_bits.Sub32, "", direct_math_bits_Sub32)
-	pkg.AddFunction("Sub64", math_bits.Sub64, "", direct_math_bits_Sub64)
-	pkg.AddFunction("TrailingZeros", math_bits.TrailingZeros, "", direct_math_bits_TrailingZeros)
-	pkg.AddFunction("TrailingZeros16", math_bits.TrailingZeros16, "", direct_math_bits_TrailingZeros16)
-	pkg.AddFunction("TrailingZeros32", math_bits.TrailingZeros32, "", direct_math_bits_TrailingZeros32)
-	pkg.AddFunction("TrailingZeros64", math_bits.TrailingZeros64, "", direct_math_bits_TrailingZeros64)
-	pkg.AddFunction("TrailingZeros8", math_bits.TrailingZeros8, "", direct_math_bits_TrailingZeros8)
+	pkg.AddFunction("Add", math_bits.Add, "", directCallMathBitsAdd)
+	pkg.AddFunction("Add32", math_bits.Add32, "", directCallMathBitsAdd32)
+	pkg.AddFunction("Add64", math_bits.Add64, "", directCallMathBitsAdd64)
+	pkg.AddFunction("Div", math_bits.Div, "", directCallMathBitsDiv)
+	pkg.AddFunction("Div32", math_bits.Div32, "", directCallMathBitsDiv32)
+	pkg.AddFunction("Div64", math_bits.Div64, "", directCallMathBitsDiv64)
+	pkg.AddFunction("LeadingZeros", math_bits.LeadingZeros, "", directCallMathBitsLeadingZeros)
+	pkg.AddFunction("LeadingZeros16", math_bits.LeadingZeros16, "", directCallMathBitsLeadingZeros16)
+	pkg.AddFunction("LeadingZeros32", math_bits.LeadingZeros32, "", directCallMathBitsLeadingZeros32)
+	pkg.AddFunction("LeadingZeros64", math_bits.LeadingZeros64, "", directCallMathBitsLeadingZeros64)
+	pkg.AddFunction("LeadingZeros8", math_bits.LeadingZeros8, "", directCallMathBitsLeadingZeros8)
+	pkg.AddFunction("Len", math_bits.Len, "", directCallMathBitsLen)
+	pkg.AddFunction("Len16", math_bits.Len16, "", directCallMathBitsLen16)
+	pkg.AddFunction("Len32", math_bits.Len32, "", directCallMathBitsLen32)
+	pkg.AddFunction("Len64", math_bits.Len64, "", directCallMathBitsLen64)
+	pkg.AddFunction("Len8", math_bits.Len8, "", directCallMathBitsLen8)
+	pkg.AddFunction("Mul", math_bits.Mul, "", directCallMathBitsMul)
+	pkg.AddFunction("Mul32", math_bits.Mul32, "", directCallMathBitsMul32)
+	pkg.AddFunction("Mul64", math_bits.Mul64, "", directCallMathBitsMul64)
+	pkg.AddFunction("OnesCount", math_bits.OnesCount, "", directCallMathBitsOnesCount)
+	pkg.AddFunction("OnesCount16", math_bits.OnesCount16, "", directCallMathBitsOnesCount16)
+	pkg.AddFunction("OnesCount32", math_bits.OnesCount32, "", directCallMathBitsOnesCount32)
+	pkg.AddFunction("OnesCount64", math_bits.OnesCount64, "", directCallMathBitsOnesCount64)
+	pkg.AddFunction("OnesCount8", math_bits.OnesCount8, "", directCallMathBitsOnesCount8)
+	pkg.AddFunction("Rem", math_bits.Rem, "", directCallMathBitsRem)
+	pkg.AddFunction("Rem32", math_bits.Rem32, "", directCallMathBitsRem32)
+	pkg.AddFunction("Rem64", math_bits.Rem64, "", directCallMathBitsRem64)
+	pkg.AddFunction("Reverse", math_bits.Reverse, "", directCallMathBitsReverse)
+	pkg.AddFunction("Reverse16", math_bits.Reverse16, "", directCallMathBitsReverse16)
+	pkg.AddFunction("Reverse32", math_bits.Reverse32, "", directCallMathBitsReverse32)
+	pkg.AddFunction("Reverse64", math_bits.Reverse64, "", directCallMathBitsReverse64)
+	pkg.AddFunction("Reverse8", math_bits.Reverse8, "", directCallMathBitsReverse8)
+	pkg.AddFunction("ReverseBytes", math_bits.ReverseBytes, "", directCallMathBitsReverseBytes)
+	pkg.AddFunction("ReverseBytes16", math_bits.ReverseBytes16, "", directCallMathBitsReverseBytes16)
+	pkg.AddFunction("ReverseBytes32", math_bits.ReverseBytes32, "", directCallMathBitsReverseBytes32)
+	pkg.AddFunction("ReverseBytes64", math_bits.ReverseBytes64, "", directCallMathBitsReverseBytes64)
+	pkg.AddFunction("RotateLeft", math_bits.RotateLeft, "", directCallMathBitsRotateLeft)
+	pkg.AddFunction("RotateLeft16", math_bits.RotateLeft16, "", directCallMathBitsRotateLeft16)
+	pkg.AddFunction("RotateLeft32", math_bits.RotateLeft32, "", directCallMathBitsRotateLeft32)
+	pkg.AddFunction("RotateLeft64", math_bits.RotateLeft64, "", directCallMathBitsRotateLeft64)
+	pkg.AddFunction("RotateLeft8", math_bits.RotateLeft8, "", directCallMathBitsRotateLeft8)
+	pkg.AddFunction("Sub", math_bits.Sub, "", directCallMathBitsSub)
+	pkg.AddFunction("Sub32", math_bits.Sub32, "", directCallMathBitsSub32)
+	pkg.AddFunction("Sub64", math_bits.Sub64, "", directCallMathBitsSub64)
+	pkg.AddFunction("TrailingZeros", math_bits.TrailingZeros, "", directCallMathBitsTrailingZeros)
+	pkg.AddFunction("TrailingZeros16", math_bits.TrailingZeros16, "", directCallMathBitsTrailingZeros16)
+	pkg.AddFunction("TrailingZeros32", math_bits.TrailingZeros32, "", directCallMathBitsTrailingZeros32)
+	pkg.AddFunction("TrailingZeros64", math_bits.TrailingZeros64, "", directCallMathBitsTrailingZeros64)
+	pkg.AddFunction("TrailingZeros8", math_bits.TrailingZeros8, "", directCallMathBitsTrailingZeros8)
 
 	// Constants
 	pkg.AddConstant("UintSize", math_bits.UintSize, "")
 
 }
 
-func direct_math_bits_Add(args []value.Value) value.Value {
-	a0 := uint(args[0].Uint())
-	a1 := uint(args[1].Uint())
-	a2 := uint(args[2].Uint())
+func directArgMathBits[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsMathBits[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgMathBits[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgMathBits[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgMathBits[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsMathBits(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallMathBitsAdd(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgMathBits[uint](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgMathBits[uint](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := math_bits.Add(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1))})
+	return directResultsMathBits(r0, r1)
 }
 
-func direct_math_bits_Add32(args []value.Value) value.Value {
-	a0 := uint32(args[0].Uint())
-	a1 := uint32(args[1].Uint())
-	a2 := uint32(args[2].Uint())
+func directCallMathBitsAdd32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgMathBits[uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgMathBits[uint32](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := math_bits.Add32(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1))})
+	return directResultsMathBits(r0, r1)
 }
 
-func direct_math_bits_Add64(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	a1 := args[1].Uint()
-	a2 := args[2].Uint()
+func directCallMathBitsAdd64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgMathBits[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgMathBits[uint64](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := math_bits.Add64(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint64(r0), value.MakeUint64(r1)})
+	return directResultsMathBits(r0, r1)
 }
 
-func direct_math_bits_Div(args []value.Value) value.Value {
-	a0 := uint(args[0].Uint())
-	a1 := uint(args[1].Uint())
-	a2 := uint(args[2].Uint())
+func directCallMathBitsDiv(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgMathBits[uint](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgMathBits[uint](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := math_bits.Div(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1))})
+	return directResultsMathBits(r0, r1)
 }
 
-func direct_math_bits_Div32(args []value.Value) value.Value {
-	a0 := uint32(args[0].Uint())
-	a1 := uint32(args[1].Uint())
-	a2 := uint32(args[2].Uint())
+func directCallMathBitsDiv32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgMathBits[uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgMathBits[uint32](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := math_bits.Div32(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1))})
+	return directResultsMathBits(r0, r1)
 }
 
-func direct_math_bits_Div64(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	a1 := args[1].Uint()
-	a2 := args[2].Uint()
+func directCallMathBitsDiv64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgMathBits[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgMathBits[uint64](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := math_bits.Div64(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint64(r0), value.MakeUint64(r1)})
+	return directResultsMathBits(r0, r1)
 }
 
-func direct_math_bits_LeadingZeros(args []value.Value) value.Value {
-	a0 := uint(args[0].Uint())
-	return value.MakeInt(int64(math_bits.LeadingZeros(a0)))
+func directCallMathBitsLeadingZeros(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.LeadingZeros(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_LeadingZeros16(args []value.Value) value.Value {
-	a0 := uint16(args[0].Uint())
-	return value.MakeInt(int64(math_bits.LeadingZeros16(a0)))
+func directCallMathBitsLeadingZeros16(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint16](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.LeadingZeros16(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_LeadingZeros32(args []value.Value) value.Value {
-	a0 := uint32(args[0].Uint())
-	return value.MakeInt(int64(math_bits.LeadingZeros32(a0)))
+func directCallMathBitsLeadingZeros32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.LeadingZeros32(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_LeadingZeros64(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	return value.MakeInt(int64(math_bits.LeadingZeros64(a0)))
+func directCallMathBitsLeadingZeros64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.LeadingZeros64(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_LeadingZeros8(args []value.Value) value.Value {
-	a0 := byte(args[0].Uint())
-	return value.MakeInt(int64(math_bits.LeadingZeros8(a0)))
+func directCallMathBitsLeadingZeros8(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint8](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.LeadingZeros8(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Len(args []value.Value) value.Value {
-	a0 := uint(args[0].Uint())
-	return value.MakeInt(int64(math_bits.Len(a0)))
+func directCallMathBitsLen(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.Len(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Len16(args []value.Value) value.Value {
-	a0 := uint16(args[0].Uint())
-	return value.MakeInt(int64(math_bits.Len16(a0)))
+func directCallMathBitsLen16(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint16](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.Len16(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Len32(args []value.Value) value.Value {
-	a0 := uint32(args[0].Uint())
-	return value.MakeInt(int64(math_bits.Len32(a0)))
+func directCallMathBitsLen32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.Len32(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Len64(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	return value.MakeInt(int64(math_bits.Len64(a0)))
+func directCallMathBitsLen64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.Len64(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Len8(args []value.Value) value.Value {
-	a0 := byte(args[0].Uint())
-	return value.MakeInt(int64(math_bits.Len8(a0)))
+func directCallMathBitsLen8(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint8](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.Len8(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Mul(args []value.Value) value.Value {
-	a0 := uint(args[0].Uint())
-	a1 := uint(args[1].Uint())
+func directCallMathBitsMul(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMathBits[uint](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := math_bits.Mul(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1))})
+	return directResultsMathBits(r0, r1)
 }
 
-func direct_math_bits_Mul32(args []value.Value) value.Value {
-	a0 := uint32(args[0].Uint())
-	a1 := uint32(args[1].Uint())
+func directCallMathBitsMul32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMathBits[uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := math_bits.Mul32(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1))})
+	return directResultsMathBits(r0, r1)
 }
 
-func direct_math_bits_Mul64(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	a1 := args[1].Uint()
+func directCallMathBitsMul64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMathBits[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := math_bits.Mul64(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeUint64(r0), value.MakeUint64(r1)})
+	return directResultsMathBits(r0, r1)
 }
 
-func direct_math_bits_OnesCount(args []value.Value) value.Value {
-	a0 := uint(args[0].Uint())
-	return value.MakeInt(int64(math_bits.OnesCount(a0)))
+func directCallMathBitsOnesCount(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.OnesCount(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_OnesCount16(args []value.Value) value.Value {
-	a0 := uint16(args[0].Uint())
-	return value.MakeInt(int64(math_bits.OnesCount16(a0)))
+func directCallMathBitsOnesCount16(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint16](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.OnesCount16(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_OnesCount32(args []value.Value) value.Value {
-	a0 := uint32(args[0].Uint())
-	return value.MakeInt(int64(math_bits.OnesCount32(a0)))
+func directCallMathBitsOnesCount32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.OnesCount32(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_OnesCount64(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	return value.MakeInt(int64(math_bits.OnesCount64(a0)))
+func directCallMathBitsOnesCount64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.OnesCount64(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_OnesCount8(args []value.Value) value.Value {
-	a0 := byte(args[0].Uint())
-	return value.MakeInt(int64(math_bits.OnesCount8(a0)))
+func directCallMathBitsOnesCount8(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint8](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.OnesCount8(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Rem(args []value.Value) value.Value {
-	a0 := uint(args[0].Uint())
-	a1 := uint(args[1].Uint())
-	a2 := uint(args[2].Uint())
-	return value.MakeUint(uint64(math_bits.Rem(a0, a1, a2)))
+func directCallMathBitsRem(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgMathBits[uint](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgMathBits[uint](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := math_bits.Rem(a0, a1, a2)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Rem32(args []value.Value) value.Value {
-	a0 := uint32(args[0].Uint())
-	a1 := uint32(args[1].Uint())
-	a2 := uint32(args[2].Uint())
-	return value.MakeUint(uint64(math_bits.Rem32(a0, a1, a2)))
+func directCallMathBitsRem32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgMathBits[uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgMathBits[uint32](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := math_bits.Rem32(a0, a1, a2)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Rem64(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	a1 := args[1].Uint()
-	a2 := args[2].Uint()
-	return value.MakeUint64(math_bits.Rem64(a0, a1, a2))
+func directCallMathBitsRem64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgMathBits[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgMathBits[uint64](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := math_bits.Rem64(a0, a1, a2)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Reverse(args []value.Value) value.Value {
-	a0 := uint(args[0].Uint())
-	return value.MakeUint(uint64(math_bits.Reverse(a0)))
+func directCallMathBitsReverse(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.Reverse(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Reverse16(args []value.Value) value.Value {
-	a0 := uint16(args[0].Uint())
-	return value.MakeUint(uint64(math_bits.Reverse16(a0)))
+func directCallMathBitsReverse16(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint16](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.Reverse16(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Reverse32(args []value.Value) value.Value {
-	a0 := uint32(args[0].Uint())
-	return value.MakeUint(uint64(math_bits.Reverse32(a0)))
+func directCallMathBitsReverse32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.Reverse32(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Reverse64(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	return value.MakeUint64(math_bits.Reverse64(a0))
+func directCallMathBitsReverse64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.Reverse64(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Reverse8(args []value.Value) value.Value {
-	a0 := byte(args[0].Uint())
-	return value.MakeUint(uint64(math_bits.Reverse8(a0)))
+func directCallMathBitsReverse8(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint8](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.Reverse8(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_ReverseBytes(args []value.Value) value.Value {
-	a0 := uint(args[0].Uint())
-	return value.MakeUint(uint64(math_bits.ReverseBytes(a0)))
+func directCallMathBitsReverseBytes(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.ReverseBytes(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_ReverseBytes16(args []value.Value) value.Value {
-	a0 := uint16(args[0].Uint())
-	return value.MakeUint(uint64(math_bits.ReverseBytes16(a0)))
+func directCallMathBitsReverseBytes16(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint16](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.ReverseBytes16(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_ReverseBytes32(args []value.Value) value.Value {
-	a0 := uint32(args[0].Uint())
-	return value.MakeUint(uint64(math_bits.ReverseBytes32(a0)))
+func directCallMathBitsReverseBytes32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.ReverseBytes32(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_ReverseBytes64(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	return value.MakeUint64(math_bits.ReverseBytes64(a0))
+func directCallMathBitsReverseBytes64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.ReverseBytes64(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_RotateLeft(args []value.Value) value.Value {
-	a0 := uint(args[0].Uint())
-	a1 := int(args[1].Int())
-	return value.MakeUint(uint64(math_bits.RotateLeft(a0, a1)))
+func directCallMathBitsRotateLeft(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMathBits[uint](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math_bits.RotateLeft(a0, a1)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_RotateLeft16(args []value.Value) value.Value {
-	a0 := uint16(args[0].Uint())
-	a1 := int(args[1].Int())
-	return value.MakeUint(uint64(math_bits.RotateLeft16(a0, a1)))
+func directCallMathBitsRotateLeft16(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMathBits[uint16](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math_bits.RotateLeft16(a0, a1)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_RotateLeft32(args []value.Value) value.Value {
-	a0 := uint32(args[0].Uint())
-	a1 := int(args[1].Int())
-	return value.MakeUint(uint64(math_bits.RotateLeft32(a0, a1)))
+func directCallMathBitsRotateLeft32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMathBits[uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math_bits.RotateLeft32(a0, a1)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_RotateLeft64(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	a1 := int(args[1].Int())
-	return value.MakeUint64(math_bits.RotateLeft64(a0, a1))
+func directCallMathBitsRotateLeft64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMathBits[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math_bits.RotateLeft64(a0, a1)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_RotateLeft8(args []value.Value) value.Value {
-	a0 := byte(args[0].Uint())
-	a1 := int(args[1].Int())
-	return value.MakeUint(uint64(math_bits.RotateLeft8(a0, a1)))
+func directCallMathBitsRotateLeft8(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMathBits[uint8](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math_bits.RotateLeft8(a0, a1)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_Sub(args []value.Value) value.Value {
-	a0 := uint(args[0].Uint())
-	a1 := uint(args[1].Uint())
-	a2 := uint(args[2].Uint())
+func directCallMathBitsSub(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgMathBits[uint](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgMathBits[uint](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := math_bits.Sub(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1))})
+	return directResultsMathBits(r0, r1)
 }
 
-func direct_math_bits_Sub32(args []value.Value) value.Value {
-	a0 := uint32(args[0].Uint())
-	a1 := uint32(args[1].Uint())
-	a2 := uint32(args[2].Uint())
+func directCallMathBitsSub32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgMathBits[uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgMathBits[uint32](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := math_bits.Sub32(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint(uint64(r0)), value.MakeUint(uint64(r1))})
+	return directResultsMathBits(r0, r1)
 }
 
-func direct_math_bits_Sub64(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	a1 := args[1].Uint()
-	a2 := args[2].Uint()
+func directCallMathBitsSub64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgMathBits[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathBits[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgMathBits[uint64](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := math_bits.Sub64(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeUint64(r0), value.MakeUint64(r1)})
+	return directResultsMathBits(r0, r1)
 }
 
-func direct_math_bits_TrailingZeros(args []value.Value) value.Value {
-	a0 := uint(args[0].Uint())
-	return value.MakeInt(int64(math_bits.TrailingZeros(a0)))
+func directCallMathBitsTrailingZeros(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.TrailingZeros(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_TrailingZeros16(args []value.Value) value.Value {
-	a0 := uint16(args[0].Uint())
-	return value.MakeInt(int64(math_bits.TrailingZeros16(a0)))
+func directCallMathBitsTrailingZeros16(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint16](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.TrailingZeros16(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_TrailingZeros32(args []value.Value) value.Value {
-	a0 := uint32(args[0].Uint())
-	return value.MakeInt(int64(math_bits.TrailingZeros32(a0)))
+func directCallMathBitsTrailingZeros32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.TrailingZeros32(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_TrailingZeros64(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	return value.MakeInt(int64(math_bits.TrailingZeros64(a0)))
+func directCallMathBitsTrailingZeros64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.TrailingZeros64(a0)
+	return directResultsMathBits(r0)
 }
 
-func direct_math_bits_TrailingZeros8(args []value.Value) value.Value {
-	a0 := byte(args[0].Uint())
-	return value.MakeInt(int64(math_bits.TrailingZeros8(a0)))
+func directCallMathBitsTrailingZeros8(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathBits[uint8](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_bits.TrailingZeros8(a0)
+	return directResultsMathBits(r0)
 }

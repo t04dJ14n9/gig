@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestRunDumpPrintsSSAAndBytecode(t *testing.T) {
+func TestRunDumpPrintsSSA(t *testing.T) {
 	dir := t.TempDir()
 	srcPath := filepath.Join(dir, "program.go")
 	if err := os.WriteFile(srcPath, []byte(`package main
@@ -29,7 +29,7 @@ func Add(a, b int) int {
 		t.Fatalf("RunDump error: %v", err)
 	}
 
-	for _, part := range []string{"# Gig Debug Dump", "## SSA", "func Add", "## Bytecode", "### Function Add", "RETURNVAL"} {
+	for _, part := range []string{"# Package: main", "# Member Add", "func Add", "return t0"} {
 		if !strings.Contains(output, part) {
 			t.Fatalf("dump output missing %q\n%s", part, output)
 		}
@@ -66,7 +66,7 @@ func F() int {
 	if err != nil {
 		t.Fatalf("RunDump stdin error: %v", err)
 	}
-	if !strings.Contains(output, "### Function F") {
+	if !strings.Contains(output, "# Member F") || !strings.Contains(output, "func F() int") {
 		t.Fatalf("stdin dump missing function F\n%s", output)
 	}
 }

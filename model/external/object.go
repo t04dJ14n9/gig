@@ -3,7 +3,7 @@ package external
 import (
 	"go/types"
 
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
 )
 
 // ObjectKind represents the kind of external object (function, variable, constant, or type).
@@ -48,5 +48,8 @@ type ExternalObject struct {
 	// Doc is optional documentation text.
 	Doc string
 
-	DirectCall func([]value.Value) value.Value
+	// DirectCall is an optional zero-reflection wrapper generated or
+	// hand-written for external functions. When present, host dispatch
+	// calls it instead of reflect.Value.Call.
+	DirectCall func([]value.Value) ([]value.Value, error)
 }

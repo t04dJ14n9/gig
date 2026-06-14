@@ -1,68 +1,14 @@
 package thirdparty
 
 import (
-	"container/heap"
 	"container/list"
 	"container/ring"
 )
 
-// ============================================================================
-// container/heap — binary heap interface
-// ============================================================================
-
-type intHeap []int
-
-func (h intHeap) Len() int           { return len(h) }
-func (h intHeap) Less(i, j int) bool { return h[i] < h[j] }
-func (h intHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
-func (h *intHeap) Push(x any)        { *h = append(*h, x.(int)) }
-func (h *intHeap) Pop() any {
-	n := len(*h)
-	v := (*h)[n-1]
-	*h = (*h)[:n-1]
-	return v
-}
-
-// ContainerHeapPushPop tests heap push and pop.
-func ContainerHeapPushPop() int {
-	h := &intHeap{5, 3, 7, 1, 9, 2, 8}
-	heap.Init(h)
-	heap.Push(h, 4)
-	heap.Push(h, 6)
-	// Pop should return 1
-	min := heap.Pop(h)
-	if min.(int) == 1 {
-		return 1
-	}
-	return 0
-}
-
-// ContainerHeapRemove tests heap remove.
-func ContainerHeapRemove() int {
-	h := &intHeap{5, 3, 7, 1, 9}
-	heap.Init(h)
-	heap.Remove(h, 2) // Remove element at index 2 (value 7)
-	min := heap.Pop(h)
-	if min.(int) == 1 {
-		return 1
-	}
-	return 0
-}
-
-// ContainerHeapSort tests heap sort (using heap as priority queue).
-func ContainerHeapSort() int {
-	h := &intHeap{5, 3, 7, 1, 9, 2, 8}
-	heap.Init(h)
-	result := make([]int, 0, h.Len())
-	for h.Len() > 0 {
-		result = append(result, heap.Pop(h).(int))
-	}
-	// After sorting: 1,2,3,5,7,8,9
-	if result[0] == 1 && result[6] == 9 {
-		return 1
-	}
-	return 0
-}
+// container/heap tests removed: heap.Init/Push/Pop require passing
+// an interpreted-defined type that implements heap.Interface (a host
+// non-empty interface). Per G_iface_ban that boundary is rejected at
+// compile time.
 
 // ============================================================================
 // container/list — doubly-linked list

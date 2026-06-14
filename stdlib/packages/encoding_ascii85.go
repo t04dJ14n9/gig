@@ -3,97 +3,165 @@ package packages
 
 import (
 	encoding_ascii85 "encoding/ascii85"
-	io "io"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"io"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("encoding/ascii85", "ascii85")
 
 	// Functions
-	pkg.AddFunction("Decode", encoding_ascii85.Decode, "", direct_encoding_ascii85_Decode)
-	pkg.AddFunction("Encode", encoding_ascii85.Encode, "", direct_encoding_ascii85_Encode)
-	pkg.AddFunction("MaxEncodedLen", encoding_ascii85.MaxEncodedLen, "", direct_encoding_ascii85_MaxEncodedLen)
-	pkg.AddFunction("NewDecoder", encoding_ascii85.NewDecoder, "", direct_encoding_ascii85_NewDecoder)
-	pkg.AddFunction("NewEncoder", encoding_ascii85.NewEncoder, "", direct_encoding_ascii85_NewEncoder)
+	pkg.AddFunction("Decode", encoding_ascii85.Decode, "", directCallEncodingAscii85Decode)
+	pkg.AddFunction("Encode", encoding_ascii85.Encode, "", directCallEncodingAscii85Encode)
+	pkg.AddFunction("MaxEncodedLen", encoding_ascii85.MaxEncodedLen, "", directCallEncodingAscii85MaxEncodedLen)
+	pkg.AddFunction("NewDecoder", encoding_ascii85.NewDecoder, "", directCallEncodingAscii85NewDecoder)
+	pkg.AddFunction("NewEncoder", encoding_ascii85.NewEncoder, "", directCallEncodingAscii85NewEncoder)
 
 	// Types
 	pkg.AddType("CorruptInputError", reflect.TypeOf((*encoding_ascii85.CorruptInputError)(nil)).Elem(), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("CorruptInputError", "Error", direct_method_encoding_ascii85_CorruptInputError_Error)
-
 }
 
-func direct_encoding_ascii85_Decode(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
+func directArgEncodingAscii85[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsEncodingAscii85[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgEncodingAscii85[[]T](args[0]); err == nil {
+			return packed, nil
 		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgEncodingAscii85[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
 		}
-		return v.([]byte)
-	}()
-	a1 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgEncodingAscii85[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
 		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsEncodingAscii85(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
 		}
-		return v.([]byte)
-	}()
-	a2 := args[2].Bool()
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallEncodingAscii85Decode(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgEncodingAscii85[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingAscii85[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgEncodingAscii85[bool](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1, r2 := encoding_ascii85.Decode(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1)), value.FromInterface(r2)})
+	return directResultsEncodingAscii85(r0, r1, r2)
 }
 
-func direct_encoding_ascii85_Encode(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	a1 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.MakeInt(int64(encoding_ascii85.Encode(a0, a1)))
+func directCallEncodingAscii85Encode(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgEncodingAscii85[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgEncodingAscii85[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := encoding_ascii85.Encode(a0, a1)
+	return directResultsEncodingAscii85(r0)
 }
 
-func direct_encoding_ascii85_MaxEncodedLen(args []value.Value) value.Value {
-	a0 := int(args[0].Int())
-	return value.MakeInt(int64(encoding_ascii85.MaxEncodedLen(a0)))
+func directCallEncodingAscii85MaxEncodedLen(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingAscii85[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_ascii85.MaxEncodedLen(a0)
+	return directResultsEncodingAscii85(r0)
 }
 
-func direct_encoding_ascii85_NewDecoder(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	return value.FromInterface(encoding_ascii85.NewDecoder(a0))
+func directCallEncodingAscii85NewDecoder(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingAscii85[io.Reader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_ascii85.NewDecoder(a0)
+	return directResultsEncodingAscii85(r0)
 }
 
-func direct_encoding_ascii85_NewEncoder(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	return value.FromInterface(encoding_ascii85.NewEncoder(a0))
-}
-
-func direct_method_encoding_ascii85_CorruptInputError_Error(args []value.Value) value.Value {
-	recv := encoding_ascii85.CorruptInputError(args[0].Int())
-	return value.MakeString(string(recv.Error()))
+func directCallEncodingAscii85NewEncoder(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingAscii85[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_ascii85.NewEncoder(a0)
+	return directResultsEncodingAscii85(r0)
 }

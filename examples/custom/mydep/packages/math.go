@@ -2,83 +2,84 @@
 package packages
 
 import (
-	"math"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"math"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("math", "math")
 
 	// Functions
-	pkg.AddFunction("Abs", math.Abs, "", direct_math_Abs)
-	pkg.AddFunction("Acos", math.Acos, "", direct_math_Acos)
-	pkg.AddFunction("Acosh", math.Acosh, "", direct_math_Acosh)
-	pkg.AddFunction("Asin", math.Asin, "", direct_math_Asin)
-	pkg.AddFunction("Asinh", math.Asinh, "", direct_math_Asinh)
-	pkg.AddFunction("Atan", math.Atan, "", direct_math_Atan)
-	pkg.AddFunction("Atan2", math.Atan2, "", direct_math_Atan2)
-	pkg.AddFunction("Atanh", math.Atanh, "", direct_math_Atanh)
-	pkg.AddFunction("Cbrt", math.Cbrt, "", direct_math_Cbrt)
-	pkg.AddFunction("Ceil", math.Ceil, "", direct_math_Ceil)
-	pkg.AddFunction("Copysign", math.Copysign, "", direct_math_Copysign)
-	pkg.AddFunction("Cos", math.Cos, "", direct_math_Cos)
-	pkg.AddFunction("Cosh", math.Cosh, "", direct_math_Cosh)
-	pkg.AddFunction("Dim", math.Dim, "", direct_math_Dim)
-	pkg.AddFunction("Erf", math.Erf, "", direct_math_Erf)
-	pkg.AddFunction("Erfc", math.Erfc, "", direct_math_Erfc)
-	pkg.AddFunction("Erfcinv", math.Erfcinv, "", direct_math_Erfcinv)
-	pkg.AddFunction("Erfinv", math.Erfinv, "", direct_math_Erfinv)
-	pkg.AddFunction("Exp", math.Exp, "", direct_math_Exp)
-	pkg.AddFunction("Exp2", math.Exp2, "", direct_math_Exp2)
-	pkg.AddFunction("Expm1", math.Expm1, "", direct_math_Expm1)
-	pkg.AddFunction("FMA", math.FMA, "", direct_math_FMA)
-	pkg.AddFunction("Float32bits", math.Float32bits, "", direct_math_Float32bits)
-	pkg.AddFunction("Float32frombits", math.Float32frombits, "", direct_math_Float32frombits)
-	pkg.AddFunction("Float64bits", math.Float64bits, "", direct_math_Float64bits)
-	pkg.AddFunction("Float64frombits", math.Float64frombits, "", direct_math_Float64frombits)
-	pkg.AddFunction("Floor", math.Floor, "", direct_math_Floor)
-	pkg.AddFunction("Frexp", math.Frexp, "", direct_math_Frexp)
-	pkg.AddFunction("Gamma", math.Gamma, "", direct_math_Gamma)
-	pkg.AddFunction("Hypot", math.Hypot, "", direct_math_Hypot)
-	pkg.AddFunction("Ilogb", math.Ilogb, "", direct_math_Ilogb)
-	pkg.AddFunction("Inf", math.Inf, "", direct_math_Inf)
-	pkg.AddFunction("IsInf", math.IsInf, "", direct_math_IsInf)
-	pkg.AddFunction("IsNaN", math.IsNaN, "", direct_math_IsNaN)
-	pkg.AddFunction("J0", math.J0, "", direct_math_J0)
-	pkg.AddFunction("J1", math.J1, "", direct_math_J1)
-	pkg.AddFunction("Jn", math.Jn, "", direct_math_Jn)
-	pkg.AddFunction("Ldexp", math.Ldexp, "", direct_math_Ldexp)
-	pkg.AddFunction("Lgamma", math.Lgamma, "", direct_math_Lgamma)
-	pkg.AddFunction("Log", math.Log, "", direct_math_Log)
-	pkg.AddFunction("Log10", math.Log10, "", direct_math_Log10)
-	pkg.AddFunction("Log1p", math.Log1p, "", direct_math_Log1p)
-	pkg.AddFunction("Log2", math.Log2, "", direct_math_Log2)
-	pkg.AddFunction("Logb", math.Logb, "", direct_math_Logb)
-	pkg.AddFunction("Max", math.Max, "", direct_math_Max)
-	pkg.AddFunction("Min", math.Min, "", direct_math_Min)
-	pkg.AddFunction("Mod", math.Mod, "", direct_math_Mod)
-	pkg.AddFunction("Modf", math.Modf, "", direct_math_Modf)
-	pkg.AddFunction("NaN", math.NaN, "", direct_math_NaN)
-	pkg.AddFunction("Nextafter", math.Nextafter, "", direct_math_Nextafter)
-	pkg.AddFunction("Nextafter32", math.Nextafter32, "", direct_math_Nextafter32)
-	pkg.AddFunction("Pow", math.Pow, "", direct_math_Pow)
-	pkg.AddFunction("Pow10", math.Pow10, "", direct_math_Pow10)
-	pkg.AddFunction("Remainder", math.Remainder, "", direct_math_Remainder)
-	pkg.AddFunction("Round", math.Round, "", direct_math_Round)
-	pkg.AddFunction("RoundToEven", math.RoundToEven, "", direct_math_RoundToEven)
-	pkg.AddFunction("Signbit", math.Signbit, "", direct_math_Signbit)
-	pkg.AddFunction("Sin", math.Sin, "", direct_math_Sin)
-	pkg.AddFunction("Sincos", math.Sincos, "", direct_math_Sincos)
-	pkg.AddFunction("Sinh", math.Sinh, "", direct_math_Sinh)
-	pkg.AddFunction("Sqrt", math.Sqrt, "", direct_math_Sqrt)
-	pkg.AddFunction("Tan", math.Tan, "", direct_math_Tan)
-	pkg.AddFunction("Tanh", math.Tanh, "", direct_math_Tanh)
-	pkg.AddFunction("Trunc", math.Trunc, "", direct_math_Trunc)
-	pkg.AddFunction("Y0", math.Y0, "", direct_math_Y0)
-	pkg.AddFunction("Y1", math.Y1, "", direct_math_Y1)
-	pkg.AddFunction("Yn", math.Yn, "", direct_math_Yn)
+	pkg.AddFunction("Abs", math.Abs, "", directCallMathAbs)
+	pkg.AddFunction("Acos", math.Acos, "", directCallMathAcos)
+	pkg.AddFunction("Acosh", math.Acosh, "", directCallMathAcosh)
+	pkg.AddFunction("Asin", math.Asin, "", directCallMathAsin)
+	pkg.AddFunction("Asinh", math.Asinh, "", directCallMathAsinh)
+	pkg.AddFunction("Atan", math.Atan, "", directCallMathAtan)
+	pkg.AddFunction("Atan2", math.Atan2, "", directCallMathAtan2)
+	pkg.AddFunction("Atanh", math.Atanh, "", directCallMathAtanh)
+	pkg.AddFunction("Cbrt", math.Cbrt, "", directCallMathCbrt)
+	pkg.AddFunction("Ceil", math.Ceil, "", directCallMathCeil)
+	pkg.AddFunction("Copysign", math.Copysign, "", directCallMathCopysign)
+	pkg.AddFunction("Cos", math.Cos, "", directCallMathCos)
+	pkg.AddFunction("Cosh", math.Cosh, "", directCallMathCosh)
+	pkg.AddFunction("Dim", math.Dim, "", directCallMathDim)
+	pkg.AddFunction("Erf", math.Erf, "", directCallMathErf)
+	pkg.AddFunction("Erfc", math.Erfc, "", directCallMathErfc)
+	pkg.AddFunction("Erfcinv", math.Erfcinv, "", directCallMathErfcinv)
+	pkg.AddFunction("Erfinv", math.Erfinv, "", directCallMathErfinv)
+	pkg.AddFunction("Exp", math.Exp, "", directCallMathExp)
+	pkg.AddFunction("Exp2", math.Exp2, "", directCallMathExp2)
+	pkg.AddFunction("Expm1", math.Expm1, "", directCallMathExpm1)
+	pkg.AddFunction("FMA", math.FMA, "", directCallMathFMA)
+	pkg.AddFunction("Float32bits", math.Float32bits, "", directCallMathFloat32bits)
+	pkg.AddFunction("Float32frombits", math.Float32frombits, "", directCallMathFloat32frombits)
+	pkg.AddFunction("Float64bits", math.Float64bits, "", directCallMathFloat64bits)
+	pkg.AddFunction("Float64frombits", math.Float64frombits, "", directCallMathFloat64frombits)
+	pkg.AddFunction("Floor", math.Floor, "", directCallMathFloor)
+	pkg.AddFunction("Frexp", math.Frexp, "", directCallMathFrexp)
+	pkg.AddFunction("Gamma", math.Gamma, "", directCallMathGamma)
+	pkg.AddFunction("Hypot", math.Hypot, "", directCallMathHypot)
+	pkg.AddFunction("Ilogb", math.Ilogb, "", directCallMathIlogb)
+	pkg.AddFunction("Inf", math.Inf, "", directCallMathInf)
+	pkg.AddFunction("IsInf", math.IsInf, "", directCallMathIsInf)
+	pkg.AddFunction("IsNaN", math.IsNaN, "", directCallMathIsNaN)
+	pkg.AddFunction("J0", math.J0, "", directCallMathJ0)
+	pkg.AddFunction("J1", math.J1, "", directCallMathJ1)
+	pkg.AddFunction("Jn", math.Jn, "", directCallMathJn)
+	pkg.AddFunction("Ldexp", math.Ldexp, "", directCallMathLdexp)
+	pkg.AddFunction("Lgamma", math.Lgamma, "", directCallMathLgamma)
+	pkg.AddFunction("Log", math.Log, "", directCallMathLog)
+	pkg.AddFunction("Log10", math.Log10, "", directCallMathLog10)
+	pkg.AddFunction("Log1p", math.Log1p, "", directCallMathLog1p)
+	pkg.AddFunction("Log2", math.Log2, "", directCallMathLog2)
+	pkg.AddFunction("Logb", math.Logb, "", directCallMathLogb)
+	pkg.AddFunction("Max", math.Max, "", directCallMathMax)
+	pkg.AddFunction("Min", math.Min, "", directCallMathMin)
+	pkg.AddFunction("Mod", math.Mod, "", directCallMathMod)
+	pkg.AddFunction("Modf", math.Modf, "", directCallMathModf)
+	pkg.AddFunction("NaN", math.NaN, "", directCallMathNaN)
+	pkg.AddFunction("Nextafter", math.Nextafter, "", directCallMathNextafter)
+	pkg.AddFunction("Nextafter32", math.Nextafter32, "", directCallMathNextafter32)
+	pkg.AddFunction("Pow", math.Pow, "", directCallMathPow)
+	pkg.AddFunction("Pow10", math.Pow10, "", directCallMathPow10)
+	pkg.AddFunction("Remainder", math.Remainder, "", directCallMathRemainder)
+	pkg.AddFunction("Round", math.Round, "", directCallMathRound)
+	pkg.AddFunction("RoundToEven", math.RoundToEven, "", directCallMathRoundToEven)
+	pkg.AddFunction("Signbit", math.Signbit, "", directCallMathSignbit)
+	pkg.AddFunction("Sin", math.Sin, "", directCallMathSin)
+	pkg.AddFunction("Sincos", math.Sincos, "", directCallMathSincos)
+	pkg.AddFunction("Sinh", math.Sinh, "", directCallMathSinh)
+	pkg.AddFunction("Sqrt", math.Sqrt, "", directCallMathSqrt)
+	pkg.AddFunction("Tan", math.Tan, "", directCallMathTan)
+	pkg.AddFunction("Tanh", math.Tanh, "", directCallMathTanh)
+	pkg.AddFunction("Trunc", math.Trunc, "", directCallMathTrunc)
+	pkg.AddFunction("Y0", math.Y0, "", directCallMathY0)
+	pkg.AddFunction("Y1", math.Y1, "", directCallMathY1)
+	pkg.AddFunction("Yn", math.Yn, "", directCallMathYn)
 
 	// Constants
 	pkg.AddConstant("E", math.E, "")
@@ -114,357 +115,939 @@ func init() {
 
 }
 
-func direct_math_Abs(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Abs(a0)))
+func directArgMath[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_math_Acos(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Acos(a0)))
+func directVariadicArgsMath[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgMath[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgMath[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgMath[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
 }
 
-func direct_math_Acosh(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Acosh(a0)))
+func directResultsMath(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_math_Asin(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Asin(a0)))
+func directCallMathAbs(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Abs(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Asinh(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Asinh(a0)))
+func directCallMathAcos(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Acos(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Atan(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Atan(a0)))
+func directCallMathAcosh(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Acosh(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Atan2(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	a1 := args[1].Float()
-	return value.MakeFloat(float64(math.Atan2(a0, a1)))
+func directCallMathAsin(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Asin(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Atanh(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Atanh(a0)))
+func directCallMathAsinh(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Asinh(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Cbrt(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Cbrt(a0)))
+func directCallMathAtan(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Atan(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Ceil(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Ceil(a0)))
+func directCallMathAtan2(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.Atan2(a0, a1)
+	return directResultsMath(r0)
 }
 
-func direct_math_Copysign(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	a1 := args[1].Float()
-	return value.MakeFloat(float64(math.Copysign(a0, a1)))
+func directCallMathAtanh(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Atanh(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Cos(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Cos(a0)))
+func directCallMathCbrt(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Cbrt(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Cosh(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Cosh(a0)))
+func directCallMathCeil(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Ceil(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Dim(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	a1 := args[1].Float()
-	return value.MakeFloat(float64(math.Dim(a0, a1)))
+func directCallMathCopysign(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.Copysign(a0, a1)
+	return directResultsMath(r0)
 }
 
-func direct_math_Erf(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Erf(a0)))
+func directCallMathCos(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Cos(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Erfc(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Erfc(a0)))
+func directCallMathCosh(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Cosh(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Erfcinv(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Erfcinv(a0)))
+func directCallMathDim(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.Dim(a0, a1)
+	return directResultsMath(r0)
 }
 
-func direct_math_Erfinv(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Erfinv(a0)))
+func directCallMathErf(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Erf(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Exp(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Exp(a0)))
+func directCallMathErfc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Erfc(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Exp2(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Exp2(a0)))
+func directCallMathErfcinv(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Erfcinv(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Expm1(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Expm1(a0)))
+func directCallMathErfinv(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Erfinv(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_FMA(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	a1 := args[1].Float()
-	a2 := args[2].Float()
-	return value.MakeFloat(float64(math.FMA(a0, a1, a2)))
+func directCallMathExp(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Exp(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Float32bits(args []value.Value) value.Value {
-	a0 := float32(args[0].Float())
-	return value.MakeUint(uint64(math.Float32bits(a0)))
+func directCallMathExp2(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Exp2(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Float32frombits(args []value.Value) value.Value {
-	a0 := uint32(args[0].Uint())
-	return value.MakeFloat(float64(math.Float32frombits(a0)))
+func directCallMathExpm1(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Expm1(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Float64bits(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeUint64(math.Float64bits(a0))
+func directCallMathFMA(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgMath[float64](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := math.FMA(a0, a1, a2)
+	return directResultsMath(r0)
 }
 
-func direct_math_Float64frombits(args []value.Value) value.Value {
-	a0 := args[0].Uint()
-	return value.MakeFloat(float64(math.Float64frombits(a0)))
+func directCallMathFloat32bits(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Float32bits(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Floor(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Floor(a0)))
+func directCallMathFloat32frombits(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Float32frombits(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Frexp(args []value.Value) value.Value {
-	a0 := args[0].Float()
+func directCallMathFloat64bits(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Float64bits(a0)
+	return directResultsMath(r0)
+}
+
+func directCallMathFloat64frombits(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Float64frombits(a0)
+	return directResultsMath(r0)
+}
+
+func directCallMathFloor(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Floor(a0)
+	return directResultsMath(r0)
+}
+
+func directCallMathFrexp(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := math.Frexp(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeInt(int64(r1))})
+	return directResultsMath(r0, r1)
 }
 
-func direct_math_Gamma(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Gamma(a0)))
+func directCallMathGamma(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Gamma(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Hypot(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	a1 := args[1].Float()
-	return value.MakeFloat(float64(math.Hypot(a0, a1)))
+func directCallMathHypot(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.Hypot(a0, a1)
+	return directResultsMath(r0)
 }
 
-func direct_math_Ilogb(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeInt(int64(math.Ilogb(a0)))
+func directCallMathIlogb(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Ilogb(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Inf(args []value.Value) value.Value {
-	a0 := int(args[0].Int())
-	return value.MakeFloat(float64(math.Inf(a0)))
+func directCallMathInf(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Inf(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_IsInf(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	a1 := int(args[1].Int())
-	return value.MakeBool(math.IsInf(a0, a1))
+func directCallMathIsInf(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.IsInf(a0, a1)
+	return directResultsMath(r0)
 }
 
-func direct_math_IsNaN(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeBool(math.IsNaN(a0))
+func directCallMathIsNaN(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.IsNaN(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_J0(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.J0(a0)))
+func directCallMathJ0(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.J0(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_J1(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.J1(a0)))
+func directCallMathJ1(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.J1(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Jn(args []value.Value) value.Value {
-	a0 := int(args[0].Int())
-	a1 := args[1].Float()
-	return value.MakeFloat(float64(math.Jn(a0, a1)))
+func directCallMathJn(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.Jn(a0, a1)
+	return directResultsMath(r0)
 }
 
-func direct_math_Ldexp(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	a1 := int(args[1].Int())
-	return value.MakeFloat(float64(math.Ldexp(a0, a1)))
+func directCallMathLdexp(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.Ldexp(a0, a1)
+	return directResultsMath(r0)
 }
 
-func direct_math_Lgamma(args []value.Value) value.Value {
-	a0 := args[0].Float()
+func directCallMathLgamma(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := math.Lgamma(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeInt(int64(r1))})
+	return directResultsMath(r0, r1)
 }
 
-func direct_math_Log(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Log(a0)))
+func directCallMathLog(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Log(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Log10(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Log10(a0)))
+func directCallMathLog10(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Log10(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Log1p(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Log1p(a0)))
+func directCallMathLog1p(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Log1p(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Log2(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Log2(a0)))
+func directCallMathLog2(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Log2(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Logb(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Logb(a0)))
+func directCallMathLogb(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Logb(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Max(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	a1 := args[1].Float()
-	return value.MakeFloat(float64(math.Max(a0, a1)))
+func directCallMathMax(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.Max(a0, a1)
+	return directResultsMath(r0)
 }
 
-func direct_math_Min(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	a1 := args[1].Float()
-	return value.MakeFloat(float64(math.Min(a0, a1)))
+func directCallMathMin(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.Min(a0, a1)
+	return directResultsMath(r0)
 }
 
-func direct_math_Mod(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	a1 := args[1].Float()
-	return value.MakeFloat(float64(math.Mod(a0, a1)))
+func directCallMathMod(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.Mod(a0, a1)
+	return directResultsMath(r0)
 }
 
-func direct_math_Modf(args []value.Value) value.Value {
-	a0 := args[0].Float()
+func directCallMathModf(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := math.Modf(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeFloat(float64(r1))})
+	return directResultsMath(r0, r1)
 }
 
-func direct_math_NaN(args []value.Value) value.Value {
-	return value.MakeFloat(float64(math.NaN()))
+func directCallMathNaN(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := math.NaN()
+	return directResultsMath(r0)
 }
 
-func direct_math_Nextafter(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	a1 := args[1].Float()
-	return value.MakeFloat(float64(math.Nextafter(a0, a1)))
+func directCallMathNextafter(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.Nextafter(a0, a1)
+	return directResultsMath(r0)
 }
 
-func direct_math_Nextafter32(args []value.Value) value.Value {
-	a0 := float32(args[0].Float())
-	a1 := float32(args[1].Float())
-	return value.MakeFloat(float64(math.Nextafter32(a0, a1)))
+func directCallMathNextafter32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[float32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[float32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.Nextafter32(a0, a1)
+	return directResultsMath(r0)
 }
 
-func direct_math_Pow(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	a1 := args[1].Float()
-	return value.MakeFloat(float64(math.Pow(a0, a1)))
+func directCallMathPow(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.Pow(a0, a1)
+	return directResultsMath(r0)
 }
 
-func direct_math_Pow10(args []value.Value) value.Value {
-	a0 := int(args[0].Int())
-	return value.MakeFloat(float64(math.Pow10(a0)))
+func directCallMathPow10(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Pow10(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Remainder(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	a1 := args[1].Float()
-	return value.MakeFloat(float64(math.Remainder(a0, a1)))
+func directCallMathRemainder(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.Remainder(a0, a1)
+	return directResultsMath(r0)
 }
 
-func direct_math_Round(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Round(a0)))
+func directCallMathRound(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Round(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_RoundToEven(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.RoundToEven(a0)))
+func directCallMathRoundToEven(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.RoundToEven(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Signbit(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeBool(math.Signbit(a0))
+func directCallMathSignbit(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Signbit(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Sin(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Sin(a0)))
+func directCallMathSin(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Sin(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Sincos(args []value.Value) value.Value {
-	a0 := args[0].Float()
+func directCallMathSincos(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := math.Sincos(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeFloat(float64(r1))})
+	return directResultsMath(r0, r1)
 }
 
-func direct_math_Sinh(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Sinh(a0)))
+func directCallMathSinh(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Sinh(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Sqrt(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Sqrt(a0)))
+func directCallMathSqrt(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Sqrt(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Tan(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Tan(a0)))
+func directCallMathTan(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Tan(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Tanh(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Tanh(a0)))
+func directCallMathTanh(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Tanh(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Trunc(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Trunc(a0)))
+func directCallMathTrunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Trunc(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Y0(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Y0(a0)))
+func directCallMathY0(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Y0(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Y1(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	return value.MakeFloat(float64(math.Y1(a0)))
+func directCallMathY1(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMath[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math.Y1(a0)
+	return directResultsMath(r0)
 }
 
-func direct_math_Yn(args []value.Value) value.Value {
-	a0 := int(args[0].Int())
-	a1 := args[1].Float()
-	return value.MakeFloat(float64(math.Yn(a0, a1)))
+func directCallMathYn(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMath[int](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMath[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math.Yn(a0, a1)
+	return directResultsMath(r0)
 }

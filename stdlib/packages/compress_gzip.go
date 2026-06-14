@@ -3,20 +3,20 @@ package packages
 
 import (
 	compress_gzip "compress/gzip"
-	io "io"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"io"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("compress/gzip", "gzip")
 
 	// Functions
-	pkg.AddFunction("NewReader", compress_gzip.NewReader, "", direct_compress_gzip_NewReader)
-	pkg.AddFunction("NewWriter", compress_gzip.NewWriter, "", direct_compress_gzip_NewWriter)
-	pkg.AddFunction("NewWriterLevel", compress_gzip.NewWriterLevel, "", direct_compress_gzip_NewWriterLevel)
+	pkg.AddFunction("NewReader", compress_gzip.NewReader, "", directCallCompressGzipNewReader)
+	pkg.AddFunction("NewWriter", compress_gzip.NewWriter, "", directCallCompressGzipNewWriter)
+	pkg.AddFunction("NewWriterLevel", compress_gzip.NewWriterLevel, "", directCallCompressGzipNewWriterLevel)
 
 	// Constants
 	pkg.AddConstant("BestCompression", compress_gzip.BestCompression, "")
@@ -34,99 +34,113 @@ func init() {
 	pkg.AddType("Reader", reflect.TypeOf(compress_gzip.Reader{}), "")
 	pkg.AddType("Writer", reflect.TypeOf(compress_gzip.Writer{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Reader", "Close", direct_method_compress_gzip_Reader_Close)
-	pkg.AddMethodDirectCall("Reader", "Multistream", direct_method_compress_gzip_Reader_Multistream)
-	pkg.AddMethodDirectCall("Reader", "Read", direct_method_compress_gzip_Reader_Read)
-	pkg.AddMethodDirectCall("Reader", "Reset", direct_method_compress_gzip_Reader_Reset)
-	pkg.AddMethodDirectCall("Writer", "Close", direct_method_compress_gzip_Writer_Close)
-	pkg.AddMethodDirectCall("Writer", "Flush", direct_method_compress_gzip_Writer_Flush)
-	pkg.AddMethodDirectCall("Writer", "Reset", direct_method_compress_gzip_Writer_Reset)
-	pkg.AddMethodDirectCall("Writer", "Write", direct_method_compress_gzip_Writer_Write)
-
 }
 
-func direct_compress_gzip_NewReader(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
+func directArgCompressGzip[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsCompressGzip[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgCompressGzip[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgCompressGzip[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgCompressGzip[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsCompressGzip(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallCompressGzipNewReader(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgCompressGzip[io.Reader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := compress_gzip.NewReader(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsCompressGzip(r0, r1)
 }
 
-func direct_compress_gzip_NewWriter(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	return value.FromInterface(compress_gzip.NewWriter(a0))
+func directCallCompressGzipNewWriter(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgCompressGzip[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := compress_gzip.NewWriter(a0)
+	return directResultsCompressGzip(r0)
 }
 
-func direct_compress_gzip_NewWriterLevel(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	a1 := int(args[1].Int())
+func directCallCompressGzipNewWriterLevel(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgCompressGzip[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgCompressGzip[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := compress_gzip.NewWriterLevel(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_compress_gzip_Reader_Close(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_gzip.Reader)
-	return value.FromInterface(recv.Close())
-}
-
-func direct_method_compress_gzip_Reader_Multistream(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_gzip.Reader)
-	a0 := args[1].Bool()
-	recv.Multistream(a0)
-	return value.MakeNil()
-}
-
-func direct_method_compress_gzip_Reader_Read(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_gzip.Reader)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	r0, r1 := recv.Read(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_compress_gzip_Reader_Reset(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_gzip.Reader)
-	a0 := args[1].Interface().(io.Reader)
-	return value.FromInterface(recv.Reset(a0))
-}
-
-func direct_method_compress_gzip_Writer_Close(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_gzip.Writer)
-	return value.FromInterface(recv.Close())
-}
-
-func direct_method_compress_gzip_Writer_Flush(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_gzip.Writer)
-	return value.FromInterface(recv.Flush())
-}
-
-func direct_method_compress_gzip_Writer_Reset(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_gzip.Writer)
-	a0 := args[1].Interface().(io.Writer)
-	recv.Reset(a0)
-	return value.MakeNil()
-}
-
-func direct_method_compress_gzip_Writer_Write(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_gzip.Writer)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	r0, r1 := recv.Write(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return directResultsCompressGzip(r0, r1)
 }

@@ -2,22 +2,22 @@
 package packages
 
 import (
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 	"mime"
 	"reflect"
-
-	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("mime", "mime")
 
 	// Functions
-	pkg.AddFunction("AddExtensionType", mime.AddExtensionType, "", direct_mime_AddExtensionType)
-	pkg.AddFunction("ExtensionsByType", mime.ExtensionsByType, "", direct_mime_ExtensionsByType)
-	pkg.AddFunction("FormatMediaType", mime.FormatMediaType, "", direct_mime_FormatMediaType)
-	pkg.AddFunction("ParseMediaType", mime.ParseMediaType, "", direct_mime_ParseMediaType)
-	pkg.AddFunction("TypeByExtension", mime.TypeByExtension, "", direct_mime_TypeByExtension)
+	pkg.AddFunction("AddExtensionType", mime.AddExtensionType, "", directCallMimeAddExtensionType)
+	pkg.AddFunction("ExtensionsByType", mime.ExtensionsByType, "", directCallMimeExtensionsByType)
+	pkg.AddFunction("FormatMediaType", mime.FormatMediaType, "", directCallMimeFormatMediaType)
+	pkg.AddFunction("ParseMediaType", mime.ParseMediaType, "", directCallMimeParseMediaType)
+	pkg.AddFunction("TypeByExtension", mime.TypeByExtension, "", directCallMimeTypeByExtension)
 
 	// Constants
 	pkg.AddConstant("BEncoding", mime.BEncoding, "")
@@ -30,59 +30,141 @@ func init() {
 	pkg.AddType("WordDecoder", reflect.TypeOf(mime.WordDecoder{}), "")
 	pkg.AddType("WordEncoder", reflect.TypeOf((*mime.WordEncoder)(nil)).Elem(), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("WordDecoder", "Decode", direct_method_mime_WordDecoder_Decode)
-	pkg.AddMethodDirectCall("WordDecoder", "DecodeHeader", direct_method_mime_WordDecoder_DecodeHeader)
-	pkg.AddMethodDirectCall("WordEncoder", "Encode", direct_method_mime_WordEncoder_Encode)
-
 }
 
-func direct_mime_AddExtensionType(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].String()
-	return value.FromInterface(mime.AddExtensionType(a0, a1))
+func directArgMime[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_mime_ExtensionsByType(args []value.Value) value.Value {
-	a0 := args[0].String()
+func directVariadicArgsMime[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgMime[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgMime[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgMime[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsMime(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallMimeAddExtensionType(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMime[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMime[string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := mime.AddExtensionType(a0, a1)
+	return directResultsMime(r0)
+}
+
+func directCallMimeExtensionsByType(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMime[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := mime.ExtensionsByType(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsMime(r0, r1)
 }
 
-func direct_mime_FormatMediaType(args []value.Value) value.Value {
-	a0 := args[0].String()
-	a1 := args[1].Interface().(map[string]string)
-	return value.MakeString(string(mime.FormatMediaType(a0, a1)))
+func directCallMimeFormatMediaType(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMime[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMime[map[string]string](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := mime.FormatMediaType(a0, a1)
+	return directResultsMime(r0)
 }
 
-func direct_mime_ParseMediaType(args []value.Value) value.Value {
-	a0 := args[0].String()
+func directCallMimeParseMediaType(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMime[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1, r2 := mime.ParseMediaType(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1), value.FromInterface(r2)})
+	return directResultsMime(r0, r1, r2)
 }
 
-func direct_mime_TypeByExtension(args []value.Value) value.Value {
-	a0 := args[0].String()
-	return value.MakeString(string(mime.TypeByExtension(a0)))
-}
-
-func direct_method_mime_WordDecoder_Decode(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime.WordDecoder)
-	a0 := args[1].String()
-	r0, r1 := recv.Decode(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_mime_WordDecoder_DecodeHeader(args []value.Value) value.Value {
-	recv := args[0].Interface().(*mime.WordDecoder)
-	a0 := args[1].String()
-	r0, r1 := recv.DecodeHeader(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeString(string(r0)), value.FromInterface(r1)})
-}
-
-func direct_method_mime_WordEncoder_Encode(args []value.Value) value.Value {
-	recv := mime.WordEncoder(byte(args[0].Uint()))
-	a0 := args[1].String()
-	a1 := args[2].String()
-	return value.MakeString(string(recv.Encode(a0, a1)))
+func directCallMimeTypeByExtension(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMime[string](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := mime.TypeByExtension(a0)
+	return directResultsMime(r0)
 }

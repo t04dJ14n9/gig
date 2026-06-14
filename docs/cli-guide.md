@@ -373,5 +373,5 @@ This allows automatic import detection when you use package functions without ex
 ## See Also
 
 - [README.md](../README.md) - Main documentation
-- [gig-internals.md](gig-internals.md) - Internal architecture
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Internal architecture
 - [examples/](../examples/) - Example programs

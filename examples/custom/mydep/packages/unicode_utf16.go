@@ -2,108 +2,184 @@
 package packages
 
 import (
-	unicode_utf16 "unicode/utf16"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"reflect"
+	unicode_utf16 "unicode/utf16"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("unicode/utf16", "utf16")
 
 	// Functions
-	pkg.AddFunction("AppendRune", unicode_utf16.AppendRune, "", direct_unicode_utf16_AppendRune)
-	pkg.AddFunction("Decode", unicode_utf16.Decode, "", direct_unicode_utf16_Decode)
-	pkg.AddFunction("DecodeRune", unicode_utf16.DecodeRune, "", direct_unicode_utf16_DecodeRune)
-	pkg.AddFunction("Encode", unicode_utf16.Encode, "", direct_unicode_utf16_Encode)
-	pkg.AddFunction("EncodeRune", unicode_utf16.EncodeRune, "", direct_unicode_utf16_EncodeRune)
-	pkg.AddFunction("IsSurrogate", unicode_utf16.IsSurrogate, "", direct_unicode_utf16_IsSurrogate)
-	pkg.AddFunction("RuneLen", unicode_utf16.RuneLen, "", direct_unicode_utf16_RuneLen)
+	pkg.AddFunction("AppendRune", unicode_utf16.AppendRune, "", directCallUnicodeUtf16AppendRune)
+	pkg.AddFunction("Decode", unicode_utf16.Decode, "", directCallUnicodeUtf16Decode)
+	pkg.AddFunction("DecodeRune", unicode_utf16.DecodeRune, "", directCallUnicodeUtf16DecodeRune)
+	pkg.AddFunction("Encode", unicode_utf16.Encode, "", directCallUnicodeUtf16Encode)
+	pkg.AddFunction("EncodeRune", unicode_utf16.EncodeRune, "", directCallUnicodeUtf16EncodeRune)
+	pkg.AddFunction("IsSurrogate", unicode_utf16.IsSurrogate, "", directCallUnicodeUtf16IsSurrogate)
+	pkg.AddFunction("RuneLen", unicode_utf16.RuneLen, "", directCallUnicodeUtf16RuneLen)
 
 }
 
-func direct_unicode_utf16_AppendRune(args []value.Value) value.Value {
-	var _back0 []int64
-	var a0 []uint16
-	if _s, _ok := args[0].IntSlice(); _ok {
-		_back0 = _s
-		a0 = make([]uint16, len(_s))
-		for _i, _v := range _s {
-			a0[_i] = uint16(_v)
-		}
-	} else {
-		a0 = args[0].Interface().([]uint16)
+func directArgUnicodeUtf16[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
 	}
-	a1 := int32(args[1].Int())
-	_ret := unicode_utf16.AppendRune(a0, a1)
-	if _back0 != nil {
-		for _i, _v := range a0 {
-			_back0[_i] = int64(_v)
-		}
+	if !rv.IsValid() {
+		return zero, nil
 	}
-	return value.FromInterface(_ret)
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_unicode_utf16_Decode(args []value.Value) value.Value {
-	var _back0 []int64
-	var a0 []uint16
-	if _s, _ok := args[0].IntSlice(); _ok {
-		_back0 = _s
-		a0 = make([]uint16, len(_s))
-		for _i, _v := range _s {
-			a0[_i] = uint16(_v)
+func directVariadicArgsUnicodeUtf16[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgUnicodeUtf16[[]T](args[0]); err == nil {
+			return packed, nil
 		}
-	} else {
-		a0 = args[0].Interface().([]uint16)
-	}
-	_ret := unicode_utf16.Decode(a0)
-	if _back0 != nil {
-		for _i, _v := range a0 {
-			_back0[_i] = int64(_v)
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgUnicodeUtf16[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
 		}
 	}
-	return value.FromInterface(_ret)
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgUnicodeUtf16[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
 }
 
-func direct_unicode_utf16_DecodeRune(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	a1 := int32(args[1].Int())
-	return value.MakeInt(int64(unicode_utf16.DecodeRune(a0, a1)))
+func directResultsUnicodeUtf16(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_unicode_utf16_Encode(args []value.Value) value.Value {
-	var _back0 []int64
-	var a0 []rune
-	if _s, _ok := args[0].IntSlice(); _ok {
-		_back0 = _s
-		a0 = make([]rune, len(_s))
-		for _i, _v := range _s {
-			a0[_i] = rune(_v)
-		}
-	} else {
-		a0 = args[0].Interface().([]rune)
+func directCallUnicodeUtf16AppendRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
 	}
-	_ret := unicode_utf16.Encode(a0)
-	if _back0 != nil {
-		for _i, _v := range a0 {
-			_back0[_i] = int64(_v)
-		}
+	a0, err := directArgUnicodeUtf16[[]uint16](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
 	}
-	return value.FromInterface(_ret)
+	a1, err := directArgUnicodeUtf16[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := unicode_utf16.AppendRune(a0, a1)
+	return directResultsUnicodeUtf16(r0)
 }
 
-func direct_unicode_utf16_EncodeRune(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
+func directCallUnicodeUtf16Decode(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf16[[]uint16](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode_utf16.Decode(a0)
+	return directResultsUnicodeUtf16(r0)
+}
+
+func directCallUnicodeUtf16DecodeRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgUnicodeUtf16[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgUnicodeUtf16[rune](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := unicode_utf16.DecodeRune(a0, a1)
+	return directResultsUnicodeUtf16(r0)
+}
+
+func directCallUnicodeUtf16Encode(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf16[[]rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode_utf16.Encode(a0)
+	return directResultsUnicodeUtf16(r0)
+}
+
+func directCallUnicodeUtf16EncodeRune(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf16[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := unicode_utf16.EncodeRune(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1))})
+	return directResultsUnicodeUtf16(r0, r1)
 }
 
-func direct_unicode_utf16_IsSurrogate(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeBool(unicode_utf16.IsSurrogate(a0))
+func directCallUnicodeUtf16IsSurrogate(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf16[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode_utf16.IsSurrogate(a0)
+	return directResultsUnicodeUtf16(r0)
 }
 
-func direct_unicode_utf16_RuneLen(args []value.Value) value.Value {
-	a0 := int32(args[0].Int())
-	return value.MakeInt(int64(unicode_utf16.RuneLen(a0)))
+func directCallUnicodeUtf16RuneLen(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgUnicodeUtf16[rune](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := unicode_utf16.RuneLen(a0)
+	return directResultsUnicodeUtf16(r0)
 }

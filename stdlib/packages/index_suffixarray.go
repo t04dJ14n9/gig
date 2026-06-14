@@ -2,83 +2,101 @@
 package packages
 
 import (
-	index_suffixarray "index/suffixarray"
-	io "io"
-	"reflect"
-	regexp "regexp"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	index_suffixarray "index/suffixarray"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("index/suffixarray", "suffixarray")
 
 	// Functions
-	pkg.AddFunction("New", index_suffixarray.New, "", direct_index_suffixarray_New)
+	pkg.AddFunction("New", index_suffixarray.New, "", directCallIndexSuffixarrayNew)
 
 	// Types
 	pkg.AddType("Index", reflect.TypeOf(index_suffixarray.Index{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Index", "Bytes", direct_method_index_suffixarray_Index_Bytes)
-	pkg.AddMethodDirectCall("Index", "FindAllIndex", direct_method_index_suffixarray_Index_FindAllIndex)
-	pkg.AddMethodDirectCall("Index", "Lookup", direct_method_index_suffixarray_Index_Lookup)
-	pkg.AddMethodDirectCall("Index", "Read", direct_method_index_suffixarray_Index_Read)
-	pkg.AddMethodDirectCall("Index", "Write", direct_method_index_suffixarray_Index_Write)
-
 }
 
-func direct_index_suffixarray_New(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
+func directArgIndexSuffixarray[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsIndexSuffixarray[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgIndexSuffixarray[[]T](args[0]); err == nil {
+			return packed, nil
 		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgIndexSuffixarray[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
 		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(index_suffixarray.New(a0))
-}
-
-func direct_method_index_suffixarray_Index_Bytes(args []value.Value) value.Value {
-	recv := args[0].Interface().(*index_suffixarray.Index)
-	return value.MakeBytes([]byte(recv.Bytes()))
-}
-
-func direct_method_index_suffixarray_Index_FindAllIndex(args []value.Value) value.Value {
-	recv := args[0].Interface().(*index_suffixarray.Index)
-	a0 := args[1].Interface().(*regexp.Regexp)
-	a1 := int(args[2].Int())
-	return value.FromInterface(recv.FindAllIndex(a0, a1))
-}
-
-func direct_method_index_suffixarray_Index_Lookup(args []value.Value) value.Value {
-	recv := args[0].Interface().(*index_suffixarray.Index)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgIndexSuffixarray[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
 		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsIndexSuffixarray(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
 		}
-		return v.([]byte)
-	}()
-	a1 := int(args[2].Int())
-	return value.FromInterface(recv.Lookup(a0, a1))
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_method_index_suffixarray_Index_Read(args []value.Value) value.Value {
-	recv := args[0].Interface().(*index_suffixarray.Index)
-	a0 := args[1].Interface().(io.Reader)
-	return value.FromInterface(recv.Read(a0))
-}
-
-func direct_method_index_suffixarray_Index_Write(args []value.Value) value.Value {
-	recv := args[0].Interface().(*index_suffixarray.Index)
-	a0 := args[1].Interface().(io.Writer)
-	return value.FromInterface(recv.Write(a0))
+func directCallIndexSuffixarrayNew(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgIndexSuffixarray[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := index_suffixarray.New(a0)
+	return directResultsIndexSuffixarray(r0)
 }

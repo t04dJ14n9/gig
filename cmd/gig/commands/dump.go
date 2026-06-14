@@ -16,7 +16,7 @@ func RunDump(fs *flag.FlagSet, args []string) error {
 	allowPanic := fs.Bool("allow-panic", false, "allow panic/recover/defer compilation while dumping")
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: gig dump [flags] <file|->\n\n")
-		fmt.Fprintf(os.Stderr, "Compiles Gig source and prints readable SSA plus bytecode.\n")
+		fmt.Fprintf(os.Stderr, "Compiles Gig source and prints readable SSA.\n")
 		fmt.Fprintf(os.Stderr, "Use '-' to read source from stdin.\n\n")
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		fs.PrintDefaults()

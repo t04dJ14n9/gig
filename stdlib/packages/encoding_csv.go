@@ -3,19 +3,19 @@ package packages
 
 import (
 	encoding_csv "encoding/csv"
-	io "io"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"io"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("encoding/csv", "csv")
 
 	// Functions
-	pkg.AddFunction("NewReader", encoding_csv.NewReader, "", direct_encoding_csv_NewReader)
-	pkg.AddFunction("NewWriter", encoding_csv.NewWriter, "", direct_encoding_csv_NewWriter)
+	pkg.AddFunction("NewReader", encoding_csv.NewReader, "", directCallEncodingCsvNewReader)
+	pkg.AddFunction("NewWriter", encoding_csv.NewWriter, "", directCallEncodingCsvNewWriter)
 
 	// Variables
 	pkg.AddVariable("ErrBareQuote", &encoding_csv.ErrBareQuote, "")
@@ -28,76 +28,97 @@ func init() {
 	pkg.AddType("Reader", reflect.TypeOf(encoding_csv.Reader{}), "")
 	pkg.AddType("Writer", reflect.TypeOf(encoding_csv.Writer{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("ParseError", "Error", direct_method_encoding_csv_ParseError_Error)
-	pkg.AddMethodDirectCall("ParseError", "Unwrap", direct_method_encoding_csv_ParseError_Unwrap)
-	pkg.AddMethodDirectCall("Reader", "FieldPos", direct_method_encoding_csv_Reader_FieldPos)
-	pkg.AddMethodDirectCall("Reader", "InputOffset", direct_method_encoding_csv_Reader_InputOffset)
-	pkg.AddMethodDirectCall("Reader", "Read", direct_method_encoding_csv_Reader_Read)
-	pkg.AddMethodDirectCall("Reader", "ReadAll", direct_method_encoding_csv_Reader_ReadAll)
-	pkg.AddMethodDirectCall("Writer", "Error", direct_method_encoding_csv_Writer_Error)
-	pkg.AddMethodDirectCall("Writer", "Flush", direct_method_encoding_csv_Writer_Flush)
-	pkg.AddMethodDirectCall("Writer", "Write", direct_method_encoding_csv_Writer_Write)
-
 }
 
-func direct_encoding_csv_NewReader(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	return value.FromInterface(encoding_csv.NewReader(a0))
+func directArgEncodingCsv[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_encoding_csv_NewWriter(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	return value.FromInterface(encoding_csv.NewWriter(a0))
+func directVariadicArgsEncodingCsv[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgEncodingCsv[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgEncodingCsv[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgEncodingCsv[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
 }
 
-func direct_method_encoding_csv_ParseError_Error(args []value.Value) value.Value {
-	recv := args[0].Interface().(*encoding_csv.ParseError)
-	return value.MakeString(string(recv.Error()))
+func directResultsEncodingCsv(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_method_encoding_csv_ParseError_Unwrap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*encoding_csv.ParseError)
-	return value.FromInterface(recv.Unwrap())
+func directCallEncodingCsvNewReader(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingCsv[io.Reader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_csv.NewReader(a0)
+	return directResultsEncodingCsv(r0)
 }
 
-func direct_method_encoding_csv_Reader_FieldPos(args []value.Value) value.Value {
-	recv := args[0].Interface().(*encoding_csv.Reader)
-	a0 := int(args[1].Int())
-	r0, r1 := recv.FieldPos(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.MakeInt(int64(r1))})
-}
-
-func direct_method_encoding_csv_Reader_InputOffset(args []value.Value) value.Value {
-	recv := args[0].Interface().(*encoding_csv.Reader)
-	return value.MakeInt64(recv.InputOffset())
-}
-
-func direct_method_encoding_csv_Reader_Read(args []value.Value) value.Value {
-	recv := args[0].Interface().(*encoding_csv.Reader)
-	r0, r1 := recv.Read()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_encoding_csv_Reader_ReadAll(args []value.Value) value.Value {
-	recv := args[0].Interface().(*encoding_csv.Reader)
-	r0, r1 := recv.ReadAll()
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_encoding_csv_Writer_Error(args []value.Value) value.Value {
-	recv := args[0].Interface().(*encoding_csv.Writer)
-	return value.FromInterface(recv.Error())
-}
-
-func direct_method_encoding_csv_Writer_Flush(args []value.Value) value.Value {
-	recv := args[0].Interface().(*encoding_csv.Writer)
-	recv.Flush()
-	return value.MakeNil()
-}
-
-func direct_method_encoding_csv_Writer_Write(args []value.Value) value.Value {
-	recv := args[0].Interface().(*encoding_csv.Writer)
-	a0 := args[1].Interface().([]string)
-	return value.FromInterface(recv.Write(a0))
+func directCallEncodingCsvNewWriter(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgEncodingCsv[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := encoding_csv.NewWriter(a0)
+	return directResultsEncodingCsv(r0)
 }

@@ -2,178 +2,436 @@
 package packages
 
 import (
-	math_cmplx "math/cmplx"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	math_cmplx "math/cmplx"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("math/cmplx", "cmplx")
 
 	// Functions
-	pkg.AddFunction("Abs", math_cmplx.Abs, "", direct_math_cmplx_Abs)
-	pkg.AddFunction("Acos", math_cmplx.Acos, "", direct_math_cmplx_Acos)
-	pkg.AddFunction("Acosh", math_cmplx.Acosh, "", direct_math_cmplx_Acosh)
-	pkg.AddFunction("Asin", math_cmplx.Asin, "", direct_math_cmplx_Asin)
-	pkg.AddFunction("Asinh", math_cmplx.Asinh, "", direct_math_cmplx_Asinh)
-	pkg.AddFunction("Atan", math_cmplx.Atan, "", direct_math_cmplx_Atan)
-	pkg.AddFunction("Atanh", math_cmplx.Atanh, "", direct_math_cmplx_Atanh)
-	pkg.AddFunction("Conj", math_cmplx.Conj, "", direct_math_cmplx_Conj)
-	pkg.AddFunction("Cos", math_cmplx.Cos, "", direct_math_cmplx_Cos)
-	pkg.AddFunction("Cosh", math_cmplx.Cosh, "", direct_math_cmplx_Cosh)
-	pkg.AddFunction("Cot", math_cmplx.Cot, "", direct_math_cmplx_Cot)
-	pkg.AddFunction("Exp", math_cmplx.Exp, "", direct_math_cmplx_Exp)
-	pkg.AddFunction("Inf", math_cmplx.Inf, "", direct_math_cmplx_Inf)
-	pkg.AddFunction("IsInf", math_cmplx.IsInf, "", direct_math_cmplx_IsInf)
-	pkg.AddFunction("IsNaN", math_cmplx.IsNaN, "", direct_math_cmplx_IsNaN)
-	pkg.AddFunction("Log", math_cmplx.Log, "", direct_math_cmplx_Log)
-	pkg.AddFunction("Log10", math_cmplx.Log10, "", direct_math_cmplx_Log10)
-	pkg.AddFunction("NaN", math_cmplx.NaN, "", direct_math_cmplx_NaN)
-	pkg.AddFunction("Phase", math_cmplx.Phase, "", direct_math_cmplx_Phase)
-	pkg.AddFunction("Polar", math_cmplx.Polar, "", direct_math_cmplx_Polar)
-	pkg.AddFunction("Pow", math_cmplx.Pow, "", direct_math_cmplx_Pow)
-	pkg.AddFunction("Rect", math_cmplx.Rect, "", direct_math_cmplx_Rect)
-	pkg.AddFunction("Sin", math_cmplx.Sin, "", direct_math_cmplx_Sin)
-	pkg.AddFunction("Sinh", math_cmplx.Sinh, "", direct_math_cmplx_Sinh)
-	pkg.AddFunction("Sqrt", math_cmplx.Sqrt, "", direct_math_cmplx_Sqrt)
-	pkg.AddFunction("Tan", math_cmplx.Tan, "", direct_math_cmplx_Tan)
-	pkg.AddFunction("Tanh", math_cmplx.Tanh, "", direct_math_cmplx_Tanh)
+	pkg.AddFunction("Abs", math_cmplx.Abs, "", directCallMathCmplxAbs)
+	pkg.AddFunction("Acos", math_cmplx.Acos, "", directCallMathCmplxAcos)
+	pkg.AddFunction("Acosh", math_cmplx.Acosh, "", directCallMathCmplxAcosh)
+	pkg.AddFunction("Asin", math_cmplx.Asin, "", directCallMathCmplxAsin)
+	pkg.AddFunction("Asinh", math_cmplx.Asinh, "", directCallMathCmplxAsinh)
+	pkg.AddFunction("Atan", math_cmplx.Atan, "", directCallMathCmplxAtan)
+	pkg.AddFunction("Atanh", math_cmplx.Atanh, "", directCallMathCmplxAtanh)
+	pkg.AddFunction("Conj", math_cmplx.Conj, "", directCallMathCmplxConj)
+	pkg.AddFunction("Cos", math_cmplx.Cos, "", directCallMathCmplxCos)
+	pkg.AddFunction("Cosh", math_cmplx.Cosh, "", directCallMathCmplxCosh)
+	pkg.AddFunction("Cot", math_cmplx.Cot, "", directCallMathCmplxCot)
+	pkg.AddFunction("Exp", math_cmplx.Exp, "", directCallMathCmplxExp)
+	pkg.AddFunction("Inf", math_cmplx.Inf, "", directCallMathCmplxInf)
+	pkg.AddFunction("IsInf", math_cmplx.IsInf, "", directCallMathCmplxIsInf)
+	pkg.AddFunction("IsNaN", math_cmplx.IsNaN, "", directCallMathCmplxIsNaN)
+	pkg.AddFunction("Log", math_cmplx.Log, "", directCallMathCmplxLog)
+	pkg.AddFunction("Log10", math_cmplx.Log10, "", directCallMathCmplxLog10)
+	pkg.AddFunction("NaN", math_cmplx.NaN, "", directCallMathCmplxNaN)
+	pkg.AddFunction("Phase", math_cmplx.Phase, "", directCallMathCmplxPhase)
+	pkg.AddFunction("Polar", math_cmplx.Polar, "", directCallMathCmplxPolar)
+	pkg.AddFunction("Pow", math_cmplx.Pow, "", directCallMathCmplxPow)
+	pkg.AddFunction("Rect", math_cmplx.Rect, "", directCallMathCmplxRect)
+	pkg.AddFunction("Sin", math_cmplx.Sin, "", directCallMathCmplxSin)
+	pkg.AddFunction("Sinh", math_cmplx.Sinh, "", directCallMathCmplxSinh)
+	pkg.AddFunction("Sqrt", math_cmplx.Sqrt, "", directCallMathCmplxSqrt)
+	pkg.AddFunction("Tan", math_cmplx.Tan, "", directCallMathCmplxTan)
+	pkg.AddFunction("Tanh", math_cmplx.Tanh, "", directCallMathCmplxTanh)
 
 }
 
-func direct_math_cmplx_Abs(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.MakeFloat(float64(math_cmplx.Abs(a0)))
+func directArgMathCmplx[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_math_cmplx_Acos(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Acos(a0))
+func directVariadicArgsMathCmplx[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgMathCmplx[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgMathCmplx[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgMathCmplx[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
 }
 
-func direct_math_cmplx_Acosh(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Acosh(a0))
+func directResultsMathCmplx(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_math_cmplx_Asin(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Asin(a0))
+func directCallMathCmplxAbs(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Abs(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Asinh(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Asinh(a0))
+func directCallMathCmplxAcos(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Acos(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Atan(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Atan(a0))
+func directCallMathCmplxAcosh(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Acosh(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Atanh(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Atanh(a0))
+func directCallMathCmplxAsin(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Asin(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Conj(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Conj(a0))
+func directCallMathCmplxAsinh(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Asinh(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Cos(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Cos(a0))
+func directCallMathCmplxAtan(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Atan(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Cosh(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Cosh(a0))
+func directCallMathCmplxAtanh(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Atanh(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Cot(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Cot(a0))
+func directCallMathCmplxConj(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Conj(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Exp(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Exp(a0))
+func directCallMathCmplxCos(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Cos(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Inf(args []value.Value) value.Value {
-	return value.FromInterface(math_cmplx.Inf())
+func directCallMathCmplxCosh(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Cosh(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_IsInf(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.MakeBool(math_cmplx.IsInf(a0))
+func directCallMathCmplxCot(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Cot(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_IsNaN(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.MakeBool(math_cmplx.IsNaN(a0))
+func directCallMathCmplxExp(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Exp(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Log(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Log(a0))
+func directCallMathCmplxInf(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := math_cmplx.Inf()
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Log10(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Log10(a0))
+func directCallMathCmplxIsInf(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.IsInf(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_NaN(args []value.Value) value.Value {
-	return value.FromInterface(math_cmplx.NaN())
+func directCallMathCmplxIsNaN(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.IsNaN(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Phase(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.MakeFloat(float64(math_cmplx.Phase(a0)))
+func directCallMathCmplxLog(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Log(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Polar(args []value.Value) value.Value {
-	a0 := args[0].Complex()
+func directCallMathCmplxLog10(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Log10(a0)
+	return directResultsMathCmplx(r0)
+}
+
+func directCallMathCmplxNaN(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := math_cmplx.NaN()
+	return directResultsMathCmplx(r0)
+}
+
+func directCallMathCmplxPhase(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Phase(a0)
+	return directResultsMathCmplx(r0)
+}
+
+func directCallMathCmplxPolar(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := math_cmplx.Polar(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeFloat(float64(r0)), value.MakeFloat(float64(r1))})
+	return directResultsMathCmplx(r0, r1)
 }
 
-func direct_math_cmplx_Pow(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	a1 := args[1].Complex()
-	return value.FromInterface(math_cmplx.Pow(a0, a1))
+func directCallMathCmplxPow(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathCmplx[complex128](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math_cmplx.Pow(a0, a1)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Rect(args []value.Value) value.Value {
-	a0 := args[0].Float()
-	a1 := args[1].Float()
-	return value.FromInterface(math_cmplx.Rect(a0, a1))
+func directCallMathCmplxRect(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgMathCmplx[float64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgMathCmplx[float64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := math_cmplx.Rect(a0, a1)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Sin(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Sin(a0))
+func directCallMathCmplxSin(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Sin(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Sinh(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Sinh(a0))
+func directCallMathCmplxSinh(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Sinh(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Sqrt(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Sqrt(a0))
+func directCallMathCmplxSqrt(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Sqrt(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Tan(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Tan(a0))
+func directCallMathCmplxTan(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Tan(a0)
+	return directResultsMathCmplx(r0)
 }
 
-func direct_math_cmplx_Tanh(args []value.Value) value.Value {
-	a0 := args[0].Complex()
-	return value.FromInterface(math_cmplx.Tanh(a0))
+func directCallMathCmplxTanh(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgMathCmplx[complex128](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := math_cmplx.Tanh(a0)
+	return directResultsMathCmplx(r0)
 }

@@ -3,17 +3,18 @@ package packages
 
 import (
 	crypto_sha1 "crypto/sha1"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("crypto/sha1", "sha1")
 
 	// Functions
-	pkg.AddFunction("New", crypto_sha1.New, "", direct_crypto_sha1_New)
-	pkg.AddFunction("Sum", crypto_sha1.Sum, "", direct_crypto_sha1_Sum)
+	pkg.AddFunction("New", crypto_sha1.New, "", directCallCryptoSha1New)
+	pkg.AddFunction("Sum", crypto_sha1.Sum, "", directCallCryptoSha1Sum)
 
 	// Constants
 	pkg.AddConstant("BlockSize", crypto_sha1.BlockSize, "")
@@ -21,20 +22,91 @@ func init() {
 
 }
 
-func direct_crypto_sha1_New(args []value.Value) value.Value {
-	return value.FromInterface(crypto_sha1.New())
+func directArgCryptoSha1[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_crypto_sha1_Sum(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
+func directVariadicArgsCryptoSha1[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgCryptoSha1[[]T](args[0]); err == nil {
+			return packed, nil
 		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgCryptoSha1[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
 		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(crypto_sha1.Sum(a0))
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgCryptoSha1[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsCryptoSha1(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallCryptoSha1New(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := crypto_sha1.New()
+	return directResultsCryptoSha1(r0)
+}
+
+func directCallCryptoSha1Sum(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgCryptoSha1[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := crypto_sha1.Sum(a0)
+	return directResultsCryptoSha1(r0)
 }

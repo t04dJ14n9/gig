@@ -3,22 +3,22 @@ package packages
 
 import (
 	compress_zlib "compress/zlib"
-	io "io"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"io"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("compress/zlib", "zlib")
 
 	// Functions
-	pkg.AddFunction("NewReader", compress_zlib.NewReader, "", direct_compress_zlib_NewReader)
-	pkg.AddFunction("NewReaderDict", compress_zlib.NewReaderDict, "", direct_compress_zlib_NewReaderDict)
-	pkg.AddFunction("NewWriter", compress_zlib.NewWriter, "", direct_compress_zlib_NewWriter)
-	pkg.AddFunction("NewWriterLevel", compress_zlib.NewWriterLevel, "", direct_compress_zlib_NewWriterLevel)
-	pkg.AddFunction("NewWriterLevelDict", compress_zlib.NewWriterLevelDict, "", direct_compress_zlib_NewWriterLevelDict)
+	pkg.AddFunction("NewReader", compress_zlib.NewReader, "", directCallCompressZlibNewReader)
+	pkg.AddFunction("NewReaderDict", compress_zlib.NewReaderDict, "", directCallCompressZlibNewReaderDict)
+	pkg.AddFunction("NewWriter", compress_zlib.NewWriter, "", directCallCompressZlibNewWriter)
+	pkg.AddFunction("NewWriterLevel", compress_zlib.NewWriterLevel, "", directCallCompressZlibNewWriterLevel)
+	pkg.AddFunction("NewWriterLevelDict", compress_zlib.NewWriterLevelDict, "", directCallCompressZlibNewWriterLevelDict)
 
 	// Constants
 	pkg.AddConstant("BestCompression", compress_zlib.BestCompression, "")
@@ -36,94 +36,149 @@ func init() {
 	pkg.AddType("Resetter", reflect.TypeOf((*compress_zlib.Resetter)(nil)).Elem(), "")
 	pkg.AddType("Writer", reflect.TypeOf(compress_zlib.Writer{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Writer", "Close", direct_method_compress_zlib_Writer_Close)
-	pkg.AddMethodDirectCall("Writer", "Flush", direct_method_compress_zlib_Writer_Flush)
-	pkg.AddMethodDirectCall("Writer", "Reset", direct_method_compress_zlib_Writer_Reset)
-	pkg.AddMethodDirectCall("Writer", "Write", direct_method_compress_zlib_Writer_Write)
-
 }
 
-func direct_compress_zlib_NewReader(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
+func directArgCompressZlib[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsCompressZlib[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgCompressZlib[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgCompressZlib[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgCompressZlib[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsCompressZlib(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallCompressZlibNewReader(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgCompressZlib[io.Reader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := compress_zlib.NewReader(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsCompressZlib(r0, r1)
 }
 
-func direct_compress_zlib_NewReaderDict(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Reader)
-	a1 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
+func directCallCompressZlibNewReaderDict(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgCompressZlib[io.Reader](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgCompressZlib[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := compress_zlib.NewReaderDict(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsCompressZlib(r0, r1)
 }
 
-func direct_compress_zlib_NewWriter(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	return value.FromInterface(compress_zlib.NewWriter(a0))
+func directCallCompressZlibNewWriter(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgCompressZlib[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := compress_zlib.NewWriter(a0)
+	return directResultsCompressZlib(r0)
 }
 
-func direct_compress_zlib_NewWriterLevel(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	a1 := int(args[1].Int())
+func directCallCompressZlibNewWriterLevel(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgCompressZlib[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgCompressZlib[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := compress_zlib.NewWriterLevel(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsCompressZlib(r0, r1)
 }
 
-func direct_compress_zlib_NewWriterLevelDict(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	a1 := int(args[1].Int())
-	a2 := func() []byte {
-		if b, ok := (args[2]).Bytes(); ok {
-			return b
-		}
-		v := (args[2]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
+func directCallCompressZlibNewWriterLevelDict(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgCompressZlib[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgCompressZlib[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgCompressZlib[[]byte](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := compress_zlib.NewWriterLevelDict(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_compress_zlib_Writer_Close(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_zlib.Writer)
-	return value.FromInterface(recv.Close())
-}
-
-func direct_method_compress_zlib_Writer_Flush(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_zlib.Writer)
-	return value.FromInterface(recv.Flush())
-}
-
-func direct_method_compress_zlib_Writer_Reset(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_zlib.Writer)
-	a0 := args[1].Interface().(io.Writer)
-	recv.Reset(a0)
-	return value.MakeNil()
-}
-
-func direct_method_compress_zlib_Writer_Write(args []value.Value) value.Value {
-	recv := args[0].Interface().(*compress_zlib.Writer)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	r0, r1 := recv.Write(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	return directResultsCompressZlib(r0, r1)
 }

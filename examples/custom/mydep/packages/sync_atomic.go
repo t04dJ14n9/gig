@@ -2,56 +2,57 @@
 package packages
 
 import (
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
 	"reflect"
 	sync_atomic "sync/atomic"
-
-	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"unsafe"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("sync/atomic", "atomic")
 
 	// Functions
-	pkg.AddFunction("AddInt32", sync_atomic.AddInt32, "", direct_sync_atomic_AddInt32)
-	pkg.AddFunction("AddInt64", sync_atomic.AddInt64, "", direct_sync_atomic_AddInt64)
-	pkg.AddFunction("AddUint32", sync_atomic.AddUint32, "", direct_sync_atomic_AddUint32)
-	pkg.AddFunction("AddUint64", sync_atomic.AddUint64, "", direct_sync_atomic_AddUint64)
-	pkg.AddFunction("AddUintptr", sync_atomic.AddUintptr, "", direct_sync_atomic_AddUintptr)
-	pkg.AddFunction("AndInt32", sync_atomic.AndInt32, "", direct_sync_atomic_AndInt32)
-	pkg.AddFunction("AndInt64", sync_atomic.AndInt64, "", direct_sync_atomic_AndInt64)
-	pkg.AddFunction("AndUint32", sync_atomic.AndUint32, "", direct_sync_atomic_AndUint32)
-	pkg.AddFunction("AndUint64", sync_atomic.AndUint64, "", direct_sync_atomic_AndUint64)
-	pkg.AddFunction("AndUintptr", sync_atomic.AndUintptr, "", direct_sync_atomic_AndUintptr)
-	pkg.AddFunction("CompareAndSwapInt32", sync_atomic.CompareAndSwapInt32, "", direct_sync_atomic_CompareAndSwapInt32)
-	pkg.AddFunction("CompareAndSwapInt64", sync_atomic.CompareAndSwapInt64, "", direct_sync_atomic_CompareAndSwapInt64)
-	pkg.AddFunction("CompareAndSwapPointer", sync_atomic.CompareAndSwapPointer, "", nil)
-	pkg.AddFunction("CompareAndSwapUint32", sync_atomic.CompareAndSwapUint32, "", direct_sync_atomic_CompareAndSwapUint32)
-	pkg.AddFunction("CompareAndSwapUint64", sync_atomic.CompareAndSwapUint64, "", direct_sync_atomic_CompareAndSwapUint64)
-	pkg.AddFunction("CompareAndSwapUintptr", sync_atomic.CompareAndSwapUintptr, "", direct_sync_atomic_CompareAndSwapUintptr)
-	pkg.AddFunction("LoadInt32", sync_atomic.LoadInt32, "", direct_sync_atomic_LoadInt32)
-	pkg.AddFunction("LoadInt64", sync_atomic.LoadInt64, "", direct_sync_atomic_LoadInt64)
-	pkg.AddFunction("LoadPointer", sync_atomic.LoadPointer, "", nil)
-	pkg.AddFunction("LoadUint32", sync_atomic.LoadUint32, "", direct_sync_atomic_LoadUint32)
-	pkg.AddFunction("LoadUint64", sync_atomic.LoadUint64, "", direct_sync_atomic_LoadUint64)
-	pkg.AddFunction("LoadUintptr", sync_atomic.LoadUintptr, "", direct_sync_atomic_LoadUintptr)
-	pkg.AddFunction("OrInt32", sync_atomic.OrInt32, "", direct_sync_atomic_OrInt32)
-	pkg.AddFunction("OrInt64", sync_atomic.OrInt64, "", direct_sync_atomic_OrInt64)
-	pkg.AddFunction("OrUint32", sync_atomic.OrUint32, "", direct_sync_atomic_OrUint32)
-	pkg.AddFunction("OrUint64", sync_atomic.OrUint64, "", direct_sync_atomic_OrUint64)
-	pkg.AddFunction("OrUintptr", sync_atomic.OrUintptr, "", direct_sync_atomic_OrUintptr)
-	pkg.AddFunction("StoreInt32", sync_atomic.StoreInt32, "", direct_sync_atomic_StoreInt32)
-	pkg.AddFunction("StoreInt64", sync_atomic.StoreInt64, "", direct_sync_atomic_StoreInt64)
-	pkg.AddFunction("StorePointer", sync_atomic.StorePointer, "", nil)
-	pkg.AddFunction("StoreUint32", sync_atomic.StoreUint32, "", direct_sync_atomic_StoreUint32)
-	pkg.AddFunction("StoreUint64", sync_atomic.StoreUint64, "", direct_sync_atomic_StoreUint64)
-	pkg.AddFunction("StoreUintptr", sync_atomic.StoreUintptr, "", direct_sync_atomic_StoreUintptr)
-	pkg.AddFunction("SwapInt32", sync_atomic.SwapInt32, "", direct_sync_atomic_SwapInt32)
-	pkg.AddFunction("SwapInt64", sync_atomic.SwapInt64, "", direct_sync_atomic_SwapInt64)
-	pkg.AddFunction("SwapPointer", sync_atomic.SwapPointer, "", nil)
-	pkg.AddFunction("SwapUint32", sync_atomic.SwapUint32, "", direct_sync_atomic_SwapUint32)
-	pkg.AddFunction("SwapUint64", sync_atomic.SwapUint64, "", direct_sync_atomic_SwapUint64)
-	pkg.AddFunction("SwapUintptr", sync_atomic.SwapUintptr, "", direct_sync_atomic_SwapUintptr)
+	pkg.AddFunction("AddInt32", sync_atomic.AddInt32, "", directCallSyncAtomicAddInt32)
+	pkg.AddFunction("AddInt64", sync_atomic.AddInt64, "", directCallSyncAtomicAddInt64)
+	pkg.AddFunction("AddUint32", sync_atomic.AddUint32, "", directCallSyncAtomicAddUint32)
+	pkg.AddFunction("AddUint64", sync_atomic.AddUint64, "", directCallSyncAtomicAddUint64)
+	pkg.AddFunction("AddUintptr", sync_atomic.AddUintptr, "", directCallSyncAtomicAddUintptr)
+	pkg.AddFunction("AndInt32", sync_atomic.AndInt32, "", directCallSyncAtomicAndInt32)
+	pkg.AddFunction("AndInt64", sync_atomic.AndInt64, "", directCallSyncAtomicAndInt64)
+	pkg.AddFunction("AndUint32", sync_atomic.AndUint32, "", directCallSyncAtomicAndUint32)
+	pkg.AddFunction("AndUint64", sync_atomic.AndUint64, "", directCallSyncAtomicAndUint64)
+	pkg.AddFunction("AndUintptr", sync_atomic.AndUintptr, "", directCallSyncAtomicAndUintptr)
+	pkg.AddFunction("CompareAndSwapInt32", sync_atomic.CompareAndSwapInt32, "", directCallSyncAtomicCompareAndSwapInt32)
+	pkg.AddFunction("CompareAndSwapInt64", sync_atomic.CompareAndSwapInt64, "", directCallSyncAtomicCompareAndSwapInt64)
+	pkg.AddFunction("CompareAndSwapPointer", sync_atomic.CompareAndSwapPointer, "", directCallSyncAtomicCompareAndSwapPointer)
+	pkg.AddFunction("CompareAndSwapUint32", sync_atomic.CompareAndSwapUint32, "", directCallSyncAtomicCompareAndSwapUint32)
+	pkg.AddFunction("CompareAndSwapUint64", sync_atomic.CompareAndSwapUint64, "", directCallSyncAtomicCompareAndSwapUint64)
+	pkg.AddFunction("CompareAndSwapUintptr", sync_atomic.CompareAndSwapUintptr, "", directCallSyncAtomicCompareAndSwapUintptr)
+	pkg.AddFunction("LoadInt32", sync_atomic.LoadInt32, "", directCallSyncAtomicLoadInt32)
+	pkg.AddFunction("LoadInt64", sync_atomic.LoadInt64, "", directCallSyncAtomicLoadInt64)
+	pkg.AddFunction("LoadPointer", sync_atomic.LoadPointer, "", directCallSyncAtomicLoadPointer)
+	pkg.AddFunction("LoadUint32", sync_atomic.LoadUint32, "", directCallSyncAtomicLoadUint32)
+	pkg.AddFunction("LoadUint64", sync_atomic.LoadUint64, "", directCallSyncAtomicLoadUint64)
+	pkg.AddFunction("LoadUintptr", sync_atomic.LoadUintptr, "", directCallSyncAtomicLoadUintptr)
+	pkg.AddFunction("OrInt32", sync_atomic.OrInt32, "", directCallSyncAtomicOrInt32)
+	pkg.AddFunction("OrInt64", sync_atomic.OrInt64, "", directCallSyncAtomicOrInt64)
+	pkg.AddFunction("OrUint32", sync_atomic.OrUint32, "", directCallSyncAtomicOrUint32)
+	pkg.AddFunction("OrUint64", sync_atomic.OrUint64, "", directCallSyncAtomicOrUint64)
+	pkg.AddFunction("OrUintptr", sync_atomic.OrUintptr, "", directCallSyncAtomicOrUintptr)
+	pkg.AddFunction("StoreInt32", sync_atomic.StoreInt32, "", directCallSyncAtomicStoreInt32)
+	pkg.AddFunction("StoreInt64", sync_atomic.StoreInt64, "", directCallSyncAtomicStoreInt64)
+	pkg.AddFunction("StorePointer", sync_atomic.StorePointer, "", directCallSyncAtomicStorePointer)
+	pkg.AddFunction("StoreUint32", sync_atomic.StoreUint32, "", directCallSyncAtomicStoreUint32)
+	pkg.AddFunction("StoreUint64", sync_atomic.StoreUint64, "", directCallSyncAtomicStoreUint64)
+	pkg.AddFunction("StoreUintptr", sync_atomic.StoreUintptr, "", directCallSyncAtomicStoreUintptr)
+	pkg.AddFunction("SwapInt32", sync_atomic.SwapInt32, "", directCallSyncAtomicSwapInt32)
+	pkg.AddFunction("SwapInt64", sync_atomic.SwapInt64, "", directCallSyncAtomicSwapInt64)
+	pkg.AddFunction("SwapPointer", sync_atomic.SwapPointer, "", directCallSyncAtomicSwapPointer)
+	pkg.AddFunction("SwapUint32", sync_atomic.SwapUint32, "", directCallSyncAtomicSwapUint32)
+	pkg.AddFunction("SwapUint64", sync_atomic.SwapUint64, "", directCallSyncAtomicSwapUint64)
+	pkg.AddFunction("SwapUintptr", sync_atomic.SwapUintptr, "", directCallSyncAtomicSwapUintptr)
 
 	// Types
 	pkg.AddType("Bool", reflect.TypeOf(sync_atomic.Bool{}), "")
@@ -62,529 +63,697 @@ func init() {
 	pkg.AddType("Uintptr", reflect.TypeOf(sync_atomic.Uintptr{}), "")
 	pkg.AddType("Value", reflect.TypeOf(sync_atomic.Value{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Bool", "CompareAndSwap", direct_method_sync_atomic_Bool_CompareAndSwap)
-	pkg.AddMethodDirectCall("Bool", "Load", direct_method_sync_atomic_Bool_Load)
-	pkg.AddMethodDirectCall("Bool", "Store", direct_method_sync_atomic_Bool_Store)
-	pkg.AddMethodDirectCall("Bool", "Swap", direct_method_sync_atomic_Bool_Swap)
-	pkg.AddMethodDirectCall("Int32", "Add", direct_method_sync_atomic_Int32_Add)
-	pkg.AddMethodDirectCall("Int32", "And", direct_method_sync_atomic_Int32_And)
-	pkg.AddMethodDirectCall("Int32", "CompareAndSwap", direct_method_sync_atomic_Int32_CompareAndSwap)
-	pkg.AddMethodDirectCall("Int32", "Load", direct_method_sync_atomic_Int32_Load)
-	pkg.AddMethodDirectCall("Int32", "Or", direct_method_sync_atomic_Int32_Or)
-	pkg.AddMethodDirectCall("Int32", "Store", direct_method_sync_atomic_Int32_Store)
-	pkg.AddMethodDirectCall("Int32", "Swap", direct_method_sync_atomic_Int32_Swap)
-	pkg.AddMethodDirectCall("Int64", "Add", direct_method_sync_atomic_Int64_Add)
-	pkg.AddMethodDirectCall("Int64", "And", direct_method_sync_atomic_Int64_And)
-	pkg.AddMethodDirectCall("Int64", "CompareAndSwap", direct_method_sync_atomic_Int64_CompareAndSwap)
-	pkg.AddMethodDirectCall("Int64", "Load", direct_method_sync_atomic_Int64_Load)
-	pkg.AddMethodDirectCall("Int64", "Or", direct_method_sync_atomic_Int64_Or)
-	pkg.AddMethodDirectCall("Int64", "Store", direct_method_sync_atomic_Int64_Store)
-	pkg.AddMethodDirectCall("Int64", "Swap", direct_method_sync_atomic_Int64_Swap)
-	pkg.AddMethodDirectCall("Uint32", "Add", direct_method_sync_atomic_Uint32_Add)
-	pkg.AddMethodDirectCall("Uint32", "And", direct_method_sync_atomic_Uint32_And)
-	pkg.AddMethodDirectCall("Uint32", "CompareAndSwap", direct_method_sync_atomic_Uint32_CompareAndSwap)
-	pkg.AddMethodDirectCall("Uint32", "Load", direct_method_sync_atomic_Uint32_Load)
-	pkg.AddMethodDirectCall("Uint32", "Or", direct_method_sync_atomic_Uint32_Or)
-	pkg.AddMethodDirectCall("Uint32", "Store", direct_method_sync_atomic_Uint32_Store)
-	pkg.AddMethodDirectCall("Uint32", "Swap", direct_method_sync_atomic_Uint32_Swap)
-	pkg.AddMethodDirectCall("Uint64", "Add", direct_method_sync_atomic_Uint64_Add)
-	pkg.AddMethodDirectCall("Uint64", "And", direct_method_sync_atomic_Uint64_And)
-	pkg.AddMethodDirectCall("Uint64", "CompareAndSwap", direct_method_sync_atomic_Uint64_CompareAndSwap)
-	pkg.AddMethodDirectCall("Uint64", "Load", direct_method_sync_atomic_Uint64_Load)
-	pkg.AddMethodDirectCall("Uint64", "Or", direct_method_sync_atomic_Uint64_Or)
-	pkg.AddMethodDirectCall("Uint64", "Store", direct_method_sync_atomic_Uint64_Store)
-	pkg.AddMethodDirectCall("Uint64", "Swap", direct_method_sync_atomic_Uint64_Swap)
-	pkg.AddMethodDirectCall("Uintptr", "Add", direct_method_sync_atomic_Uintptr_Add)
-	pkg.AddMethodDirectCall("Uintptr", "And", direct_method_sync_atomic_Uintptr_And)
-	pkg.AddMethodDirectCall("Uintptr", "CompareAndSwap", direct_method_sync_atomic_Uintptr_CompareAndSwap)
-	pkg.AddMethodDirectCall("Uintptr", "Load", direct_method_sync_atomic_Uintptr_Load)
-	pkg.AddMethodDirectCall("Uintptr", "Or", direct_method_sync_atomic_Uintptr_Or)
-	pkg.AddMethodDirectCall("Uintptr", "Store", direct_method_sync_atomic_Uintptr_Store)
-	pkg.AddMethodDirectCall("Uintptr", "Swap", direct_method_sync_atomic_Uintptr_Swap)
-	pkg.AddMethodDirectCall("Value", "CompareAndSwap", direct_method_sync_atomic_Value_CompareAndSwap)
-	pkg.AddMethodDirectCall("Value", "Load", direct_method_sync_atomic_Value_Load)
-	pkg.AddMethodDirectCall("Value", "Store", direct_method_sync_atomic_Value_Store)
-	pkg.AddMethodDirectCall("Value", "Swap", direct_method_sync_atomic_Value_Swap)
-
 }
 
-func direct_sync_atomic_AddInt32(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*int32)
-	a1 := int32(args[1].Int())
-	return value.MakeInt(int64(sync_atomic.AddInt32(a0, a1)))
+func directArgSyncAtomic[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_sync_atomic_AddInt64(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*int64)
-	a1 := args[1].Int()
-	return value.MakeInt64(sync_atomic.AddInt64(a0, a1))
+func directVariadicArgsSyncAtomic[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgSyncAtomic[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgSyncAtomic[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgSyncAtomic[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
 }
 
-func direct_sync_atomic_AddUint32(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uint32)
-	a1 := uint32(args[1].Uint())
-	return value.MakeUint(uint64(sync_atomic.AddUint32(a0, a1)))
+func directResultsSyncAtomic(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_sync_atomic_AddUint64(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uint64)
-	a1 := args[1].Uint()
-	return value.MakeUint64(sync_atomic.AddUint64(a0, a1))
+func directCallSyncAtomicAddInt32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*int32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[int32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.AddInt32(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_AddUintptr(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uintptr)
-	a1 := uintptr(args[1].Uint())
-	return value.MakeUint(uint64(sync_atomic.AddUintptr(a0, a1)))
+func directCallSyncAtomicAddInt64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*int64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[int64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.AddInt64(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_AndInt32(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*int32)
-	a1 := int32(args[1].Int())
-	return value.MakeInt(int64(sync_atomic.AndInt32(a0, a1)))
+func directCallSyncAtomicAddUint32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uint32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.AddUint32(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_AndInt64(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*int64)
-	a1 := args[1].Int()
-	return value.MakeInt64(sync_atomic.AndInt64(a0, a1))
+func directCallSyncAtomicAddUint64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.AddUint64(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_AndUint32(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uint32)
-	a1 := uint32(args[1].Uint())
-	return value.MakeUint(uint64(sync_atomic.AndUint32(a0, a1)))
+func directCallSyncAtomicAddUintptr(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uintptr](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uintptr](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.AddUintptr(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_AndUint64(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uint64)
-	a1 := args[1].Uint()
-	return value.MakeUint64(sync_atomic.AndUint64(a0, a1))
+func directCallSyncAtomicAndInt32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*int32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[int32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.AndInt32(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_AndUintptr(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uintptr)
-	a1 := uintptr(args[1].Uint())
-	return value.MakeUint(uint64(sync_atomic.AndUintptr(a0, a1)))
+func directCallSyncAtomicAndInt64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*int64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[int64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.AndInt64(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_CompareAndSwapInt32(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*int32)
-	a1 := int32(args[1].Int())
-	a2 := int32(args[2].Int())
-	return value.MakeBool(sync_atomic.CompareAndSwapInt32(a0, a1, a2))
+func directCallSyncAtomicAndUint32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uint32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.AndUint32(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_CompareAndSwapInt64(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*int64)
-	a1 := args[1].Int()
-	a2 := args[2].Int()
-	return value.MakeBool(sync_atomic.CompareAndSwapInt64(a0, a1, a2))
+func directCallSyncAtomicAndUint64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.AndUint64(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_CompareAndSwapUint32(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uint32)
-	a1 := uint32(args[1].Uint())
-	a2 := uint32(args[2].Uint())
-	return value.MakeBool(sync_atomic.CompareAndSwapUint32(a0, a1, a2))
+func directCallSyncAtomicAndUintptr(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uintptr](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uintptr](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.AndUintptr(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_CompareAndSwapUint64(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uint64)
-	a1 := args[1].Uint()
-	a2 := args[2].Uint()
-	return value.MakeBool(sync_atomic.CompareAndSwapUint64(a0, a1, a2))
+func directCallSyncAtomicCompareAndSwapInt32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgSyncAtomic[*int32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[int32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgSyncAtomic[int32](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := sync_atomic.CompareAndSwapInt32(a0, a1, a2)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_CompareAndSwapUintptr(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uintptr)
-	a1 := uintptr(args[1].Uint())
-	a2 := uintptr(args[2].Uint())
-	return value.MakeBool(sync_atomic.CompareAndSwapUintptr(a0, a1, a2))
+func directCallSyncAtomicCompareAndSwapInt64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgSyncAtomic[*int64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[int64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgSyncAtomic[int64](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := sync_atomic.CompareAndSwapInt64(a0, a1, a2)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_LoadInt32(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*int32)
-	return value.MakeInt(int64(sync_atomic.LoadInt32(a0)))
+func directCallSyncAtomicCompareAndSwapPointer(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgSyncAtomic[*unsafe.Pointer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[unsafe.Pointer](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgSyncAtomic[unsafe.Pointer](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := sync_atomic.CompareAndSwapPointer(a0, a1, a2)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_LoadInt64(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*int64)
-	return value.MakeInt64(sync_atomic.LoadInt64(a0))
+func directCallSyncAtomicCompareAndSwapUint32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uint32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgSyncAtomic[uint32](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := sync_atomic.CompareAndSwapUint32(a0, a1, a2)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_LoadUint32(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uint32)
-	return value.MakeUint(uint64(sync_atomic.LoadUint32(a0)))
+func directCallSyncAtomicCompareAndSwapUint64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgSyncAtomic[uint64](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := sync_atomic.CompareAndSwapUint64(a0, a1, a2)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_LoadUint64(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uint64)
-	return value.MakeUint64(sync_atomic.LoadUint64(a0))
+func directCallSyncAtomicCompareAndSwapUintptr(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uintptr](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uintptr](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgSyncAtomic[uintptr](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := sync_atomic.CompareAndSwapUintptr(a0, a1, a2)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_LoadUintptr(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uintptr)
-	return value.MakeUint(uint64(sync_atomic.LoadUintptr(a0)))
+func directCallSyncAtomicLoadInt32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSyncAtomic[*int32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := sync_atomic.LoadInt32(a0)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_OrInt32(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*int32)
-	a1 := int32(args[1].Int())
-	return value.MakeInt(int64(sync_atomic.OrInt32(a0, a1)))
+func directCallSyncAtomicLoadInt64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSyncAtomic[*int64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := sync_atomic.LoadInt64(a0)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_OrInt64(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*int64)
-	a1 := args[1].Int()
-	return value.MakeInt64(sync_atomic.OrInt64(a0, a1))
+func directCallSyncAtomicLoadPointer(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSyncAtomic[*unsafe.Pointer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := sync_atomic.LoadPointer(a0)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_OrUint32(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uint32)
-	a1 := uint32(args[1].Uint())
-	return value.MakeUint(uint64(sync_atomic.OrUint32(a0, a1)))
+func directCallSyncAtomicLoadUint32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := sync_atomic.LoadUint32(a0)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_OrUint64(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uint64)
-	a1 := args[1].Uint()
-	return value.MakeUint64(sync_atomic.OrUint64(a0, a1))
+func directCallSyncAtomicLoadUint64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := sync_atomic.LoadUint64(a0)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_OrUintptr(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uintptr)
-	a1 := uintptr(args[1].Uint())
-	return value.MakeUint(uint64(sync_atomic.OrUintptr(a0, a1)))
+func directCallSyncAtomicLoadUintptr(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uintptr](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := sync_atomic.LoadUintptr(a0)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_StoreInt32(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*int32)
-	a1 := int32(args[1].Int())
+func directCallSyncAtomicOrInt32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*int32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[int32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.OrInt32(a0, a1)
+	return directResultsSyncAtomic(r0)
+}
+
+func directCallSyncAtomicOrInt64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*int64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[int64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.OrInt64(a0, a1)
+	return directResultsSyncAtomic(r0)
+}
+
+func directCallSyncAtomicOrUint32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uint32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.OrUint32(a0, a1)
+	return directResultsSyncAtomic(r0)
+}
+
+func directCallSyncAtomicOrUint64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.OrUint64(a0, a1)
+	return directResultsSyncAtomic(r0)
+}
+
+func directCallSyncAtomicOrUintptr(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uintptr](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uintptr](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.OrUintptr(a0, a1)
+	return directResultsSyncAtomic(r0)
+}
+
+func directCallSyncAtomicStoreInt32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*int32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[int32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	sync_atomic.StoreInt32(a0, a1)
-	return value.MakeNil()
+	return nil, nil
 }
 
-func direct_sync_atomic_StoreInt64(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*int64)
-	a1 := args[1].Int()
+func directCallSyncAtomicStoreInt64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*int64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[int64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	sync_atomic.StoreInt64(a0, a1)
-	return value.MakeNil()
+	return nil, nil
 }
 
-func direct_sync_atomic_StoreUint32(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uint32)
-	a1 := uint32(args[1].Uint())
+func directCallSyncAtomicStorePointer(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*unsafe.Pointer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[unsafe.Pointer](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	sync_atomic.StorePointer(a0, a1)
+	return nil, nil
+}
+
+func directCallSyncAtomicStoreUint32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uint32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	sync_atomic.StoreUint32(a0, a1)
-	return value.MakeNil()
+	return nil, nil
 }
 
-func direct_sync_atomic_StoreUint64(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uint64)
-	a1 := args[1].Uint()
+func directCallSyncAtomicStoreUint64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	sync_atomic.StoreUint64(a0, a1)
-	return value.MakeNil()
+	return nil, nil
 }
 
-func direct_sync_atomic_StoreUintptr(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uintptr)
-	a1 := uintptr(args[1].Uint())
+func directCallSyncAtomicStoreUintptr(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uintptr](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uintptr](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	sync_atomic.StoreUintptr(a0, a1)
-	return value.MakeNil()
+	return nil, nil
 }
 
-func direct_sync_atomic_SwapInt32(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*int32)
-	a1 := int32(args[1].Int())
-	return value.MakeInt(int64(sync_atomic.SwapInt32(a0, a1)))
+func directCallSyncAtomicSwapInt32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*int32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[int32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.SwapInt32(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_SwapInt64(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*int64)
-	a1 := args[1].Int()
-	return value.MakeInt64(sync_atomic.SwapInt64(a0, a1))
+func directCallSyncAtomicSwapInt64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*int64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[int64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.SwapInt64(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_SwapUint32(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uint32)
-	a1 := uint32(args[1].Uint())
-	return value.MakeUint(uint64(sync_atomic.SwapUint32(a0, a1)))
+func directCallSyncAtomicSwapPointer(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*unsafe.Pointer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[unsafe.Pointer](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.SwapPointer(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_SwapUint64(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uint64)
-	a1 := args[1].Uint()
-	return value.MakeUint64(sync_atomic.SwapUint64(a0, a1))
+func directCallSyncAtomicSwapUint32(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uint32](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uint32](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.SwapUint32(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_sync_atomic_SwapUintptr(args []value.Value) value.Value {
-	a0 := args[0].Interface().(*uintptr)
-	a1 := uintptr(args[1].Uint())
-	return value.MakeUint(uint64(sync_atomic.SwapUintptr(a0, a1)))
+func directCallSyncAtomicSwapUint64(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uint64](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uint64](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.SwapUint64(a0, a1)
+	return directResultsSyncAtomic(r0)
 }
 
-func direct_method_sync_atomic_Bool_CompareAndSwap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Bool)
-	a0 := args[1].Bool()
-	a1 := args[2].Bool()
-	return value.MakeBool(recv.CompareAndSwap(a0, a1))
-}
-
-func direct_method_sync_atomic_Bool_Load(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Bool)
-	return value.MakeBool(recv.Load())
-}
-
-func direct_method_sync_atomic_Bool_Store(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Bool)
-	a0 := args[1].Bool()
-	recv.Store(a0)
-	return value.MakeNil()
-}
-
-func direct_method_sync_atomic_Bool_Swap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Bool)
-	a0 := args[1].Bool()
-	return value.MakeBool(recv.Swap(a0))
-}
-
-func direct_method_sync_atomic_Int32_Add(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Int32)
-	a0 := int32(args[1].Int())
-	return value.MakeInt(int64(recv.Add(a0)))
-}
-
-func direct_method_sync_atomic_Int32_And(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Int32)
-	a0 := int32(args[1].Int())
-	return value.MakeInt(int64(recv.And(a0)))
-}
-
-func direct_method_sync_atomic_Int32_CompareAndSwap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Int32)
-	a0 := int32(args[1].Int())
-	a1 := int32(args[2].Int())
-	return value.MakeBool(recv.CompareAndSwap(a0, a1))
-}
-
-func direct_method_sync_atomic_Int32_Load(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Int32)
-	return value.MakeInt(int64(recv.Load()))
-}
-
-func direct_method_sync_atomic_Int32_Or(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Int32)
-	a0 := int32(args[1].Int())
-	return value.MakeInt(int64(recv.Or(a0)))
-}
-
-func direct_method_sync_atomic_Int32_Store(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Int32)
-	a0 := int32(args[1].Int())
-	recv.Store(a0)
-	return value.MakeNil()
-}
-
-func direct_method_sync_atomic_Int32_Swap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Int32)
-	a0 := int32(args[1].Int())
-	return value.MakeInt(int64(recv.Swap(a0)))
-}
-
-func direct_method_sync_atomic_Int64_Add(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Int64)
-	a0 := args[1].Int()
-	return value.MakeInt64(recv.Add(a0))
-}
-
-func direct_method_sync_atomic_Int64_And(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Int64)
-	a0 := args[1].Int()
-	return value.MakeInt64(recv.And(a0))
-}
-
-func direct_method_sync_atomic_Int64_CompareAndSwap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Int64)
-	a0 := args[1].Int()
-	a1 := args[2].Int()
-	return value.MakeBool(recv.CompareAndSwap(a0, a1))
-}
-
-func direct_method_sync_atomic_Int64_Load(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Int64)
-	return value.MakeInt64(recv.Load())
-}
-
-func direct_method_sync_atomic_Int64_Or(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Int64)
-	a0 := args[1].Int()
-	return value.MakeInt64(recv.Or(a0))
-}
-
-func direct_method_sync_atomic_Int64_Store(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Int64)
-	a0 := args[1].Int()
-	recv.Store(a0)
-	return value.MakeNil()
-}
-
-func direct_method_sync_atomic_Int64_Swap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Int64)
-	a0 := args[1].Int()
-	return value.MakeInt64(recv.Swap(a0))
-}
-
-func direct_method_sync_atomic_Uint32_Add(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uint32)
-	a0 := uint32(args[1].Uint())
-	return value.MakeUint(uint64(recv.Add(a0)))
-}
-
-func direct_method_sync_atomic_Uint32_And(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uint32)
-	a0 := uint32(args[1].Uint())
-	return value.MakeUint(uint64(recv.And(a0)))
-}
-
-func direct_method_sync_atomic_Uint32_CompareAndSwap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uint32)
-	a0 := uint32(args[1].Uint())
-	a1 := uint32(args[2].Uint())
-	return value.MakeBool(recv.CompareAndSwap(a0, a1))
-}
-
-func direct_method_sync_atomic_Uint32_Load(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uint32)
-	return value.MakeUint(uint64(recv.Load()))
-}
-
-func direct_method_sync_atomic_Uint32_Or(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uint32)
-	a0 := uint32(args[1].Uint())
-	return value.MakeUint(uint64(recv.Or(a0)))
-}
-
-func direct_method_sync_atomic_Uint32_Store(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uint32)
-	a0 := uint32(args[1].Uint())
-	recv.Store(a0)
-	return value.MakeNil()
-}
-
-func direct_method_sync_atomic_Uint32_Swap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uint32)
-	a0 := uint32(args[1].Uint())
-	return value.MakeUint(uint64(recv.Swap(a0)))
-}
-
-func direct_method_sync_atomic_Uint64_Add(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uint64)
-	a0 := args[1].Uint()
-	return value.MakeUint64(recv.Add(a0))
-}
-
-func direct_method_sync_atomic_Uint64_And(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uint64)
-	a0 := args[1].Uint()
-	return value.MakeUint64(recv.And(a0))
-}
-
-func direct_method_sync_atomic_Uint64_CompareAndSwap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uint64)
-	a0 := args[1].Uint()
-	a1 := args[2].Uint()
-	return value.MakeBool(recv.CompareAndSwap(a0, a1))
-}
-
-func direct_method_sync_atomic_Uint64_Load(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uint64)
-	return value.MakeUint64(recv.Load())
-}
-
-func direct_method_sync_atomic_Uint64_Or(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uint64)
-	a0 := args[1].Uint()
-	return value.MakeUint64(recv.Or(a0))
-}
-
-func direct_method_sync_atomic_Uint64_Store(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uint64)
-	a0 := args[1].Uint()
-	recv.Store(a0)
-	return value.MakeNil()
-}
-
-func direct_method_sync_atomic_Uint64_Swap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uint64)
-	a0 := args[1].Uint()
-	return value.MakeUint64(recv.Swap(a0))
-}
-
-func direct_method_sync_atomic_Uintptr_Add(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uintptr)
-	a0 := uintptr(args[1].Uint())
-	return value.MakeUint(uint64(recv.Add(a0)))
-}
-
-func direct_method_sync_atomic_Uintptr_And(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uintptr)
-	a0 := uintptr(args[1].Uint())
-	return value.MakeUint(uint64(recv.And(a0)))
-}
-
-func direct_method_sync_atomic_Uintptr_CompareAndSwap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uintptr)
-	a0 := uintptr(args[1].Uint())
-	a1 := uintptr(args[2].Uint())
-	return value.MakeBool(recv.CompareAndSwap(a0, a1))
-}
-
-func direct_method_sync_atomic_Uintptr_Load(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uintptr)
-	return value.MakeUint(uint64(recv.Load()))
-}
-
-func direct_method_sync_atomic_Uintptr_Or(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uintptr)
-	a0 := uintptr(args[1].Uint())
-	return value.MakeUint(uint64(recv.Or(a0)))
-}
-
-func direct_method_sync_atomic_Uintptr_Store(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uintptr)
-	a0 := uintptr(args[1].Uint())
-	recv.Store(a0)
-	return value.MakeNil()
-}
-
-func direct_method_sync_atomic_Uintptr_Swap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Uintptr)
-	a0 := uintptr(args[1].Uint())
-	return value.MakeUint(uint64(recv.Swap(a0)))
-}
-
-func direct_method_sync_atomic_Value_CompareAndSwap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Value)
-	a0 := args[1].Interface()
-	a1 := args[2].Interface()
-	return value.MakeBool(recv.CompareAndSwap(a0, a1))
-}
-
-func direct_method_sync_atomic_Value_Load(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Value)
-	return value.FromInterface(recv.Load())
-}
-
-func direct_method_sync_atomic_Value_Store(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Value)
-	a0 := args[1].Interface()
-	recv.Store(a0)
-	return value.MakeNil()
-}
-
-func direct_method_sync_atomic_Value_Swap(args []value.Value) value.Value {
-	recv := args[0].Interface().(*sync_atomic.Value)
-	a0 := args[1].Interface()
-	return value.FromInterface(recv.Swap(a0))
+func directCallSyncAtomicSwapUintptr(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgSyncAtomic[*uintptr](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgSyncAtomic[uintptr](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := sync_atomic.SwapUintptr(a0, a1)
+	return directResultsSyncAtomic(r0)
 }

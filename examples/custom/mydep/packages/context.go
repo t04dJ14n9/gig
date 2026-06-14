@@ -3,29 +3,29 @@ package packages
 
 import (
 	"context"
-	"reflect"
-	time "time"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"reflect"
+	"time"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("context", "context")
 
 	// Functions
-	pkg.AddFunction("AfterFunc", context.AfterFunc, "", direct_context_AfterFunc)
-	pkg.AddFunction("Background", context.Background, "", direct_context_Background)
-	pkg.AddFunction("Cause", context.Cause, "", direct_context_Cause)
-	pkg.AddFunction("TODO", context.TODO, "", direct_context_TODO)
-	pkg.AddFunction("WithCancel", context.WithCancel, "", direct_context_WithCancel)
-	pkg.AddFunction("WithCancelCause", context.WithCancelCause, "", direct_context_WithCancelCause)
-	pkg.AddFunction("WithDeadline", context.WithDeadline, "", direct_context_WithDeadline)
-	pkg.AddFunction("WithDeadlineCause", context.WithDeadlineCause, "", direct_context_WithDeadlineCause)
-	pkg.AddFunction("WithTimeout", context.WithTimeout, "", direct_context_WithTimeout)
-	pkg.AddFunction("WithTimeoutCause", context.WithTimeoutCause, "", direct_context_WithTimeoutCause)
-	pkg.AddFunction("WithValue", context.WithValue, "", direct_context_WithValue)
-	pkg.AddFunction("WithoutCancel", context.WithoutCancel, "", direct_context_WithoutCancel)
+	pkg.AddFunction("AfterFunc", context.AfterFunc, "", directCallContextAfterFunc)
+	pkg.AddFunction("Background", context.Background, "", directCallContextBackground)
+	pkg.AddFunction("Cause", context.Cause, "", directCallContextCause)
+	pkg.AddFunction("TODO", context.TODO, "", directCallContextTODO)
+	pkg.AddFunction("WithCancel", context.WithCancel, "", directCallContextWithCancel)
+	pkg.AddFunction("WithCancelCause", context.WithCancelCause, "", directCallContextWithCancelCause)
+	pkg.AddFunction("WithDeadline", context.WithDeadline, "", directCallContextWithDeadline)
+	pkg.AddFunction("WithDeadlineCause", context.WithDeadlineCause, "", directCallContextWithDeadlineCause)
+	pkg.AddFunction("WithTimeout", context.WithTimeout, "", directCallContextWithTimeout)
+	pkg.AddFunction("WithTimeoutCause", context.WithTimeoutCause, "", directCallContextWithTimeoutCause)
+	pkg.AddFunction("WithValue", context.WithValue, "", directCallContextWithValue)
+	pkg.AddFunction("WithoutCancel", context.WithoutCancel, "", directCallContextWithoutCancel)
 
 	// Variables
 	pkg.AddVariable("Canceled", &context.Canceled, "")
@@ -38,75 +38,243 @@ func init() {
 
 }
 
-func direct_context_AfterFunc(args []value.Value) value.Value {
-	a0 := args[0].Interface().(context.Context)
-	a1 := args[1].Interface().(func())
-	return value.FromInterface(context.AfterFunc(a0, a1))
+func directArgContext[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_context_Background(args []value.Value) value.Value {
-	return value.FromInterface(context.Background())
+func directVariadicArgsContext[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgContext[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgContext[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgContext[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
 }
 
-func direct_context_Cause(args []value.Value) value.Value {
-	a0 := args[0].Interface().(context.Context)
-	return value.FromInterface(context.Cause(a0))
+func directResultsContext(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_context_TODO(args []value.Value) value.Value {
-	return value.FromInterface(context.TODO())
+func directCallContextAfterFunc(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgContext[context.Context](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgContext[func()](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	r0 := context.AfterFunc(a0, a1)
+	return directResultsContext(r0)
 }
 
-func direct_context_WithCancel(args []value.Value) value.Value {
-	a0 := args[0].Interface().(context.Context)
+func directCallContextBackground(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := context.Background()
+	return directResultsContext(r0)
+}
+
+func directCallContextCause(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgContext[context.Context](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := context.Cause(a0)
+	return directResultsContext(r0)
+}
+
+func directCallContextTODO(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := context.TODO()
+	return directResultsContext(r0)
+}
+
+func directCallContextWithCancel(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgContext[context.Context](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := context.WithCancel(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsContext(r0, r1)
 }
 
-func direct_context_WithCancelCause(args []value.Value) value.Value {
-	a0 := args[0].Interface().(context.Context)
+func directCallContextWithCancelCause(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgContext[context.Context](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := context.WithCancelCause(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsContext(r0, r1)
 }
 
-func direct_context_WithDeadline(args []value.Value) value.Value {
-	a0 := args[0].Interface().(context.Context)
-	a1 := args[1].Interface().(time.Time)
+func directCallContextWithDeadline(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgContext[context.Context](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgContext[time.Time](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := context.WithDeadline(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsContext(r0, r1)
 }
 
-func direct_context_WithDeadlineCause(args []value.Value) value.Value {
-	a0 := args[0].Interface().(context.Context)
-	a1 := args[1].Interface().(time.Time)
-	a2 := args[2].Interface().(error)
+func directCallContextWithDeadlineCause(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgContext[context.Context](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgContext[time.Time](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgContext[error](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := context.WithDeadlineCause(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsContext(r0, r1)
 }
 
-func direct_context_WithTimeout(args []value.Value) value.Value {
-	a0 := args[0].Interface().(context.Context)
-	a1 := time.Duration(args[1].Int())
+func directCallContextWithTimeout(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgContext[context.Context](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgContext[time.Duration](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := context.WithTimeout(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsContext(r0, r1)
 }
 
-func direct_context_WithTimeoutCause(args []value.Value) value.Value {
-	a0 := args[0].Interface().(context.Context)
-	a1 := time.Duration(args[1].Int())
-	a2 := args[2].Interface().(error)
+func directCallContextWithTimeoutCause(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgContext[context.Context](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgContext[time.Duration](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgContext[error](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
 	r0, r1 := context.WithTimeoutCause(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsContext(r0, r1)
 }
 
-func direct_context_WithValue(args []value.Value) value.Value {
-	a0 := args[0].Interface().(context.Context)
-	a1 := args[1].Interface()
-	a2 := args[2].Interface()
-	return value.FromInterface(context.WithValue(a0, a1, a2))
+func directCallContextWithValue(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgContext[context.Context](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgContext[any](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgContext[any](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := context.WithValue(a0, a1, a2)
+	return directResultsContext(r0)
 }
 
-func direct_context_WithoutCancel(args []value.Value) value.Value {
-	a0 := args[0].Interface().(context.Context)
-	return value.FromInterface(context.WithoutCancel(a0))
+func directCallContextWithoutCancel(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgContext[context.Context](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := context.WithoutCancel(a0)
+	return directResultsContext(r0)
 }

@@ -33,3 +33,14 @@ Thumbs.db
 .codebuddy
 
 reference
+
+# Local agent / tooling state (never commit)
+.omc/
+.codegraph/
+cmd/gig/gig
+
+
+# Local agent / tooling state (never commit)
+.omc/
+.codegraph/
+cmd/gig/gig

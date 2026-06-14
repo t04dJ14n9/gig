@@ -327,8 +327,13 @@ func FuzzChannelOps(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, buf int, val int) {
-		if buf < 0 {
-			buf = 0
+		// Channels with buf < 1 deadlock the test because Send/Recv
+		// run sequentially on the same goroutine. Native Go would
+		// detect this as "all goroutines are asleep"; the interpreter
+		// blocks forever and trips the fuzz timeout. Clamp to a
+		// buffered channel.
+		if buf < 1 {
+			buf = 1
 		}
 		if buf > 10 {
 			buf = 10

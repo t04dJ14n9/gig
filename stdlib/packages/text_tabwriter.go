@@ -2,19 +2,19 @@
 package packages
 
 import (
-	io "io"
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
+	"io"
 	"reflect"
 	text_tabwriter "text/tabwriter"
-
-	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("text/tabwriter", "tabwriter")
 
 	// Functions
-	pkg.AddFunction("NewWriter", text_tabwriter.NewWriter, "", direct_text_tabwriter_NewWriter)
+	pkg.AddFunction("NewWriter", text_tabwriter.NewWriter, "", directCallTextTabwriterNewWriter)
 
 	// Constants
 	pkg.AddConstant("AlignRight", text_tabwriter.AlignRight, "")
@@ -28,51 +28,105 @@ func init() {
 	// Types
 	pkg.AddType("Writer", reflect.TypeOf(text_tabwriter.Writer{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Writer", "Flush", direct_method_text_tabwriter_Writer_Flush)
-	pkg.AddMethodDirectCall("Writer", "Init", direct_method_text_tabwriter_Writer_Init)
-	pkg.AddMethodDirectCall("Writer", "Write", direct_method_text_tabwriter_Writer_Write)
-
 }
 
-func direct_text_tabwriter_NewWriter(args []value.Value) value.Value {
-	a0 := args[0].Interface().(io.Writer)
-	a1 := int(args[1].Int())
-	a2 := int(args[2].Int())
-	a3 := int(args[3].Int())
-	a4 := byte(args[4].Uint())
-	a5 := uint(args[5].Uint())
-	return value.FromInterface(text_tabwriter.NewWriter(a0, a1, a2, a3, a4, a5))
+func directArgTextTabwriter[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_method_text_tabwriter_Writer_Flush(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_tabwriter.Writer)
-	return value.FromInterface(recv.Flush())
-}
-
-func direct_method_text_tabwriter_Writer_Init(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_tabwriter.Writer)
-	a0 := args[1].Interface().(io.Writer)
-	a1 := int(args[2].Int())
-	a2 := int(args[3].Int())
-	a3 := int(args[4].Int())
-	a4 := byte(args[5].Uint())
-	a5 := uint(args[6].Uint())
-	return value.FromInterface(recv.Init(a0, a1, a2, a3, a4, a5))
-}
-
-func direct_method_text_tabwriter_Writer_Write(args []value.Value) value.Value {
-	recv := args[0].Interface().(*text_tabwriter.Writer)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
+func directVariadicArgsTextTabwriter[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgTextTabwriter[[]T](args[0]); err == nil {
+			return packed, nil
 		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgTextTabwriter[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
 		}
-		return v.([]byte)
-	}()
-	r0, r1 := recv.Write(a0)
-	return value.MakeValueSlice([]value.Value{value.MakeInt(int64(r0)), value.FromInterface(r1)})
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgTextTabwriter[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsTextTabwriter(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallTextTabwriterNewWriter(args []value.Value) ([]value.Value, error) {
+	if len(args) != 6 {
+		return nil, fmt.Errorf("arg count %d != 6", len(args))
+	}
+	a0, err := directArgTextTabwriter[io.Writer](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgTextTabwriter[int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgTextTabwriter[int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	a3, err := directArgTextTabwriter[int](args[3])
+	if err != nil {
+		return nil, fmt.Errorf("arg 3: %w", err)
+	}
+	a4, err := directArgTextTabwriter[byte](args[4])
+	if err != nil {
+		return nil, fmt.Errorf("arg 4: %w", err)
+	}
+	a5, err := directArgTextTabwriter[uint](args[5])
+	if err != nil {
+		return nil, fmt.Errorf("arg 5: %w", err)
+	}
+	r0 := text_tabwriter.NewWriter(a0, a1, a2, a3, a4, a5)
+	return directResultsTextTabwriter(r0)
 }

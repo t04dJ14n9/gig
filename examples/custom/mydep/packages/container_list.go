@@ -3,149 +3,97 @@ package packages
 
 import (
 	container_list "container/list"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("container/list", "list")
 
 	// Functions
-	pkg.AddFunction("New", container_list.New, "", direct_container_list_New)
+	pkg.AddFunction("New", container_list.New, "", directCallContainerListNew)
 
 	// Types
 	pkg.AddType("Element", reflect.TypeOf(container_list.Element{}), "")
 	pkg.AddType("List", reflect.TypeOf(container_list.List{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("Element", "Next", direct_method_container_list_Element_Next)
-	pkg.AddMethodDirectCall("Element", "Prev", direct_method_container_list_Element_Prev)
-	pkg.AddMethodDirectCall("List", "Back", direct_method_container_list_List_Back)
-	pkg.AddMethodDirectCall("List", "Front", direct_method_container_list_List_Front)
-	pkg.AddMethodDirectCall("List", "Init", direct_method_container_list_List_Init)
-	pkg.AddMethodDirectCall("List", "InsertAfter", direct_method_container_list_List_InsertAfter)
-	pkg.AddMethodDirectCall("List", "InsertBefore", direct_method_container_list_List_InsertBefore)
-	pkg.AddMethodDirectCall("List", "Len", direct_method_container_list_List_Len)
-	pkg.AddMethodDirectCall("List", "MoveAfter", direct_method_container_list_List_MoveAfter)
-	pkg.AddMethodDirectCall("List", "MoveBefore", direct_method_container_list_List_MoveBefore)
-	pkg.AddMethodDirectCall("List", "MoveToBack", direct_method_container_list_List_MoveToBack)
-	pkg.AddMethodDirectCall("List", "MoveToFront", direct_method_container_list_List_MoveToFront)
-	pkg.AddMethodDirectCall("List", "PushBack", direct_method_container_list_List_PushBack)
-	pkg.AddMethodDirectCall("List", "PushBackList", direct_method_container_list_List_PushBackList)
-	pkg.AddMethodDirectCall("List", "PushFront", direct_method_container_list_List_PushFront)
-	pkg.AddMethodDirectCall("List", "PushFrontList", direct_method_container_list_List_PushFrontList)
-	pkg.AddMethodDirectCall("List", "Remove", direct_method_container_list_List_Remove)
-
 }
 
-func direct_container_list_New(args []value.Value) value.Value {
-	return value.FromInterface(container_list.New())
+func directArgContainerList[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_method_container_list_Element_Next(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.Element)
-	return value.FromInterface(recv.Next())
+func directVariadicArgsContainerList[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgContainerList[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgContainerList[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgContainerList[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
 }
 
-func direct_method_container_list_Element_Prev(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.Element)
-	return value.FromInterface(recv.Prev())
+func directResultsContainerList(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_method_container_list_List_Back(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	return value.FromInterface(recv.Back())
-}
-
-func direct_method_container_list_List_Front(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	return value.FromInterface(recv.Front())
-}
-
-func direct_method_container_list_List_Init(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	return value.FromInterface(recv.Init())
-}
-
-func direct_method_container_list_List_InsertAfter(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface()
-	a1 := args[2].Interface().(*container_list.Element)
-	return value.FromInterface(recv.InsertAfter(a0, a1))
-}
-
-func direct_method_container_list_List_InsertBefore(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface()
-	a1 := args[2].Interface().(*container_list.Element)
-	return value.FromInterface(recv.InsertBefore(a0, a1))
-}
-
-func direct_method_container_list_List_Len(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	return value.MakeInt(int64(recv.Len()))
-}
-
-func direct_method_container_list_List_MoveAfter(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface().(*container_list.Element)
-	a1 := args[2].Interface().(*container_list.Element)
-	recv.MoveAfter(a0, a1)
-	return value.MakeNil()
-}
-
-func direct_method_container_list_List_MoveBefore(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface().(*container_list.Element)
-	a1 := args[2].Interface().(*container_list.Element)
-	recv.MoveBefore(a0, a1)
-	return value.MakeNil()
-}
-
-func direct_method_container_list_List_MoveToBack(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface().(*container_list.Element)
-	recv.MoveToBack(a0)
-	return value.MakeNil()
-}
-
-func direct_method_container_list_List_MoveToFront(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface().(*container_list.Element)
-	recv.MoveToFront(a0)
-	return value.MakeNil()
-}
-
-func direct_method_container_list_List_PushBack(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface()
-	return value.FromInterface(recv.PushBack(a0))
-}
-
-func direct_method_container_list_List_PushBackList(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface().(*container_list.List)
-	recv.PushBackList(a0)
-	return value.MakeNil()
-}
-
-func direct_method_container_list_List_PushFront(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface()
-	return value.FromInterface(recv.PushFront(a0))
-}
-
-func direct_method_container_list_List_PushFrontList(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface().(*container_list.List)
-	recv.PushFrontList(a0)
-	return value.MakeNil()
-}
-
-func direct_method_container_list_List_Remove(args []value.Value) value.Value {
-	recv := args[0].Interface().(*container_list.List)
-	a0 := args[1].Interface().(*container_list.Element)
-	return value.FromInterface(recv.Remove(a0))
+func directCallContainerListNew(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := container_list.New()
+	return directResultsContainerList(r0)
 }

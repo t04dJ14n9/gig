@@ -2,38 +2,110 @@
 package packages
 
 import (
-	hash_adler32 "hash/adler32"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	hash_adler32 "hash/adler32"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("hash/adler32", "adler32")
 
 	// Functions
-	pkg.AddFunction("Checksum", hash_adler32.Checksum, "", direct_hash_adler32_Checksum)
-	pkg.AddFunction("New", hash_adler32.New, "", direct_hash_adler32_New)
+	pkg.AddFunction("Checksum", hash_adler32.Checksum, "", directCallHashAdler32Checksum)
+	pkg.AddFunction("New", hash_adler32.New, "", directCallHashAdler32New)
 
 	// Constants
 	pkg.AddConstant("Size", hash_adler32.Size, "")
 
 }
 
-func direct_hash_adler32_Checksum(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.MakeUint(uint64(hash_adler32.Checksum(a0)))
+func directArgHashAdler32[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_hash_adler32_New(args []value.Value) value.Value {
-	return value.FromInterface(hash_adler32.New())
+func directVariadicArgsHashAdler32[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgHashAdler32[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgHashAdler32[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgHashAdler32[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsHashAdler32(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallHashAdler32Checksum(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgHashAdler32[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := hash_adler32.Checksum(a0)
+	return directResultsHashAdler32(r0)
+}
+
+func directCallHashAdler32New(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := hash_adler32.New()
+	return directResultsHashAdler32(r0)
 }

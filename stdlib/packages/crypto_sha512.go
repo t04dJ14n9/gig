@@ -3,23 +3,24 @@ package packages
 
 import (
 	crypto_sha512 "crypto/sha512"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("crypto/sha512", "sha512")
 
 	// Functions
-	pkg.AddFunction("New", crypto_sha512.New, "", direct_crypto_sha512_New)
-	pkg.AddFunction("New384", crypto_sha512.New384, "", direct_crypto_sha512_New384)
-	pkg.AddFunction("New512_224", crypto_sha512.New512_224, "", direct_crypto_sha512_New512_224)
-	pkg.AddFunction("New512_256", crypto_sha512.New512_256, "", direct_crypto_sha512_New512_256)
-	pkg.AddFunction("Sum384", crypto_sha512.Sum384, "", direct_crypto_sha512_Sum384)
-	pkg.AddFunction("Sum512", crypto_sha512.Sum512, "", direct_crypto_sha512_Sum512)
-	pkg.AddFunction("Sum512_224", crypto_sha512.Sum512_224, "", direct_crypto_sha512_Sum512_224)
-	pkg.AddFunction("Sum512_256", crypto_sha512.Sum512_256, "", direct_crypto_sha512_Sum512_256)
+	pkg.AddFunction("New", crypto_sha512.New, "", directCallCryptoSha512New)
+	pkg.AddFunction("New384", crypto_sha512.New384, "", directCallCryptoSha512New384)
+	pkg.AddFunction("New512_224", crypto_sha512.New512_224, "", directCallCryptoSha512New512_224)
+	pkg.AddFunction("New512_256", crypto_sha512.New512_256, "", directCallCryptoSha512New512_256)
+	pkg.AddFunction("Sum384", crypto_sha512.Sum384, "", directCallCryptoSha512Sum384)
+	pkg.AddFunction("Sum512", crypto_sha512.Sum512, "", directCallCryptoSha512Sum512)
+	pkg.AddFunction("Sum512_224", crypto_sha512.Sum512_224, "", directCallCryptoSha512Sum512_224)
+	pkg.AddFunction("Sum512_256", crypto_sha512.Sum512_256, "", directCallCryptoSha512Sum512_256)
 
 	// Constants
 	pkg.AddConstant("BlockSize", crypto_sha512.BlockSize, "")
@@ -30,74 +31,151 @@ func init() {
 
 }
 
-func direct_crypto_sha512_New(args []value.Value) value.Value {
-	return value.FromInterface(crypto_sha512.New())
+func directArgCryptoSha512[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
 }
 
-func direct_crypto_sha512_New384(args []value.Value) value.Value {
-	return value.FromInterface(crypto_sha512.New384())
+func directVariadicArgsCryptoSha512[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgCryptoSha512[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgCryptoSha512[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgCryptoSha512[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
 }
 
-func direct_crypto_sha512_New512_224(args []value.Value) value.Value {
-	return value.FromInterface(crypto_sha512.New512_224())
+func directResultsCryptoSha512(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
 }
 
-func direct_crypto_sha512_New512_256(args []value.Value) value.Value {
-	return value.FromInterface(crypto_sha512.New512_256())
+func directCallCryptoSha512New(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := crypto_sha512.New()
+	return directResultsCryptoSha512(r0)
 }
 
-func direct_crypto_sha512_Sum384(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(crypto_sha512.Sum384(a0))
+func directCallCryptoSha512New384(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := crypto_sha512.New384()
+	return directResultsCryptoSha512(r0)
 }
 
-func direct_crypto_sha512_Sum512(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(crypto_sha512.Sum512(a0))
+func directCallCryptoSha512New512_224(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := crypto_sha512.New512_224()
+	return directResultsCryptoSha512(r0)
 }
 
-func direct_crypto_sha512_Sum512_224(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(crypto_sha512.Sum512_224(a0))
+func directCallCryptoSha512New512_256(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := crypto_sha512.New512_256()
+	return directResultsCryptoSha512(r0)
 }
 
-func direct_crypto_sha512_Sum512_256(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	return value.FromInterface(crypto_sha512.Sum512_256(a0))
+func directCallCryptoSha512Sum384(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgCryptoSha512[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := crypto_sha512.Sum384(a0)
+	return directResultsCryptoSha512(r0)
+}
+
+func directCallCryptoSha512Sum512(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgCryptoSha512[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := crypto_sha512.Sum512(a0)
+	return directResultsCryptoSha512(r0)
+}
+
+func directCallCryptoSha512Sum512_224(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgCryptoSha512[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := crypto_sha512.Sum512_224(a0)
+	return directResultsCryptoSha512(r0)
+}
+
+func directCallCryptoSha512Sum512_256(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgCryptoSha512[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	r0 := crypto_sha512.Sum512_256(a0)
+	return directResultsCryptoSha512(r0)
 }

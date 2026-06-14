@@ -3,171 +3,219 @@ package packages
 
 import (
 	crypto_elliptic "crypto/elliptic"
-	io "io"
+	"fmt"
+	"github.com/t04dJ14n9/gig/importer"
+	"github.com/t04dJ14n9/gig/value"
+	"io"
 	math_big "math/big"
 	"reflect"
-
-	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("crypto/elliptic", "elliptic")
 
 	// Functions
-	pkg.AddFunction("GenerateKey", crypto_elliptic.GenerateKey, "", direct_crypto_elliptic_GenerateKey)
-	pkg.AddFunction("Marshal", crypto_elliptic.Marshal, "", direct_crypto_elliptic_Marshal)
-	pkg.AddFunction("MarshalCompressed", crypto_elliptic.MarshalCompressed, "", direct_crypto_elliptic_MarshalCompressed)
-	pkg.AddFunction("P224", crypto_elliptic.P224, "", direct_crypto_elliptic_P224)
-	pkg.AddFunction("P256", crypto_elliptic.P256, "", direct_crypto_elliptic_P256)
-	pkg.AddFunction("P384", crypto_elliptic.P384, "", direct_crypto_elliptic_P384)
-	pkg.AddFunction("P521", crypto_elliptic.P521, "", direct_crypto_elliptic_P521)
-	pkg.AddFunction("Unmarshal", crypto_elliptic.Unmarshal, "", direct_crypto_elliptic_Unmarshal)
-	pkg.AddFunction("UnmarshalCompressed", crypto_elliptic.UnmarshalCompressed, "", direct_crypto_elliptic_UnmarshalCompressed)
+	pkg.AddFunction("GenerateKey", crypto_elliptic.GenerateKey, "", directCallCryptoEllipticGenerateKey)
+	pkg.AddFunction("Marshal", crypto_elliptic.Marshal, "", directCallCryptoEllipticMarshal)
+	pkg.AddFunction("MarshalCompressed", crypto_elliptic.MarshalCompressed, "", directCallCryptoEllipticMarshalCompressed)
+	pkg.AddFunction("P224", crypto_elliptic.P224, "", directCallCryptoEllipticP224)
+	pkg.AddFunction("P256", crypto_elliptic.P256, "", directCallCryptoEllipticP256)
+	pkg.AddFunction("P384", crypto_elliptic.P384, "", directCallCryptoEllipticP384)
+	pkg.AddFunction("P521", crypto_elliptic.P521, "", directCallCryptoEllipticP521)
+	pkg.AddFunction("Unmarshal", crypto_elliptic.Unmarshal, "", directCallCryptoEllipticUnmarshal)
+	pkg.AddFunction("UnmarshalCompressed", crypto_elliptic.UnmarshalCompressed, "", directCallCryptoEllipticUnmarshalCompressed)
 
 	// Types
 	pkg.AddType("Curve", reflect.TypeOf((*crypto_elliptic.Curve)(nil)).Elem(), "")
 	pkg.AddType("CurveParams", reflect.TypeOf(crypto_elliptic.CurveParams{}), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("CurveParams", "Add", direct_method_crypto_elliptic_CurveParams_Add)
-	pkg.AddMethodDirectCall("CurveParams", "Double", direct_method_crypto_elliptic_CurveParams_Double)
-	pkg.AddMethodDirectCall("CurveParams", "IsOnCurve", direct_method_crypto_elliptic_CurveParams_IsOnCurve)
-	pkg.AddMethodDirectCall("CurveParams", "Params", direct_method_crypto_elliptic_CurveParams_Params)
-	pkg.AddMethodDirectCall("CurveParams", "ScalarBaseMult", direct_method_crypto_elliptic_CurveParams_ScalarBaseMult)
-	pkg.AddMethodDirectCall("CurveParams", "ScalarMult", direct_method_crypto_elliptic_CurveParams_ScalarMult)
-
 }
 
-func direct_crypto_elliptic_GenerateKey(args []value.Value) value.Value {
-	a0 := args[0].Interface().(crypto_elliptic.Curve)
-	a1 := args[1].Interface().(io.Reader)
+func directArgCryptoElliptic[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsCryptoElliptic[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgCryptoElliptic[[]T](args[0]); err == nil {
+			return packed, nil
+		}
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgCryptoElliptic[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
+		}
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgCryptoElliptic[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsCryptoElliptic(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallCryptoEllipticGenerateKey(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgCryptoElliptic[crypto_elliptic.Curve](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgCryptoElliptic[io.Reader](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1, r2, r3 := crypto_elliptic.GenerateKey(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.MakeBytes([]byte(r0)), value.FromInterface(r1), value.FromInterface(r2), value.FromInterface(r3)})
+	return directResultsCryptoElliptic(r0, r1, r2, r3)
 }
 
-func direct_crypto_elliptic_Marshal(args []value.Value) value.Value {
-	a0 := args[0].Interface().(crypto_elliptic.Curve)
-	a1 := args[1].Interface().(*math_big.Int)
-	a2 := args[2].Interface().(*math_big.Int)
-	return value.MakeBytes([]byte(crypto_elliptic.Marshal(a0, a1, a2)))
+func directCallCryptoEllipticMarshal(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgCryptoElliptic[crypto_elliptic.Curve](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgCryptoElliptic[*math_big.Int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgCryptoElliptic[*math_big.Int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := crypto_elliptic.Marshal(a0, a1, a2)
+	return directResultsCryptoElliptic(r0)
 }
 
-func direct_crypto_elliptic_MarshalCompressed(args []value.Value) value.Value {
-	a0 := args[0].Interface().(crypto_elliptic.Curve)
-	a1 := args[1].Interface().(*math_big.Int)
-	a2 := args[2].Interface().(*math_big.Int)
-	return value.MakeBytes([]byte(crypto_elliptic.MarshalCompressed(a0, a1, a2)))
+func directCallCryptoEllipticMarshalCompressed(args []value.Value) ([]value.Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("arg count %d != 3", len(args))
+	}
+	a0, err := directArgCryptoElliptic[crypto_elliptic.Curve](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgCryptoElliptic[*math_big.Int](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
+	a2, err := directArgCryptoElliptic[*math_big.Int](args[2])
+	if err != nil {
+		return nil, fmt.Errorf("arg 2: %w", err)
+	}
+	r0 := crypto_elliptic.MarshalCompressed(a0, a1, a2)
+	return directResultsCryptoElliptic(r0)
 }
 
-func direct_crypto_elliptic_P224(args []value.Value) value.Value {
-	return value.FromInterface(crypto_elliptic.P224())
+func directCallCryptoEllipticP224(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := crypto_elliptic.P224()
+	return directResultsCryptoElliptic(r0)
 }
 
-func direct_crypto_elliptic_P256(args []value.Value) value.Value {
-	return value.FromInterface(crypto_elliptic.P256())
+func directCallCryptoEllipticP256(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := crypto_elliptic.P256()
+	return directResultsCryptoElliptic(r0)
 }
 
-func direct_crypto_elliptic_P384(args []value.Value) value.Value {
-	return value.FromInterface(crypto_elliptic.P384())
+func directCallCryptoEllipticP384(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := crypto_elliptic.P384()
+	return directResultsCryptoElliptic(r0)
 }
 
-func direct_crypto_elliptic_P521(args []value.Value) value.Value {
-	return value.FromInterface(crypto_elliptic.P521())
+func directCallCryptoEllipticP521(args []value.Value) ([]value.Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("arg count %d != 0", len(args))
+	}
+	r0 := crypto_elliptic.P521()
+	return directResultsCryptoElliptic(r0)
 }
 
-func direct_crypto_elliptic_Unmarshal(args []value.Value) value.Value {
-	a0 := args[0].Interface().(crypto_elliptic.Curve)
-	a1 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
+func directCallCryptoEllipticUnmarshal(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgCryptoElliptic[crypto_elliptic.Curve](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgCryptoElliptic[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := crypto_elliptic.Unmarshal(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsCryptoElliptic(r0, r1)
 }
 
-func direct_crypto_elliptic_UnmarshalCompressed(args []value.Value) value.Value {
-	a0 := args[0].Interface().(crypto_elliptic.Curve)
-	a1 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
+func directCallCryptoEllipticUnmarshalCompressed(args []value.Value) ([]value.Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("arg count %d != 2", len(args))
+	}
+	a0, err := directArgCryptoElliptic[crypto_elliptic.Curve](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
+	a1, err := directArgCryptoElliptic[[]byte](args[1])
+	if err != nil {
+		return nil, fmt.Errorf("arg 1: %w", err)
+	}
 	r0, r1 := crypto_elliptic.UnmarshalCompressed(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_crypto_elliptic_CurveParams_Add(args []value.Value) value.Value {
-	recv := args[0].Interface().(*crypto_elliptic.CurveParams)
-	a0 := args[1].Interface().(*math_big.Int)
-	a1 := args[2].Interface().(*math_big.Int)
-	a2 := args[3].Interface().(*math_big.Int)
-	a3 := args[4].Interface().(*math_big.Int)
-	r0, r1 := recv.Add(a0, a1, a2, a3)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_crypto_elliptic_CurveParams_Double(args []value.Value) value.Value {
-	recv := args[0].Interface().(*crypto_elliptic.CurveParams)
-	a0 := args[1].Interface().(*math_big.Int)
-	a1 := args[2].Interface().(*math_big.Int)
-	r0, r1 := recv.Double(a0, a1)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_crypto_elliptic_CurveParams_IsOnCurve(args []value.Value) value.Value {
-	recv := args[0].Interface().(*crypto_elliptic.CurveParams)
-	a0 := args[1].Interface().(*math_big.Int)
-	a1 := args[2].Interface().(*math_big.Int)
-	return value.MakeBool(recv.IsOnCurve(a0, a1))
-}
-
-func direct_method_crypto_elliptic_CurveParams_Params(args []value.Value) value.Value {
-	recv := args[0].Interface().(*crypto_elliptic.CurveParams)
-	return value.FromInterface(recv.Params())
-}
-
-func direct_method_crypto_elliptic_CurveParams_ScalarBaseMult(args []value.Value) value.Value {
-	recv := args[0].Interface().(*crypto_elliptic.CurveParams)
-	a0 := func() []byte {
-		if b, ok := (args[1]).Bytes(); ok {
-			return b
-		}
-		v := (args[1]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	r0, r1 := recv.ScalarBaseMult(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_crypto_elliptic_CurveParams_ScalarMult(args []value.Value) value.Value {
-	recv := args[0].Interface().(*crypto_elliptic.CurveParams)
-	a0 := args[1].Interface().(*math_big.Int)
-	a1 := args[2].Interface().(*math_big.Int)
-	a2 := func() []byte {
-		if b, ok := (args[3]).Bytes(); ok {
-			return b
-		}
-		v := (args[3]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
-	r0, r1 := recv.ScalarMult(a0, a1, a2)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsCryptoElliptic(r0, r1)
 }

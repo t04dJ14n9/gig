@@ -3,18 +3,18 @@ package packages
 
 import (
 	crypto_des "crypto/des"
-	"reflect"
-
+	"fmt"
 	"github.com/t04dJ14n9/gig/importer"
-	"github.com/t04dJ14n9/gig/model/value"
+	"github.com/t04dJ14n9/gig/value"
+	"reflect"
 )
 
 func init() {
 	pkg := importer.RegisterPackage("crypto/des", "des")
 
 	// Functions
-	pkg.AddFunction("NewCipher", crypto_des.NewCipher, "", direct_crypto_des_NewCipher)
-	pkg.AddFunction("NewTripleDESCipher", crypto_des.NewTripleDESCipher, "", direct_crypto_des_NewTripleDESCipher)
+	pkg.AddFunction("NewCipher", crypto_des.NewCipher, "", directCallCryptoDesNewCipher)
+	pkg.AddFunction("NewTripleDESCipher", crypto_des.NewTripleDESCipher, "", directCallCryptoDesNewTripleDESCipher)
 
 	// Constants
 	pkg.AddConstant("BlockSize", crypto_des.BlockSize, "")
@@ -22,42 +22,97 @@ func init() {
 	// Types
 	pkg.AddType("KeySizeError", reflect.TypeOf((*crypto_des.KeySizeError)(nil)).Elem(), "")
 
-	// Method DirectCalls
-	pkg.AddMethodDirectCall("KeySizeError", "Error", direct_method_crypto_des_KeySizeError_Error)
-
 }
 
-func direct_crypto_des_NewCipher(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
+func directArgCryptoDes[T any](v value.Value) (T, error) {
+	var zero T
+	rt := reflect.TypeFor[T]()
+	rv, err := value.DefaultConverter().ToReflect(v, rt)
+	if err != nil {
+		return zero, err
+	}
+	if !rv.IsValid() {
+		return zero, nil
+	}
+	if rv.Type().AssignableTo(rt) {
+		return rv.Interface().(T), nil
+	}
+	if rv.Type().ConvertibleTo(rt) {
+		return rv.Convert(rt).Interface().(T), nil
+	}
+	return zero, fmt.Errorf("cannot convert %s to %s", rv.Type(), rt)
+}
+
+func directVariadicArgsCryptoDes[T any](args []value.Value) ([]T, error) {
+	if len(args) == 1 {
+		if packed, err := directArgCryptoDes[[]T](args[0]); err == nil {
+			return packed, nil
 		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
+		if rv, ok := args[0].Reflect(); ok && rv.IsValid() {
+			for rv.Kind() == reflect.Interface && !rv.IsNil() {
+				rv = rv.Elem()
+			}
+			if rv.Kind() == reflect.Slice {
+				out := make([]T, rv.Len())
+				conv := value.DefaultConverter()
+				for i := 0; i < rv.Len(); i++ {
+					vv, err := conv.FromReflect(rv.Index(i))
+					if err != nil {
+						return nil, fmt.Errorf("variadic explode %d: %w", i, err)
+					}
+					out[i], err = directArgCryptoDes[T](vv)
+					if err != nil {
+						return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+					}
+				}
+				return out, nil
+			}
 		}
-		return v.([]byte)
-	}()
+	}
+	out := make([]T, len(args))
+	for i, arg := range args {
+		v, err := directArgCryptoDes[T](arg)
+		if err != nil {
+			return nil, fmt.Errorf("variadic arg %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func directResultsCryptoDes(vals ...any) ([]value.Value, error) {
+	out := make([]value.Value, len(vals))
+	conv := value.DefaultConverter()
+	for i, v := range vals {
+		vv, err := conv.FromAny(v)
+		if err != nil {
+			return nil, fmt.Errorf("result %d: %w", i, err)
+		}
+		out[i] = vv
+	}
+	return out, nil
+}
+
+func directCallCryptoDesNewCipher(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgCryptoDes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := crypto_des.NewCipher(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
+	return directResultsCryptoDes(r0, r1)
 }
 
-func direct_crypto_des_NewTripleDESCipher(args []value.Value) value.Value {
-	a0 := func() []byte {
-		if b, ok := (args[0]).Bytes(); ok {
-			return b
-		}
-		v := (args[0]).Interface()
-		if v == nil {
-			return nil
-		}
-		return v.([]byte)
-	}()
+func directCallCryptoDesNewTripleDESCipher(args []value.Value) ([]value.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("arg count %d != 1", len(args))
+	}
+	a0, err := directArgCryptoDes[[]byte](args[0])
+	if err != nil {
+		return nil, fmt.Errorf("arg 0: %w", err)
+	}
 	r0, r1 := crypto_des.NewTripleDESCipher(a0)
-	return value.MakeValueSlice([]value.Value{value.FromInterface(r0), value.FromInterface(r1)})
-}
-
-func direct_method_crypto_des_KeySizeError_Error(args []value.Value) value.Value {
-	recv := crypto_des.KeySizeError(int(args[0].Int()))
-	return value.MakeString(string(recv.Error()))
+	return directResultsCryptoDes(r0, r1)
 }
