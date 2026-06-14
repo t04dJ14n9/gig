@@ -41,6 +41,8 @@ func (s Severity) String() string {
 
 // Diagnostic is a single problem reported by the frontend or interpreter.
 // Pos is optional (use token.NoPos when unavailable).
+//
+//nolint:errname // Diagnostic is the domain term; Error formats it for aggregation.
 type Diagnostic struct {
 	Severity Severity
 	Pos      token.Position

@@ -74,9 +74,8 @@ const defaultMaxDepth = 1024
 // every package-level *ssa.Global to its Cell, allocated once at
 // construction time (matching gofun and Go semantics).
 type program struct {
-	ssaPkg *ssa.Package
-	fset   interface { /* token.FileSet, kept abstract here */
-	}
+	ssaPkg      *ssa.Package
+	fset        any // token.FileSet, kept abstract here.
 	env         host.Environment
 	converter   value.Converter
 	resolver    *typeResolver

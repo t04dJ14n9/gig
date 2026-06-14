@@ -380,6 +380,10 @@ func Increment() int {
 // 2. All results are positive integers
 // 3. Final counter is positive (some lost updates are expected)
 func TestGlobals_ConcurrentRuns(t *testing.T) {
+	if raceEnabled {
+		t.Skip("skipping intentional unsynchronized global mutation under the race detector")
+	}
+
 	source := `
 package main
 

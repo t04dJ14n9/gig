@@ -245,7 +245,7 @@ func TestConverter_FromAny_NilProducesNilKind(t *testing.T) {
 func TestConverter_Zero_BasicTypes(t *testing.T) {
 	c := DefaultConverter()
 	cases := []struct {
-		t       types.Type
+		t        types.Type
 		wantKind Kind
 	}{
 		{types.Typ[types.Bool], KindBool},
@@ -368,12 +368,12 @@ func (s stubResolver) ResolveType(t types.Type) (reflect.Type, error) {
 	if rt, ok := s.m[t.String()]; ok {
 		return rt, nil
 	}
-	return nil, &resolverErr{t: t}
+	return nil, &resolverError{t: t}
 }
 
-type resolverErr struct{ t types.Type }
+type resolverError struct{ t types.Type }
 
-func (e *resolverErr) Error() string { return "stub: no type for " + e.t.String() }
+func (e *resolverError) Error() string { return "stub: no type for " + e.t.String() }
 
 func mustPanic(t *testing.T, name string, f func()) {
 	t.Helper()

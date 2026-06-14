@@ -420,12 +420,12 @@ func (p *program) runChangeInterface(fr *frame, instr *ssa.ChangeInterface) (con
 	dstRT, err := p.resolver.ResolveType(instr.Type())
 	if err != nil || dstRT.Kind() != reflect.Interface {
 		fr.setCell(instr, x)
-		return contNext, nil, nil
+		return contNext, nil, nil //nolint:nilerr // Missing host interface metadata falls back to the original value.
 	}
 	srcRV, err := p.reflectOf(x, nil)
 	if err != nil || !srcRV.IsValid() {
 		fr.setCell(instr, x)
-		return contNext, nil, nil
+		return contNext, nil, nil //nolint:nilerr // Unreflectable values remain in their interpreter representation.
 	}
 	holder := reflect.New(dstRT).Elem()
 	dyn := srcRV

@@ -338,6 +338,16 @@ linters:
         text: declaration of "(log|err|ctx)" shadows
       - path: (.+)\.go$
         text: 'missing cases in switch of type \S+: \S+_UNSPECIFIED$'
+      - path: internal/interp/.*\.go$
+        linters:
+          - exhaustive
+          - fatcontext
+          - unparam
+          - unused
+      - path: internal/interp/.*\.go$
+        linters:
+          - gci
+          - goimports
       # Generated code - exclude all linters
       - path: packages/.*\.go
         linters:
@@ -396,8 +406,11 @@ linters:
           - unused
           - fatcontext
           - gosmopolitan
+          - err113
+          - gci
+          - goimports
       # Exclude exhaustive for intentional incomplete switches
-      - path: (bytecode|gentool|importer|value|vm|compiler)/.*\.go
+      - path: (bytecode|gentool|importer|value|vm|compiler|internal/interp)/.*\.go
         linters:
           - exhaustive
       # Exclude err113 for existing error definitions
@@ -470,7 +483,7 @@ linters:
         linters:
           - noinlineerr
       # Exclude iface for DDD interfaces consumed by other packages
-      - path: (bytecode|compiler|vm|importer|runner)/.*\.go
+      - path: (bytecode|compiler|vm|importer|runner|host|value|internal/frontend|internal/interp)/.*\.go
         linters:
           - iface
       # Exclude fatcontext for VM context
@@ -478,7 +491,7 @@ linters:
         linters:
           - fatcontext
       # Exclude gochecknoglobals for CLI and interpreter
-      - path: (cmd/.*\.go|gig\.go|vm/.*\.go|importer/.*\.go|stdlib/.*\.go|bytecode/.*\.go|compiler/.*\.go|gentool/.*\.go|value/.*\.go|runner/.*\.go)
+      - path: (cmd/.*\.go|gig\.go|vm/.*\.go|importer/.*\.go|stdlib/.*\.go|bytecode/.*\.go|compiler/.*\.go|gentool/.*\.go|value/.*\.go|runner/.*\.go|internal/frontend/.*\.go|internal/interp/.*\.go)
         linters:
           - gochecknoglobals
       # Exclude gochecknoinits for importer

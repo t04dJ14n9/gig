@@ -21,13 +21,13 @@ type stubEnv struct{}
 func (stubEnv) Import(path string) (*types.Package, error) {
 	return nil, &importError{path: path}
 }
-func (stubEnv) AutoImport(name string) (host.Import, bool)                  { return host.Import{}, false }
-func (stubEnv) LookupFunc(_, _ string) (host.Function, bool)                { return nil, false }
-func (stubEnv) LookupVar(_, _ string) (host.Variable, bool)                 { return nil, false }
-func (stubEnv) LookupConst(_, _ string) (host.Constant, bool)               { return nil, false }
-func (stubEnv) LookupType(_, _ string) (host.Type, bool)                    { return nil, false }
-func (stubEnv) LookupReflectType(types.Type) (reflect.Type, bool)           { return nil, false }
-func (stubEnv) LookupMethod(_, _ string) (host.Method, bool)                { return nil, false }
+func (stubEnv) AutoImport(name string) (host.Import, bool)        { return host.Import{}, false }
+func (stubEnv) LookupFunc(_, _ string) (host.Function, bool)      { return nil, false }
+func (stubEnv) LookupVar(_, _ string) (host.Variable, bool)       { return nil, false }
+func (stubEnv) LookupConst(_, _ string) (host.Constant, bool)     { return nil, false }
+func (stubEnv) LookupType(_, _ string) (host.Type, bool)          { return nil, false }
+func (stubEnv) LookupReflectType(types.Type) (reflect.Type, bool) { return nil, false }
+func (stubEnv) LookupMethod(_, _ string) (host.Method, bool)      { return nil, false }
 func (stubEnv) LookupInterfaceProxy(*types.Interface) (host.InterfaceProxy, bool) {
 	return nil, false
 }
@@ -40,6 +40,7 @@ func (e *importError) Error() string { return "stubEnv: cannot import " + e.path
 // map for AutoImport behaviour tests.
 type stubEnvWithAutoImport struct {
 	stubEnv
+
 	auto map[string]host.Import
 }
 

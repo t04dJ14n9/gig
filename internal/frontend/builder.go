@@ -5,17 +5,18 @@
 //
 // The pipeline is:
 //
-//   1. Auto-wrap with "package main" when missing.
-//   2. parser.ParseFile  (go/parser).
-//   3. Reject banned imports (unsafe, reflect).
-//   4. Reject panic() if cfg.Panic == PanicReject.
-//   5. Auto-import registered packages by identifier scan.
-//   6. types.Config.Check  (go/types) — host.Environment is the Importer.
-//   7. ssautil.BuildPackage — produces the SSA package.
+//  1. Auto-wrap with "package main" when missing.
+//  2. parser.ParseFile  (go/parser).
+//  3. Reject banned imports (unsafe, reflect).
+//  4. Reject panic() if cfg.Panic == PanicReject.
+//  5. Auto-import registered packages by identifier scan.
+//  6. types.Config.Check  (go/types) — host.Environment is the Importer.
+//  7. ssautil.BuildPackage — produces the SSA package.
 package frontend
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -98,7 +99,7 @@ func (defaultBuilder) Build(ctx context.Context, src Source, env host.Environmen
 
 	if err := types.NewChecker(typeCfg, fset, pkg, info).Files([]*ast.File{file}); err != nil {
 		if len(diags) > 0 {
-			return nil, &Errors{Diags: diags}
+			return nil, &BuildError{Diags: diags}
 		}
 		return nil, fmt.Errorf("frontend: typecheck: %w", err)
 	}
@@ -137,17 +138,17 @@ type unit struct {
 	diags  []diag.Diagnostic
 }
 
-func (u *unit) Package() *ssa.Package        { return u.ssaPkg }
-func (u *unit) FileSet() *token.FileSet      { return u.fset }
+func (u *unit) Package() *ssa.Package          { return u.ssaPkg }
+func (u *unit) FileSet() *token.FileSet        { return u.fset }
 func (u *unit) Diagnostics() []diag.Diagnostic { return u.diags }
 
-// Errors aggregates multiple type-check diagnostics so callers can see
+// BuildError aggregates multiple type-check diagnostics so callers can see
 // every problem, not just the first.
-type Errors struct {
+type BuildError struct {
 	Diags []diag.Diagnostic
 }
 
-func (e *Errors) Error() string {
+func (e *BuildError) Error() string {
 	if len(e.Diags) == 0 {
 		return "frontend: build failed"
 	}
@@ -246,7 +247,8 @@ func injectAutoImports(file *ast.File, env host.Environment) {
 }
 
 func typesErrorToDiag(err error) diag.Diagnostic {
-	if te, ok := err.(types.Error); ok {
+	var te types.Error
+	if errors.As(err, &te) {
 		return diag.Diagnostic{
 			Severity: diag.SeverityError,
 			Pos:      te.Fset.Position(te.Pos),

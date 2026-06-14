@@ -42,15 +42,6 @@ var reflectKindToBasicKind = map[reflect.Kind]types.BasicKind{
 	reflect.UnsafePointer: types.UnsafePointer,
 }
 
-// basicTypeFromReflectKind returns the canonical *types.Basic for a
-// reflect.Kind, or nil if the kind is not a basic type.
-func basicTypeFromReflectKind(k reflect.Kind) *types.Basic {
-	if bk, ok := reflectKindToBasicKind[k]; ok {
-		return types.Typ[bk]
-	}
-	return nil
-}
-
 // typeOf converts reflect.Type to types.Type.
 //
 // register.go uses this variable while constructing ExternalObject entries. The
@@ -60,6 +51,15 @@ var typeOf func(reflect.Type) types.Type
 
 func init() {
 	typeOf = convertReflectType
+}
+
+// basicTypeFromReflectKind returns the canonical *types.Basic for a
+// reflect.Kind, or nil if the kind is not a basic type.
+func basicTypeFromReflectKind(k reflect.Kind) *types.Basic {
+	if bk, ok := reflectKindToBasicKind[k]; ok {
+		return types.Typ[bk]
+	}
+	return nil
 }
 
 // typeCache caches converted types and breaks recursion for self-referential

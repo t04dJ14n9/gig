@@ -89,7 +89,7 @@ func checkHostInterfaceBoundary(fset *token.FileSet, file *ast.File, info *types
 		return true
 	})
 	if firstErr != nil {
-		return &Errors{Diags: []diag.Diagnostic{{
+		return &BuildError{Diags: []diag.Diagnostic{{
 			Severity: diag.SeverityError,
 			Message:  firstErr.Error(),
 		}}}

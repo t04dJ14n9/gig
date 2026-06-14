@@ -149,7 +149,7 @@ func (p *program) runMakeInterface(fr *frame, instr *ssa.MakeInterface) (continu
 	ifaceRT, err := p.resolver.ResolveType(instr.Type())
 	if err != nil || ifaceRT.Kind() != reflect.Interface {
 		fr.setCell(instr, x)
-		return contNext, nil, nil
+		return contNext, nil, nil //nolint:nilerr // Missing host interface metadata falls back to the original value.
 	}
 	// Resolve the source's static type and use it as a hint so that
 	// named primitives (e.g. MyInt5 under the hood = int) keep their
@@ -309,7 +309,7 @@ func indexAddrRefEligible(v ssa.Value) bool {
 				return false
 			}
 		case *ssa.DebugRef:
-			// Debug-only reference; it does not need a materialized pointer.
+			// Diagnostic-only reference; it does not need a materialized pointer.
 		default:
 			return false
 		}

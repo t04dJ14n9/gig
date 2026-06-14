@@ -64,7 +64,7 @@ type Variable interface {
 	Name() string
 	Type() types.Type
 	Get() (value.Value, error)
-	Set(value.Value) error
+	Set(v value.Value) error
 }
 
 // Constant is a host-provided read-only value.

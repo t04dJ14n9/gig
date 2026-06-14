@@ -128,7 +128,7 @@ func (p *Program) run(ctx context.Context, funcName string, params ...any) (a an
 	}
 	switch len(results) {
 	case 0:
-		return nil, nil
+		return nil, nil //nolint:nilnil // Zero-result interpreted functions return no value and no error.
 	case 1:
 		out, cerr := conv.ToAny(results[0])
 		if cerr != nil {

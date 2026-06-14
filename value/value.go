@@ -415,19 +415,19 @@ func (v Value) GoString() string {
 // interp package owns the concrete implementation; value depends on
 // nothing but its interface.
 type TypeResolver interface {
-	ResolveType(types.Type) (reflect.Type, error)
+	ResolveType(t types.Type) (reflect.Type, error)
 }
 
 // Converter centralises every translation between Go-side any/reflect.Value
 // and runtime Value. The default implementation (DefaultConverter) is
 // stateless and safe for concurrent use.
 type Converter interface {
-	FromAny(any) (Value, error)
-	FromReflect(reflect.Value) (Value, error)
-	ToAny(Value) (any, error)
-	ToReflect(Value, reflect.Type) (reflect.Value, error)
-	Zero(types.Type, TypeResolver) (Value, error)
-	Convert(Value, types.Type, TypeResolver) (Value, error)
+	FromAny(v any) (Value, error)
+	FromReflect(rv reflect.Value) (Value, error)
+	ToAny(v Value) (any, error)
+	ToReflect(v Value, t reflect.Type) (reflect.Value, error)
+	Zero(t types.Type, resolver TypeResolver) (Value, error)
+	Convert(v Value, t types.Type, resolver TypeResolver) (Value, error)
 }
 
 // DefaultConverter returns the stateless reference Converter.

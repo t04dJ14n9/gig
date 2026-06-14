@@ -20,13 +20,13 @@ type stubEnv struct{}
 func (stubEnv) Import(path string) (*types.Package, error) {
 	return nil, &importError{path: path}
 }
-func (stubEnv) AutoImport(string) (host.Import, bool)                            { return host.Import{}, false }
-func (stubEnv) LookupFunc(string, string) (host.Function, bool)                  { return nil, false }
-func (stubEnv) LookupVar(string, string) (host.Variable, bool)                   { return nil, false }
-func (stubEnv) LookupConst(string, string) (host.Constant, bool)                 { return nil, false }
-func (stubEnv) LookupType(string, string) (host.Type, bool)                      { return nil, false }
-func (stubEnv) LookupReflectType(types.Type) (reflect.Type, bool)                { return nil, false }
-func (stubEnv) LookupMethod(string, string) (host.Method, bool)                  { return nil, false }
+func (stubEnv) AutoImport(string) (host.Import, bool)                             { return host.Import{}, false }
+func (stubEnv) LookupFunc(string, string) (host.Function, bool)                   { return nil, false }
+func (stubEnv) LookupVar(string, string) (host.Variable, bool)                    { return nil, false }
+func (stubEnv) LookupConst(string, string) (host.Constant, bool)                  { return nil, false }
+func (stubEnv) LookupType(string, string) (host.Type, bool)                       { return nil, false }
+func (stubEnv) LookupReflectType(types.Type) (reflect.Type, bool)                 { return nil, false }
+func (stubEnv) LookupMethod(string, string) (host.Method, bool)                   { return nil, false }
 func (stubEnv) LookupInterfaceProxy(*types.Interface) (host.InterfaceProxy, bool) { return nil, false }
 
 type importError struct{ path string }
@@ -97,9 +97,9 @@ func Or (a, b int) int { return a | b }
 func Xor(a, b int) int { return a ^ b }
 `
 	cases := []struct {
-		fn       string
-		a, b     int
-		want     int64
+		fn   string
+		a, b int
+		want int64
 	}{
 		{"Add", 5, 3, 8},
 		{"Sub", 5, 3, 2},

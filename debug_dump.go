@@ -1,5 +1,5 @@
-// debug_dump.go produces a human-readable dump of an interpreted
-// program's SSA representation. It is intended for debugging and
+// This file produces a human-readable dump of an interpreted
+// program's SSA representation. It is intended for inspection and
 // teaching, not for runtime execution.
 package gig
 
