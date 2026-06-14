@@ -57,8 +57,6 @@ func init() {
 	pkg.AddFunction("NewSyscallError", os.NewSyscallError, "", directCallOsNewSyscallError)
 	pkg.AddFunction("Open", os.Open, "", directCallOsOpen)
 	pkg.AddFunction("OpenFile", os.OpenFile, "", directCallOsOpenFile)
-	pkg.AddFunction("OpenInRoot", os.OpenInRoot, "", directCallOsOpenInRoot)
-	pkg.AddFunction("OpenRoot", os.OpenRoot, "", directCallOsOpenRoot)
 	pkg.AddFunction("Pipe", os.Pipe, "", directCallOsPipe)
 	pkg.AddFunction("ReadDir", os.ReadDir, "", directCallOsReadDir)
 	pkg.AddFunction("ReadFile", os.ReadFile, "", directCallOsReadFile)
@@ -117,7 +115,6 @@ func init() {
 	pkg.AddVariable("ErrExist", &os.ErrExist, "")
 	pkg.AddVariable("ErrInvalid", &os.ErrInvalid, "")
 	pkg.AddVariable("ErrNoDeadline", &os.ErrNoDeadline, "")
-	pkg.AddVariable("ErrNoHandle", &os.ErrNoHandle, "")
 	pkg.AddVariable("ErrNotExist", &os.ErrNotExist, "")
 	pkg.AddVariable("ErrPermission", &os.ErrPermission, "")
 	pkg.AddVariable("ErrProcessDone", &os.ErrProcessDone, "")
@@ -133,7 +130,6 @@ func init() {
 	pkg.AddType("ProcAttr", reflect.TypeOf(os.ProcAttr{}), "")
 	pkg.AddType("Process", reflect.TypeOf(os.Process{}), "")
 	pkg.AddType("ProcessState", reflect.TypeOf(os.ProcessState{}), "")
-	pkg.AddType("Root", reflect.TypeOf(os.Root{}), "")
 	pkg.AddType("Signal", reflect.TypeOf((*os.Signal)(nil)).Elem(), "")
 	pkg.AddType("SyscallError", reflect.TypeOf(os.SyscallError{}), "")
 
@@ -729,34 +725,6 @@ func directCallOsOpenFile(args []value.Value) ([]value.Value, error) {
 		return nil, fmt.Errorf("arg 2: %w", err)
 	}
 	r0, r1 := os.OpenFile(a0, a1, a2)
-	return directResultsOs(r0, r1)
-}
-
-func directCallOsOpenInRoot(args []value.Value) ([]value.Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("arg count %d != 2", len(args))
-	}
-	a0, err := directArgOs[string](args[0])
-	if err != nil {
-		return nil, fmt.Errorf("arg 0: %w", err)
-	}
-	a1, err := directArgOs[string](args[1])
-	if err != nil {
-		return nil, fmt.Errorf("arg 1: %w", err)
-	}
-	r0, r1 := os.OpenInRoot(a0, a1)
-	return directResultsOs(r0, r1)
-}
-
-func directCallOsOpenRoot(args []value.Value) ([]value.Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("arg count %d != 1", len(args))
-	}
-	a0, err := directArgOs[string](args[0])
-	if err != nil {
-		return nil, fmt.Errorf("arg 0: %w", err)
-	}
-	r0, r1 := os.OpenRoot(a0)
 	return directResultsOs(r0, r1)
 }
 

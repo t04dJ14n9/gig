@@ -35,7 +35,6 @@ func init() {
 	pkg.AddFunction("ListenAndServeTLS", net_http.ListenAndServeTLS, "", directCallNetHttpListenAndServeTLS)
 	pkg.AddFunction("MaxBytesHandler", net_http.MaxBytesHandler, "", directCallNetHttpMaxBytesHandler)
 	pkg.AddFunction("MaxBytesReader", net_http.MaxBytesReader, "", directCallNetHttpMaxBytesReader)
-	pkg.AddFunction("NewCrossOriginProtection", net_http.NewCrossOriginProtection, "", directCallNetHttpNewCrossOriginProtection)
 	pkg.AddFunction("NewFileTransport", net_http.NewFileTransport, "", directCallNetHttpNewFileTransport)
 	pkg.AddFunction("NewFileTransportFS", net_http.NewFileTransportFS, "", directCallNetHttpNewFileTransportFS)
 	pkg.AddFunction("NewRequest", net_http.NewRequest, "", directCallNetHttpNewRequest)
@@ -184,24 +183,20 @@ func init() {
 
 	// Types
 	pkg.AddType("Client", reflect.TypeOf(net_http.Client{}), "")
-	pkg.AddType("ClientConn", reflect.TypeOf(net_http.ClientConn{}), "")
 	pkg.AddType("CloseNotifier", reflect.TypeOf((*net_http.CloseNotifier)(nil)).Elem(), "")
 	pkg.AddType("ConnState", reflect.TypeOf((*net_http.ConnState)(nil)).Elem(), "")
 	pkg.AddType("Cookie", reflect.TypeOf(net_http.Cookie{}), "")
 	pkg.AddType("CookieJar", reflect.TypeOf((*net_http.CookieJar)(nil)).Elem(), "")
-	pkg.AddType("CrossOriginProtection", reflect.TypeOf(net_http.CrossOriginProtection{}), "")
 	pkg.AddType("Dir", reflect.TypeOf((*net_http.Dir)(nil)).Elem(), "")
 	pkg.AddType("File", reflect.TypeOf((*net_http.File)(nil)).Elem(), "")
 	pkg.AddType("FileSystem", reflect.TypeOf((*net_http.FileSystem)(nil)).Elem(), "")
 	pkg.AddType("Flusher", reflect.TypeOf((*net_http.Flusher)(nil)).Elem(), "")
-	pkg.AddType("HTTP2Config", reflect.TypeOf(net_http.HTTP2Config{}), "")
 	pkg.AddType("Handler", reflect.TypeOf((*net_http.Handler)(nil)).Elem(), "")
 	pkg.AddType("HandlerFunc", reflect.TypeOf((*net_http.HandlerFunc)(nil)).Elem(), "")
 	pkg.AddType("Header", reflect.TypeOf((*net_http.Header)(nil)).Elem(), "")
 	pkg.AddType("Hijacker", reflect.TypeOf((*net_http.Hijacker)(nil)).Elem(), "")
 	pkg.AddType("MaxBytesError", reflect.TypeOf(net_http.MaxBytesError{}), "")
 	pkg.AddType("ProtocolError", reflect.TypeOf(net_http.ProtocolError{}), "")
-	pkg.AddType("Protocols", reflect.TypeOf(net_http.Protocols{}), "")
 	pkg.AddType("PushOptions", reflect.TypeOf(net_http.PushOptions{}), "")
 	pkg.AddType("Pusher", reflect.TypeOf((*net_http.Pusher)(nil)).Elem(), "")
 	pkg.AddType("Request", reflect.TypeOf(net_http.Request{}), "")
@@ -506,14 +501,6 @@ func directCallNetHttpMaxBytesReader(args []value.Value) ([]value.Value, error) 
 		return nil, fmt.Errorf("arg 2: %w", err)
 	}
 	r0 := net_http.MaxBytesReader(a0, a1, a2)
-	return directResultsNetHttp(r0)
-}
-
-func directCallNetHttpNewCrossOriginProtection(args []value.Value) ([]value.Value, error) {
-	if len(args) != 0 {
-		return nil, fmt.Errorf("arg count %d != 0", len(args))
-	}
-	r0 := net_http.NewCrossOriginProtection()
 	return directResultsNetHttp(r0)
 }
 
